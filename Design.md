@@ -55,7 +55,7 @@ A deliberate divergence from Swift: **argument labels are optional
 keyword arguments, and labeled arguments may be reordered.**
 
 ```swiftalk
-func move(x: Int, y: Int) { ... }
+let move = { x, y in ... }      // functions are closure literals (§2.4)
 move(x: 1, y: 2)   // fine
 move(y: 2, x: 1)   // also fine — labels shuffle
 move(1, 2)         // fine — labels are optional (positional)
@@ -70,11 +70,54 @@ move(1, 2)         // fine — labels are optional (positional)
 * **OPEN**: consequence for overloading — if labels aren't part of the
   name, can two functions share a base name at all? (See §7, dispatch.)
 
-### 2.4 Everything else — OPEN / TODO
+### 2.4 Functions: `{}` is the *only* function — DECIDED (core)
+
+Swift eliminated `{}` dictionaries so `{}` could mean closures.
+swiftalk goes a step further: **there is no `func`. A function is a
+closure literal, bound like any other value.**
+
+```swiftalk
+let add = { x, y in x + y }
+add(2, 3)                       // 5
+```
+
+* **`$` is the universal placeholder**: inside a function body, `$` is
+  the array of actual arguments. `$0` is shorthand for `$[0]`, `$1` for
+  `$[1]`, and so on. Swift's `$0` shorthand thus stops being a special
+  case — it falls out of `$` + subscript sugar.
+* **Arity is `$.count`** — the number of arguments actually passed,
+  available at runtime. Variadic functions come for free:
+
+  ```swiftalk
+  let sum = { $.reduce(0) { $0 + $1 } }
+  sum(1, 2, 3)                  // 6; inside, $.count == 3
+  ```
+
+  (Genealogy note: `$` is to swiftalk what `@_` is to Perl — the
+  arguments as a first-class list — with Swift's `$0` spelling on top.)
+* Named parameters (`{ x, y in ... }`) presumably bind positionally to
+  `$[0]`, `$[1]`, ... — sugar over `$`.
+
+**OPEN** (each needs a decision):
+
+* **Recursion**: can `let fac = { n in n < 2 ? 1 : fac(n - 1) * n }`
+  see itself? (let-rec semantics vs. an explicit self-reference like
+  Lua's workarounds.)
+* **Arity mismatch**: calling `{ x, y in ... }` with 3 args (or 1) —
+  runtime error, or Perl-style tolerance with `$` holding the truth?
+* **Methods**: with `func` gone, how do `struct`/`class`/`extension`
+  members get declared — `let name = { ... }` properties? What about
+  `init`, `mutating`, getters/setters?
+* **Annotations**: typed parameters and return —
+  `{ (x: Int, y: Int) -> Int in ... }` as in Swift?
+* **Labels** (§2.3): do parameter names double as call-site labels
+  (`add(x: 2, y: 3)`)?
+
+### 2.5 Everything else — OPEN / TODO
 
 * Semicolons/newlines Swift-style (newline-terminated, `;` optional)? (presumably yes)
 * String interpolation `\(expr)`? (presumably yes)
-* Closure shorthand `$0`, `$1`? Multiple trailing closures?
+* Multiple trailing closures?
 
 ## 3. Type discipline — DECIDED (core), details OPEN
 
@@ -225,6 +268,11 @@ style): redefining a name in the same scope is a redefinition/error, and
 APIs that would be Swift overload families merge into one function via
 optionals, defaults, or enum/`Any` parameters.
 
+With §2.4 (functions are `let`-bound closure values, no `func`), this
+stops being a rule and becomes a theorem: a `let` binds once, so a
+second definition of the same name is just an ordinary rebinding error.
+And `$`-based variadics absorb what Swift uses arity overloads for.
+
 Clarifications (not overloading):
 
 * *Methods* on different types may share a name — `Int` and `String` can
@@ -350,18 +398,20 @@ if let year = langs["smalltalk"] {
 }
 let y = langs["perl6"] ?? 2015
 
-// labels optional & reorderable (§2.3)
-func move(x: Int, y: Int) -> Int { x + y }
+// functions are closure literals (§2.4); labels optional & reorderable (§2.3)
+let move = { x, y in x + y }
 move(x: 1, y: 2)
 move(y: 2, x: 1)                              // same call
 move(1, 2)                                    // same call
+let sum = { $.reduce(0) { $0 + $1 } }         // $ = the arguments (§2.4)
+sum(1, 2, 3, 4)                               // 10; $.count was 4
 
 // enums with associated values, runtime-exhaustive switch (§7)
 enum Shape {
     case circle(r: Double)
     case rect(w: Double, h: Double)
 }
-func area(_ s: Shape) -> Double {
+let area = { s in
     switch s {
     case .circle(let r):    3.14159265358979 * r * r
     case .rect(let w, let h): w * h
@@ -369,7 +419,7 @@ func area(_ s: Shape) -> Double {
 }
 
 // Result-first errors, postfix ? to propagate (§8)
-func readConfig(_ path: String) -> Result<Config, Error> {
+let readConfig = { path in
     let text = File.read(path)?               // failure returns early
     let json = JSON.parse(text)?              // (see §8 note on error types)
     return .success(Config(json))
@@ -438,3 +488,10 @@ let text   = bytes.String                     // String? — bytes may not be te
   1. REPL (a loop around `eval()`); later milestones TBD. Opened:
   whether `eval()` is exposed in the language itself.
 * **2026-08-29, round 8** — Decided: file extension is **`.swt`** (§13).
+* **2026-08-29, round 9** — Decided: **no `func` — `{}` closure
+  literals are the only function form**, bound with `let`/`var` (§2.4).
+  `$` is the universal placeholder (the arguments as an array), `$0` ≡
+  `$[0]`, arity = `$.count`; variadics fall out for free, and §6's
+  one-name-one-function becomes a theorem. Opened: recursion in
+  `let f = {...}`, arity-mismatch behavior, method/`init` declaration
+  without `func`, closure type annotations, params-as-labels.
