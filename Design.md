@@ -1,0 +1,326 @@
+# swiftalk — Design Notes
+
+> a scripting language inspired by Swift, the way JavaScript was "inspired" by Java.
+
+This document is a running log of design decisions, updated through dialogue.
+Sections are marked **DECIDED**, **LEANING** (tentative direction), or **OPEN**.
+
+## 0. Identity
+
+**DECIDED**
+
+* Name: **swiftalk**. Swift is to swiftalk what Java is to JavaScript:
+  the syntax and flavor are inherited, but the language is its own thing —
+  a *scripting* language, not a systems language.
+* The name also echoes **Smalltalk** (swif-*talk*). Whether that is merely a
+  pun or a semantic commitment (message passing, blocks-as-control-flow,
+  everything-is-an-object) is **OPEN** — see §1.
+
+## 1. Semantic model — DECIDED
+
+**Dynamic Swift.** Swift's object model with the static compiler relaxed —
+not a Smalltalk message-passing machine. The "talk" in the name is a pun
+(though a well-earned one: Swift's argument labels are Smalltalk keyword
+messages wearing parentheses).
+
+No `method_missing` / `doesNotUnderstand:`-style trapping as a core
+mechanism; dispatch is ordinary method lookup on the runtime type.
+
+## 2. Syntax
+
+### 2.1 Collection literals — DECIDED
+
+* Dictionary literals are `[Key: Value]`, **not** `{Key: Value}`:
+
+  ```swiftalk
+  let langs = ["swift": 2014, "smalltalk": 1972, "javascript": 1995]
+  let empty = [:]
+  ```
+
+* Array literals are `[element, ...]`; empty array is `[]`.
+* Consequence (inherited from Swift's own rationale): `{ }` is **never** a
+  collection literal. Braces are free to mean blocks/closures exclusively,
+  which keeps trailing-closure syntax unambiguous.
+
+### 2.2 Declarations — DECIDED
+
+* `var` / `let` distinction as in Swift.
+* **Mandatory in files, relaxed in the REPL**: a script that assigns to an
+  undeclared name is an error; the interactive REPL allows bare `x = 1`
+  (which implicitly declares — still type-locked per §3).
+
+### 2.3 Calling conventions — DECIDED (core)
+
+A deliberate divergence from Swift: **argument labels are optional
+keyword arguments, and labeled arguments may be reordered.**
+
+```swiftalk
+func move(x: Int, y: Int) { ... }
+move(x: 1, y: 2)   // fine
+move(y: 2, x: 1)   // also fine — labels shuffle
+move(1, 2)         // fine — labels are optional (positional)
+```
+
+* Exception: **a closure as the last argument stays last** — the
+  trailing-closure slot is pinned, so trailing-closure syntax stays
+  unambiguous.
+* (Contrast: in Swift, labels are part of the function's *name* —
+  `insert(_:at:)` — and order is fixed. swiftalk labels are closer to
+  Python/OCaml keyword arguments.)
+* **OPEN**: consequence for overloading — if labels aren't part of the
+  name, can two functions share a base name at all? (See §7, dispatch.)
+
+### 2.4 Everything else — OPEN / TODO
+
+* Semicolons/newlines Swift-style (newline-terminated, `;` optional)? (presumably yes)
+* String interpolation `\(expr)`? (presumably yes)
+* Closure shorthand `$0`, `$1`? Multiple trailing closures?
+
+## 3. Type discipline — DECIDED (core), details OPEN
+
+**Strong latent typing with type-locked bindings.** Deliberately *more*
+static than the 20th-century scripting languages (Perl, PHP, Python, Ruby,
+and most especially JavaScript):
+
+* A variable's type is fixed when it is first bound:
+
+  ```swiftalk
+  var x = 1      // x is an Int, forever
+  x = 2          // fine
+  x = "1"        // runtime error: cannot assign String to Int variable
+  ```
+
+* There is no static type *checker*; enforcement happens at runtime.
+  Every variable/constant knows its type at runtime.
+* Types are runtime-queryable: `x.type` (cf. Ruby's `x.class`,
+  Swift's `type(of: x)`). This is what makes iterating a sequence of
+  mixed types easy — inspect `element.type` as you go.
+
+**OPEN** details:
+
+* Presumably annotations are allowed and enforced: `var x: Int = 1`.
+* Is `x.type` a first-class value? (`x.type == Int`, usable in `switch`,
+  storable in variables?) Do `is` / `as?` / `as!` survive alongside it?
+
+### 3b. Numbers — DECIDED
+
+* `Int` and `Double` are **distinct types** (so `var x = 1; x = 1.5` is a
+  type error under §3's binding lock).
+* **`Int` is arbitrary-precision** (bignum), like Python/Ruby — a
+  scripting user should never encounter integer overflow. This is a
+  deliberate divergence from Swift's fixed-width `Int`.
+* `Double` is IEEE 754 double, as in Swift.
+* **OPEN**: literal inference rules (`let x: Double = 1` OK as in Swift?),
+  other numeric types (none, presumably — no Int8/UInt zoo).
+
+### 3c. `Any` and heterogeneous collections — DECIDED (direction)
+
+* `Any` exists **for the time being**, but the language *prefers enums*
+  (sum types with associated values) as the idiomatic way to express
+  "one of several types" — including heterogeneous collections:
+
+  ```swiftalk
+  enum JSON { case null, bool(Bool), number(Double), string(String), ... }
+  ```
+
+* The long-term hope is that reaching for `Any` is rare; unions are
+  spelled as enums, and `element.type` / pattern matching handle the
+  dispatch when iterating mixed sequences.
+* **OPEN**: what `[1, "one", 2.0]` infers today (presumably `[Any]`),
+  and whether inference could ever synthesize an anonymous union/enum.
+
+## 3a. Optionals — DECIDED
+
+**The full Optional suite survives.** `nil` is *not* a member of every
+type; `T?`, `if let`, `guard let`, `??`, and optional chaining `?.` all
+work as in Swift. This is Swift's most recognizable feature and precisely
+the cure for the `undefined`/`null` chaos of the scripting tradition.
+
+## 4. Value vs reference semantics — DECIDED
+
+**Collections are COW values, as in Swift.** `Array`/`Dictionary`/`String`
+have value semantics with copy-on-write; assignment and argument passing
+copy (logically). This kills the shared-mutation aliasing bugs endemic to
+Python/Ruby/JS, and COW keeps it affordable in an interpreter.
+
+**User-defined types get the full Swift menu**: `struct` (COW value,
+consistent with the built-in collections), `class` (reference, with
+inheritance), plus `enum` (§7). The Swift mental model carries over
+wholesale: value types by default, classes when identity matters.
+
+## 5. Implementation — LEANING
+
+* Reference implementation in **Swift** (the repo already carries a Swift CI
+  workflow). An interpreter first; compilation strategies later.
+* Embeddability in Swift host apps as a goal? (i.e., swiftalk : Swift ::
+  Lua : C — a natural scripting layer for Swift programs.)
+
+## 6. Dispatch & overloading — DECIDED (core)
+
+**One name, one function.** No overloading of free functions (Python/JS
+style): redefining a name in the same scope is a redefinition/error, and
+APIs that would be Swift overload families merge into one function via
+optionals, defaults, or enum/`Any` parameters.
+
+Clarifications (not overloading):
+
+* *Methods* on different types may share a name — `Int` and `String` can
+  both have `+` or `description`; a call dispatches on the runtime type
+  of the receiver. This is ordinary method lookup, and it's how operators
+  work across types.
+* Default parameter values (presumably supported) cover most of what
+  Swift uses arity overloads for.
+* **OPEN**: user-defined operators / per-type operator definitions —
+  presumably "an operator is a method on its left operand's type," but
+  the exact story (and protocols like `Equatable`) is TBD (§10).
+
+## 7. Enums & pattern matching — DECIDED (core)
+
+**Full Swift enums**: associated values, `switch` with `case let`
+destructuring, `if case`, `guard case`.
+
+**Exhaustiveness is enforced at runtime**: a `switch` over an enum that
+reaches a value no case matches (and has no `default`) is a runtime
+error at that moment — not silently skipped. (A best-effort static
+lint at parse/load time may come later; it is not a language guarantee.)
+
+## 8. Error handling — DECIDED (core)
+
+**Result-first. No exceptions.** Fallible functions return
+`Result<T, E>` (or `Optional<T>` when the failure carries no
+information). There is no `throw`/`do-catch` control flow — errors are
+values, and the call stack never unwinds invisibly.
+
+* **Propagation is Rust-style postfix `?`**: `let x = parse(s)?` unwraps
+  the success value, or returns the failure from the enclosing function.
+  It composes naturally with optional chaining `?.` and defaulting `??` —
+  one family of "short-circuit on absence/failure" operators.
+* No `throw`, no `do`/`catch` keywords; handling a failure is pattern
+  matching on the `Result` (`switch`, `if case .failure(let e)`).
+* **OPEN**: what genuinely unrecoverable failures do (index out of
+  range, type-lock violation from §3, non-exhaustive switch from §7) —
+  presumably trap/abort like Swift's `fatalError`, not a catchable value.
+* **OPEN — mixed error types under `?`**: if `f` returns
+  `Result<T, IOError>` and `g` returns `Result<U, ParseError>`, what does
+  a function using both with `?` declare as its error type? Candidates:
+  Rust-style implicit conversion (an `Error` protocol every error
+  conforms to, `?` upcasts to it); require a common declared supertype
+  (`Result<T, Error>` and you switch on `e.type` at the catch site);
+  an enum-of-errors per module, hand-rolled.
+
+## 9. Non-goals — TODO
+
+To be filled in. Candidates: manual memory control, `unsafe` anything,
+ABI stability, Objective-C interop.
+
+## 10. Protocols, extensions, generics — DECIDED (core)
+
+* **Protocols, Swift-style**: declaration, conformance
+  (`Equatable`/`Hashable`/`Comparable`/`CustomStringConvertible`...),
+  protocol-typed variables. Conformance is checked at runtime (no static
+  checker to do it earlier).
+* **Extensions, Swift-style**: methods can be added to any type,
+  including built-ins. (Yes, this is monkey-patching territory; the
+  Swift discipline of `extension` blocks at least keeps it declared and
+  greppable.)
+* **Generics: full `<T>` syntax — *for the time being, subject to
+  change*.** User functions and types may declare type parameters,
+  resolved at runtime. Acknowledged as great-but-expensive; if the
+  implementation cost proves too high, the fallback is "built-ins
+  parameterized + types as ordinary values" (pass a `Type` argument).
+
+## 11. Strings — DECIDED (core)
+
+**Swift-faithful graphemes.** `Character` is an extended grapheme
+cluster; `count` is user-perceived character count; correctness over
+O(1) indexing. **OPEN**: whether to relax Swift's index-type dance
+(integer subscripts at O(n)?), regex literals.
+
+## 12. Concurrency — OPEN (probably defer)
+
+`async`/`await`? Actors? Or single-threaded like classic scripting, with
+concurrency added later?
+
+## 13. swiftalk by example
+
+A taste of the language as decided so far (§§1–11):
+
+```swiftalk
+// bindings: type-locked at first assignment (§3), bignum Int (§3b)
+let fact20 = (1...20).reduce(1) { $0 * $1 }   // exact: 2432902008176640000
+var n = 42
+// n = "42"                                   // runtime error: n is Int
+
+// dictionaries are [Key: Value] (§2.1); collections are COW values (§4)
+var langs = ["swift": 2014, "smalltalk": 1972]
+let snapshot = langs                          // logical copy
+langs["swiftalk"] = 2026                      // snapshot unaffected
+
+// optionals, full suite (§3a)
+if let year = langs["smalltalk"] {
+    print("smalltalk: \(year)")
+}
+let y = langs["perl6"] ?? 2015
+
+// labels optional & reorderable (§2.3)
+func move(x: Int, y: Int) -> Int { x + y }
+move(x: 1, y: 2)
+move(y: 2, x: 1)                              // same call
+move(1, 2)                                    // same call
+
+// enums with associated values, runtime-exhaustive switch (§7)
+enum Shape {
+    case circle(r: Double)
+    case rect(w: Double, h: Double)
+}
+func area(_ s: Shape) -> Double {
+    switch s {
+    case .circle(let r):    3.14159265358979 * r * r
+    case .rect(let w, let h): w * h
+    }   // a future third case reaching here without a match: runtime error
+}
+
+// Result-first errors, postfix ? to propagate (§8)
+func readConfig(_ path: String) -> Result<Config, Error> {
+    let text = File.read(path)?               // failure returns early
+    let json = JSON.parse(text)?              // (see §8 note on error types)
+    return .success(Config(json))
+}
+
+// runtime type queries (§3)
+let mixed: [Any] = [1, "one", 2.0]
+for x in mixed {
+    print("\(x): \(x.type)")                  // Int, String, Double
+}
+```
+
+---
+
+## Dialogue log
+
+* **2026-08-28** — Project start. Decided: name, `[Key: Value]` dictionary
+  literals. Opened: semantic model (§1), type discipline (§3), value
+  semantics (§4), implementation host (§5).
+* **2026-08-28, round 1** — Decided: semantic model is *Dynamic Swift*
+  (§1); *strong latent typing with type-locked bindings*, runtime-queryable
+  via `x.type` (§3); full Optional suite (§3a); COW value semantics for
+  collections (§4). Opened: numeric tower, `Any` & heterogeneous
+  collections, first-classness of types.
+* **2026-08-28, round 2** — Decided: bignum `Int` + distinct `Double`
+  (§3b); `Any` exists for now but enums/unions preferred (§3c); `var`/`let`
+  mandatory in files, relaxed in REPL (§2.2); argument labels optional and
+  reorderable, trailing-closure slot pinned last (§2.3). Opened: dispatch &
+  overloading (§6), enums & pattern matching (§7), error handling (§8).
+* **2026-08-28, round 3** — Decided: one name, one function — no free-
+  function overloading; methods dispatch on receiver type (§6); full Swift
+  enums with runtime exhaustiveness enforcement (§7); **Result-first error
+  handling, no exceptions** (§8); both `struct` (COW value) and `class`
+  (reference, inheritance) with Swift semantics (§4). Opened: propagation
+  sugar spelling (§8), protocols/extensions/generics (§10), strings (§11),
+  concurrency (§12).
+* **2026-08-28, round 4** — Decided: Rust-style postfix `?` for Result
+  propagation; no `throw`/`do-catch` (§8); protocols *and* extensions,
+  Swift-style (§10); full `<T>` generics *for the time being, subject to
+  change* (§10); Swift-faithful grapheme strings (§11). Added §13
+  "swiftalk by example". Opened: mixed error types under `?` (§8),
+  integer subscripts on String (§11).
