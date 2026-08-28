@@ -98,20 +98,35 @@ add(2, 3)                       // 5
 * Named parameters (`{ x, y in ... }`) presumably bind positionally to
   `$[0]`, `$[1]`, ... — sugar over `$`.
 
-**OPEN** (each needs a decision):
+Further decisions:
 
-* **Recursion**: can `let fac = { n in n < 2 ? 1 : fac(n - 1) * n }`
-  see itself? (let-rec semantics vs. an explicit self-reference like
-  Lua's workarounds.)
-* **Arity mismatch**: calling `{ x, y in ... }` with 3 args (or 1) —
-  runtime error, or Perl-style tolerance with `$` holding the truth?
-* **Methods**: with `func` gone, how do `struct`/`class`/`extension`
-  members get declared — `let name = { ... }` properties? What about
-  `init`, `mutating`, getters/setters?
-* **Annotations**: typed parameters and return —
-  `{ (x: Int, y: Int) -> Int in ... }` as in Swift?
-* **Labels** (§2.3): do parameter names double as call-site labels
-  (`add(x: 2, y: 3)`)?
+* **Recursion — `$` is also the function itself.** Calling `$(...)`
+  inside a function body recurses into the current function (cf. JS's
+  late `arguments.callee`, R's `Recall`), so even an unnamed function
+  can recurse:
+
+  ```swiftalk
+  let fac = { n in n < 2 ? 1 : n * $(n - 1) }
+  ```
+
+  `$.callee` was considered as an interim spelling; callable `$` is
+  the chosen form. (One sigil, two askable questions: `$` = "what are
+  my arguments", `$()` = "call me again".)
+* **Arity is strict**: calling `{ x, y in ... }` with any argument
+  count other than 2 is a **runtime error** (a scripting language;
+  compile-time checking may be too hard to promise). Param-less
+  `$`-style functions (`{ $.reduce(0) { $0 + $1 } }`) remain variadic —
+  that's what `$.count` is for. (**OPEN**: the exact rule for `{ 42 }`
+  — a body with neither params nor `$` — called with arguments.)
+* **Annotations, Swift-style**: `{ (x: Int, y: Int) -> Int in ... }`
+  is allowed; bare names stay fine. Where written, types are enforced
+  at runtime per §3.
+* **Params are labels**: declared parameter names double as the
+  optional, reorderable call-site labels of §2.3 — `add(y: 3, x: 2)`
+  just works. No separate label syntax.
+* **Methods / `init` without `func`** — **deferred until milestone 0**
+  (`eval()` needs free functions only; method syntax can wait for user
+  types to land).
 
 ### 2.5 Everything else — OPEN / TODO
 
@@ -405,6 +420,8 @@ move(y: 2, x: 1)                              // same call
 move(1, 2)                                    // same call
 let sum = { $.reduce(0) { $0 + $1 } }         // $ = the arguments (§2.4)
 sum(1, 2, 3, 4)                               // 10; $.count was 4
+let fac = { n in n < 2 ? 1 : n * $(n - 1) }   // $() = recurse (§2.4)
+fac(20)                                       // 2432902008176640000
 
 // enums with associated values, runtime-exhaustive switch (§7)
 enum Shape {
@@ -495,3 +512,10 @@ let text   = bytes.String                     // String? — bytes may not be te
   one-name-one-function becomes a theorem. Opened: recursion in
   `let f = {...}`, arity-mismatch behavior, method/`init` declaration
   without `func`, closure type annotations, params-as-labels.
+* **2026-08-29, round 10** — Decided: **`$` is also callable — `$()`
+  recurses into the current function** (`$.callee` considered, callable
+  `$` chosen); **strict arity** for named-param functions (runtime
+  error on mismatch), param-less `$` functions stay variadic;
+  Swift-style annotations allowed in closures; **declared param names
+  double as reorderable call-site labels**. Method/`init` syntax
+  deferred until milestone 0. Opened: `{ 42 }` called with arguments.
