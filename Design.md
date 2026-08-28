@@ -102,16 +102,77 @@ and most especially JavaScript):
 * Is `x.type` a first-class value? (`x.type == Int`, usable in `switch`,
   storable in variables?) Do `is` / `as?` / `as!` survive alongside it?
 
-### 3b. Numbers — DECIDED
+### 3b. Basic types — DECIDED (core)
 
-* `Int` and `Double` are **distinct types** (so `var x = 1; x = 1.5` is a
-  type error under §3's binding lock).
-* **`Int` is arbitrary-precision** (bignum), like Python/Ruby — a
-  scripting user should never encounter integer overflow. This is a
-  deliberate divergence from Swift's fixed-width `Int`.
-* `Double` is IEEE 754 double, as in Swift.
-* **OPEN**: literal inference rules (`let x: Double = 1` OK as in Swift?),
-  other numeric types (none, presumably — no Int8/UInt zoo).
+*(Revises round 2: `Int` was to be arbitrary-precision; it is now fixed
+64-bit, with bignum demoted to a possible separate `BigInt` type.)*
+
+Primitives:
+
+* **`nil`** — the absence value, with its own honest type. Never again
+  JS's `typeof null === 'object'`. Role model: **`nil` in swiftalk is
+  what `undefined` is in JavaScript** — a first-class value denoting
+  "no value", minus the type lie. (**OPEN**: what exactly `nil.type`
+  reports; what `var x = nil` does with nothing to infer; and the
+  precise interplay with §3a's typed Optionals — e.g. is `Int?`
+  conceptually `Int`-or-`nil`.)
+* **`Bool`** — `true` / `false`. Not numbers, not truthy-anything.
+* **`Int`** — **exactly 64-bit**, on every platform. NOT device
+  dependent (unlike Swift, where `Int` is word-sized).
+  **Overflow traps** at runtime, as in Swift — never silent wraparound.
+  (**OPEN**: whether Swift's explicit wrapping family `&+ &- &*` is kept
+  for those who ask.)
+* **`BigInt`** — **in, but detachable.** Arbitrary precision, part of
+  the language *as a whole*, yet packaged so an embedder can leave it
+  out — the core implementation must stay as small as possible (§5).
+  bignum-as-`Int` is acknowledged as a success in Python/Ruby/Scheme,
+  but swiftalk keeps `Int` fixed and `BigInt` separate.
+  (**OPEN**: literal spelling — JS-style `123n` suffix or otherwise;
+  mixing rules with `Int` — presumably explicit conversion only.)
+* **`Double`** — IEEE 754 binary64; what JS calls `Number`. Integers and
+  floating point are **distinct types** — one numeric type for
+  everything has caused zillions of tragedies (so `var x = 1; x = 1.5`
+  is a type error under §3's binding lock).
+* **`String`** — Swift's sense: fully Unicode, `Character` = extended
+  grapheme cluster (§11). `.utf8` and `.utf32` views available
+  optionally. **No `.utf16` view — UTF-16 needs to go to hell.**
+* **`Data`** — a sequence of unsigned 8-bit bytes, **distinct from
+  `String`**. Bytes are bytes; text is text.
+
+Collections:
+
+* **`Array`** — a real array (ordered, contiguous, integer-indexed from
+  0, one `count`), not a pseudo-array of string keys à la JS/PHP.
+* **`Dictionary`** — literal *and stringified form* are `[Key: Value]`,
+  never `{Key: Value}` (§2.1); empty is `[:]`.
+
+**OPEN**: literal inference rules (`let x: Double = 1` OK as in Swift?);
+no Int8/UInt zoo, presumably — `Data` covers the bytes use case;
+`Data` literals.
+
+### 3d. Type conversion: `obj.TypeName` — DECIDED (core)
+
+**The type converter is a property named after the target type**:
+
+```swiftalk
+data.String      // Data → String?   (failable: bytes may not be valid text)
+string.Data      // String → Data    (infallible: text always has bytes)
+"42".Int         // String → Int?    (failable, presumably)
+42.String        // Int → String     ("42")
+```
+
+* Failable conversions return an Optional; infallible ones return the
+  type directly.
+* **`.String` is mandatory** — every type must convert to `String`.
+  (This is swiftalk's `toString`/`description`; presumably what `print`
+  and `\(...)` interpolation use.)
+* Nice symmetry with §3: lowercase `.type` *queries* the type,
+  Capitalized `.TypeName` *converts* to it.
+* Replaces Swift's initializer-style `String(42)` / `Int("42")`
+  conversions as the idiom. (**OPEN**: whether initializer style also
+  exists, or `obj.Type` is the only spelling; which conversions are
+  failable, per pair; default encoding of `data.String` / `string.Data`
+  — presumably UTF-8.)
 
 ### 3c. `Any` and heterogeneous collections — DECIDED (direction)
 
@@ -148,12 +209,14 @@ consistent with the built-in collections), `class` (reference, with
 inheritance), plus `enum` (§7). The Swift mental model carries over
 wholesale: value types by default, classes when identity matters.
 
-## 5. Implementation — LEANING
+## 5. Implementation — LEANING (goal DECIDED)
 
+* **The core implementation must be as small as possible — Lua is the
+  benchmark.** Features that can be detachable are packaged detachably
+  (first confirmed case: `BigInt`, §3b). The swiftalk : Swift ::
+  Lua : C analogy is now explicit: a small, embeddable scripting layer.
 * Reference implementation in **Swift** (the repo already carries a Swift CI
   workflow). An interpreter first; compilation strategies later.
-* Embeddability in Swift host apps as a goal? (i.e., swiftalk : Swift ::
-  Lua : C — a natural scripting layer for Swift programs.)
 
 ## 6. Dispatch & overloading — DECIDED (core)
 
@@ -233,8 +296,15 @@ ABI stability, Objective-C interop.
 
 **Swift-faithful graphemes.** `Character` is an extended grapheme
 cluster; `count` is user-perceived character count; correctness over
-O(1) indexing. **OPEN**: whether to relax Swift's index-type dance
-(integer subscripts at O(n)?), regex literals.
+O(1) indexing.
+
+* Encoding views: `.utf8` and `.utf32`, available optionally.
+  **There is no `.utf16` view.** (Swift carries UTF-16 for
+  NSString/JS/Java interop; swiftalk owes that legacy nothing.)
+* Binary data is **`Data`**, not `String` (§3b) — no latin-1-ish
+  "binary string" abuse.
+* **OPEN**: whether to relax Swift's index-type dance
+  (integer subscripts at O(n)?), regex literals.
 
 ## 12. Concurrency — OPEN (probably defer)
 
@@ -246,10 +316,11 @@ concurrency added later?
 A taste of the language as decided so far (§§1–11):
 
 ```swiftalk
-// bindings: type-locked at first assignment (§3), bignum Int (§3b)
-let fact20 = (1...20).reduce(1) { $0 * $1 }   // exact: 2432902008176640000
+// bindings: type-locked at first assignment (§3), Int is 64-bit (§3b)
+let fact20 = (1...20).reduce(1) { $0 * $1 }   // 2432902008176640000: still fits
 var n = 42
 // n = "42"                                   // runtime error: n is Int
+// n = 1.5                                    // runtime error: Double ≠ Int
 
 // dictionaries are [Key: Value] (§2.1); collections are COW values (§4)
 var langs = ["swift": 2014, "smalltalk": 1972]
@@ -287,11 +358,14 @@ func readConfig(_ path: String) -> Result<Config, Error> {
     return .success(Config(json))
 }
 
-// runtime type queries (§3)
+// runtime type queries (§3) and obj.TypeName conversion (§3d)
 let mixed: [Any] = [1, "one", 2.0]
 for x in mixed {
-    print("\(x): \(x.type)")                  // Int, String, Double
+    print("\(x.String): \(x.type)")           // .String is universal (§3d)
 }
+let answer = "42".Int ?? 0                    // failable conversion + default
+let bytes  = "café".Data                      // infallible; UTF-8 under the hood
+let text   = bytes.String                     // String? — bytes may not be text
 ```
 
 ---
@@ -324,3 +398,22 @@ for x in mixed {
   change* (§10); Swift-faithful grapheme strings (§11). Added §13
   "swiftalk by example". Opened: mixed error types under `?` (§8),
   integer subscripts on String (§11).
+* **2026-08-28, round 5 — basic types (§3b). REVISES round 2**: `Int` is
+  now **fixed 64-bit, device-independent** (was: arbitrary-precision);
+  bignum demoted to a possible distinct `BigInt` with `n`-marked
+  literals, undecided. Also decided: `nil` has an honest type (no
+  `typeof null === 'object'`); `Bool` is not numeric; `Double` distinct
+  from `Int`; `String` has `.utf8`/`.utf32` views but **no `.utf16`**;
+  `Data` (bytes) distinct from `String`; `Array` is a real array;
+  `Dictionary` stringifies as `[Key: Value]`. Opened: `nil.type` and
+  `var x = nil`, Int overflow behavior, BigInt adoption, Data literals.
+* **2026-08-28, round 6** — Decided: `Int` overflow **traps** (§3b);
+  `BigInt` is **in but detachable** (§3b) — which crystallized a broader
+  goal: **minimal core implementation, Lua as the size benchmark,
+  detachable batteries** (§5). `nil` is swiftalk's JS-`undefined`,
+  done honestly (§3b). New language-wide convention: **`obj.TypeName`
+  is the type converter** (§3d) — `data.String` failable, `string.Data`
+  infallible, `.String` mandatory on every type; lowercase `.type`
+  queries, Capitalized `.Type` converts. Opened: BigInt literal
+  spelling, `&+` family, initializer-style conversions, Optional/nil
+  interplay.
