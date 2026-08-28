@@ -322,8 +322,11 @@ concurrency added later?
    This is where §2.2's relaxed mode (bare `x = 1` allowed) first
    matters, and where `.String`-on-everything (§3d) pays off for
    printing results.
-2. *(TBD — script runner (`swiftalk file.st`? extension TBD), embedding
-   API, stdlib growth...)*
+2. *(TBD — script runner, embedding API, stdlib growth...)*
+
+**File extension — DECIDED**: `.swt` (as in `hello.swt`). Short,
+reads as **sw**if**t**alk; the only notable prior claim (Adobe Flash
+"Generator template") died with Flash.
 
 ## 14. swiftalk by example
 
@@ -434,3 +437,4 @@ let text   = bytes.String                     // String? — bytes may not be te
 * **2026-08-29, round 7** — Added §13 Milestones: 0. `eval()`,
   1. REPL (a loop around `eval()`); later milestones TBD. Opened:
   whether `eval()` is exposed in the language itself.
+* **2026-08-29, round 8** — Decided: file extension is **`.swt`** (§13).
