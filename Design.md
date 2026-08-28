@@ -311,7 +311,21 @@ O(1) indexing.
 `async`/`await`? Actors? Or single-threaded like classic scripting, with
 concurrency added later?
 
-## 13. swiftalk by example
+## 13. Milestones
+
+0. **Implement `eval()`** — the core evaluator: source string in, value
+   out. Everything else is a client of this. Doubles as the embedding
+   API's heart (§5: swiftalk-as-Lua) and, potentially, a user-visible
+   `eval()` in the language itself (**OPEN** whether to expose it, and
+   how it interacts with the §5 minimal-core goal).
+1. **Implement REPL** — a read–`eval`–print loop around milestone 0.
+   This is where §2.2's relaxed mode (bare `x = 1` allowed) first
+   matters, and where `.String`-on-everything (§3d) pays off for
+   printing results.
+2. *(TBD — script runner (`swiftalk file.st`? extension TBD), embedding
+   API, stdlib growth...)*
+
+## 14. swiftalk by example
 
 A taste of the language as decided so far (§§1–11):
 
@@ -417,3 +431,6 @@ let text   = bytes.String                     // String? — bytes may not be te
   queries, Capitalized `.Type` converts. Opened: BigInt literal
   spelling, `&+` family, initializer-style conversions, Optional/nil
   interplay.
+* **2026-08-29, round 7** — Added §13 Milestones: 0. `eval()`,
+  1. REPL (a loop around `eval()`); later milestones TBD. Opened:
+  whether `eval()` is exposed in the language itself.
