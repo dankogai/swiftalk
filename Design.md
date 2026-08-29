@@ -264,21 +264,43 @@ string.Data      // String → Data    (infallible: text always has bytes)
   failable, per pair; default encoding of `data.String` / `string.Data`
   — presumably UTF-8.)
 
-### 3c. `Any` and heterogeneous collections — DECIDED (direction)
+### 3c. `Any`, `Primitives`, and heterogeneous collections — DECIDED (direction)
 
 * `Any` exists **for the time being**, but the language *prefers enums*
   (sum types with associated values) as the idiomatic way to express
-  "one of several types" — including heterogeneous collections:
+  "one of several types" — including heterogeneous collections.
+* **The language ships that enum: `Primitives`** — a built-in enum
+  whose cases are `nil`, `Bool`, `Int`, `Double`, `String`, and so
+  forth (one case per §3b primitive). Its very purpose is to **keep
+  users away from `Any`**: when a slot must hold "one of the basic
+  types", it is a `Primitives`, a closed sum you can `switch` over
+  exhaustively (§7) — not the anything-goes escape hatch.
 
   ```swiftalk
-  enum JSON { case null, bool(Bool), number(Double), string(String), ... }
+  let mixed: [Primitives] = [1, "one", 2.0]
+  for x in mixed {
+      switch x {
+      case .Int(let i):    print("integer \(i)")
+      case .String(let s): print("string \(s)")
+      case .Double(let d): print("double \(d)")
+      // ... a closed set — the switch can be exhaustive
+      }
+  }
   ```
 
+  *(Case spelling above is provisional; see OPEN below.)*
+* User-defined enums remain the idiom for richer unions
+  (`enum JSON { case null, bool(Bool), number(Double), ... }`).
 * The long-term hope is that reaching for `Any` is rare; unions are
   spelled as enums, and `element.type` / pattern matching handle the
   dispatch when iterating mixed sequences.
-* **OPEN**: what `[1, "one", 2.0]` infers today (presumably `[Any]`),
-  and whether inference could ever synthesize an anonymous union/enum.
+* **OPEN — `Primitives` details**: the exact case roster (`BigInt`?
+  `Data`? `Function`? do `Array`/`Dictionary`-of-`Primitives` join,
+  making it JSON-complete?); case naming (`.Int` mirroring the type
+  name vs. Swift-lowercase `.int`); and whether lifting is implicit —
+  does `[1, "one", 2.0]` *infer* `[Primitives]` (auto-wrapping each
+  element) rather than `[Any]`, and does `x.Int` / pattern matching
+  unwrap back out?
 
 ## 3a. Optionals & nil — DECIDED
 
@@ -622,3 +644,9 @@ let text   = bytes.String                     // String? — bytes may not be te
   unified across Optionals and Results, postfix `!` kept (traps);
   `[K: V?]` lookups collapse missing/stored-nil, `d.has(k)` for the
   distinction. Opened: confirm `d[k] = nil` deletes (Swift-compatible).
+* **2026-08-29, round 16** — Added built-in **`enum Primitives`**
+  (§3c): one case per §3b primitive (`nil`, `Bool`, `Int`, `Double`,
+  `String`, ...), a closed, exhaustively-switchable sum whose purpose
+  is to keep users away from `Any`. Opened: exact case roster
+  (BigInt/Data/Function/collections → JSON-complete?), case naming,
+  implicit lifting (does `[1, "one", 2.0]` infer `[Primitives]`?).
