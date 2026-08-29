@@ -22,15 +22,20 @@ extension Swiftalk {
     /// A function value: `{}` is the only function form (Design.md §2.4).
     /// Reference identity is its equality — `Function` is one collective
     /// type and functions compare as themselves, not by structure.
+    /// Built-ins (`print`, ...) are the same type with a Swift closure
+    /// for a body — the stdlib arrives as ordinary Function values.
     public final class FunctionObject: Hashable {
         let parameters: [String]      // empty means variadic (round 14)
         let body: [Stmt]
         let closure: Environment      // lexical capture
+        let builtin: (([Value]) throws -> Value)?
 
-        init(parameters: [String], body: [Stmt], closure: Environment) {
+        init(parameters: [String], body: [Stmt], closure: Environment,
+             builtin: (([Value]) throws -> Value)? = nil) {
             self.parameters = parameters
             self.body = body
             self.closure = closure
+            self.builtin = builtin
         }
 
         public static func == (lhs: FunctionObject, rhs: FunctionObject) -> Bool {

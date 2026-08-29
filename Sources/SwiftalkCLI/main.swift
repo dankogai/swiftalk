@@ -33,7 +33,11 @@ while let line = readLine() {
     }
     do {
         let value = try interpreter.eval(buffer)
-        print(value.sourceString())
+        // nil echoes are suppressed (the Python way): statements — loops,
+        // if, print(...) — all evaluate to nil, and echoing it is noise.
+        if value != .nil {
+            print(value.sourceString())
+        }
     } catch let error as Swiftalk.Error {
         print(error.description)
     } catch {

@@ -955,3 +955,16 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   cases), but no-key and has-an-empty-key are semantically distinct.
   Diverges from Swift's subscript-assignment-deletes. Opened: the
   explicit removal API, since assignment no longer deletes.
+* **2026-08-29, round 36 — `print()` and `debugPrint()`.** Completes
+  round 23's display question, the Swift way: **`print` is raw
+  display** (Strings bare, everything else `.String()` source form —
+  the same rule as interpolation), **`debugPrint` is source form for
+  everything** (quoted, round-trippable). Space-separated,
+  newline-terminated, return `nil`. Structurally: **the first
+  built-in `Function` values** — pre-bound `let`s in the global
+  environment, per §2.4's stdlib-as-values philosophy (they reject
+  labels, resist global redeclaration, shadow lexically, and pass
+  around like any function). Output routes through an embedder hook
+  (`Interpreter.output`, default stdout) — the host owns I/O, as in
+  Lua (§5). The REPL suppresses `nil` echoes (the Python way), so
+  statements and `print` don't double-report.

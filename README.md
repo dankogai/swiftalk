@@ -120,6 +120,25 @@ swiftalk> "0.1 + 0.2 = \(0.1 + 0.2), exactly"
 "0.1 + 0.2 = 0.30000000000000004, exactly"
 ```
 
+**`print()` and `debugPrint()`** are in — the first built-in
+`Function` values (`print` shows Strings raw; `debugPrint` shows
+source form) — which means FizzBuzz, at last:
+
+```text
+swiftalk> for i in 1...15 {
+........ if i / 15 * 15 == i { print("FizzBuzz") }
+........ else if i / 3 * 3 == i { print("Fizz") }
+........ else if i / 5 * 5 == i { print("Buzz") }
+........ else { print(i) }
+........ }
+1
+2
+Fizz
+4
+Buzz
+...
+```
+
 ```sh
 swift test
 ```

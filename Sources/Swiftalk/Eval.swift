@@ -11,12 +11,46 @@ extension Swiftalk {
     public final class Interpreter {
         private var environment = Environment()
         private let relaxed: Bool
+        private let outputBox = OutputBox()
+
+        /// Where `print`/`debugPrint` write. Defaults to stdout; an
+        /// embedder may redirect it (the Lua way — the host owns I/O).
+        public var output: (String) -> Void {
+            get { outputBox.write }
+            set { outputBox.write = newValue }
+        }
 
         /// `relaxed` is REPL mode (Design.md §2.2): assignment to an
         /// undeclared name implicitly declares a `var` — still type-locked
         /// from then on. File mode (the default) rejects it.
         public init(relaxed: Bool = false) {
             self.relaxed = relaxed
+            installBuiltins()
+        }
+
+        /// The stdlib arrives as ordinary let-bound Function values in
+        /// the global environment (§2.4) — not keywords.
+        private func installBuiltins() {
+            let box = outputBox
+            declareBuiltin("print") { args in
+                // Raw display: Strings bare, everything else source form
+                // (round 35, completing round 23's display question).
+                box.write(args.map(displayString).joined(separator: " ") + "\n")
+                return .nil
+            }
+            declareBuiltin("debugPrint") { args in
+                // Source form for everything — quoted, round-trippable.
+                box.write(args.map { $0.sourceString() }.joined(separator: " ") + "\n")
+                return .nil
+            }
+        }
+
+        private func declareBuiltin(_ name: String, _ body: @escaping ([Value]) throws -> Value) {
+            let fn = FunctionObject(parameters: [], body: [], closure: environment, builtin: body)
+            try! environment.declare(name, Binding(
+                mutable: false,
+                lock: TypeAnnotation(name: "Function", optional: false),
+                value: .function(fn)))
         }
 
         /// Evaluates a program (statements separated by newlines or `;`)
@@ -57,6 +91,20 @@ extension Swiftalk {
 }
 
 typealias Interpreter = Swiftalk.Interpreter
+
+/// Reference box for the output sink, so builtins capture the box —
+/// not the Interpreter — and no retain cycle forms.
+final class OutputBox {
+    var write: (String) -> Void = { Swift.print($0, terminator: "") }
+}
+
+/// The raw display form (round 35): a String shows itself bare; every
+/// other value shows its .String() source form. Shared by `print` and
+/// string interpolation.
+func displayString(_ value: Value) -> String {
+    if case .string(let s) = value { return s }
+    return value.sourceString()
+}
 
 /// A binding: its mutability, its type lock (Design.md §3), and its value.
 /// The lock is fixed at declaration — from the annotation if written,
@@ -345,10 +393,7 @@ func evaluate(_ expr: Expr, in env: Environment) throws -> Value {
         // interpolation, `print` proper still OPEN).
         var out = ""
         for part in parts {
-            switch try evaluate(part, in: env) {
-            case .string(let s): out += s
-            case let v:          out += v.sourceString()
-            }
+            out += displayString(try evaluate(part, in: env))
         }
         return .string(out)
     }
@@ -473,6 +518,10 @@ func apply(_ fn: FunctionObject, args: [(label: String?, value: Value)]) throws 
             }
             return next
         }
+    }
+
+    if let builtin = fn.builtin {
+        return try builtin(ordered)
     }
 
     let local = Environment(parent: fn.closure)
