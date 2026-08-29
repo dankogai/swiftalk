@@ -77,7 +77,7 @@ enum Builtins {
             switch args.first {
             case nil:            return .array([])
             case .array(let a)?: return .array(a)
-            case let v?:         return .array(Array(try elements(of: v)))  // any Sequence
+            case let v?:         return .array(try collect(v))  // any Sequence
             }
         },
         "Dictionary": type("Dictionary") { args in
@@ -104,22 +104,36 @@ enum Builtins {
     ]
 
     /// The protocol roster (§10): coarse-grained, exactly four.
+    /// `Sequence` alone also constructs (round 41): a lazy generated
+    /// sequence — `Sequence(initialState) { next }`.
     nonisolated(unsafe) static let protocols: [String: FunctionObject] = [
-        "Sequence":   protocolObject("Sequence"),
+        "Sequence": FunctionObject(
+            parameters: [], body: [], closure: emptyEnvironment,
+            builtin: { args in
+                guard args.count == 2,
+                      case .array(let initial) = args[0],
+                      case .function(let next) = args[1] else {
+                    throw SwiftalkError.type(
+                        "Sequence(initialState) { next } — an Array state and a Function")
+                }
+                return .sequence(SequenceObject(kind: .generator(initial: initial, next: next)))
+            },
+            role: .protocol("Sequence")),
         "Equatable":  protocolObject("Equatable"),
         "Hashable":   protocolObject("Hashable"),
         "Comparable": protocolObject("Comparable"),
     ]
 
     private static let allTypeNames: Set<String> =
-        ["Nil", "Bool", "Int", "Double", "String", "Array", "Dictionary", "Range", "Function"]
+        ["Nil", "Bool", "Int", "Double", "String", "Array", "Dictionary",
+         "Range", "Function", "Sequence"]
 
-    /// Who conforms to what (§10, rounds 26/38): built-ins conform
+    /// Who conforms to what (§10, rounds 26/38/41): built-ins conform
     /// natively — everything is Equatable and Hashable (all values are
     /// dictionary keys), Comparable is Int/Double/String, Sequence is
-    /// the four iterables.
+    /// the iterables (lazy Sequences included).
     static let conformance: [String: Set<String>] = [
-        "Sequence":   ["String", "Array", "Dictionary", "Range"],
+        "Sequence":   ["String", "Array", "Dictionary", "Range", "Sequence"],
         "Equatable":  allTypeNames,
         "Hashable":   allTypeNames,
         "Comparable": ["Int", "Double", "String"],

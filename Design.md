@@ -172,6 +172,14 @@ Further decisions:
 * **Params are labels**: declared parameter names double as the
   optional, reorderable call-site labels of §2.3 — `add(y: 3, x: 2)`
   just works. No separate label syntax.
+* **`return` exists** (round 41): `return expr` / bare `return` exit
+  the enclosing function early; the last-statement value remains the
+  implicit return for bodies that never `return`.
+* **`$` is reassignable** (round 41, revising round 10's immutability):
+  `$` is a `var` locked to `Array` — Sequence generators reassign it
+  to advance their state. **`$N` are entry snapshots** of the
+  arguments (refining round 32): `$N == $[N]` holds until `$` is
+  reassigned; `$[N]` stays the live subscript.
 * **Methods / `init` without `func`** — **deferred until milestone 0**
   (`eval()` needs free functions only; method syntax can wait for user
   types to land).
@@ -1046,3 +1054,25 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   protocols carry theirs too); a plain `{ }`'s `.name` is `nil`.
   (Also repaired: §2.4's "no declared params means variadic" bullet
   header, accidentally clobbered by round 24's edit.)
+* **2026-08-30, round 41 — Sequence types are lazy by default.**
+  Unlike Swift, which opts in via `.lazy`, swiftalk's `Sequence`
+  values defer everything until pulled. **`Sequence(initialState)
+  { next }` constructs a generated sequence**: each pull calls the
+  closure with the state elements as arguments; the *returned* value
+  is the emitted element (**returning `nil` ends the sequence**); the
+  closure's final `$` is the next state. The marquee runs verbatim:
+  `Sequence([0, 1]) { $ = [$1, $0 + $1]; return $1 }.map { "\($0)" }`
+  stays an unevaluated `Sequence` until `.prefix(n)` materializes
+  `["1", "1", "2", "3", "5", ...]`. `map`/`filter` on a `Sequence`
+  value return lazy `Sequence`s; `.prefix(n)` is the terminal
+  (→ `Array`, on every conformer); `.count` on a `Sequence` errors
+  (possibly infinite — take `.prefix` or `.Array()` deliberately);
+  a `Sequence` value is re-iterable (generators restart from their
+  initial state). `Sequence` remains the protocol (and now also
+  constructs — fitting types-as-constructor-Functions); a lazy
+  sequence's `.Type` is `Sequence`, conforming to itself.
+  Two newcomers this forced, now general: **the `return` statement**
+  and **reassignable `$`** with `$N` as entry snapshots (see §2.4).
+  Eager `map` on Array/String/Dictionary/Range is unchanged —
+  **OPEN**: whether those should also propagate laziness, and how a
+  legitimate `nil` *element* coexists with nil-terminates.

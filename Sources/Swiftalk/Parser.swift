@@ -36,6 +36,7 @@ enum Stmt {
     case declaration(mutable: Bool, name: String, annotation: TypeAnnotation?, initializer: Expr)
     case assignment(target: LValue, expr: Expr)
     case expression(Expr)
+    case returnS(Expr?)
     indirect case ifS(condition: Expr, then: [Stmt], else: [Stmt]?)
     case whileS(condition: Expr, body: [Stmt])
     case repeatS(body: [Stmt], condition: Expr)
@@ -46,7 +47,7 @@ enum Stmt {
 
 private let keywords: Set<String> = [
     "let", "var", "true", "false", "nil", "in",
-    "if", "else", "while", "repeat", "for", "break", "continue",
+    "if", "else", "while", "repeat", "for", "break", "continue", "return",
 ]
 
 struct Parser {
@@ -153,6 +154,14 @@ struct Parser {
             }
             let sequence = try withTrailing(false) { try $0.parseExpr() }
             return .forS(name: name, sequence: sequence, body: try parseBlock())
+        case .identifier("return"):
+            pos += 1
+            switch peek {
+            case nil, .newline, .punct(";"), .punct("}"):
+                return .returnS(nil)
+            default:
+                return .returnS(try parseExpr())
+            }
         case .identifier("break"):
             pos += 1
             return .breakS
@@ -409,11 +418,13 @@ struct Parser {
         case .identifier(let name) where keywords.contains(name):
             throw SwiftalkError.syntax("'\(name)' is not an expression")
         case .identifier(let name) where name.hasPrefix("$") && name.count > 1:
-            // $N is sugar for $[N] (Design.md §2.4)
-            guard let n = Int64(name.dropFirst()) else {
+            // $N binds the N-th argument at entry (round 41 refines round
+            // 32: $N == $[N] until `$` is reassigned — generators reassign
+            // `$` to advance their state while $N stay entry snapshots).
+            guard Int64(name.dropFirst()) != nil else {
                 throw SwiftalkError.syntax("invalid placeholder '\(name)'")
             }
-            return .subscript(.variable("$"), .literal(.int(n)))
+            return .variable(name)
         case .identifier(let name):
             return .variable(name)
         case .punct("("):

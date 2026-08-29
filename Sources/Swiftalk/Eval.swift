@@ -76,6 +76,8 @@ extension Swiftalk {
                 }
             } catch is ControlFlow {
                 throw SwiftalkError.syntax("'break'/'continue' outside a loop")
+            } catch is ReturnSignal {
+                throw SwiftalkError.syntax("'return' outside a function")
             }
             return last
         }
@@ -189,7 +191,7 @@ final class Environment {
 }
 
 private let knownTypeNames: Set<String> =
-    ["Nil", "Bool", "Int", "Double", "String", "Array", "Dictionary", "Function", "Range"]
+    ["Nil", "Bool", "Int", "Double", "String", "Array", "Dictionary", "Function", "Range", "Sequence"]
 
 /// The hidden binding through which `$(...)` finds the current function
 /// (§2.4). `@` cannot appear in a swiftalk identifier, so user code can
@@ -265,7 +267,8 @@ func execute(_ statement: Stmt, in env: Environment, relaxed: Bool = false) thro
         }
         return .nil
     case .forS(let name, let sequence, let body):
-        for element in try elements(of: try evaluate(sequence, in: env)) {
+        let it = try iterator(of: try evaluate(sequence, in: env))
+        while let element = try it.next() {
             let scope = Environment(parent: env)
             if name != "_" {
                 try scope.declare(name, Binding(
@@ -280,6 +283,8 @@ func execute(_ statement: Stmt, in env: Environment, relaxed: Bool = false) thro
         throw ControlFlow.break
     case .continueS:
         throw ControlFlow.continue
+    case .returnS(let expr):
+        throw ReturnSignal(value: try expr.map { try evaluate($0, in: env) } ?? .nil)
     }
 }
 
@@ -288,6 +293,12 @@ func execute(_ statement: Stmt, in env: Environment, relaxed: Bool = false) thro
 enum ControlFlow: Swift.Error {
     case `break`
     case `continue`
+}
+
+/// `return` (round 41) travels the same way; `apply` catches it at the
+/// function boundary.
+struct ReturnSignal: Swift.Error {
+    let value: Value
 }
 
 /// Runs a block in a fresh child scope (block-local let/var, §2.2-style
@@ -320,20 +331,103 @@ private func runLoopBody(_ body: [Stmt], in env: Environment, freshScope: Bool =
 /// single-Character Strings until a Character type lands); Dictionary
 /// [key, value] pairs (until tuples land); Range lazily, element by
 /// element — a huge Range never materializes.
-func elements(of sequence: Value) throws -> AnySequence<Value> {
+/// A pull-based iterator whose `next` may throw — lazy Sequence pulls
+/// run swiftalk code (round 41), and swiftalk code errors.
+final class ValueIterator {
+    private let nextImpl: () throws -> Value?
+    init(_ next: @escaping () throws -> Value?) {
+        self.nextImpl = next
+    }
+    func next() throws -> Value? {
+        try nextImpl()
+    }
+}
+
+func iterator(of sequence: Value) throws -> ValueIterator {
     switch sequence {
     case .array(let a):
-        return AnySequence(a)
+        var it = a.makeIterator()
+        return ValueIterator { it.next() }
     case .string(let s):
-        return AnySequence(s.lazy.map { .string(String($0)) })
+        var it = s.makeIterator()
+        return ValueIterator { it.next().map { .string(String($0)) } }
     case .dictionary(let d):
-        return AnySequence(d.lazy.map { .array([$0.key, $0.value]) })
+        var it = d.makeIterator()
+        return ValueIterator { it.next().map { .array([$0.key, $0.value]) } }
     case .range(let lower, let upper, let closed):
-        return closed
-            ? AnySequence((lower...upper).lazy.map { Value.int($0) })
-            : AnySequence((lower..<upper).lazy.map { Value.int($0) })
+        var current = lower
+        var exhausted = false
+        return ValueIterator {
+            if exhausted { return nil }
+            if closed {
+                let v = current
+                if current == upper { exhausted = true } else { current += 1 }
+                return .int(v)
+            }
+            guard current < upper else {
+                exhausted = true
+                return nil
+            }
+            let v = current
+            current += 1
+            return .int(v)
+        }
+    case .sequence(let s):
+        return s.makeIterator()
     default:
         throw SwiftalkError.type("cannot iterate a \(sequence.typeName)")
+    }
+}
+
+/// Materializes any Sequence conformer eagerly (the caller's rope for
+/// infinite ones).
+func collect(_ sequence: Value) throws -> [Value] {
+    var out: [Value] = []
+    let it = try iterator(of: sequence)
+    while let element = try it.next() {
+        out.append(element)
+    }
+    return out
+}
+
+extension SequenceObject {
+    /// A fresh pull-iteration. Generators restart from their initial
+    /// state each time — a Sequence value is re-iterable, like any value.
+    func makeIterator() -> ValueIterator {
+        switch kind {
+        case .generator(let initial, let next):
+            var state = initial
+            var done = false
+            return ValueIterator {
+                if done { return nil }
+                let (element, local) = try run(next, ordered: state)
+                if element == .nil {
+                    done = true      // returning nil ends the sequence
+                    return nil
+                }
+                guard case .array(let newState) = try local.lookup("$") else {
+                    throw SwiftalkError.type("a Sequence generator's '$' must stay an Array")
+                }
+                state = newState
+                return element
+            }
+        case .mapped(let base, let fn):
+            let it = base.makeIterator()
+            return ValueIterator {
+                try it.next().map { try apply(fn, args: [(nil, $0)]) }
+            }
+        case .filtered(let base, let fn):
+            let it = base.makeIterator()
+            return ValueIterator {
+                while let element = try it.next() {
+                    guard case .bool(let keep) = try apply(fn, args: [(nil, element)]) else {
+                        throw SwiftalkError.type("the .filter Function must return a Bool")
+                    }
+                    if keep { return element }
+                }
+                return nil
+            }
+        }
     }
 }
 
@@ -588,7 +682,13 @@ func apply(_ fn: FunctionObject, args: [(label: String?, value: Value)]) throws 
     if let builtin = fn.builtin {
         return try builtin(ordered)
     }
+    return try run(fn, ordered: ordered).result
+}
 
+/// Runs a non-builtin function body and also hands back its local
+/// environment — generators (round 41) read the closure's final `$`
+/// from it as the next state.
+func run(_ fn: FunctionObject, ordered: [Value]) throws -> (result: Value, local: Environment) {
     let local = Environment(parent: fn.closure)
     for (name, value) in zip(fn.parameters, ordered) {
         try local.declare(name, Binding(
@@ -596,12 +696,20 @@ func apply(_ fn: FunctionObject, args: [(label: String?, value: Value)]) throws 
             lock: TypeAnnotation(name: value.typeName, optional: true),
             value: value))
     }
-    // `$` — per-closure, shadowing any outer one (§2.4). `$N` needs no
-    // bindings of its own: the parser desugars it to `$[N]`, literally.
+    // `$` — per-closure, shadowing any outer one (§2.4) — is a *var*
+    // since round 41 (Array-locked): generators reassign it to advance
+    // their state. `$N` are entry snapshots of the arguments; `$N` ==
+    // `$[N]` holds until `$` is reassigned.
     try local.declare("$", Binding(
-        mutable: false,
+        mutable: true,
         lock: TypeAnnotation(name: "Array", optional: false),
         value: .array(ordered)))
+    for (index, value) in ordered.enumerated() {
+        try local.declare("$\(index)", Binding(
+            mutable: false,
+            lock: TypeAnnotation(name: value.typeName, optional: true),
+            value: value))
+    }
     try local.declare(calleeKey, Binding(
         mutable: false,
         lock: TypeAnnotation(name: "Function", optional: false),
@@ -612,10 +720,12 @@ func apply(_ fn: FunctionObject, args: [(label: String?, value: Value)]) throws 
         for statement in fn.body {
             last = try execute(statement, in: local)
         }
+    } catch let signal as ReturnSignal {
+        return (signal.value, local)
     } catch is ControlFlow {
         throw SwiftalkError.syntax("'break'/'continue' outside a loop")
     }
-    return last
+    return (last, local)
 }
 
 /// Same-type arithmetic only (Design.md §3): `1 + 1.5` is a type error,
@@ -704,7 +814,13 @@ private func method(on receiver: Value, name: String,
     // `.conforms(to:)` is the one member with a label; everything else
     // takes bare values.
     if (name, called) == ("conforms", true) {
-        guard case .function(let t) = receiver, case .type(let typeName) = t.role else {
+        guard case .function(let t) = receiver else {
+            throw SwiftalkError.type("'.conforms(to:)' is a question asked of a type")
+        }
+        let typeName: String
+        switch t.role {
+        case .type(let n), .protocol(let n): typeName = n
+        case .plain:
             throw SwiftalkError.type("'.conforms(to:)' is a question asked of a type")
         }
         guard labeledArgs.count == 1, labeledArgs[0].label == nil || labeledArgs[0].label == "to" else {
@@ -726,7 +842,9 @@ private func method(on receiver: Value, name: String,
         // x.Type (round 40; né x.type) — the constructor Function, à la
         // JS's .constructor: the singleton the global name binds, so
         // x.Type == Int compares identity. A type's own .Type is Function.
-        return .function(Builtins.types[receiver.typeName]!)
+        // A lazy sequence's .Type is Sequence (round 41).
+        return .function(Builtins.types[receiver.typeName]
+                         ?? Builtins.protocols[receiver.typeName]!)
     case ("name", false):
         // Functions are anonymous, but constructors MUST have a .name
         // (round 40) — protocols carry theirs too; a plain {} has nil.
@@ -744,6 +862,9 @@ private func method(on receiver: Value, name: String,
         case .dictionary(let d): return .int(Int64(d.count))
         case .range(let lower, let upper, let closed):
             return .int(try rangeCount(from: lower, to: upper, closed: closed))
+        case .sequence:
+            throw SwiftalkError.type(
+                "a Sequence may be infinite — take .prefix(n) or .Array() it deliberately")
         default:
             throw SwiftalkError.unknownMember("\(receiver.typeName).count")
         }
@@ -753,7 +874,18 @@ private func method(on receiver: Value, name: String,
         guard args.isEmpty else {
             throw SwiftalkError.type(".Array() takes no arguments")
         }
-        return .array(Array(try elements(of: receiver)))
+        return .array(try collect(receiver))
+    case ("prefix", true):
+        // The lazy world's terminal (round 41): materialize the first n.
+        guard args.count == 1, case .int(let n) = args[0], n >= 0 else {
+            throw SwiftalkError.type(".prefix(n) takes one non-negative Int")
+        }
+        var out: [Value] = []
+        let it = try iterator(of: receiver)
+        while out.count < Int(n), let element = try it.next() {
+            out.append(element)
+        }
+        return .array(out)
     case ("description", false):
         // print's form: Strings bare, everything else source form.
         return .string(displayString(receiver))
@@ -764,16 +896,31 @@ private func method(on receiver: Value, name: String,
         guard args.count == 1, case .function(let fn) = args[0] else {
             throw SwiftalkError.type(".map takes a single Function")
         }
-        return .array(try elements(of: receiver).map { try apply(fn, args: [(nil, $0)]) })
+        // Lazy by default on Sequence values (round 41): map defers.
+        if case .sequence(let base) = receiver {
+            return .sequence(SequenceObject(kind: .mapped(base, fn)))
+        }
+        var out: [Value] = []
+        let it = try iterator(of: receiver)
+        while let element = try it.next() {
+            out.append(try apply(fn, args: [(nil, element)]))
+        }
+        return .array(out)
     case ("filter", true):
         guard args.count == 1, case .function(let fn) = args[0] else {
             throw SwiftalkError.type(".filter takes a single Function")
         }
-        let kept = try elements(of: receiver).filter {
-            guard case .bool(let keep) = try apply(fn, args: [(nil, $0)]) else {
+        // Lazy by default on Sequence values (round 41): filter defers.
+        if case .sequence(let base) = receiver {
+            return .sequence(SequenceObject(kind: .filtered(base, fn)))
+        }
+        var kept: [Value] = []
+        let it = try iterator(of: receiver)
+        while let element = try it.next() {
+            guard case .bool(let keep) = try apply(fn, args: [(nil, element)]) else {
                 throw SwiftalkError.type("the .filter Function must return a Bool")
             }
-            return keep
+            if keep { kept.append(element) }
         }
         switch receiver {
         case .string:
@@ -794,7 +941,8 @@ private func method(on receiver: Value, name: String,
             throw SwiftalkError.type(".reduce takes an initial value and a Function")
         }
         var accumulator = args[0]
-        for element in try elements(of: receiver) {
+        let it = try iterator(of: receiver)
+        while let element = try it.next() {
             accumulator = try apply(fn, args: [(nil, accumulator), (nil, element)])
         }
         return accumulator

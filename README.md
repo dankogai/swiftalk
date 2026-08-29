@@ -190,6 +190,17 @@ swiftalk> make(Double, "3.14")
 3.14
 ```
 
+**Lazy Sequences** are in — lazy *by default*, unlike Swift's opt-in
+`.lazy`: `Sequence(state) { next }` generates, `map`/`filter` defer,
+`.prefix(n)` materializes:
+
+```text
+swiftalk> let fib = Sequence([0, 1]) { $ = [$1, $0 + $1]; return $1 }.map { "\($0)" }
+Sequence { ... }
+swiftalk> fib.prefix(8)
+["1", "1", "2", "3", "5", "8", "13", "21"]
+```
+
 ```sh
 swift test
 ```
