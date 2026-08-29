@@ -117,15 +117,22 @@ Further decisions:
   compile-time checking may be too hard to promise). Param-less
   `$`-style functions (`{ $.reduce(0) { $0 + $1 } }`) remain variadic —
   that's what `$.count` is for.
-* **A `{}` around a bare constant collapses to the constant**:
-  `{ 42 }` evaluates to `42` (so `{ 42 }.type == Int`), and likewise
-  for any other constant — `{ "foo" }` is `"foo"`. Such braces are
-  grouping, not a closure; there is no "constant thunk".
-  (**OPEN — the boundary**: a param-less, `$`-less body that is *not*
-  a constant — `{ x + 1 }` capturing outer `x`, `{ print("hi") }` —
-  presumably remains a deferred zero-arg closure (else trailing-closure
-  APIs like `async { ... }` can't work). Exact rule: constants
-  collapse, everything else defers?)
+* **`{ }` always makes a `Function` — no exceptions.** `{ 42 }` is a
+  zero-parameter function (Swift's `() -> Int`, morally); it is `42`
+  when and only when it is evaluated:
+
+  ```swiftalk
+  { 42 }.type       // Function
+  { 42 }().type     // Int
+  ```
+
+  No constant-collapsing special case — braces are never grouping.
+  Deferred evaluation is thus uniform: `{ expensive() }` is a thunk,
+  and trailing-closure APIs (`async { ... }`) work on anything.
+* Functions are first-class values whose runtime type is **`Function`**
+  (§3b). (**OPEN**: whether `.type` reports just `Function` or a
+  parameterized signature; and whether calling a param-less, `$`-less
+  function with arguments is an arity error or ignored.)
 * **Annotations, Swift-style**: `{ (x: Int, y: Int) -> Int in ... }`
   is allowed; bare names stay fine. Where written, types are enforced
   at runtime per §3.
@@ -204,6 +211,9 @@ Primitives:
   optionally. **No `.utf16` view — UTF-16 needs to go to hell.**
 * **`Data`** — a sequence of unsigned 8-bit bytes, **distinct from
   `String`**. Bytes are bytes; text is text.
+* **`Function`** — the type of every function/closure (§2.4):
+  `{ 42 }.type == Function`, `{ 42 }().type == Int`. Functions are
+  ordinary first-class values.
 
 Collections:
 
@@ -531,3 +541,9 @@ let text   = bytes.String                     // String? — bytes may not be te
   the constant** — `{ 42 }` evals to `42`; applies to any constant
   (§2.4). Opened: the exact boundary for non-constant param-less
   bodies (presumably still deferred closures).
+* **2026-08-29, round 12 — CORRECTS round 11**: no collapsing —
+  **`{ }` always makes a `Function`**. `{ 42 }` is a zero-param
+  function that is `42` only when evaluated: `{42}.type == Function`,
+  `{42}().type == Int` (§2.4). `Function` added to the basic-type
+  roster (§3b). Opened: parameterized signature in `.type`?; args
+  passed to a param-less, `$`-less function.
