@@ -36,7 +36,7 @@ struct InterpolationTests {
     @Test("results are ordinary Strings: type, count, round-trip (§3d)")
     func resultsAreStrings() throws {
         #expect(try eval(#""\(42)".type"#) == .string("String"))
-        #expect(try eval(#""\(1...3)".count"#) == .int(9))   // "[1, 2, 3]"
+        #expect(try eval(#""\(1...3)".count"#) == .int(5))   // "1...3" — Range's own form (round 38)
         let v = try eval(#""quote \" and \(1)""#)
         #expect(try eval(v.sourceString()) == v)             // eval(x.String()) == x
     }

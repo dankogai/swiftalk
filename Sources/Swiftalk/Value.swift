@@ -17,6 +17,11 @@ extension Swiftalk {
         indirect case array([Value])
         indirect case dictionary([Value: Value])
         case function(FunctionObject)
+        /// `Range<I>` (round 38): lazy, first-class, integer-only —
+        /// `I` is Int today, BigInt someday, never Double (a deliberate
+        /// divergence from Swift's versatile Range). `closed` is
+        /// `a...b` vs `a..<b`.
+        case range(from: Int64, to: Int64, closed: Bool)
     }
 
     /// A function value: `{}` is the only function form (Design.md §2.4).
@@ -66,6 +71,7 @@ extension Value {
         case .array:      return "Array"
         case .dictionary: return "Dictionary"
         case .function:   return "Function"
+        case .range:      return "Range"
         }
     }
 
@@ -96,6 +102,11 @@ extension Value {
             // until then, a non-round-tripping placeholder.
             let params = f.parameters.isEmpty ? "" : f.parameters.joined(separator: ", ") + " in "
             return "{ \(params)... }"
+        case .range(let lower, let upper, let closed):
+            // Literal syntax — round-trips through the lexer (§3d).
+            return Value.int(lower).sourceString(debug: debug)
+                + (closed ? "..." : "..<")
+                + Value.int(upper).sourceString(debug: debug)
         case .dictionary(let d):
             if d.isEmpty { return "[:]" }
             // Deterministic output: order entries by their key's source form.

@@ -180,7 +180,7 @@ final class Environment {
 }
 
 private let knownTypeNames: Set<String> =
-    ["Nil", "Bool", "Int", "Double", "String", "Array", "Dictionary", "Function"]
+    ["Nil", "Bool", "Int", "Double", "String", "Array", "Dictionary", "Function", "Range"]
 
 /// The hidden binding through which `$(...)` finds the current function
 /// (§2.4). `@` cannot appear in a swiftalk identifier, so user code can
@@ -306,20 +306,36 @@ private func runLoopBody(_ body: [Stmt], in env: Environment, freshScope: Bool =
     return true
 }
 
-/// What `for`-`in` iterates (§10's Sequence conformers): Array elements;
-/// String graphemes (as single-Character Strings until a Character type
-/// lands); Dictionary [key, value] pairs (until tuples land).
-private func elements(of sequence: Value) throws -> [Value] {
+/// What `for`-`in` (and map/filter/reduce) iterate — the Sequence
+/// conformers of §10: Array elements; String graphemes (as
+/// single-Character Strings until a Character type lands); Dictionary
+/// [key, value] pairs (until tuples land); Range lazily, element by
+/// element — a huge Range never materializes.
+private func elements(of sequence: Value) throws -> AnySequence<Value> {
     switch sequence {
     case .array(let a):
-        return a
+        return AnySequence(a)
     case .string(let s):
-        return s.map { .string(String($0)) }
+        return AnySequence(s.lazy.map { .string(String($0)) })
     case .dictionary(let d):
-        return d.map { .array([$0.key, $0.value]) }
+        return AnySequence(d.lazy.map { .array([$0.key, $0.value]) })
+    case .range(let lower, let upper, let closed):
+        return closed
+            ? AnySequence((lower...upper).lazy.map { Value.int($0) })
+            : AnySequence((lower..<upper).lazy.map { Value.int($0) })
     default:
         throw SwiftalkError.type("cannot iterate a \(sequence.typeName)")
     }
+}
+
+/// A Range's element count, without materializing (overflow-checked:
+/// the full Int64 span has no representable count).
+private func rangeCount(from lower: Int64, to upper: Int64, closed: Bool) throws -> Int64 {
+    let (span, overflow) = upper.subtractingReportingOverflow(lower)
+    guard !overflow, !(closed && span == Int64.max) else {
+        throw SwiftalkError.overflow("this Range's count does not fit in an Int")
+    }
+    return closed ? span + 1 : span
 }
 
 func evaluate(_ expr: Expr, in env: Environment) throws -> Value {
@@ -392,18 +408,16 @@ func evaluate(_ expr: Expr, in env: Environment) throws -> Value {
     case .subscript(let base, let index):
         return try subscriptRead(try evaluate(base, in: env), try evaluate(index, in: env))
     case .range(let op, let lhs, let rhs):
-        // Provisional: ranges are eager [Int] arrays (a lazy Range type
-        // is an open design question). Like Swift, a > b traps.
+        // Range<I> (round 38): a lazy first-class value. Int bounds only
+        // (BigInt someday, Double never). Like Swift, a > b traps.
         guard case .int(let a) = try evaluate(lhs, in: env),
               case .int(let b) = try evaluate(rhs, in: env) else {
-            throw SwiftalkError.type("range bounds must be Ints")
+            throw SwiftalkError.type("Range bounds must be Ints")
         }
         guard a <= b else {
             throw SwiftalkError.type("range lower bound \(a) exceeds upper bound \(b)")
         }
-        return op == "..."
-            ? .array((a...b).map { .int($0) })
-            : .array((a..<b).map { .int($0) })   // a ..< a is empty, as in Swift
+        return .range(from: a, to: b, closed: op == "...")
     case .interpolation(let parts):
         // Swift-style display: a String embeds raw; everything else embeds
         // as its .String() source form (round 23; decided for
@@ -433,6 +447,16 @@ private func subscriptRead(_ container: Value, _ index: Value) throws -> Value {
         return a[Int(i)]
     case .dictionary(let d):
         return d[index] ?? .nil
+    case .range(let lower, let upper, let closed):
+        // Offset subscript: r[i] is the i-th element, bounds-checked.
+        guard case .int(let i) = index else {
+            throw SwiftalkError.type("Range index must be an Int, not \(index.typeName)")
+        }
+        let count = try rangeCount(from: lower, to: upper, closed: closed)
+        guard (0..<count).contains(i) else {
+            throw SwiftalkError.type("index \(i) out of range (count \(count))")
+        }
+        return .int(lower + i)
     case .string:
         throw SwiftalkError.type("String subscripts are undecided (Design.md §11)")
     default:
@@ -672,9 +696,18 @@ private func method(on receiver: Value, name: String, args: [Value], called: Boo
         case .array(let a):      return .int(Int64(a.count))
         case .string(let s):     return .int(Int64(s.count))   // graphemes (§11)
         case .dictionary(let d): return .int(Int64(d.count))
+        case .range(let lower, let upper, let closed):
+            return .int(try rangeCount(from: lower, to: upper, closed: closed))
         default:
             throw SwiftalkError.unknownMember("\(receiver.typeName).count")
         }
+    case ("Array", true):
+        // §3d converter doubling as the Sequence materializer:
+        // seq.Array() collects any Sequence's elements eagerly.
+        guard args.isEmpty else {
+            throw SwiftalkError.type(".Array() takes no arguments")
+        }
+        return .array(Array(try elements(of: receiver)))
     case ("description", false):
         // print's form: Strings bare, everything else source form.
         return .string(displayString(receiver))

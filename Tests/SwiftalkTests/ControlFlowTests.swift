@@ -57,11 +57,11 @@ struct ControlFlowTests {
         #expect(throws: SwiftalkError.self) { try eval("for x in [1] { x = 2 }") }
     }
 
-    @Test("ranges: ... and ..< (eager [Int] for now)")
+    @Test("ranges: ... and ..< as first-class lazy Range values (round 38)")
     func ranges() throws {
-        #expect(try eval("(1...5) == [1, 2, 3, 4, 5]") == .bool(true))
-        #expect(try eval("(1..<5) == [1, 2, 3, 4]") == .bool(true))
-        #expect(try eval("(3..<3) == []") == .bool(true))
+        #expect(try eval("(1...5).Array() == [1, 2, 3, 4, 5]") == .bool(true))
+        #expect(try eval("(1..<5).Array() == [1, 2, 3, 4]") == .bool(true))
+        #expect(try eval("(3..<3).count") == .int(0))
         #expect(try eval("(1...5).count") == .int(5))
         #expect(try eval("(1...3)[0]") == .int(1))
         #expect(throws: SwiftalkError.self) { try eval("3...1") }

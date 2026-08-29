@@ -151,6 +151,20 @@ swiftalk> debugPrint(255, 255.0)   // debugDescription is hex, for the programme
 0xff 0x1.fep7
 ```
 
+**`Range` and `Sequence`** are in — `Range` is first-class and lazy
+(`Int` bounds only; `BigInt` someday, `Double` never), and `Array`,
+`String`, `Dictionary`, `Range` uniformly drive `for`-`in`,
+`map`/`filter`/`reduce`, `.count`, and `.Array()`:
+
+```text
+swiftalk> (1...1000000000000).count      // lazy — O(1), no array behind it
+1000000000000
+swiftalk> let r = 5..<10
+5..<10
+swiftalk> r.Array()
+[5, 6, 7, 8, 9]
+```
+
 ```sh
 swift test
 ```

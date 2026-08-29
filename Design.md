@@ -247,6 +247,13 @@ Primitives:
 * **`Date`** — joined the roster in round 17 as a consequence of
   `Primitives`' SION-completeness (§3c): SION carries dates natively,
   so swiftalk does too. Representation/literals **OPEN**.
+* **`Range`** — first-class and **lazy** (round 38): `a...b` / `a..<b`.
+  Spelled `Range<I>` in the design: `I` is `Int` today, `BigInt`
+  someday (unimplemented), and **never `Double`** — a deliberate
+  narrowing of Swift's more versatile `Range`. Conforms to `Sequence`
+  (§10); prints as its literal, so it round-trips (§3d); **not** part
+  of `Primitives`/SION (§3c) — it is a language value, not an
+  interchange value; `.Array()` materializes it when needed.
 * **`Function`** — the **one** type of every function/closure (§2.4):
   `{ 42 }.type == Function`, `{ 42 }().type == Int`. Signatures are
   not part of the type (unlike Swift's `(Int, Int) -> Int` zoo);
@@ -986,3 +993,19 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   types (`String.filter` → `String`, `Dictionary.filter` →
   `Dictionary`). §14's opening example, `(1...20).reduce(1) { $0 * $1 }`,
   now runs verbatim.
+* **2026-08-29, round 38 — `Range` decided and `Sequence`
+  implemented.** *(Supersedes round 33's eager-array provisional.)*
+  **`Range` is a first-class lazy type, `Range<I>`**: `I` accepts
+  only `Int` today, is designed to admit `BigInt` someday (BigInt
+  stays unimplemented), and never `Double` — narrowing Swift's
+  versatile `Range` on purpose. `(1...10^12).count` is O(1); huge
+  ranges iterate without materializing; offset subscript `r[i]`;
+  prints as its literal (`"1...5"` — round-trips, hex in
+  debugDescription); not in `Primitives`/SION — a language value,
+  not an interchange value. **`Sequence` is now uniform behavior**
+  over its four conformers — `Array`, `String`, `Dictionary`,
+  `Range` — all driving `for`-`in`, `map`/`filter`/`reduce`,
+  `.count`, and **`.Array()`**, the §3d converter doubling as the
+  Sequence materializer. Iteration is lazy underneath (a Swift
+  `AnySequence`). User-visible `conforms(to: Sequence)` awaits
+  types-as-constructor-Functions (§10, round 25).
