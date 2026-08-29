@@ -5,10 +5,10 @@ import Testing
 struct FunctionTests {
     @Test("{} always makes a Function; it is its value only when evaluated (round 12)")
     func braceMeansFunction() throws {
-        #expect(try eval("{ 42 }.type") == .string("Function"))
+        #expect(try eval("{ 42 }.type == Function") == .bool(true))
         #expect(try eval("{ 42 }()") == .int(42))
-        #expect(try eval("{ 42 }().type") == .string("Int"))
-        #expect(try eval("let f = { 42 }\nf.type") == .string("Function"))
+        #expect(try eval("{ 42 }().type == Int") == .bool(true))
+        #expect(try eval("let f = { 42 }\nf.type == Function") == .bool(true))
     }
 
     @Test("named parameters; labels optional, reorderable, mixable (§2.3)")

@@ -5,7 +5,7 @@ import Testing
 struct RangeTests {
     @Test("Range is its own type — not an Array")
     func rangeIsAType() throws {
-        #expect(try eval("(1...5).type") == .string("Range"))
+        #expect(try eval("(1...5).type == Range") == .bool(true))
         #expect(try eval("1...5") == .range(from: 1, to: 5, closed: true))
         #expect(try eval("1..<5") == .range(from: 1, to: 5, closed: false))
         #expect(try eval("(1...5) == (1...5)") == .bool(true))

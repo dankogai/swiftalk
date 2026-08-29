@@ -12,7 +12,7 @@ indirect enum Expr {
     case function(parameters: [String], body: [Stmt])
     case call(Expr, args: [(label: String?, expr: Expr)])
     case selfCall(args: [(label: String?, expr: Expr)])   // $(...) — recurse (§2.4)
-    case method(Expr, name: String, args: [Expr], called: Bool)
+    case method(Expr, name: String, args: [(label: String?, expr: Expr)], called: Bool)
     case `subscript`(Expr, Expr)                          // a[i], d[k]; $0 ≡ $[0]
     case range(String, Expr, Expr)                        // a...b / a..<b (§: eager [Int] for now)
     case interpolation([Expr])                            // "a\(x)b" — parts concatenate
@@ -307,19 +307,11 @@ struct Parser {
                 guard case .identifier(let name)? = advance() else {
                     throw SwiftalkError.syntax("expected member name after '.'")
                 }
-                var args: [Expr] = []
+                var args: [(label: String?, expr: Expr)] = []
                 var called = false
                 if case .punct("(")? = peek {
                     called = true
-                    pos += 1
-                    try withTrailing(true) {
-                        if $0.peek != .punct(")") {
-                            repeat {
-                                args.append(try $0.parseExpr())
-                            } while $0.consumeComma(closing: ")")
-                        }
-                    }
-                    try expect(")")
+                    args = try parseCallArguments()
                 }
                 expr = .method(expr, name: name, args: args, called: called)
             case .punct("("):
@@ -352,7 +344,7 @@ struct Parser {
     private static func attachTrailing(_ closure: Expr, to expr: Expr) -> Expr {
         switch expr {
         case .method(let receiver, let name, var args, _):
-            args.append(closure)
+            args.append((nil, closure))
             return .method(receiver, name: name, args: args, called: true)
         case .call(let callee, var args):
             args.append((nil, closure))

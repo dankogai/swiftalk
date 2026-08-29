@@ -44,6 +44,15 @@ extension Swiftalk {
                 box.write(args.map { $0.sourceString(debug: true) }.joined(separator: " ") + "\n")
                 return .nil
             }
+            // Types and protocols are values too (round 39): the global
+            // names Int, String, ..., Sequence, ... bind the singleton
+            // objects that `.type` returns — identity comparison works.
+            for (name, object) in Builtins.types.merging(Builtins.protocols, uniquingKeysWith: { a, _ in a }) {
+                try! environment.declare(name, Binding(
+                    mutable: false,
+                    lock: TypeAnnotation(name: "Function", optional: false),
+                    value: .function(object)))
+            }
         }
 
         private func declareBuiltin(_ name: String, _ body: @escaping ([Value]) throws -> Value) {
@@ -311,7 +320,7 @@ private func runLoopBody(_ body: [Stmt], in env: Environment, freshScope: Bool =
 /// single-Character Strings until a Character type lands); Dictionary
 /// [key, value] pairs (until tuples land); Range lazily, element by
 /// element — a huge Range never materializes.
-private func elements(of sequence: Value) throws -> AnySequence<Value> {
+func elements(of sequence: Value) throws -> AnySequence<Value> {
     switch sequence {
     case .array(let a):
         return AnySequence(a)
@@ -389,8 +398,8 @@ func evaluate(_ expr: Expr, in env: Environment) throws -> Value {
     case .method(let receiverExpr, "remove", let argExprs, true):
         // d.remove(k) mutates (round 37): the receiver must be an
         // assignable var path; the removed value (or nil) comes back.
-        guard argExprs.count == 1 else {
-            throw SwiftalkError.type(".remove(key) takes exactly one argument")
+        guard argExprs.count == 1, argExprs[0].label == nil else {
+            throw SwiftalkError.type(".remove(key) takes exactly one unlabeled argument")
         }
         guard case .dictionary(var d) = try evaluate(receiverExpr, in: env) else {
             throw SwiftalkError.unknownMember(
@@ -399,12 +408,13 @@ func evaluate(_ expr: Expr, in env: Environment) throws -> Value {
         guard let target = asLValue(receiverExpr) else {
             throw SwiftalkError.type("cannot mutate an immutable Dictionary — bind it to a var first")
         }
-        let removed = d.removeValue(forKey: try evaluate(argExprs[0], in: env)) ?? .nil
+        let removed = d.removeValue(forKey: try evaluate(argExprs[0].expr, in: env)) ?? .nil
         try assign(target, .dictionary(d), in: env)
         return removed
     case .method(let receiver, let name, let args, let called):
         return try method(on: try evaluate(receiver, in: env), name: name,
-                          args: try args.map { try evaluate($0, in: env) }, called: called)
+                          args: try args.map { ($0.label, try evaluate($0.expr, in: env)) },
+                          called: called)
     case .subscript(let base, let index):
         return try subscriptRead(try evaluate(base, in: env), try evaluate(index, in: env))
     case .range(let op, let lhs, let rhs):
@@ -680,7 +690,32 @@ private func compare(_ op: String, _ lhs: Value, _ rhs: Value) throws -> Value {
 
 /// Members so far: `.String()` (the round-trip law, §3d), `.type` (§3,
 /// as a name for now), and `.count` on the Sequence conformers (§10).
-private func method(on receiver: Value, name: String, args: [Value], called: Bool) throws -> Value {
+/// Rejects labeled arguments where a member takes none, yielding the
+/// bare values.
+private func plainValues(_ args: [(label: String?, value: Value)], for member: String) throws -> [Value] {
+    if let label = args.compactMap(\.label).first {
+        throw SwiftalkError.type("\(member) takes no argument label '\(label)'")
+    }
+    return args.map(\.value)
+}
+
+private func method(on receiver: Value, name: String,
+                    args labeledArgs: [(label: String?, value: Value)], called: Bool) throws -> Value {
+    // `.conforms(to:)` is the one member with a label; everything else
+    // takes bare values.
+    if (name, called) == ("conforms", true) {
+        guard case .function(let t) = receiver, case .type(let typeName) = t.role else {
+            throw SwiftalkError.type("'.conforms(to:)' is a question asked of a type")
+        }
+        guard labeledArgs.count == 1, labeledArgs[0].label == nil || labeledArgs[0].label == "to" else {
+            throw SwiftalkError.type(".conforms(to:) takes exactly one argument")
+        }
+        guard case .function(let p) = labeledArgs[0].value, case .protocol(let protoName) = p.role else {
+            throw SwiftalkError.type("the argument to .conforms(to:) must be a protocol")
+        }
+        return .bool(Builtins.conformance[protoName]?.contains(typeName) ?? false)
+    }
+    let args = try plainValues(labeledArgs, for: ".\(name)")
     switch (name, called) {
     case ("String", true):
         guard args.isEmpty else {
@@ -688,9 +723,10 @@ private func method(on receiver: Value, name: String, args: [Value], called: Boo
         }
         return .string(receiver.sourceString())
     case ("type", false):
-        // Types will become constructor Functions (§10); until Function
-        // lands as a constructor, .type evaluates to the type's name.
-        return .string(receiver.typeName)
+        // Types are constructor Functions (§10, round 39): .type yields
+        // the singleton the global name binds — x.type == Int compares
+        // identity. A type's own .type is Function.
+        return .function(Builtins.types[receiver.typeName]!)
     case ("count", false):
         switch receiver {
         case .array(let a):      return .int(Int64(a.count))

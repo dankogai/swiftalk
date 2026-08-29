@@ -204,10 +204,12 @@ and most especially JavaScript):
 Details:
 
 * Presumably annotations are allowed and enforced: `var x: Int = 1`.
-* **`x.type` is first-class** (decided round 25, §10): types are
-  constructor `Function`s — `x.type == Int` compares, `Int("42")`-style
-  construction calls, `.conforms(to:)` tests protocol conformance.
-  (**OPEN**: whether `is` / `as?` / `as!` also survive as sugar.)
+* **`x.type` is first-class** (decided round 25, §10; **implemented
+  round 39**): types are constructor `Function`s — `x.type == Int`
+  compares identity against the very object the global `Int` binds,
+  `Int("42")`-style construction calls, `.conforms(to:)` tests
+  protocol conformance. (**OPEN**: whether `is` / `as?` / `as!` also
+  survive as sugar.)
 
 ### 3b. Basic types — DECIDED (core)
 
@@ -1009,3 +1011,24 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   Sequence materializer. Iteration is lazy underneath (a Swift
   `AnySequence`). User-visible `conforms(to: Sequence)` awaits
   types-as-constructor-Functions (§10, round 25).
+* **2026-08-29, round 39 — types as constructor Functions with
+  `.conforms(to:)`, implemented** (§10, rounds 25/26 made real).
+  `x.type` now returns **the constructor itself** — the singleton the
+  global name binds — so `42.type == Int` is identity comparison, and
+  a type's name round-trips (`eval("Int").String() == "Int"`).
+  `Type()` gives Swift-style defaults (`Int() == 0`, `String() == ""`);
+  `Type(x)` converts — identity from the same type, `nil` where the
+  *value* can't convert (`Int("x")`), a type error where the source
+  *type* never converts (`Int([1])`). `Int(s)` accepts everything the
+  lexer does (`0x/0o/0b`, `_`); **`Double(s)` parses hex floats** —
+  `Double("0x1.fep7") == 255.0` — closing the debugDescription round
+  trip through the constructor (hex-float *literals* in source remain
+  unlexable, OPEN). Protocols are values too (`Sequence`, `Equatable`,
+  `Hashable`, `Comparable`; calling one is an error);
+  `.conforms(to:)` — label optional per §2.3 — reads the conformance
+  table: Sequence = the four iterables, Comparable = Int/Double/String,
+  Equatable/Hashable = everything. Types are ordinary values: bind
+  them, pass them (`make(Int, "7")`), use them as dictionary keys.
+  Method calls gained labeled arguments along the way. Noted
+  asymmetry, decided: `String(x)` is *description* (so `String("a")`
+  is identity), while `x.String()` is source form (quoting).

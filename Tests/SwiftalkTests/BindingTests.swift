@@ -34,15 +34,15 @@ struct BindingTests {
         #expect(try eval("var x: Int = 1\nx + 1") == .int(2))
         #expect(throws: SwiftalkError.self) { try eval("var x: Int = 1.5") }
         #expect(throws: SwiftalkError.self) { try eval("var x: Nonsense = 1") }
-        #expect(try eval("let d: Dictionary = [\"a\": 1]\nd.type") == .string("Dictionary"))
+        #expect(try eval("let d: Dictionary = [\"a\": 1]\nd.type == Dictionary") == .bool(true))
     }
 
     @Test("flat optionals: Int? admits Int and nil; bare nil has nothing to infer (§3a)")
     func optionals() throws {
         #expect(try eval("var x: Int? = nil\nx = 2\nx") == .int(2))
         #expect(try eval("var x: Int? = 2\nx = nil\nx") == .nil)
-        #expect(try eval("var x: Int? = 2\nx.type") == .string("Int"))   // flat — never Optional<Int>
-        #expect(try eval("var x: Int? = nil\nx.type") == .string("Nil"))
+        #expect(try eval("var x: Int? = 2\nx.type == Int") == .bool(true))   // flat — never Optional<Int>
+        #expect(try eval("var x: Int? = nil\nx.type == Nil") == .bool(true))
         #expect(throws: SwiftalkError.self) { try eval("var x: Int? = \"s\"") }
         #expect(throws: SwiftalkError.self) { try eval("var x = nil") }
     }

@@ -30,17 +30,28 @@ extension Swiftalk {
     /// Built-ins (`print`, ...) are the same type with a Swift closure
     /// for a body — the stdlib arrives as ordinary Function values.
     public final class FunctionObject: Hashable {
+        /// What this Function stands for beyond being callable: types
+        /// are constructor Functions and protocols are values too
+        /// (§10, round 39).
+        enum Role {
+            case plain
+            case type(String)
+            case `protocol`(String)
+        }
+
         let parameters: [String]      // empty means variadic (round 14)
         let body: [Stmt]
         let closure: Environment      // lexical capture
         let builtin: (([Value]) throws -> Value)?
+        let role: Role
 
         init(parameters: [String], body: [Stmt], closure: Environment,
-             builtin: (([Value]) throws -> Value)? = nil) {
+             builtin: (([Value]) throws -> Value)? = nil, role: Role = .plain) {
             self.parameters = parameters
             self.body = body
             self.closure = closure
             self.builtin = builtin
+            self.role = role
         }
 
         public static func == (lhs: FunctionObject, rhs: FunctionObject) -> Bool {
@@ -98,10 +109,17 @@ extension Value {
         case .array(let a):
             return "[" + a.map { $0.sourceString(debug: debug) }.joined(separator: ", ") + "]"
         case .function(let f):
-            // Function.String() as source text is OPEN (Design.md §3d);
+            // A type or protocol prints as its name — which round-trips,
+            // since eval("Int") is the very same value (round 39).
+            // Ordinary Function.String() as source text is OPEN (§3d);
             // until then, a non-round-tripping placeholder.
-            let params = f.parameters.isEmpty ? "" : f.parameters.joined(separator: ", ") + " in "
-            return "{ \(params)... }"
+            switch f.role {
+            case .type(let name), .protocol(let name):
+                return name
+            case .plain:
+                let params = f.parameters.isEmpty ? "" : f.parameters.joined(separator: ", ") + " in "
+                return "{ \(params)... }"
+            }
         case .range(let lower, let upper, let closed):
             // Literal syntax — round-trips through the lexer (§3d).
             return Value.int(lower).sourceString(debug: debug)

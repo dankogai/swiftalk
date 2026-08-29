@@ -165,6 +165,27 @@ swiftalk> r.Array()
 [5, 6, 7, 8, 9]
 ```
 
+**Types are constructor `Function`s** — `.type` returns the
+constructor itself, `Type()` constructs, and `.conforms(to:)` asks
+the protocol table:
+
+```text
+swiftalk> 42.type
+Int
+swiftalk> 42.type == Int
+true
+swiftalk> Int("0xff")
+255
+swiftalk> Double("0x1.fep7")
+255.0
+swiftalk> Array.conforms(to: Sequence)
+true
+swiftalk> let make = { T, s in T(s) }
+{ T, s in ... }
+swiftalk> make(Double, "3.14")
+3.14
+```
+
 ```sh
 swift test
 ```
