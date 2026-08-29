@@ -109,6 +109,17 @@ swiftalk> fib(93)
 overflow: 4660046610375530309 + 7540113804746346429
 ```
 
+**String interpolation** is in, Swift-style:
+
+```text
+swiftalk> let greet = { name in "hello, \(name)!" }
+{ name in ... }
+swiftalk> greet("swiftalk")
+"hello, swiftalk!"
+swiftalk> "0.1 + 0.2 = \(0.1 + 0.2), exactly"
+"0.1 + 0.2 = 0.30000000000000004, exactly"
+```
+
 ```sh
 swift test
 ```

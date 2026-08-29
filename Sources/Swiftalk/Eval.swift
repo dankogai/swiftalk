@@ -339,6 +339,18 @@ func evaluate(_ expr: Expr, in env: Environment) throws -> Value {
         return op == "..."
             ? .array((a...b).map { .int($0) })
             : .array((a..<b).map { .int($0) })   // a ..< a is empty, as in Swift
+    case .interpolation(let parts):
+        // Swift-style display: a String embeds raw; everything else embeds
+        // as its .String() source form (round 23; decided for
+        // interpolation, `print` proper still OPEN).
+        var out = ""
+        for part in parts {
+            switch try evaluate(part, in: env) {
+            case .string(let s): out += s
+            case let v:          out += v.sourceString()
+            }
+        }
+        return .string(out)
     }
 }
 

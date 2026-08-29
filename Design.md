@@ -936,3 +936,12 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   `[Int]` arrays (`a > b` traps as in Swift) — **OPEN**: a real lazy
   `Range` type, its place in `Primitives`/SION, `Comparable`
   generalization.
+* **2026-08-29, round 34 — string interpolation, Swift-style.**
+  `"\(expr)"` with any expression inside (calls, subscripts, ternary,
+  `$`), nested strings-in-interpolations to arbitrary depth, `\\(`
+  staying a literal. **Display decision (partially answers round
+  23's OPEN)**: inside interpolation a `String` embeds *raw*
+  (`"\("a")"` is `"a"`), every other type embeds as its `.String()`
+  source form — exactly Swift's `description` behavior. What bare
+  `print()` does — and indeed adding `print()` at all, as the first
+  built-in function value in the global environment — remains OPEN.

@@ -27,10 +27,19 @@ enum Token: Equatable {
     case int(Int64)
     case double(Double)
     case string(String)
+    case interpolated([StringSegment])   // "a\(expr)b" (§2.5, Swift-style)
     case identifier(String)   // also keywords (true/false/nil/let/var/in) and $ / $0 / $1 ...
     case punct(Character)     // [ ] ( ) { } : , . + - * / = ? ;
     case op(String)           // == != < <= > >=
     case newline              // statement separator (suppressed inside [ and ()
+}
+
+/// One piece of an interpolated string literal: literal text, or the
+/// tokens of an embedded `\(...)` expression (lexed here, parsed by a
+/// sub-parser).
+enum StringSegment: Equatable {
+    case literal(String)
+    case interpolation([Token])
 }
 
 struct Lexer {
@@ -123,7 +132,7 @@ struct Lexer {
                     tokens.append(.punct("."))
                 }
             case "\"":
-                tokens.append(.string(try lexString()))
+                tokens.append(try lexStringToken())
             case "0"..."9":
                 tokens.append(try lexNumber())
             case let c where c.properties.isAlphabetic || c == "_":
@@ -161,35 +170,103 @@ struct Lexer {
         return name
     }
 
-    private mutating func lexString() throws -> String {
+    /// Lexes a string literal; `\(...)` makes it an interpolated token
+    /// whose expression parts are captured as sub-token streams.
+    private mutating func lexStringToken() throws -> Token {
         pos += 1  // consume opening quote
-        var out = ""
+        var segments: [StringSegment] = []
+        var current = ""
         while true {
             guard let c = advance() else {
                 throw SwiftalkError.syntax("unterminated string literal")
             }
             switch c {
             case "\"":
-                return out
+                guard !segments.isEmpty else { return .string(current) }
+                if !current.isEmpty { segments.append(.literal(current)) }
+                return .interpolated(segments)
             case "\\":
                 guard let e = advance() else {
                     throw SwiftalkError.syntax("unterminated escape sequence")
                 }
                 switch e {
-                case "\"": out.append("\"")
-                case "\\": out.append("\\")
-                case "n":  out.append("\n")
-                case "r":  out.append("\r")
-                case "t":  out.append("\t")
-                case "0":  out.append("\0")
-                case "u":  out.unicodeScalars.append(try lexUnicodeEscape())
+                case "(":
+                    if !current.isEmpty {
+                        segments.append(.literal(current))
+                        current = ""
+                    }
+                    var sub = Lexer(try scanInterpolation())
+                    segments.append(.interpolation(try sub.tokenize()))
+                case "\"": current.append("\"")
+                case "\\": current.append("\\")
+                case "n":  current.append("\n")
+                case "r":  current.append("\r")
+                case "t":  current.append("\t")
+                case "0":  current.append("\0")
+                case "u":  current.unicodeScalars.append(try lexUnicodeEscape())
                 default:
                     throw SwiftalkError.syntax("unknown escape sequence '\\\(e)'")
                 }
             default:
-                out.unicodeScalars.append(c)
+                current.unicodeScalars.append(c)
             }
         }
+    }
+
+    /// Captures the source between `\(` and its matching `)`, respecting
+    /// nested parentheses and nested string literals (which may themselves
+    /// interpolate — recursion handles arbitrary depth).
+    private mutating func scanInterpolation() throws -> String {
+        var out = ""
+        var depth = 1
+        while let c = peek {
+            switch c {
+            case "(":
+                depth += 1
+                out.append("(")
+                pos += 1
+            case ")":
+                depth -= 1
+                pos += 1
+                if depth == 0 { return out }
+                out.append(")")
+            case "\"":
+                out += try scanNestedString()
+            default:
+                out.unicodeScalars.append(c)
+                pos += 1
+            }
+        }
+        throw SwiftalkError.syntax("unterminated '\\(' interpolation")
+    }
+
+    /// Copies a string literal verbatim while scanning an interpolation,
+    /// recursing into any `\(...)` it contains.
+    private mutating func scanNestedString() throws -> String {
+        var out = "\""
+        pos += 1  // consume opening quote
+        while let c = peek {
+            switch c {
+            case "\"":
+                pos += 1
+                return out + "\""
+            case "\\":
+                pos += 1
+                guard let e = peek else { break }
+                if e == "(" {
+                    pos += 1
+                    out += "\\(" + (try scanInterpolation()) + ")"
+                } else {
+                    out += "\\"
+                    out.unicodeScalars.append(e)
+                    pos += 1
+                }
+            default:
+                out.unicodeScalars.append(c)
+                pos += 1
+            }
+        }
+        throw SwiftalkError.syntax("unterminated string literal")
     }
 
     private mutating func lexUnicodeEscape() throws -> Unicode.Scalar {

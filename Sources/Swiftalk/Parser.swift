@@ -15,6 +15,7 @@ indirect enum Expr {
     case method(Expr, name: String, args: [Expr], called: Bool)
     case `subscript`(Expr, Expr)                          // a[i], d[k]; $0 ≡ $[0]
     case range(String, Expr, Expr)                        // a...b / a..<b (§: eager [Int] for now)
+    case interpolation([Expr])                            // "a\(x)b" — parts concatenate
 }
 
 /// An assignment target: a variable, or a subscript path rooted in one
@@ -153,6 +154,16 @@ struct Parser {
             pos += 1
             return .assignment(target: try lvalue(from: expr), expr: try parseExpr())
         }
+    }
+
+    /// Parses one `\(...)` interpolation body: a single expression,
+    /// nothing trailing.
+    mutating func parseInterpolatedExpr() throws -> Expr {
+        let expr = try parseExpr()
+        guard pos == tokens.count else {
+            throw SwiftalkError.syntax("'\\(...)' takes a single expression")
+        }
+        return expr
     }
 
     /// `if condition { … } [else if … | else { … }]` — Swift-style.
@@ -349,6 +360,16 @@ struct Parser {
         case .int(let i):     return .literal(.int(i))
         case .double(let d):  return .literal(.double(d))
         case .string(let s):  return .literal(.string(s))
+        case .interpolated(let segments):
+            return .interpolation(try segments.map { segment in
+                switch segment {
+                case .literal(let s):
+                    return .literal(.string(s))
+                case .interpolation(let tokens):
+                    var sub = Parser(tokens)
+                    return try sub.parseInterpolatedExpr()
+                }
+            })
         case .identifier("true"):  return .literal(.bool(true))
         case .identifier("false"): return .literal(.bool(false))
         case .identifier("nil"):   return .literal(.nil)
