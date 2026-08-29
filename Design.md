@@ -137,7 +137,26 @@ Further decisions:
   locks) are **trapped at runtime**, not compile time. The
   implementation *should* catch what it can at compile time — but as a
   best-effort diagnostic, never a language guarantee.
-* **No declared params means variadic.** Strict arity (round 10)
+* **Functions are also coroutines — they can `yield`.** No separate
+  generator syntax (no JS `function*`): any function may `yield`, and
+  yielding suspends it, to be resumed where it left off — the Lua
+  model, matching the Lua-sized ambition (§5).
+
+  ```swiftalk
+  let fib = {
+      var (a, b) = (0, 1)
+      while true { yield a; (a, b) = (b, a + b) }
+  }
+  ```
+
+  (**OPEN — the surface**: how a coroutine instance is created and
+  resumed — does calling a yielding `Function` return a live
+  coroutine/iterator? does `for i in fib` drive it, making `yield`
+  *the* way to write lazy sequences? can `resume` pass values in and
+  does `yield` return them — full symmetric coroutines à la Lua, or
+  generator-style out-only? what `.type` reports for a suspended
+  instance; and presumably `yield`, like `$`, belongs to the innermost
+  enclosing `{}`.)
   applies only to functions that *declare* parameters. A function with
   none accepts any number of arguments — they're all in `$`, and
   whether the body looks is the body's business. So `array.map { 0 }`
@@ -563,7 +582,9 @@ O(1) indexing.
 ## 12. Concurrency — OPEN (probably defer)
 
 `async`/`await`? Actors? Or single-threaded like classic scripting, with
-concurrency added later?
+concurrency added later? **Coroutines now exist** (§2.4: every function
+can `yield`), so cooperative multitasking has a substrate; whether
+`async`/`await` is later built atop it (as in Lua ecosystems) is TBD.
 
 ## 13. Milestones
 
@@ -788,3 +809,9 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   becomes infallible source form with failable decode moving to
   `data.String(.utf8)` (revises round 6's example). Opened: what
   `print`/interpolation use (quoted vs raw), `Function.String()`.
+* **2026-08-29, round 24** — Decided: **functions are also
+  coroutines — any function can `yield`** (§2.4); no separate
+  generator syntax, the Lua model. §12 notes coroutines as the
+  cooperative-concurrency substrate. Opened: creation/resume surface,
+  `for`-`in` integration, values through `yield`/resume, `.type` of a
+  suspended instance, `yield` scoping in nested closures.
