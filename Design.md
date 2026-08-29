@@ -201,11 +201,13 @@ and most especially JavaScript):
   Swift's `type(of: x)`). This is what makes iterating a sequence of
   mixed types easy — inspect `element.type` as you go.
 
-**OPEN** details:
+Details:
 
 * Presumably annotations are allowed and enforced: `var x: Int = 1`.
-* Is `x.type` a first-class value? (`x.type == Int`, usable in `switch`,
-  storable in variables?) Do `is` / `as?` / `as!` survive alongside it?
+* **`x.type` is first-class** (decided round 25, §10): types are
+  constructor `Function`s — `x.type == Int` compares, `Int("42")`-style
+  construction calls, `.conforms(to:)` tests protocol conformance.
+  (**OPEN**: whether `is` / `as?` / `as!` also survive as sugar.)
 
 ### 3b. Basic types — DECIDED (core)
 
@@ -331,10 +333,13 @@ string.Data()       // String → Data   (infallible: text always has bytes)
 * Nice symmetry with §3: lowercase `.type` *queries* the type
   (a property), Capitalized `.TypeName(...)` *converts* to it
   (a method).
-* Replaces Swift's initializer-style `String(42)` / `Int("42")`
-  conversions as the idiom. (**OPEN**: whether initializer style also
-  exists, or `obj.TypeName()` is the only spelling; which conversions
-  are failable, per pair; the format-argument vocabulary per pair.)
+* `obj.TypeName()` is the conversion *idiom* — but initializer-style
+  spelling exists too, since **types are constructor `Function`s**
+  (§10, round 25): `Type(...)` constructs, so `String(42)` / `Int("42")`
+  are valid calls. (**OPEN**: the exact division of labor between
+  constructor `Type(x)` and converter `x.Type()` — presumably the same
+  operation spelled from either end; which conversions are failable,
+  per pair; the format-argument vocabulary per pair.)
 
 ### 3c. `Any`, `Primitives`, and heterogeneous collections — DECIDED (direction)
 
@@ -551,10 +556,27 @@ ABI stability, Objective-C interop.
 
 ## 10. Protocols, extensions, generics — DECIDED (core)
 
-* **Protocols, Swift-style**: declaration, conformance
-  (`Equatable`/`Hashable`/`Comparable`/`CustomStringConvertible`...),
-  protocol-typed variables. Conformance is checked at runtime (no static
-  checker to do it earlier).
+* **Protocols, Swift-style but coarse-grained**: declaration,
+  conformance, protocol-typed variables — checked at runtime (no
+  static checker to do it earlier). swiftalk does **not** reproduce
+  Swift's fine-grained protocol tower (no `Int: SignedInteger:
+  BinaryInteger: ...` taxonomy). The roster is small and pragmatic;
+  at minimum there is **`Sequence`**, and **`String`, `Array`, and
+  `Dictionary` all conform** (per-`Character`, per-element, and
+  per-key/value-pair, presumably — which is what `for`-`in` iterates,
+  and what §2.4's coroutines can feed).
+* **Types are constructor `Function`s.** Like Swift, `Type()`
+  constructs — and so a type is itself a first-class value of type
+  `Function`: `Int.type == Function`. This retroactively answers §3's
+  "is `x.type` first-class?": yes — `x.type` yields the constructor,
+  comparable (`x.type == Int`), storable, callable.
+* **`.conforms(to:)`** — a method on types, the runtime conformance
+  test, playing roughly the role of JS's `instanceof`:
+
+  ```swiftalk
+  Array.conforms(to: Sequence)          // true
+  "abc".type.conforms(to: Sequence)     // true — via the type
+  ```
 * **Extensions, Swift-style**: methods can be added to any type,
   including built-ins. (Yes, this is monkey-patching territory; the
   Swift discipline of `extension` blocks at least keeps it declared and
@@ -815,3 +837,12 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   cooperative-concurrency substrate. Opened: creation/resume surface,
   `for`-`in` integration, values through `yield`/resume, `.type` of a
   suspended instance, `yield` scoping in nested closures.
+* **2026-08-29, round 25** — Refined protocols (§10):
+  **coarse-grained** — no Swift-style fine taxonomy; at minimum
+  **`Sequence`**, conformed to by `String`, `Array`, `Dictionary`.
+  **Types are constructor `Function`s** (`Type()` constructs;
+  `Int.type == Function`) — resolving §3's first-classness question —
+  with **`.conforms(to:)`** as the runtime conformance test (JS
+  `instanceof`'s role). §3d: initializer-style spelling exists after
+  all, as construction. Opened: constructor-vs-converter division of
+  labor; `is`/`as?` as sugar.
