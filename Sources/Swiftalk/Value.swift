@@ -1,7 +1,7 @@
 /// A swiftalk runtime value, covering the SION-complete primitive space
-/// (Design.md §3b/§3c). `Data`, `Date`, and `Function` join in later
-/// milestones.
-public enum Value: Hashable, Sendable {
+/// plus `Function` (Design.md §3b/§3c/§2.4). `Data` and `Date` join in
+/// later milestones.
+public enum Value: Hashable {
     case `nil`
     case bool(Bool)
     case int(Int64)
@@ -9,6 +9,29 @@ public enum Value: Hashable, Sendable {
     case string(String)
     indirect case array([Value])
     indirect case dictionary([Value: Value])
+    case function(FunctionObject)
+}
+
+/// A function value: `{}` is the only function form (Design.md §2.4).
+/// Reference identity is its equality — `Function` is one collective
+/// type and functions compare as themselves, not by structure.
+public final class FunctionObject: Hashable {
+    let parameters: [String]      // empty means variadic (round 14)
+    let body: [Stmt]
+    let closure: Environment      // lexical capture
+
+    init(parameters: [String], body: [Stmt], closure: Environment) {
+        self.parameters = parameters
+        self.body = body
+        self.closure = closure
+    }
+
+    public static func == (lhs: FunctionObject, rhs: FunctionObject) -> Bool {
+        lhs === rhs
+    }
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(ObjectIdentifier(self))
+    }
 }
 
 extension Value {
@@ -24,6 +47,7 @@ extension Value {
         case .string:     return "String"
         case .array:      return "Array"
         case .dictionary: return "Dictionary"
+        case .function:   return "Function"
         }
     }
 
@@ -45,6 +69,11 @@ extension Value {
             return Value.quote(s)
         case .array(let a):
             return "[" + a.map { $0.sourceString() }.joined(separator: ", ") + "]"
+        case .function(let f):
+            // Function.String() as source text is OPEN (Design.md §3d);
+            // until then, a non-round-tripping placeholder.
+            let params = f.parameters.isEmpty ? "" : f.parameters.joined(separator: ", ") + " in "
+            return "{ \(params)... }"
         case .dictionary(let d):
             if d.isEmpty { return "[:]" }
             // Deterministic output: order entries by their key's source form.

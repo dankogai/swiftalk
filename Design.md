@@ -888,3 +888,19 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   (the raw display form for `print` proper remains OPEN);
   multi-line continuation while brackets are open
   (`needsMoreInput`); non-TTY stdin suppresses prompts.
+* **2026-08-29, round 30 — `{}` functions with `$` implemented
+  (§2.4).** `Function` joins `Value` (identity equality, one
+  collective type); closure literals with optional `x, y in` params;
+  calls with §2.3 labels (optional, reorderable, mixable with
+  positionals); strict arity for declared params, variadic via `$`
+  otherwise (`{ 0 }(1,2,3)` works); `$`, `$0…`, `$.count`
+  per-closure with shadowing; **`$()` recursion works** —
+  `fac(20)` exact, `fac(21)` traps. Lexical closures via
+  environment chains, mutation included, locks reaching through.
+  Companions needed to make recursion testable: **comparison
+  operators** (`==`/`!=` any same-type; `< <= > >=` on
+  Int/Double/String; `x == nil` of anything; mixing types errors)
+  and **ternary `?:`** (Bool condition only — nothing is truthy).
+  `.count` on String/Array/Dictionary (graphemes for String).
+  Newlines are separators inside `{}` but not `[`/`(`.
+  `Function.String()` emits a placeholder — source text still OPEN.

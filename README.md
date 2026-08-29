@@ -50,6 +50,24 @@ swiftalk> [1, "one",      // open brackets continue onto the next line
 Echoes are `.String()` source form — everything the REPL prints
 re-enters as what it was.
 
+**`{}` functions with `$`** are in — there is no `func`; a function
+is a closure literal, `$` is the arguments, and `$()` recurses:
+
+```text
+swiftalk> let fac = { n in n < 2 ? 1 : n * $(n - 1) }
+{ n in ... }
+swiftalk> fac(20)
+2432902008176640000
+swiftalk> fac(21)
+overflow: 21 * 2432902008176640000
+swiftalk> let add = { x, y in x + y }
+{ x, y in ... }
+swiftalk> add(y: 2, x: 40)    // labels are optional and reorderable
+42
+swiftalk> { $.count }(1, 2, 3)
+3
+```
+
 ```sh
 swift test
 ```

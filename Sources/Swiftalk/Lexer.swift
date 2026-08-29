@@ -23,9 +23,10 @@ enum Token: Equatable {
     case int(Int64)
     case double(Double)
     case string(String)
-    case identifier(String)   // also carries keywords: true / false / nil / let / var
-    case punct(Character)     // [ ] ( ) : , . + - * / = ? ;
-    case newline              // statement separator (suppressed inside brackets)
+    case identifier(String)   // also keywords (true/false/nil/let/var/in) and $ / $0 / $1 ...
+    case punct(Character)     // [ ] ( ) { } : , . + - * / = ? ;
+    case op(String)           // == != < <= > >=
+    case newline              // statement separator (suppressed inside [ and ()
 }
 
 struct Lexer {
@@ -45,16 +46,20 @@ struct Lexer {
 
     mutating func tokenize() throws -> [Token] {
         var tokens: [Token] = []
-        // Newlines separate statements, but only outside brackets —
-        // collection literals and call arguments may span lines freely.
-        var depth = 0
+        // Newlines separate statements. Inside [ and ( they are suppressed
+        // (collection literals and call arguments span lines freely), but
+        // inside { } they matter — a function body is a statement list.
+        var brackets: [Unicode.Scalar] = []
+        var suppressNewlines: Bool {
+            brackets.last == "[" || brackets.last == "("
+        }
         while let c = peek {
             switch c {
             case " ", "\t", "\r":
                 pos += 1
             case "\n":
                 pos += 1
-                if depth == 0, tokens.last != nil, tokens.last != .newline {
+                if !suppressNewlines, tokens.last != nil, tokens.last != .newline {
                     tokens.append(.newline)
                 }
             case "/":
@@ -67,17 +72,37 @@ struct Lexer {
                     pos += 1
                     tokens.append(.punct("/"))
                 }
-            case "[", "(":
-                depth += 1
+            case "[", "(", "{":
+                brackets.append(c)
                 pos += 1
                 tokens.append(.punct(Character(c)))
-            case "]", ")":
-                depth -= 1
+            case "]", ")", "}":
+                if !brackets.isEmpty { brackets.removeLast() }
                 pos += 1
                 tokens.append(.punct(Character(c)))
-            case ":", ",", "+", "-", "*", "=", "?", ";":
+            case ":", ",", "+", "-", "*", "?", ";":
                 pos += 1
                 tokens.append(.punct(Character(c)))
+            case "=", "!", "<", ">":
+                pos += 1
+                if peek == "=" {
+                    pos += 1
+                    tokens.append(.op(String(c) + "="))
+                } else if c == "=" {
+                    tokens.append(.punct("="))
+                } else if c == "<" || c == ">" {
+                    tokens.append(.op(String(c)))
+                } else {
+                    throw SwiftalkError.syntax("'!' (force-unwrap) is a later milestone")
+                }
+            case "$":
+                pos += 1
+                var name = "$"
+                while let d = peek, ("0"..."9").contains(d) {
+                    name.unicodeScalars.append(d)
+                    pos += 1
+                }
+                tokens.append(.identifier(name))
             case ".":
                 // `.` is member access; a leading `.5` float is not swiftalk
                 // (Swift also requires `0.5`).

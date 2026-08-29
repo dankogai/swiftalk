@@ -42,8 +42,8 @@ public func needsMoreInput(_ source: String) -> Bool {
     var depth = 0
     for token in tokens {
         switch token {
-        case .punct("["), .punct("("): depth += 1
-        case .punct("]"), .punct(")"): depth -= 1
+        case .punct("["), .punct("("), .punct("{"): depth += 1
+        case .punct("]"), .punct(")"), .punct("}"): depth -= 1
         default: break
         }
     }
@@ -60,8 +60,15 @@ struct Binding {
     var value: Value
 }
 
+/// A lexical scope. Function calls make a child of the function's
+/// captured environment; lookups and assignments walk the parent chain.
 final class Environment {
     private var bindings: [String: Binding] = [:]
+    private let parent: Environment?
+
+    init(parent: Environment? = nil) {
+        self.parent = parent
+    }
 
     func declare(_ name: String, _ binding: Binding) throws {
         guard bindings[name] == nil else {
@@ -72,6 +79,10 @@ final class Environment {
 
     func assign(_ name: String, _ value: Value) throws {
         guard var binding = bindings[name] else {
+            if let parent {
+                try parent.assign(name, value)
+                return
+            }
             throw SwiftalkError.type(
                 "cannot assign to undeclared '\(name)' — declare it with let or var")
         }
@@ -84,14 +95,13 @@ final class Environment {
     }
 
     func has(_ name: String) -> Bool {
-        bindings[name] != nil
+        bindings[name] != nil || (parent?.has(name) ?? false)
     }
 
     func lookup(_ name: String) throws -> Value {
-        guard let binding = bindings[name] else {
-            throw SwiftalkError.type("undefined variable '\(name)'")
-        }
-        return binding.value
+        if let binding = bindings[name] { return binding.value }
+        if let parent { return try parent.lookup(name) }
+        throw SwiftalkError.type("undefined variable '\(name)'")
     }
 
     /// The type-lock check (§3, §3a): the value's runtime type must match
@@ -113,7 +123,12 @@ final class Environment {
 }
 
 private let knownTypeNames: Set<String> =
-    ["Nil", "Bool", "Int", "Double", "String", "Array", "Dictionary"]
+    ["Nil", "Bool", "Int", "Double", "String", "Array", "Dictionary", "Function"]
+
+/// The hidden binding through which `$(...)` finds the current function
+/// (§2.4). `@` cannot appear in a swiftalk identifier, so user code can
+/// never collide with it.
+private let calleeKey = "@callee"
 
 func execute(_ statement: Stmt, in env: Environment, relaxed: Bool = false) throws -> Value {
     switch statement {
@@ -187,10 +202,103 @@ func evaluate(_ expr: Expr, in env: Environment) throws -> Value {
         }
     case .binary(let op, let lhs, let rhs):
         return try binary(op, try evaluate(lhs, in: env), try evaluate(rhs, in: env))
+    case .comparison(let op, let lhs, let rhs):
+        return try compare(op, try evaluate(lhs, in: env), try evaluate(rhs, in: env))
+    case .ternary(let condition, let thenBranch, let elseBranch):
+        guard case .bool(let flag) = try evaluate(condition, in: env) else {
+            throw SwiftalkError.type("the '?:' condition must be a Bool — nothing is truthy (§3b)")
+        }
+        return try evaluate(flag ? thenBranch : elseBranch, in: env)
+    case .function(let parameters, let body):
+        return .function(FunctionObject(parameters: parameters, body: body, closure: env))
+    case .call(let callee, let args):
+        guard case .function(let fn) = try evaluate(callee, in: env) else {
+            let v = try evaluate(callee, in: env)
+            throw SwiftalkError.type("cannot call a \(v.typeName)")
+        }
+        return try apply(fn, args: try evaluateArgs(args, in: env))
+    case .selfCall(let args):
+        guard case .function(let fn) = try? env.lookup(calleeKey) else {
+            throw SwiftalkError.type("'$()' recurses — it only works inside a function")
+        }
+        return try apply(fn, args: try evaluateArgs(args, in: env))
     case .method(let receiver, let name, let args, let called):
         return try method(on: try evaluate(receiver, in: env), name: name,
                           args: try args.map { try evaluate($0, in: env) }, called: called)
     }
+}
+
+private func evaluateArgs(
+    _ args: [(label: String?, expr: Expr)], in env: Environment
+) throws -> [(label: String?, value: Value)] {
+    try args.map { ($0.label, try evaluate($0.expr, in: env)) }
+}
+
+/// Applies a function (§2.4): declared parameters get strict arity with
+/// optional, reorderable labels (§2.3, round 10); no declared parameters
+/// means variadic (round 14). `$` is the argument array, `$N` its
+/// elements, and `@callee` lets `$()` recurse.
+func apply(_ fn: FunctionObject, args: [(label: String?, value: Value)]) throws -> Value {
+    var ordered: [Value]
+    if fn.parameters.isEmpty {
+        if let label = args.compactMap(\.label).first {
+            throw SwiftalkError.type(
+                "unknown argument label '\(label)': this function declares no parameter names")
+        }
+        ordered = args.map(\.value)
+    } else {
+        guard args.count == fn.parameters.count else {
+            throw SwiftalkError.type(
+                "expected \(fn.parameters.count) argument(s), got \(args.count)")
+        }
+        var slots = [Value?](repeating: nil, count: fn.parameters.count)
+        for (label, value) in args where label != nil {
+            guard let index = fn.parameters.firstIndex(of: label!) else {
+                throw SwiftalkError.type("unknown argument label '\(label!)'")
+            }
+            guard slots[index] == nil else {
+                throw SwiftalkError.type("duplicate argument label '\(label!)'")
+            }
+            slots[index] = value
+        }
+        var positionals = args.filter { $0.label == nil }.map(\.value)[...]
+        ordered = try slots.map { slot in
+            if let slot { return slot }
+            guard let next = positionals.popFirst() else {
+                throw SwiftalkError.type("missing argument")
+            }
+            return next
+        }
+    }
+
+    let local = Environment(parent: fn.closure)
+    for (name, value) in zip(fn.parameters, ordered) {
+        try local.declare(name, Binding(
+            mutable: false,
+            lock: TypeAnnotation(name: value.typeName, optional: true),
+            value: value))
+    }
+    // `$` and `$0`, `$1`, ... — per-closure, shadowing any outer ones (§2.4).
+    try local.declare("$", Binding(
+        mutable: false,
+        lock: TypeAnnotation(name: "Array", optional: false),
+        value: .array(ordered)))
+    for (index, value) in ordered.enumerated() {
+        try local.declare("$\(index)", Binding(
+            mutable: false,
+            lock: TypeAnnotation(name: value.typeName, optional: true),
+            value: value))
+    }
+    try local.declare(calleeKey, Binding(
+        mutable: false,
+        lock: TypeAnnotation(name: "Function", optional: false),
+        value: .function(fn)))
+
+    var last = Value.nil
+    for statement in fn.body {
+        last = try execute(statement, in: local)
+    }
+    return last
 }
 
 /// Same-type arithmetic only (Design.md §3): `1 + 1.5` is a type error,
@@ -229,8 +337,42 @@ private func binary(_ op: Character, _ lhs: Value, _ rhs: Value) throws -> Value
     }
 }
 
-/// Milestone 0 methods: just enough for `eval()` — `.String()` (the
-/// round-trip law, §3d) and the `.type` property (§3, as a name for now).
+/// `==`/`!=` on any same-type pair (Equatable, §10); `< <= > >=` on
+/// Int/Double/String (Comparable). `x == nil` is a valid question of
+/// anything (§3a); mixing other types is a type error, not `false`.
+private func compare(_ op: String, _ lhs: Value, _ rhs: Value) throws -> Value {
+    switch op {
+    case "==", "!=":
+        if case .nil = lhs {} else if case .nil = rhs {} else {
+            guard lhs.typeName == rhs.typeName else {
+                throw SwiftalkError.type(
+                    "'\(op)' is not defined between \(lhs.typeName) and \(rhs.typeName)")
+            }
+        }
+        return .bool(op == "==" ? lhs == rhs : lhs != rhs)
+    default:
+        let ascending: Bool
+        switch (lhs, rhs) {
+        case (.int(let a), .int(let b)):       ascending = a < b
+        case (.double(let a), .double(let b)): ascending = a < b
+        case (.string(let a), .string(let b)): ascending = a < b
+        default:
+            throw SwiftalkError.type(
+                "'\(op)' is not defined between \(lhs.typeName) and \(rhs.typeName)")
+        }
+        let equal = lhs == rhs
+        switch op {
+        case "<":  return .bool(ascending)
+        case "<=": return .bool(ascending || equal)
+        case ">":  return .bool(!ascending && !equal)
+        case ">=": return .bool(!ascending)
+        default:   fatalError("unreachable operator \(op)")
+        }
+    }
+}
+
+/// Members so far: `.String()` (the round-trip law, §3d), `.type` (§3,
+/// as a name for now), and `.count` on the Sequence conformers (§10).
 private func method(on receiver: Value, name: String, args: [Value], called: Bool) throws -> Value {
     switch (name, called) {
     case ("String", true):
@@ -240,8 +382,16 @@ private func method(on receiver: Value, name: String, args: [Value], called: Boo
         return .string(receiver.sourceString())
     case ("type", false):
         // Types will become constructor Functions (§10); until Function
-        // lands, .type evaluates to the type's name.
+        // lands as a constructor, .type evaluates to the type's name.
         return .string(receiver.typeName)
+    case ("count", false):
+        switch receiver {
+        case .array(let a):      return .int(Int64(a.count))
+        case .string(let s):     return .int(Int64(s.count))   // graphemes (§11)
+        case .dictionary(let d): return .int(Int64(d.count))
+        default:
+            throw SwiftalkError.unknownMember("\(receiver.typeName).count")
+        }
     default:
         throw SwiftalkError.unknownMember("\(receiver.typeName).\(name)\(called ? "()" : "")")
     }
