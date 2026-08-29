@@ -137,9 +137,15 @@ Further decisions:
   locks) are **trapped at runtime**, not compile time. The
   implementation *should* catch what it can at compile time — but as a
   best-effort diagnostic, never a language guarantee.
-  (**OPEN**: whether calling a param-less, `$`-less function with
-  arguments is an arity error or ignored — nub: `array.map { 0 }`
-  wants "no declared params = variadic, body just doesn't look".)
+* **No declared params means variadic.** Strict arity (round 10)
+  applies only to functions that *declare* parameters. A function with
+  none accepts any number of arguments — they're all in `$`, and
+  whether the body looks is the body's business. So `array.map { 0 }`
+  is valid: each element arrives as `$0`, `{ 0 }` ignores it, and a
+  zero-filled array of equal length comes back. Corollary in the
+  stdlib: **`array.fill(0)` must be identical to `array.map { 0 }`** —
+  a constant and a constant function are interchangeable ways to say
+  the same thing.
 * **Annotations, Swift-style**: `{ (x: Int, y: Int) -> Int in ... }`
   is allowed; bare names stay fine. Where written, types are enforced
   at runtime per §3.
@@ -561,3 +567,8 @@ let text   = bytes.String                     // String? — bytes may not be te
   mismatches trap at runtime, with compile-time catches as best-effort
   diagnostics, never a guarantee (§2.4, §3b). Still open: args passed
   to a param-less, `$`-less function (`array.map { 0 }` is the nub).
+* **2026-08-29, round 14** — Decided: **no declared params = variadic**
+  — strict arity applies only when parameters are declared;
+  `array.map { 0 }` is valid, and `array.fill(0)` must be identical to
+  it (§2.4). §2.4 (functions) is now complete but for method syntax
+  (deferred to milestone 0).
