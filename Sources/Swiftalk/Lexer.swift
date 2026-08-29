@@ -23,8 +23,9 @@ enum Token: Equatable {
     case int(Int64)
     case double(Double)
     case string(String)
-    case identifier(String)   // also carries keywords: true / false / nil
-    case punct(Character)     // [ ] ( ) : , . + - * /
+    case identifier(String)   // also carries keywords: true / false / nil / let / var
+    case punct(Character)     // [ ] ( ) : , . + - * / = ? ;
+    case newline              // statement separator (suppressed inside brackets)
 }
 
 struct Lexer {
@@ -44,10 +45,18 @@ struct Lexer {
 
     mutating func tokenize() throws -> [Token] {
         var tokens: [Token] = []
+        // Newlines separate statements, but only outside brackets —
+        // collection literals and call arguments may span lines freely.
+        var depth = 0
         while let c = peek {
             switch c {
-            case " ", "\t", "\n", "\r":
+            case " ", "\t", "\r":
                 pos += 1
+            case "\n":
+                pos += 1
+                if depth == 0, tokens.last != nil, tokens.last != .newline {
+                    tokens.append(.newline)
+                }
             case "/":
                 // comment or the division operator
                 if pos + 1 < scalars.count, scalars[pos + 1] == "/" {
@@ -58,7 +67,15 @@ struct Lexer {
                     pos += 1
                     tokens.append(.punct("/"))
                 }
-            case "[", "]", "(", ")", ":", ",", "+", "-", "*":
+            case "[", "(":
+                depth += 1
+                pos += 1
+                tokens.append(.punct(Character(c)))
+            case "]", ")":
+                depth -= 1
+                pos += 1
+                tokens.append(.punct(Character(c)))
+            case ":", ",", "+", "-", "*", "=", "?", ";":
                 pos += 1
                 tokens.append(.punct(Character(c)))
             case ".":

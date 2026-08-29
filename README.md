@@ -10,7 +10,8 @@ recorded in [Design.md](Design.md).
 
 **Milestone 0 — `eval()`** is underway: primitives, collection
 literals (`[element]`, `[Key: Value]`), same-type arithmetic with
-trapping overflow, and the round-trip law `eval(x.String()) == x`.
+trapping overflow, `let`/`var` bindings with type locks, and the
+round-trip law `eval(x.String()) == x`.
 
 ```swift
 import Swiftalk
@@ -20,6 +21,12 @@ try eval(#"[1, "one", 2.0]"#)      // heterogeneous — [Primitives], not [Any]
 try eval("0xff")                   // .int(255)
 try eval("1 + 1.5")                // throws: type error — Int ≠ Double
 try eval("9223372036854775807 + 1")// throws: overflow traps
+try eval("var x = 1\nx = \"1\"")   // throws: x is type-locked to Int
+try eval("var x: Int? = nil")      // flat optional: Int-or-nil, no box
+
+let interp = Interpreter()          // persistent environment
+try interp.eval("var count = 1")
+try interp.eval("count = count + 1")// .int(2)
 ```
 
 ```sh

@@ -1,24 +1,139 @@
 /// Milestone 0: `eval()` — source string in, value out (Design.md §13).
+/// One-shot: bindings do not survive the call. For a persistent
+/// environment (the REPL's engine), use `Interpreter`.
 public func eval(_ source: String) throws -> Value {
-    var lexer = Lexer(source)
-    var parser = Parser(try lexer.tokenize())
-    return try evaluate(try parser.parseExpression())
+    try Interpreter().eval(source)
 }
 
-func evaluate(_ expr: Expr) throws -> Value {
+/// A swiftalk interpreter with a persistent global environment:
+/// bindings made in one `eval` call are visible to the next.
+public final class Interpreter {
+    private var environment = Environment()
+
+    public init() {}
+
+    /// Evaluates a program (statements separated by newlines or `;`)
+    /// and returns the value of its last statement.
+    public func eval(_ source: String) throws -> Value {
+        var lexer = Lexer(source)
+        var parser = Parser(try lexer.tokenize())
+        let program = try parser.parseProgram()
+        var last = Value.nil
+        for statement in program {
+            last = try execute(statement, in: environment)
+        }
+        return last
+    }
+}
+
+/// A binding: its mutability, its type lock (Design.md §3), and its value.
+/// The lock is fixed at declaration — from the annotation if written,
+/// inferred from the initializer otherwise — and every later assignment
+/// must satisfy it.
+struct Binding {
+    let mutable: Bool
+    let lock: TypeAnnotation
+    var value: Value
+}
+
+final class Environment {
+    private var bindings: [String: Binding] = [:]
+
+    func declare(_ name: String, _ binding: Binding) throws {
+        guard bindings[name] == nil else {
+            throw SwiftalkError.type("redeclaration of '\(name)'")
+        }
+        bindings[name] = binding
+    }
+
+    func assign(_ name: String, _ value: Value) throws {
+        guard var binding = bindings[name] else {
+            throw SwiftalkError.type(
+                "cannot assign to undeclared '\(name)' — declare it with let or var")
+        }
+        guard binding.mutable else {
+            throw SwiftalkError.type("cannot assign to let constant '\(name)'")
+        }
+        try check(value, against: binding.lock, for: name)
+        binding.value = value
+        bindings[name] = binding
+    }
+
+    func lookup(_ name: String) throws -> Value {
+        guard let binding = bindings[name] else {
+            throw SwiftalkError.type("undefined variable '\(name)'")
+        }
+        return binding.value
+    }
+
+    /// The type-lock check (§3, §3a): the value's runtime type must match
+    /// the lock, or be `nil` where the lock is optional (`Int?` is the flat
+    /// union Int-or-nil, not a wrapper).
+    func check(_ value: Value, against lock: TypeAnnotation, for name: String) throws {
+        if case .nil = value {
+            guard lock.optional || lock.name == "Nil" else {
+                throw SwiftalkError.type(
+                    "cannot assign nil to '\(name)' of type \(lock.name) — declare it \(lock.name)?")
+            }
+            return
+        }
+        guard value.typeName == lock.name else {
+            throw SwiftalkError.type(
+                "cannot assign \(value.typeName) to '\(name)' of type \(lock.name)\(lock.optional ? "?" : "")")
+        }
+    }
+}
+
+private let knownTypeNames: Set<String> =
+    ["Nil", "Bool", "Int", "Double", "String", "Array", "Dictionary"]
+
+func execute(_ statement: Stmt, in env: Environment) throws -> Value {
+    switch statement {
+    case .declaration(let mutable, let name, let annotation, let initializer):
+        let value = try evaluate(initializer, in: env)
+        let lock: TypeAnnotation
+        if let annotation {
+            guard knownTypeNames.contains(annotation.name) else {
+                throw SwiftalkError.type("unknown type '\(annotation.name)'")
+            }
+            lock = annotation
+        } else {
+            // Inference locks to the initializer's runtime type. Bare
+            // `var x = nil` has nothing to infer and is rejected (§3a).
+            guard value != .nil else {
+                throw SwiftalkError.type(
+                    "cannot infer a type for '\(name)' from nil — annotate it, e.g. \(mutable ? "var" : "let") \(name): Int? = nil")
+            }
+            lock = TypeAnnotation(name: value.typeName, optional: false)
+        }
+        try env.check(value, against: lock, for: name)
+        try env.declare(name, Binding(mutable: mutable, lock: lock, value: value))
+        return value
+    case .assignment(let name, let expr):
+        let value = try evaluate(expr, in: env)
+        try env.assign(name, value)
+        return value
+    case .expression(let expr):
+        return try evaluate(expr, in: env)
+    }
+}
+
+func evaluate(_ expr: Expr, in env: Environment) throws -> Value {
     switch expr {
     case .literal(let v):
         return v
+    case .variable(let name):
+        return try env.lookup(name)
     case .array(let elements):
-        return .array(try elements.map(evaluate))
+        return .array(try elements.map { try evaluate($0, in: env) })
     case .dictionary(let pairs):
         var dict: [Value: Value] = [:]
         for (k, v) in pairs {
-            dict[try evaluate(k)] = try evaluate(v)
+            dict[try evaluate(k, in: env)] = try evaluate(v, in: env)
         }
         return .dictionary(dict)
     case .unaryMinus(let e):
-        switch try evaluate(e) {
+        switch try evaluate(e, in: env) {
         case .int(let i):
             guard i != Int64.min else {
                 throw SwiftalkError.overflow("negating \(i)")
@@ -30,9 +145,10 @@ func evaluate(_ expr: Expr) throws -> Value {
             throw SwiftalkError.type("cannot negate \(v.typeName)")
         }
     case .binary(let op, let lhs, let rhs):
-        return try binary(op, try evaluate(lhs), try evaluate(rhs))
+        return try binary(op, try evaluate(lhs, in: env), try evaluate(rhs, in: env))
     case .method(let receiver, let name, let args, let called):
-        return try method(on: try evaluate(receiver), name: name, args: try args.map(evaluate), called: called)
+        return try method(on: try evaluate(receiver, in: env), name: name,
+                          args: try args.map { try evaluate($0, in: env) }, called: called)
     }
 }
 

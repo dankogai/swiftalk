@@ -866,3 +866,14 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   and `.type` (as a name, until types become constructor Functions).
   The round-trip law `eval(x.String()) == x` is the anchor test and
   passes. CI re-enabled.
+* **2026-08-29, round 28 — let/var with type locks implemented.**
+  Multi-statement programs (newline or `;` separated; newlines flow
+  freely inside brackets; a program evaluates to its last statement's
+  value); `let`/`var` declarations with runtime-enforced annotations
+  incl. `Int?` flat optionals; the §3 lock, `let` immutability,
+  no-redeclaration, and reject-undeclared-assignment all enforced;
+  `Interpreter` class with a persistent environment (the REPL's
+  engine). Decisions made in passing: **trailing commas allowed** in
+  collection literals and argument lists (as Swift 6.1+); a
+  declaration evaluates to its bound value. Inference locks are
+  coarse for now (`Array`, not `[Int]`) — element-type locks TBD.
