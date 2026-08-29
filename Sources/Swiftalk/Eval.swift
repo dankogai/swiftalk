@@ -156,9 +156,9 @@ func execute(_ statement: Stmt, in env: Environment, relaxed: Bool = false) thro
         try env.check(value, against: lock, for: name)
         try env.declare(name, Binding(mutable: mutable, lock: lock, value: value))
         return value
-    case .assignment(let name, let expr):
+    case .assignment(let target, let expr):
         let value = try evaluate(expr, in: env)
-        if relaxed && !env.has(name) {
+        if case .variable(let name) = target, relaxed, !env.has(name) {
             // REPL mode (§2.2): bare `x = 1` implicitly declares a var —
             // type-locked from here on, like any other binding.
             guard value != .nil else {
@@ -171,7 +171,7 @@ func execute(_ statement: Stmt, in env: Environment, relaxed: Bool = false) thro
                 value: value))
             return value
         }
-        try env.assign(name, value)
+        try assign(target, value, in: env)
         return value
     case .expression(let expr):
         return try evaluate(expr, in: env)
@@ -229,7 +229,85 @@ func evaluate(_ expr: Expr, in env: Environment) throws -> Value {
     case .method(let receiver, let name, let args, let called):
         return try method(on: try evaluate(receiver, in: env), name: name,
                           args: try args.map { try evaluate($0, in: env) }, called: called)
+    case .subscript(let base, let index):
+        return try subscriptRead(try evaluate(base, in: env), try evaluate(index, in: env))
     }
+}
+
+// MARK: subscripts
+
+/// `a[i]` traps on a bad index like Swift; `d[k]` is the flat optional
+/// lookup of §3a — nil for a missing key, indistinguishable from a
+/// stored nil.
+private func subscriptRead(_ container: Value, _ index: Value) throws -> Value {
+    switch container {
+    case .array(let a):
+        guard case .int(let i) = index else {
+            throw SwiftalkError.type("Array index must be an Int, not \(index.typeName)")
+        }
+        guard a.indices.contains(Int(i)) else {
+            throw SwiftalkError.type("index \(i) out of range (count \(a.count))")
+        }
+        return a[Int(i)]
+    case .dictionary(let d):
+        return d[index] ?? .nil
+    case .string:
+        throw SwiftalkError.type("String subscripts are undecided (Design.md §11)")
+    default:
+        throw SwiftalkError.type("cannot subscript \(container.typeName)")
+    }
+}
+
+/// A subscripted store: replaces an array element (bad index traps, as
+/// on read), or sets a dictionary key — where `d[k] = nil` deletes the
+/// key, Swift-compatible (round 15, flagged).
+private func subscriptWrite(_ container: Value, _ index: Value, _ newValue: Value) throws -> Value {
+    switch container {
+    case .array(var a):
+        guard case .int(let i) = index else {
+            throw SwiftalkError.type("Array index must be an Int, not \(index.typeName)")
+        }
+        guard a.indices.contains(Int(i)) else {
+            throw SwiftalkError.type("index \(i) out of range (count \(a.count))")
+        }
+        a[Int(i)] = newValue
+        return .array(a)
+    case .dictionary(var d):
+        d[index] = newValue == .nil ? nil : newValue
+        return .dictionary(d)
+    case .string:
+        throw SwiftalkError.type("String subscripts are undecided (Design.md §11)")
+    default:
+        throw SwiftalkError.type("cannot subscript \(container.typeName)")
+    }
+}
+
+/// Assigns through an lvalue path. Subscript paths are read-modify-write
+/// on COW values: indices evaluate once, left to right; the rebuilt
+/// container lands back in the root binding, whose mutability and type
+/// lock still govern.
+private func assign(_ target: LValue, _ value: Value, in env: Environment) throws {
+    var indexExprs: [Expr] = []
+    var root = target
+    while case .index(let base, let index) = root {
+        indexExprs.insert(index, at: 0)
+        root = base
+    }
+    guard case .variable(let name) = root else { fatalError("unreachable") }
+    if indexExprs.isEmpty {
+        try env.assign(name, value)
+        return
+    }
+    let indices = try indexExprs.map { try evaluate($0, in: env) }
+    func rebuild(_ container: Value, _ depth: Int) throws -> Value {
+        if depth == indices.count - 1 {
+            return try subscriptWrite(container, indices[depth], value)
+        }
+        let inner = try subscriptRead(container, indices[depth])
+        return try subscriptWrite(container, indices[depth],
+                                  try rebuild(inner, depth + 1))
+    }
+    try env.assign(name, try rebuild(try env.lookup(name), 0))
 }
 
 private func evaluateArgs(
@@ -282,17 +360,12 @@ func apply(_ fn: FunctionObject, args: [(label: String?, value: Value)]) throws 
             lock: TypeAnnotation(name: value.typeName, optional: true),
             value: value))
     }
-    // `$` and `$0`, `$1`, ... — per-closure, shadowing any outer ones (§2.4).
+    // `$` — per-closure, shadowing any outer one (§2.4). `$N` needs no
+    // bindings of its own: the parser desugars it to `$[N]`, literally.
     try local.declare("$", Binding(
         mutable: false,
         lock: TypeAnnotation(name: "Array", optional: false),
         value: .array(ordered)))
-    for (index, value) in ordered.enumerated() {
-        try local.declare("$\(index)", Binding(
-            mutable: false,
-            lock: TypeAnnotation(name: value.typeName, optional: true),
-            value: value))
-    }
     try local.declare(calleeKey, Binding(
         mutable: false,
         lock: TypeAnnotation(name: "Function", optional: false),

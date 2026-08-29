@@ -71,6 +71,24 @@ swiftalk> { $.count }(1, 2, 3)
 3
 ```
 
+**Subscripts** are in — `d[k]` is flat-optional, `d[k] = nil`
+deletes, collections are COW values, and `$0` is literally `$[0]`:
+
+```text
+swiftalk> var d = ["swift": 2014]
+["swift": 2014]
+swiftalk> d["swiftalk"] = 2026
+2026
+swiftalk> d["smalltalk"] == nil
+true
+swiftalk> var m = [[1, 2], [3, 4]]
+[[1, 2], [3, 4]]
+swiftalk> m[1][0] = 30
+30
+swiftalk> m
+[[1, 2], [30, 4]]
+```
+
 ```sh
 swift test
 ```

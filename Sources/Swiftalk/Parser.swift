@@ -13,6 +13,14 @@ indirect enum Expr {
     case call(Expr, args: [(label: String?, expr: Expr)])
     case selfCall(args: [(label: String?, expr: Expr)])   // $(...) — recurse (§2.4)
     case method(Expr, name: String, args: [Expr], called: Bool)
+    case `subscript`(Expr, Expr)                          // a[i], d[k]; $0 ≡ $[0]
+}
+
+/// An assignment target: a variable, or a subscript path rooted in one
+/// (`a[0] = x`, `m[1][0] = x`, `d["k"] = v`).
+indirect enum LValue {
+    case variable(String)
+    case index(LValue, Expr)
 }
 
 /// A type annotation: `: Int` or `: Int?` (the flat optional of §3a —
@@ -24,7 +32,7 @@ struct TypeAnnotation: Equatable {
 
 enum Stmt {
     case declaration(mutable: Bool, name: String, annotation: TypeAnnotation?, initializer: Expr)
-    case assignment(name: String, expr: Expr)
+    case assignment(target: LValue, expr: Expr)
     case expression(Expr)
 }
 
@@ -97,11 +105,26 @@ struct Parser {
         switch peek {
         case .identifier("let"), .identifier("var"):
             return try parseDeclaration()
-        case .identifier(let name) where peek(at: 1) == .punct("="):
-            pos += 2
-            return .assignment(name: name, expr: try parseExpr())
         default:
-            return .expression(try parseExpr())
+            let expr = try parseExpr()
+            guard case .punct("=")? = peek else {
+                return .expression(expr)
+            }
+            pos += 1
+            return .assignment(target: try lvalue(from: expr), expr: try parseExpr())
+        }
+    }
+
+    /// Converts an already-parsed expression into an assignment target:
+    /// a variable, or subscripts rooted in one.
+    private func lvalue(from expr: Expr) throws -> LValue {
+        switch expr {
+        case .variable(let name):
+            return .variable(name)
+        case .subscript(let base, let index):
+            return .index(try lvalue(from: base), index)
+        default:
+            throw SwiftalkError.syntax("this expression is not assignable")
         }
     }
 
@@ -206,6 +229,11 @@ struct Parser {
                 } else {
                     expr = .call(expr, args: args)
                 }
+            case .punct("["):
+                pos += 1
+                let index = try parseExpr()
+                try expect("]")
+                expr = .subscript(expr, index)
             default:
                 break loop
             }
@@ -252,6 +280,12 @@ struct Parser {
         case .identifier("nil"):   return .literal(.nil)
         case .identifier(let name) where keywords.contains(name):
             throw SwiftalkError.syntax("'\(name)' is not an expression")
+        case .identifier(let name) where name.hasPrefix("$") && name.count > 1:
+            // $N is sugar for $[N] (Design.md §2.4)
+            guard let n = Int64(name.dropFirst()) else {
+                throw SwiftalkError.syntax("invalid placeholder '\(name)'")
+            }
+            return .subscript(.variable("$"), .literal(.int(n)))
         case .identifier(let name):
             return .variable(name)
         case .punct("("):

@@ -911,3 +911,14 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   `Swiftalk.Error`). Importing the library claims exactly one
   top-level name — befitting §5's embeddable-scripting-layer goal.
   Implementation keeps terse internal typealiases.
+* **2026-08-29, round 32 — subscripts implemented.** Reads: `a[i]`
+  with Int index, trapping out-of-range/negative (Swift-faithful);
+  `d[k]` flat-optional (missing → `nil`, §3a); chained; on any
+  expression. Writes through lvalue paths (`a[i] = x`,
+  `m[1][0] = x`, `d[k] = v`) as read-modify-write over COW values —
+  `let` collections immutable, value semantics verified
+  (copy-then-mutate leaves the copy alone). **`d[k] = nil` deletes
+  the key** (implements round 15's "presumably", still awaiting
+  confirmation). **`$0` is now literally `$[0]`** — the parser
+  desugars `$N`, and the pre-bound `$N` variables are gone.
+  `String[Int]` errors, pointing at §11's open question.
