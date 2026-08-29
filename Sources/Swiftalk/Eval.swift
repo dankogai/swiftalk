@@ -1,54 +1,58 @@
-/// Milestone 0: `eval()` — source string in, value out (Design.md §13).
-/// One-shot: bindings do not survive the call. For a persistent
-/// environment (the REPL's engine), use `Interpreter`.
-public func eval(_ source: String) throws -> Value {
-    try Interpreter().eval(source)
-}
-
-/// A swiftalk interpreter with a persistent global environment:
-/// bindings made in one `eval` call are visible to the next.
-public final class Interpreter {
-    private var environment = Environment()
-    private let relaxed: Bool
-
-    /// `relaxed` is REPL mode (Design.md §2.2): assignment to an
-    /// undeclared name implicitly declares a `var` — still type-locked
-    /// from then on. File mode (the default) rejects it.
-    public init(relaxed: Bool = false) {
-        self.relaxed = relaxed
+extension Swiftalk {
+    /// Milestone 0: `eval()` — source string in, value out (Design.md
+    /// §13). One-shot: bindings do not survive the call. For a persistent
+    /// environment (the REPL's engine), use `Swiftalk.Interpreter`.
+    public static func eval(_ source: String) throws -> Value {
+        try Interpreter().eval(source)
     }
 
-    /// Evaluates a program (statements separated by newlines or `;`)
-    /// and returns the value of its last statement.
-    public func eval(_ source: String) throws -> Value {
+    /// A swiftalk interpreter with a persistent global environment:
+    /// bindings made in one `eval` call are visible to the next.
+    public final class Interpreter {
+        private var environment = Environment()
+        private let relaxed: Bool
+
+        /// `relaxed` is REPL mode (Design.md §2.2): assignment to an
+        /// undeclared name implicitly declares a `var` — still type-locked
+        /// from then on. File mode (the default) rejects it.
+        public init(relaxed: Bool = false) {
+            self.relaxed = relaxed
+        }
+
+        /// Evaluates a program (statements separated by newlines or `;`)
+        /// and returns the value of its last statement.
+        public func eval(_ source: String) throws -> Value {
+            var lexer = Lexer(source)
+            var parser = Parser(try lexer.tokenize())
+            let program = try parser.parseProgram()
+            var last = Value.nil
+            for statement in program {
+                last = try execute(statement, in: environment, relaxed: relaxed)
+            }
+            return last
+        }
+    }
+
+    /// True when `source` is a syntactically incomplete *prefix* — open
+    /// brackets awaiting their close — so a REPL should read more lines
+    /// rather than report an error. Anything else (complete or genuinely
+    /// malformed) returns false.
+    public static func needsMoreInput(_ source: String) -> Bool {
         var lexer = Lexer(source)
-        var parser = Parser(try lexer.tokenize())
-        let program = try parser.parseProgram()
-        var last = Value.nil
-        for statement in program {
-            last = try execute(statement, in: environment, relaxed: relaxed)
+        guard let tokens = try? lexer.tokenize() else { return false }
+        var depth = 0
+        for token in tokens {
+            switch token {
+            case .punct("["), .punct("("), .punct("{"): depth += 1
+            case .punct("]"), .punct(")"), .punct("}"): depth -= 1
+            default: break
+            }
         }
-        return last
+        return depth > 0
     }
 }
 
-/// True when `source` is a syntactically incomplete *prefix* — open
-/// brackets awaiting their close — so a REPL should read more lines
-/// rather than report an error. Anything else (complete or genuinely
-/// malformed) returns false.
-public func needsMoreInput(_ source: String) -> Bool {
-    var lexer = Lexer(source)
-    guard let tokens = try? lexer.tokenize() else { return false }
-    var depth = 0
-    for token in tokens {
-        switch token {
-        case .punct("["), .punct("("), .punct("{"): depth += 1
-        case .punct("]"), .punct(")"), .punct("}"): depth -= 1
-        default: break
-        }
-    }
-    return depth > 0
-}
+typealias Interpreter = Swiftalk.Interpreter
 
 /// A binding: its mutability, its type lock (Design.md §3), and its value.
 /// The lock is fixed at declaration — from the annotation if written,

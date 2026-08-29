@@ -1,23 +1,27 @@
-/// Errors thrown by `eval()` and its stages. swiftalk-the-language is
-/// Result-first (Design.md §8); at the Swift implementation layer we use
-/// `throws`, which the embedding API will surface as a `Result`.
-public enum SwiftalkError: Error, Equatable, CustomStringConvertible {
-    case syntax(String)
-    case type(String)
-    case overflow(String)
-    case zeroDivision
-    case unknownMember(String)
+extension Swiftalk {
+    /// Errors thrown by `eval()` and its stages. swiftalk-the-language is
+    /// Result-first (Design.md §8); at the Swift implementation layer we
+    /// use `throws`, which the embedding API will surface as a `Result`.
+    public enum Error: Swift.Error, Equatable, CustomStringConvertible {
+        case syntax(String)
+        case type(String)
+        case overflow(String)
+        case zeroDivision
+        case unknownMember(String)
 
-    public var description: String {
-        switch self {
-        case .syntax(let m):        return "syntax error: \(m)"
-        case .type(let m):          return "type error: \(m)"
-        case .overflow(let m):      return "overflow: \(m)"
-        case .zeroDivision:         return "division by zero"
-        case .unknownMember(let m): return "unknown member: \(m)"
+        public var description: String {
+            switch self {
+            case .syntax(let m):        return "syntax error: \(m)"
+            case .type(let m):          return "type error: \(m)"
+            case .overflow(let m):      return "overflow: \(m)"
+            case .zeroDivision:         return "division by zero"
+            case .unknownMember(let m): return "unknown member: \(m)"
+            }
         }
     }
 }
+
+typealias SwiftalkError = Swiftalk.Error
 
 enum Token: Equatable {
     case int(Int64)

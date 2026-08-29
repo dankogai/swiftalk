@@ -13,20 +13,23 @@ literals (`[element]`, `[Key: Value]`), same-type arithmetic with
 trapping overflow, `let`/`var` bindings with type locks, and the
 round-trip law `eval(x.String()) == x`.
 
+The embedding API lives in the `Swiftalk` namespace — importing the
+library claims exactly one top-level name:
+
 ```swift
 import Swiftalk
 
-try eval("(0.1 + 0.2).String()")   // .string("0.30000000000000004")
-try eval(#"[1, "one", 2.0]"#)      // heterogeneous — [Primitives], not [Any]
-try eval("0xff")                   // .int(255)
-try eval("1 + 1.5")                // throws: type error — Int ≠ Double
-try eval("9223372036854775807 + 1")// throws: overflow traps
-try eval("var x = 1\nx = \"1\"")   // throws: x is type-locked to Int
-try eval("var x: Int? = nil")      // flat optional: Int-or-nil, no box
+try Swiftalk.eval("(0.1 + 0.2).String()")   // .string("0.30000000000000004")
+try Swiftalk.eval(#"[1, "one", 2.0]"#)      // heterogeneous — [Primitives], not [Any]
+try Swiftalk.eval("0xff")                   // .int(255)
+try Swiftalk.eval("1 + 1.5")                // throws Swiftalk.Error: Int ≠ Double
+try Swiftalk.eval("9223372036854775807 + 1")// throws: overflow traps
+try Swiftalk.eval("var x = 1\nx = \"1\"")   // throws: x is type-locked to Int
+try Swiftalk.eval("var x: Int? = nil")      // flat optional: Int-or-nil, no box
 
-let interp = Interpreter()          // persistent environment
+let interp = Swiftalk.Interpreter()          // persistent environment
 try interp.eval("var count = 1")
-try interp.eval("count = count + 1")// .int(2)
+try interp.eval("count = count + 1")         // .int(2)
 ```
 
 **Milestone 1 — REPL** is in:

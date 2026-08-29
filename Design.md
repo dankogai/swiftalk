@@ -904,3 +904,10 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   `.count` on String/Array/Dictionary (graphemes for String).
   Newlines are separators inside `{}` but not `[`/`(`.
   `Function.String()` emits a placeholder — source text still OPEN.
+* **2026-08-29, round 31 — embedding-API housekeeping.** The Swift
+  public surface is namespaced: a caseless `public enum Swiftalk`
+  holds `eval`, `Interpreter`, `needsMoreInput`, `Value`,
+  `FunctionObject`, and `Error` (`SwiftalkError` renamed to idiomatic
+  `Swiftalk.Error`). Importing the library claims exactly one
+  top-level name — befitting §5's embeddable-scripting-layer goal.
+  Implementation keeps terse internal typealiases.

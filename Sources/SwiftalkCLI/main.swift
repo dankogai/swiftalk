@@ -10,7 +10,7 @@ import Glibc
 // (§2.2). The printer is .String() source form, so every echo obeys
 // the round-trip law (§3d): what you see re-enters as what it was.
 
-let interpreter = Interpreter(relaxed: true)
+let interpreter = Swiftalk.Interpreter(relaxed: true)
 let isTTY = isatty(0) != 0
 
 func prompt(continued: Bool) {
@@ -27,14 +27,14 @@ while let line = readLine() {
         prompt(continued: false)
         continue
     }
-    if needsMoreInput(buffer) {
+    if Swiftalk.needsMoreInput(buffer) {
         prompt(continued: true)
         continue
     }
     do {
         let value = try interpreter.eval(buffer)
         print(value.sourceString())
-    } catch let error as SwiftalkError {
+    } catch let error as Swiftalk.Error {
         print(error.description)
     } catch {
         print("error: \(error)")

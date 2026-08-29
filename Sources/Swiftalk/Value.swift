@@ -1,38 +1,51 @@
-/// A swiftalk runtime value, covering the SION-complete primitive space
-/// plus `Function` (Design.md §3b/§3c/§2.4). `Data` and `Date` join in
-/// later milestones.
-public enum Value: Hashable {
-    case `nil`
-    case bool(Bool)
-    case int(Int64)
-    case double(Double)
-    case string(String)
-    indirect case array([Value])
-    indirect case dictionary([Value: Value])
-    case function(FunctionObject)
+/// The swiftalk namespace: the entire public embedding API lives here —
+/// `Swiftalk.eval(...)`, `Swiftalk.Interpreter`, `Swiftalk.Value`,
+/// `Swiftalk.Error` — so importing the library claims exactly one
+/// top-level name.
+public enum Swiftalk {}
+
+extension Swiftalk {
+    /// A swiftalk runtime value, covering the SION-complete primitive
+    /// space plus `Function` (Design.md §3b/§3c/§2.4). `Data` and `Date`
+    /// join in later milestones.
+    public enum Value: Hashable {
+        case `nil`
+        case bool(Bool)
+        case int(Int64)
+        case double(Double)
+        case string(String)
+        indirect case array([Value])
+        indirect case dictionary([Value: Value])
+        case function(FunctionObject)
+    }
+
+    /// A function value: `{}` is the only function form (Design.md §2.4).
+    /// Reference identity is its equality — `Function` is one collective
+    /// type and functions compare as themselves, not by structure.
+    public final class FunctionObject: Hashable {
+        let parameters: [String]      // empty means variadic (round 14)
+        let body: [Stmt]
+        let closure: Environment      // lexical capture
+
+        init(parameters: [String], body: [Stmt], closure: Environment) {
+            self.parameters = parameters
+            self.body = body
+            self.closure = closure
+        }
+
+        public static func == (lhs: FunctionObject, rhs: FunctionObject) -> Bool {
+            lhs === rhs
+        }
+        public func hash(into hasher: inout Hasher) {
+            hasher.combine(ObjectIdentifier(self))
+        }
+    }
 }
 
-/// A function value: `{}` is the only function form (Design.md §2.4).
-/// Reference identity is its equality — `Function` is one collective
-/// type and functions compare as themselves, not by structure.
-public final class FunctionObject: Hashable {
-    let parameters: [String]      // empty means variadic (round 14)
-    let body: [Stmt]
-    let closure: Environment      // lexical capture
-
-    init(parameters: [String], body: [Stmt], closure: Environment) {
-        self.parameters = parameters
-        self.body = body
-        self.closure = closure
-    }
-
-    public static func == (lhs: FunctionObject, rhs: FunctionObject) -> Bool {
-        lhs === rhs
-    }
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(ObjectIdentifier(self))
-    }
-}
+// Internal shorthands — implementation files (and @testable tests) keep
+// the unqualified spellings; only the public surface is namespaced.
+typealias Value = Swiftalk.Value
+typealias FunctionObject = Swiftalk.FunctionObject
 
 extension Value {
     /// The swiftalk type name reported by `.type` (Design.md §3).
