@@ -254,14 +254,25 @@ data.String()     // Data → String?   (failable: bytes may not be valid text)
 string.Data()     // String → Data    (infallible: text always has bytes)
 "42".Int()        // String → Int?    (failable, presumably)
 42.String()       // Int → String     ("42")
-255.String(.hex)  // Int → String     ("ff") — format via arguments
+255.String(.hex)  // Int → String     ("0xff") — format via arguments
 ```
 
 * Failable conversions return an Optional; infallible ones return the
   type directly.
-* Arguments select formats/options per conversion: radix for
-  `Int.String()` (`.hex`, presumably `.oct`, `.bin`, arbitrary radix),
-  presumably encodings for `Data.String()` / `String.Data()`
+* Arguments select formats/options per conversion — and **the enum
+  form and the `radix:` form are deliberately not the same**:
+
+  ```swiftalk
+  255.String(.hex)        // "0xff"       — prefixed, literal-ready
+  255.String(.oct)        // "0o377"
+  255.String(.bin)        // "0b11111111"
+  255.String(radix: 16)   // "ff"         — bare digits, any radix
+  ```
+
+  `.hex`/`.oct`/`.bin` emit what the lexer accepts back — presumably
+  round-tripping through `"0xff".Int()`. **The same applies to
+  `Double`** (`.hex` giving hex-float notation à la `0x1.fep7`).
+* Presumably likewise: encodings for `Data.String()` / `String.Data()`
   (defaulting to UTF-8), date formats for `Date.String()`, etc.
 * **`.String()` is mandatory** — every type must convert to `String`.
   (This is swiftalk's `toString`/`description`; presumably what `print`
@@ -585,7 +596,7 @@ for x in mixed {
     print("\(x.String()): \(x.type)")         // .String() is universal (§3d)
 }
 let answer = "42".Int() ?? 0                  // failable conversion + default
-let hex    = 255.String(.hex)                 // "ff" — format via argument
+let hex    = 255.String(.hex)                 // "0xff"; radix: 16 for bare "ff"
 let bytes  = "café".Data()                    // infallible; UTF-8 default
 let text   = bytes.String()                   // String? — bytes may not be text
 ```
@@ -709,3 +720,7 @@ let text   = bytes.String()                   // String? — bytes may not be te
   `Data`⇄`String` (UTF-8 default), date formats, etc. (§3d).
   `.String()` remains mandatory on every type; lowercase `.type` stays
   a property.
+* **2026-08-29, round 20** — Refined §3d formats: **`.String(.hex)` ≠
+  `.String(radix: 16)`** — the enum form prepends the literal prefix
+  (`0xff`, `0o377`, `0b...`), the `radix:` form emits bare digits;
+  same for `Double` (hex-float notation).
