@@ -565,6 +565,14 @@ ABI stability, Objective-C interop.
   `Dictionary` all conform** (per-`Character`, per-element, and
   per-key/value-pair, presumably — which is what `for`-`in` iterates,
   and what §2.4's coroutines can feed).
+* **`Equatable`, `Hashable`, `Comparable` exist as protocols, and
+  built-in types conform natively.** `Hashable` is what gates
+  dictionary keys — and since SION dictionaries admit any `Primitives`
+  key (§3c), every `Primitives` type hashes natively. (**OPEN**:
+  exact per-type coverage — `Function` equality (identity?),
+  which types are `Comparable` (`Int`/`Double`/`String`/`Date`
+  surely; `Array` lexicographically?); whether user types conform by
+  declaration + definition as in Swift, or get synthesis.)
 * **Types are constructor `Function`s.** Like Swift, `Type()`
   constructs — and so a type is itself a first-class value of type
   `Function`: `Int.type == Function`. This retroactively answers §3's
@@ -846,3 +854,8 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   `instanceof`'s role). §3d: initializer-style spelling exists after
   all, as construction. Opened: constructor-vs-converter division of
   labor; `is`/`as?` as sugar.
+* **2026-08-29, round 26** — Decided: **`Equatable`/`Hashable`/
+  `Comparable` exist**, with built-in types conforming natively (§10);
+  `Hashable` gates dictionary keys, so every `Primitives` type hashes.
+  Opened: per-type coverage (`Function` equality, `Comparable` reach),
+  synthesis for user types.
