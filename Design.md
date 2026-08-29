@@ -223,6 +223,9 @@ Primitives:
   optionally. **No `.utf16` view — UTF-16 needs to go to hell.**
 * **`Data`** — a sequence of unsigned 8-bit bytes, **distinct from
   `String`**. Bytes are bytes; text is text.
+* **`Date`** — joined the roster in round 17 as a consequence of
+  `Primitives`' SION-completeness (§3c): SION carries dates natively,
+  so swiftalk does too. Representation/literals **OPEN**.
 * **`Function`** — the **one** type of every function/closure (§2.4):
   `{ 42 }.type == Function`, `{ 42 }().type == Int`. Signatures are
   not part of the type (unlike Swift's `(Int, Int) -> Int` zoo);
@@ -289,18 +292,34 @@ string.Data      // String → Data    (infallible: text always has bytes)
   ```
 
   *(Case spelling above is provisional; see OPEN below.)*
-* User-defined enums remain the idiom for richer unions
-  (`enum JSON { case null, bool(Bool), number(Double), ... }`).
+* **`Primitives` is SION-complete** — and therefore JSON-complete,
+  since SION is upper-compatible with JSON.
+  [SION](https://github.com/dankogai/swift-sion) is to swiftalk what
+  JSON is to JavaScript: the native serialization format. The case
+  roster mirrors SION's value space (indirect where needed):
+
+  * `nil`, `Bool`, `Int` (64-bit, distinct from `Double` — exactly
+    §3b), `Double`, `String`, `Data`, `Date`,
+  * `Array` of `Primitives`, `Dictionary` of `Primitives` keys *and*
+    values (SION allows non-`String` keys, as does swiftalk).
+
+  A parsed SION (or JSON) document *is* a `Primitives` value, and any
+  `Primitives` value serializes to SION losslessly.
+* Consequence for §3b: **`Date` joins the basic-type roster** (SION
+  has it natively; a serialization-complete `Primitives` needs it).
+  Representation and literal syntax **OPEN** (SION spells it
+  `.Date(x)` with a Unix-epoch `Double`).
+* User-defined enums remain the idiom for richer unions.
 * The long-term hope is that reaching for `Any` is rare; unions are
   spelled as enums, and `element.type` / pattern matching handle the
   dispatch when iterating mixed sequences.
-* **OPEN — `Primitives` details**: the exact case roster (`BigInt`?
-  `Data`? `Function`? do `Array`/`Dictionary`-of-`Primitives` join,
-  making it JSON-complete?); case naming (`.Int` mirroring the type
-  name vs. Swift-lowercase `.int`); and whether lifting is implicit —
-  does `[1, "one", 2.0]` *infer* `[Primitives]` (auto-wrapping each
-  element) rather than `[Any]`, and does `x.Int` / pattern matching
-  unwrap back out?
+* **OPEN — remaining `Primitives` details**: SION's `Ext` (MsgPack
+  extension type) — mirror it or leave it to the serializer?
+  `BigInt` (not in SION today)? case naming (`.Int` mirroring the
+  type name vs. Swift-lowercase `.int`; the `nil` case vs. the
+  keyword); and whether lifting is implicit — does `[1, "one", 2.0]`
+  *infer* `[Primitives]` (auto-wrapping each element) rather than
+  `[Any]`, and does `x.Int` / pattern matching unwrap back out?
 
 ## 3a. Optionals & nil — DECIDED
 
@@ -650,3 +669,11 @@ let text   = bytes.String                     // String? — bytes may not be te
   is to keep users away from `Any`. Opened: exact case roster
   (BigInt/Data/Function/collections → JSON-complete?), case naming,
   implicit lifting (does `[1, "one", 2.0]` infer `[Primitives]`?).
+* **2026-08-29, round 17** — **`Primitives` is SION-complete** (§3c):
+  cases for `nil`, `Bool`, `Int`, `Double`, `String`, `Data`, `Date`,
+  plus `Array`/`Dictionary` of `Primitives` (non-`String` keys
+  included) — hence JSON-complete. **SION is swiftalk's native
+  serialization format** (as JSON is to JS);
+  https://github.com/dankogai/swift-sion. Consequence: **`Date` joins
+  the basic types** (§3b). Opened: SION `Ext`, `Date`
+  representation/literals; still open: case naming, implicit lifting.
