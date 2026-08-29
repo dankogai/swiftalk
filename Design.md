@@ -116,8 +116,16 @@ Further decisions:
   count other than 2 is a **runtime error** (a scripting language;
   compile-time checking may be too hard to promise). Param-less
   `$`-style functions (`{ $.reduce(0) { $0 + $1 } }`) remain variadic —
-  that's what `$.count` is for. (**OPEN**: the exact rule for `{ 42 }`
-  — a body with neither params nor `$` — called with arguments.)
+  that's what `$.count` is for.
+* **A `{}` around a bare constant collapses to the constant**:
+  `{ 42 }` evaluates to `42` (so `{ 42 }.type == Int`), and likewise
+  for any other constant — `{ "foo" }` is `"foo"`. Such braces are
+  grouping, not a closure; there is no "constant thunk".
+  (**OPEN — the boundary**: a param-less, `$`-less body that is *not*
+  a constant — `{ x + 1 }` capturing outer `x`, `{ print("hi") }` —
+  presumably remains a deferred zero-arg closure (else trailing-closure
+  APIs like `async { ... }` can't work). Exact rule: constants
+  collapse, everything else defers?)
 * **Annotations, Swift-style**: `{ (x: Int, y: Int) -> Int in ... }`
   is allowed; bare names stay fine. Where written, types are enforced
   at runtime per §3.
@@ -519,3 +527,7 @@ let text   = bytes.String                     // String? — bytes may not be te
   Swift-style annotations allowed in closures; **declared param names
   double as reorderable call-site labels**. Method/`init` syntax
   deferred until milestone 0. Opened: `{ 42 }` called with arguments.
+* **2026-08-29, round 11** — Decided: **`{ constant }` collapses to
+  the constant** — `{ 42 }` evals to `42`; applies to any constant
+  (§2.4). Opened: the exact boundary for non-constant param-less
+  bodies (presumably still deferred closures).
