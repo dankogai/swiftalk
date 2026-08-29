@@ -859,3 +859,10 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   `Hashable` gates dictionary keys, so every `Primitives` type hashes.
   Opened: per-type coverage (`Function` equality, `Comparable` reach),
   synthesis for user types.
+* **2026-08-29, round 27 — milestone 0 begins.** First Swift code:
+  `eval()` over primitives — scalar & collection literals (radix
+  prefixes included), same-type arithmetic with trapping overflow,
+  unary minus, comments, and two members: `.String()` (source form)
+  and `.type` (as a name, until types become constructor Functions).
+  The round-trip law `eval(x.String()) == x` is the anchor test and
+  passes. CI re-enabled.

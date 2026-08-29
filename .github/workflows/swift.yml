@@ -1,13 +1,12 @@
 name: CI via GitHub Actions
 
-# Automatic triggers are suspended until there is Swift code to test.
-# Restore the push/pull_request triggers below once Package.swift exists.
 on:
   workflow_dispatch:
-  # push:
-  #   tags: [ '*.*.*' ]
-  # pull_request:
-  #   branches: [ main ]
+  push:
+    branches: [ main ]
+    tags: [ '*.*.*' ]
+  pull_request:
+    branches: [ main ]
 jobs:
   build:
     name: Swift ${{ matrix.swift }} on ${{ matrix.os }}
