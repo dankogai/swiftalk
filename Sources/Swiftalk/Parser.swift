@@ -14,6 +14,7 @@ indirect enum Expr {
     case selfCall(args: [(label: String?, expr: Expr)])   // $(...) — recurse (§2.4)
     case method(Expr, name: String, args: [Expr], called: Bool)
     case `subscript`(Expr, Expr)                          // a[i], d[k]; $0 ≡ $[0]
+    case range(String, Expr, Expr)                        // a...b / a..<b (§: eager [Int] for now)
 }
 
 /// An assignment target: a variable, or a subscript path rooted in one
@@ -34,9 +35,18 @@ enum Stmt {
     case declaration(mutable: Bool, name: String, annotation: TypeAnnotation?, initializer: Expr)
     case assignment(target: LValue, expr: Expr)
     case expression(Expr)
+    indirect case ifS(condition: Expr, then: [Stmt], else: [Stmt]?)
+    case whileS(condition: Expr, body: [Stmt])
+    case repeatS(body: [Stmt], condition: Expr)
+    case forS(name: String, sequence: Expr, body: [Stmt])
+    case breakS
+    case continueS
 }
 
-private let keywords: Set<String> = ["let", "var", "true", "false", "nil", "in"]
+private let keywords: Set<String> = [
+    "let", "var", "true", "false", "nil", "in",
+    "if", "else", "while", "repeat", "for", "break", "continue",
+]
 
 struct Parser {
     private let tokens: [Token]
@@ -105,6 +115,36 @@ struct Parser {
         switch peek {
         case .identifier("let"), .identifier("var"):
             return try parseDeclaration()
+        case .identifier("if"):
+            return try parseIf()
+        case .identifier("while"):
+            pos += 1
+            let condition = try parseExpr()
+            return .whileS(condition: condition, body: try parseBlock())
+        case .identifier("repeat"):
+            pos += 1
+            let body = try parseBlock()
+            guard case .identifier("while")? = advance() else {
+                throw SwiftalkError.syntax("expected 'while' after the repeat block")
+            }
+            return .repeatS(body: body, condition: try parseExpr())
+        case .identifier("for"):
+            pos += 1
+            guard case .identifier(let name)? = advance(),
+                  name == "_" || (!keywords.contains(name) && !name.hasPrefix("$")) else {
+                throw SwiftalkError.syntax("expected a loop variable after 'for'")
+            }
+            guard case .identifier("in")? = advance() else {
+                throw SwiftalkError.syntax("expected 'in' after the loop variable")
+            }
+            let sequence = try parseExpr()
+            return .forS(name: name, sequence: sequence, body: try parseBlock())
+        case .identifier("break"):
+            pos += 1
+            return .breakS
+        case .identifier("continue"):
+            pos += 1
+            return .continueS
         default:
             let expr = try parseExpr()
             guard case .punct("=")? = peek else {
@@ -113,6 +153,33 @@ struct Parser {
             pos += 1
             return .assignment(target: try lvalue(from: expr), expr: try parseExpr())
         }
+    }
+
+    /// `if condition { … } [else if … | else { … }]` — Swift-style.
+    private mutating func parseIf() throws -> Stmt {
+        pos += 1  // consume "if"
+        let condition = try parseExpr()
+        let then = try parseBlock()
+        // `else` may sit on the next line; backtrack if it isn't there.
+        let saved = pos
+        skipSeparators()
+        guard case .identifier("else")? = peek else {
+            pos = saved
+            return .ifS(condition: condition, then: then, else: nil)
+        }
+        pos += 1
+        if case .identifier("if")? = peek {
+            return .ifS(condition: condition, then: then, else: [try parseIf()])
+        }
+        return .ifS(condition: condition, then: then, else: try parseBlock())
+    }
+
+    /// `{ statements }` in statement context — a block, not a closure.
+    private mutating func parseBlock() throws -> [Stmt] {
+        try expect("{")
+        let body = try parseStatements(until: "}")
+        try expect("}")
+        return body
     }
 
     /// Converts an already-parsed expression into an assignment target:
@@ -168,10 +235,17 @@ struct Parser {
     }
 
     private mutating func parseComparison() throws -> Expr {
-        let lhs = try parseAdditive()
-        guard case .op(let op)? = peek else { return lhs }
+        let lhs = try parseRange()
+        guard case .op(let op)? = peek, op != "...", op != "..<" else { return lhs }
         pos += 1
-        return .comparison(op, lhs, try parseAdditive())
+        return .comparison(op, lhs, try parseRange())
+    }
+
+    private mutating func parseRange() throws -> Expr {
+        let lhs = try parseAdditive()
+        guard case .op(let op)? = peek, op == "..." || op == "..<" else { return lhs }
+        pos += 1
+        return .range(op, lhs, try parseAdditive())
     }
 
     private mutating func parseAdditive() throws -> Expr {

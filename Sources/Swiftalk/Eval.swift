@@ -26,8 +26,12 @@ extension Swiftalk {
             var parser = Parser(try lexer.tokenize())
             let program = try parser.parseProgram()
             var last = Value.nil
-            for statement in program {
-                last = try execute(statement, in: environment, relaxed: relaxed)
+            do {
+                for statement in program {
+                    last = try execute(statement, in: environment, relaxed: relaxed)
+                }
+            } catch is ControlFlow {
+                throw SwiftalkError.syntax("'break'/'continue' outside a loop")
             }
             return last
         }
@@ -175,6 +179,97 @@ func execute(_ statement: Stmt, in env: Environment, relaxed: Bool = false) thro
         return value
     case .expression(let expr):
         return try evaluate(expr, in: env)
+    case .ifS(let condition, let then, let elseBranch):
+        guard case .bool(let flag) = try evaluate(condition, in: env) else {
+            throw SwiftalkError.type("the 'if' condition must be a Bool — nothing is truthy (§3b)")
+        }
+        if flag {
+            try runBlock(then, in: env)
+        } else if let elseBranch {
+            try runBlock(elseBranch, in: env)
+        }
+        return .nil
+    case .whileS(let condition, let body):
+        while true {
+            guard case .bool(let flag) = try evaluate(condition, in: env) else {
+                throw SwiftalkError.type("the 'while' condition must be a Bool — nothing is truthy (§3b)")
+            }
+            guard flag, try runLoopBody(body, in: env) else { break }
+        }
+        return .nil
+    case .repeatS(let body, let condition):
+        while true {
+            guard try runLoopBody(body, in: env) else { break }
+            guard case .bool(let flag) = try evaluate(condition, in: env) else {
+                throw SwiftalkError.type("the 'repeat' condition must be a Bool — nothing is truthy (§3b)")
+            }
+            guard flag else { break }
+        }
+        return .nil
+    case .forS(let name, let sequence, let body):
+        for element in try elements(of: try evaluate(sequence, in: env)) {
+            let scope = Environment(parent: env)
+            if name != "_" {
+                try scope.declare(name, Binding(
+                    mutable: false,
+                    lock: TypeAnnotation(name: element.typeName, optional: true),
+                    value: element))
+            }
+            guard try runLoopBody(body, in: scope, freshScope: false) else { break }
+        }
+        return .nil
+    case .breakS:
+        throw ControlFlow.break
+    case .continueS:
+        throw ControlFlow.continue
+    }
+}
+
+/// `break`/`continue` travel as thrown signals; loops catch them, and
+/// `apply` refuses to let them escape a function body.
+enum ControlFlow: Swift.Error {
+    case `break`
+    case `continue`
+}
+
+/// Runs a block in a fresh child scope (block-local let/var, §2.2-style
+/// lexical scoping).
+private func runBlock(_ body: [Stmt], in env: Environment) throws {
+    let scope = Environment(parent: env)
+    for statement in body {
+        _ = try execute(statement, in: scope)
+    }
+}
+
+/// Runs one loop iteration; returns false when the loop should stop
+/// (`break`), true to keep going (`continue` just ends the iteration).
+private func runLoopBody(_ body: [Stmt], in env: Environment, freshScope: Bool = true) throws -> Bool {
+    let scope = freshScope ? Environment(parent: env) : env
+    do {
+        for statement in body {
+            _ = try execute(statement, in: scope)
+        }
+    } catch ControlFlow.break {
+        return false
+    } catch ControlFlow.continue {
+        return true
+    }
+    return true
+}
+
+/// What `for`-`in` iterates (§10's Sequence conformers): Array elements;
+/// String graphemes (as single-Character Strings until a Character type
+/// lands); Dictionary [key, value] pairs (until tuples land).
+private func elements(of sequence: Value) throws -> [Value] {
+    switch sequence {
+    case .array(let a):
+        return a
+    case .string(let s):
+        return s.map { .string(String($0)) }
+    case .dictionary(let d):
+        return d.map { .array([$0.key, $0.value]) }
+    default:
+        throw SwiftalkError.type("cannot iterate a \(sequence.typeName)")
     }
 }
 
@@ -231,6 +326,19 @@ func evaluate(_ expr: Expr, in env: Environment) throws -> Value {
                           args: try args.map { try evaluate($0, in: env) }, called: called)
     case .subscript(let base, let index):
         return try subscriptRead(try evaluate(base, in: env), try evaluate(index, in: env))
+    case .range(let op, let lhs, let rhs):
+        // Provisional: ranges are eager [Int] arrays (a lazy Range type
+        // is an open design question). Like Swift, a > b traps.
+        guard case .int(let a) = try evaluate(lhs, in: env),
+              case .int(let b) = try evaluate(rhs, in: env) else {
+            throw SwiftalkError.type("range bounds must be Ints")
+        }
+        guard a <= b else {
+            throw SwiftalkError.type("range lower bound \(a) exceeds upper bound \(b)")
+        }
+        return op == "..."
+            ? .array((a...b).map { .int($0) })
+            : .array((a..<b).map { .int($0) })   // a ..< a is empty, as in Swift
     }
 }
 
@@ -372,8 +480,12 @@ func apply(_ fn: FunctionObject, args: [(label: String?, value: Value)]) throws 
         value: .function(fn)))
 
     var last = Value.nil
-    for statement in fn.body {
-        last = try execute(statement, in: local)
+    do {
+        for statement in fn.body {
+            last = try execute(statement, in: local)
+        }
+    } catch is ControlFlow {
+        throw SwiftalkError.syntax("'break'/'continue' outside a loop")
     }
     return last
 }

@@ -922,3 +922,17 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   confirmation). **`$0` is now literally `$[0]`** — the parser
   desugars `$N`, and the pre-bound `$N` variables are gone.
   `String[Int]` errors, pointing at §11's open question.
+* **2026-08-29, round 33 — `if`/`else` and loops, Swift-style.**
+  `if`/`else if`/`else` (Bool-only conditions — nothing is truthy),
+  `while`, `repeat`-`while`, `for`-`in`, `break`/`continue` (which
+  cannot escape a function body); blocks are child scopes;
+  control-flow statements evaluate to `nil` (statements, as in
+  Swift — an if-*expression* à la Swift 5.9 is a possible later
+  refinement). `for`-`in` iterates §10's Sequence conformers:
+  Array elements, String graphemes (as single-`Character` `String`s
+  until a `Character` type is decided), Dictionary `[key, value]`
+  pair-arrays (until tuples are decided). **Ranges arrived
+  provisionally**: `a...b` / `a..<b` on Ints evaluate to eager
+  `[Int]` arrays (`a > b` traps as in Swift) — **OPEN**: a real lazy
+  `Range` type, its place in `Primitives`/SION, `Comparable`
+  generalization.

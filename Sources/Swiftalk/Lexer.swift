@@ -108,10 +108,20 @@ struct Lexer {
                 }
                 tokens.append(.identifier(name))
             case ".":
-                // `.` is member access; a leading `.5` float is not swiftalk
-                // (Swift also requires `0.5`).
-                pos += 1
-                tokens.append(.punct("."))
+                // `...` / `..<` are range operators; a single `.` is member
+                // access. (A leading `.5` float is not swiftalk — Swift
+                // also requires `0.5`.)
+                if pos + 1 < scalars.count, scalars[pos + 1] == "." {
+                    guard pos + 2 < scalars.count,
+                          scalars[pos + 2] == "." || scalars[pos + 2] == "<" else {
+                        throw SwiftalkError.syntax("'..' is not an operator")
+                    }
+                    tokens.append(.op(scalars[pos + 2] == "." ? "..." : "..<"))
+                    pos += 3
+                } else {
+                    pos += 1
+                    tokens.append(.punct("."))
+                }
             case "\"":
                 tokens.append(.string(try lexString()))
             case "0"..."9":

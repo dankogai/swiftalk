@@ -89,6 +89,26 @@ swiftalk> m
 [[1, 2], [30, 4]]
 ```
 
+**`if`/`else` and loops** are in, Swift-style — with ranges:
+
+```text
+swiftalk> let fib = { n in
+........ var a = 0
+........ var b = 1
+........ for _ in 1...n {
+........ let t = a + b
+........ a = b
+........ b = t
+........ }
+........ a
+........ }
+{ n in ... }
+swiftalk> fib(90)
+2880067194370816120
+swiftalk> fib(93)
+overflow: 4660046610375530309 + 7540113804746346429
+```
+
 ```sh
 swift test
 ```
