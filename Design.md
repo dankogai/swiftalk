@@ -269,9 +269,16 @@ string.Data()     // String → Data    (infallible: text always has bytes)
   255.String(radix: 16)   // "ff"         — bare digits, any radix
   ```
 
-  `.hex`/`.oct`/`.bin` emit what the lexer accepts back — presumably
-  round-tripping through `"0xff".Int()`. **The same applies to
-  `Double`** (`.hex` giving hex-float notation à la `0x1.fep7`).
+  `.hex`/`.oct`/`.bin` emit what the lexer accepts back, and
+  **prefixed strings round-trip — as a language invariant**:
+
+  ```swiftalk
+  x.String(.hex).Int()! == x      // holds for every Int x
+  ```
+
+  (likewise `.oct`/`.bin`, and for `Double` via hex-float notation —
+  `.hex` on a `Double` gives `0x1.fep7`-style output that
+  `.Double()` parses back exactly.)
 * Presumably likewise: encodings for `Data.String()` / `String.Data()`
   (defaulting to UTF-8), date formats for `Date.String()`, etc.
 * **`.String()` is mandatory** — every type must convert to `String`.
@@ -724,3 +731,7 @@ let text   = bytes.String()                   // String? — bytes may not be te
   `.String(radix: 16)`** — the enum form prepends the literal prefix
   (`0xff`, `0o377`, `0b...`), the `radix:` form emits bare digits;
   same for `Double` (hex-float notation).
+* **2026-08-29, round 21** — Confirmed as a language invariant:
+  **prefixed strings round-trip** — `x.String(.hex).Int()! == x` holds
+  for every `Int` (likewise `.oct`/`.bin`, and `Double` via hex-float)
+  (§3d).
