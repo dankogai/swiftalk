@@ -9,8 +9,14 @@ public func eval(_ source: String) throws -> Value {
 /// bindings made in one `eval` call are visible to the next.
 public final class Interpreter {
     private var environment = Environment()
+    private let relaxed: Bool
 
-    public init() {}
+    /// `relaxed` is REPL mode (Design.md §2.2): assignment to an
+    /// undeclared name implicitly declares a `var` — still type-locked
+    /// from then on. File mode (the default) rejects it.
+    public init(relaxed: Bool = false) {
+        self.relaxed = relaxed
+    }
 
     /// Evaluates a program (statements separated by newlines or `;`)
     /// and returns the value of its last statement.
@@ -20,10 +26,28 @@ public final class Interpreter {
         let program = try parser.parseProgram()
         var last = Value.nil
         for statement in program {
-            last = try execute(statement, in: environment)
+            last = try execute(statement, in: environment, relaxed: relaxed)
         }
         return last
     }
+}
+
+/// True when `source` is a syntactically incomplete *prefix* — open
+/// brackets awaiting their close — so a REPL should read more lines
+/// rather than report an error. Anything else (complete or genuinely
+/// malformed) returns false.
+public func needsMoreInput(_ source: String) -> Bool {
+    var lexer = Lexer(source)
+    guard let tokens = try? lexer.tokenize() else { return false }
+    var depth = 0
+    for token in tokens {
+        switch token {
+        case .punct("["), .punct("("): depth += 1
+        case .punct("]"), .punct(")"): depth -= 1
+        default: break
+        }
+    }
+    return depth > 0
 }
 
 /// A binding: its mutability, its type lock (Design.md §3), and its value.
@@ -59,6 +83,10 @@ final class Environment {
         bindings[name] = binding
     }
 
+    func has(_ name: String) -> Bool {
+        bindings[name] != nil
+    }
+
     func lookup(_ name: String) throws -> Value {
         guard let binding = bindings[name] else {
             throw SwiftalkError.type("undefined variable '\(name)'")
@@ -87,7 +115,7 @@ final class Environment {
 private let knownTypeNames: Set<String> =
     ["Nil", "Bool", "Int", "Double", "String", "Array", "Dictionary"]
 
-func execute(_ statement: Stmt, in env: Environment) throws -> Value {
+func execute(_ statement: Stmt, in env: Environment, relaxed: Bool = false) throws -> Value {
     switch statement {
     case .declaration(let mutable, let name, let annotation, let initializer):
         let value = try evaluate(initializer, in: env)
@@ -111,6 +139,19 @@ func execute(_ statement: Stmt, in env: Environment) throws -> Value {
         return value
     case .assignment(let name, let expr):
         let value = try evaluate(expr, in: env)
+        if relaxed && !env.has(name) {
+            // REPL mode (§2.2): bare `x = 1` implicitly declares a var —
+            // type-locked from here on, like any other binding.
+            guard value != .nil else {
+                throw SwiftalkError.type(
+                    "cannot infer a type for '\(name)' from nil — annotate it, e.g. var \(name): Int? = nil")
+            }
+            try env.declare(name, Binding(
+                mutable: true,
+                lock: TypeAnnotation(name: value.typeName, optional: false),
+                value: value))
+            return value
+        }
         try env.assign(name, value)
         return value
     case .expression(let expr):

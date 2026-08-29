@@ -626,7 +626,10 @@ can `yield`), so cooperative multitasking has a substrate; whether
 1. **Implement REPL** — a read–`eval`–print loop around milestone 0.
    This is where §2.2's relaxed mode (bare `x = 1` allowed) first
    matters, and where `.String()`-on-everything (§3d) pays off for
-   printing results.
+   printing results. **DONE (first cut)**: `swift run swiftalk` —
+   relaxed mode on, echo in `.String()` source form (every echo obeys
+   the round-trip law), multi-line continuation while brackets are
+   open, prompts suppressed when stdin is not a TTY (pipe-friendly).
 2. *(TBD — script runner, embedding API, stdlib growth...)*
 
 **File extension — DECIDED**: `.swt` (as in `hello.swt`). Short,
@@ -877,3 +880,11 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   collection literals and argument lists (as Swift 6.1+); a
   declaration evaluates to its bound value. Inference locks are
   coarse for now (`Array`, not `[Int]`) — element-type locks TBD.
+* **2026-08-29, round 29 — milestone 1: the REPL.** `swift run
+  swiftalk`: relaxed mode per §2.2 (bare `x = 1` declares a var,
+  still type-locked; file mode stays strict); the printer is
+  `.String()` source form, so echoes re-enter as what they were —
+  answering §3d's open "what does the REPL print" with *quoted*
+  (the raw display form for `print` proper remains OPEN);
+  multi-line continuation while brackets are open
+  (`needsMoreInput`); non-TTY stdin suppresses prompts.

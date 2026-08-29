@@ -29,6 +29,27 @@ try interp.eval("var count = 1")
 try interp.eval("count = count + 1")// .int(2)
 ```
 
+**Milestone 1 — REPL** is in:
+
+```sh
+swift run swiftalk
+```
+
+```text
+swiftalk> x = 40          // REPL is relaxed: bare assignment declares a var
+40
+swiftalk> x = x + 2
+42
+swiftalk> x = "oops"      // ...but the type lock still holds
+type error: cannot assign String to 'x' of type Int
+swiftalk> [1, "one",      // open brackets continue onto the next line
+........ 2.0]
+[1, "one", 2.0]
+```
+
+Echoes are `.String()` source form — everything the REPL prints
+re-enters as what it was.
+
 ```sh
 swift test
 ```
