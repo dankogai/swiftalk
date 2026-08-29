@@ -317,6 +317,21 @@ string.Data()     // String → Data    (infallible: text always has bytes)
   ```
 
   *(Case spelling above is provisional; see OPEN below.)*
+* **`Primitives` is a flat union** — the same model as `T?` (§3a).
+  There is no box: a value in a `Primitives` slot *is* itself, and
+  **`x.type` reports `Int`, not `Primitives`**:
+
+  ```swiftalk
+  let mixed = [1, "one", 2.0]   // [Primitives]
+  mixed[0].type                 // Int — the lift is invisible at runtime
+  ```
+
+  `switch`'s `case .Int(let i)` *classifies* rather than unwraps —
+  `i` binds the value itself. swiftalk's two built-in unions are thus
+  the same animal: `T?` is the union of `T` with `Nil`; `Primitives`
+  is the union of the SION types. (User-defined enums with associated
+  values remain real, boxing enums — flatness is a property of these
+  built-in unions, not of `enum` in general.)
 * **`Primitives` is SION-complete** — and therefore JSON-complete,
   since SION is upper-compatible with JSON.
   [SION](https://github.com/dankogai/swift-sion) is to swiftalk what
@@ -355,9 +370,7 @@ string.Data()     // String → Data    (infallible: text always has bytes)
   extension type) — mirror it or leave it to the serializer?
   `BigInt` (not in SION today)? case naming (`.Int` mirroring the
   type name vs. Swift-lowercase `.int`; the `nil` case vs. the
-  keyword); what `.type` reports for a lifted element (`Primitives`,
-  or transparently `Int` in the flat spirit of §3a?); and the unwrap
-  surface (`x.Int()` conversion, pattern matching, or both).
+  keyword).
 
 ## 3a. Optionals & nil — DECIDED
 
@@ -735,3 +748,8 @@ let text   = bytes.String()                   // String? — bytes may not be te
   **prefixed strings round-trip** — `x.String(.hex).Int()! == x` holds
   for every `Int` (likewise `.oct`/`.bin`, and `Double` via hex-float)
   (§3d).
+* **2026-08-29, round 22** — Decided: **`Primitives` is a flat union**,
+  same model as `T?` — no box, `x.type` reports `Int` (never
+  `Primitives`), `case .Int(let i)` classifies rather than unwraps
+  (§3c). User-defined enums still box. Remaining `Primitives` opens:
+  `Ext`, `BigInt`, case naming.
