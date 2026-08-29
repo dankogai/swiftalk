@@ -243,29 +243,36 @@ Collections:
 no Int8/UInt zoo, presumably — `Data` covers the bytes use case;
 `Data` literals.
 
-### 3d. Type conversion: `obj.TypeName` — DECIDED (core)
+### 3d. Type conversion: `obj.TypeName()` — DECIDED (core)
 
-**The type converter is a property named after the target type**:
+**The type converter is a method named after the target type** —
+called with parentheses, and **accepting arguments to fiddle with
+formats**:
 
 ```swiftalk
-data.String      // Data → String?   (failable: bytes may not be valid text)
-string.Data      // String → Data    (infallible: text always has bytes)
-"42".Int         // String → Int?    (failable, presumably)
-42.String        // Int → String     ("42")
+data.String()     // Data → String?   (failable: bytes may not be valid text)
+string.Data()     // String → Data    (infallible: text always has bytes)
+"42".Int()        // String → Int?    (failable, presumably)
+42.String()       // Int → String     ("42")
+255.String(.hex)  // Int → String     ("ff") — format via arguments
 ```
 
 * Failable conversions return an Optional; infallible ones return the
   type directly.
-* **`.String` is mandatory** — every type must convert to `String`.
+* Arguments select formats/options per conversion: radix for
+  `Int.String()` (`.hex`, presumably `.oct`, `.bin`, arbitrary radix),
+  presumably encodings for `Data.String()` / `String.Data()`
+  (defaulting to UTF-8), date formats for `Date.String()`, etc.
+* **`.String()` is mandatory** — every type must convert to `String`.
   (This is swiftalk's `toString`/`description`; presumably what `print`
-  and `\(...)` interpolation use.)
-* Nice symmetry with §3: lowercase `.type` *queries* the type,
-  Capitalized `.TypeName` *converts* to it.
+  and `\(...)` interpolation use, argument-less.)
+* Nice symmetry with §3: lowercase `.type` *queries* the type
+  (a property), Capitalized `.TypeName(...)` *converts* to it
+  (a method).
 * Replaces Swift's initializer-style `String(42)` / `Int("42")`
   conversions as the idiom. (**OPEN**: whether initializer style also
-  exists, or `obj.Type` is the only spelling; which conversions are
-  failable, per pair; default encoding of `data.String` / `string.Data`
-  — presumably UTF-8.)
+  exists, or `obj.TypeName()` is the only spelling; which conversions
+  are failable, per pair; the format-argument vocabulary per pair.)
 
 ### 3c. `Any`, `Primitives`, and heterogeneous collections — DECIDED (direction)
 
@@ -332,7 +339,7 @@ string.Data      // String → Data    (infallible: text always has bytes)
   type name vs. Swift-lowercase `.int`; the `nil` case vs. the
   keyword); what `.type` reports for a lifted element (`Primitives`,
   or transparently `Int` in the flat spirit of §3a?); and the unwrap
-  surface (`x.Int` conversion, pattern matching, or both).
+  surface (`x.Int()` conversion, pattern matching, or both).
 
 ## 3a. Optionals & nil — DECIDED
 
@@ -511,7 +518,7 @@ concurrency added later?
    how it interacts with the §5 minimal-core goal).
 1. **Implement REPL** — a read–`eval`–print loop around milestone 0.
    This is where §2.2's relaxed mode (bare `x = 1` allowed) first
-   matters, and where `.String`-on-everything (§3d) pays off for
+   matters, and where `.String()`-on-everything (§3d) pays off for
    printing results.
 2. *(TBD — script runner, embedding API, stdlib growth...)*
 
@@ -575,11 +582,12 @@ let readConfig = { path in
 // runtime type queries (§3) and obj.TypeName conversion (§3d)
 let mixed = [1, "one", 2.0]                   // infers [Primitives] (§3c)
 for x in mixed {
-    print("\(x.String): \(x.type)")           // .String is universal (§3d)
+    print("\(x.String()): \(x.type)")         // .String() is universal (§3d)
 }
-let answer = "42".Int ?? 0                    // failable conversion + default
-let bytes  = "café".Data                      // infallible; UTF-8 under the hood
-let text   = bytes.String                     // String? — bytes may not be text
+let answer = "42".Int() ?? 0                  // failable conversion + default
+let hex    = 255.String(.hex)                 // "ff" — format via argument
+let bytes  = "café".Data()                    // infallible; UTF-8 default
+let text   = bytes.String()                   // String? — bytes may not be text
 ```
 
 ---
@@ -695,3 +703,9 @@ let text   = bytes.String                     // String? — bytes may not be te
   when explicitly written** (`var a: [Any] = []`) — never from
   inference (§3c). Opened: what `.type` reports for a lifted element;
   the unwrap surface.
+* **2026-08-29, round 19 — refines round 6**: the type converter is a
+  **method, `obj.TypeName()`**, not a property — parentheses accept
+  format arguments: `255.String(.hex)` → `"ff"`; encodings for
+  `Data`⇄`String` (UTF-8 default), date formats, etc. (§3d).
+  `.String()` remains mandatory on every type; lowercase `.type` stays
+  a property.
