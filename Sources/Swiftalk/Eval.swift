@@ -522,6 +522,11 @@ func evaluate(_ expr: Expr, in env: Environment) throws -> Value {
             throw SwiftalkError.type("range lower bound \(a) exceeds upper bound \(b)")
         }
         return .range(from: a, to: b, closed: op == "...")
+    case .memberLiteral(let name):
+        // Format members (.quoted, .hex, ...) — provisionally String
+        // values until enums land (round 42; §3d format vocabularies
+        // are meant to be enums).
+        return .string(name)
     case .interpolation(let parts):
         // Swift-style display: a String embeds raw; everything else embeds
         // as its .String() source form (round 23; decided for
@@ -831,13 +836,47 @@ private func method(on receiver: Value, name: String,
         }
         return .bool(Builtins.conformance[protoName]?.contains(typeName) ?? false)
     }
+    // .String(radix: n) — bare digits in any radix (round 20).
+    if (name, called) == ("String", true),
+       labeledArgs.count == 1, labeledArgs[0].label == "radix" {
+        guard case .int(let radix) = labeledArgs[0].value, (2...36).contains(radix) else {
+            throw SwiftalkError.type(".String(radix:) takes an Int in 2...36")
+        }
+        guard case .int(let i) = receiver else {
+            throw SwiftalkError.type(".String(radix:) is an Int's format")
+        }
+        return .string(String(i, radix: Int(radix)))
+    }
     let args = try plainValues(labeledArgs, for: ".\(name)")
     switch (name, called) {
     case ("String", true):
-        guard args.isEmpty else {
-            throw SwiftalkError.type(".String() format arguments are a later milestone")
+        guard args.count <= 1 else {
+            throw SwiftalkError.type(".String() takes at most one format argument")
         }
-        return .string(receiver.sourceString())
+        switch args.first {
+        case nil:
+            // Argless .String() is description (round 42): a String is
+            // itself — quoting is explicit via .String(.quoted).
+            return .string(displayString(receiver))
+        case .string("quoted")?:
+            return .string(receiver.sourceString())
+        case .string("hex")?:
+            // Literal-ready, prefixed — round-trips (rounds 20–21).
+            switch receiver {
+            case .int:            return .string(receiver.sourceString(debug: true))
+            case .double(let d):  return .string(Value.hexFloat(d))
+            default:
+                throw SwiftalkError.type(".String(.hex) is a number's format")
+            }
+        case .string("oct")?, .string("bin")?:
+            guard case .int(let i) = receiver else {
+                throw SwiftalkError.type(".String(.oct)/.String(.bin) are an Int's formats")
+            }
+            let (prefix, radix) = args.first == .string("oct") ? ("0o", 8) : ("0b", 2)
+            return .string((i < 0 ? "-" : "") + prefix + String(i.magnitude, radix: radix))
+        case let other?:
+            throw SwiftalkError.type("unknown .String() format \(other.sourceString())")
+        }
     case ("Type", false):
         // x.Type (round 40; né x.type) — the constructor Function, à la
         // JS's .constructor: the singleton the global name binds, so

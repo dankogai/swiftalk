@@ -323,30 +323,30 @@ string.Data()       // String → Data   (infallible: text always has bytes)
 * Presumably likewise: encodings for `Data.String()` / `String.Data()`
   (defaulting to UTF-8), date formats for `Date.String()`, etc.
 * **`.String()` is mandatory** — every type must convert to `String`.
-* **`.String()` round-trips — the general law.** Its output is
-  swiftalk source that restores the value when fed back to the
-  runtime:
+* **Argless `.String()` is *description*** (round 42): a `String` is
+  simply itself — `"foo".String()` is `"foo"` — and every other type
+  gives its source form. `.String()`, `String(x)`, `print`, and
+  `\(...)` interpolation thus all agree (round 39's noted asymmetry
+  dissolved). **Quoting is explicit: `.String(.quoted)`** quotes and
+  escapes.
+* **The round-trip law** (round 23, restated by round 42):
 
   ```swiftalk
-  eval(x.String()) == x           // for every value x, every type
+  eval(x.String(.quoted)) == x    // for every value x, every type
+  eval(x.String()) == x           // for every non-String x
   (0.1 + 0.2).String()            // "0.30000000000000004" — not "0.3"
   ```
 
   `Double` stringifies as the shortest decimal that parses back to
   the same bits (JS/Ryū-style); `Array`/`Dictionary` emit literal
-  syntax (`[1, 2, 3]`, `["a": 1]`); `nil` emits `nil`. For
-  `Primitives` values this *is* SION emission (§3c) — the native
-  serializer and `.String()` are one mechanism.
-* Consequences of the law (flagged, not yet confirmed):
-  * A `String`'s own `.String()` must **quote and escape**
-    (`"foo".String()` is `"\"foo\""`) — identity would not round-trip.
-    Whether `print` / `\(...)` interpolation use `.String()` (quoted)
-    or a raw display form is **OPEN**.
-  * **`Data.String()` argument-less must emit source form** (e.g.
-    SION's base64 spelling), *infallibly* — which squares nicely with
-    ".String() is mandatory". The *failable decode* moves to the
-    format-argument variant: `data.String(.utf8) → String?`. (This
-    revises the round-6 example where bare `data.String()` decoded.)
+  syntax (`[1, 2, 3]`, `["a": 1]`) with **nested Strings quoted** (a
+  collection's source form must re-enter); `nil` emits `nil`. For
+  `Primitives` values the quoted form *is* SION emission (§3c) — the
+  native serializer and `.String(.quoted)` are one mechanism.
+* Remaining flagged consequences:
+  * **`Data.String()`** argument-less: source form, *infallibly*; the
+    failable decode is `data.String(.utf8) → String?` (revises the
+    round-6 example where bare `data.String()` decoded).
   * `Function.String()` — source text of the function (JS can;
     Lua punts)? **OPEN**.
 * Symmetry with §3 (revised round 40): `.Type` *queries* — a
@@ -1076,3 +1076,17 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   Eager `map` on Array/String/Dictionary/Range is unchanged —
   **OPEN**: whether those should also propagate laziness, and how a
   legitimate `nil` *element* coexists with nil-terminates.
+* **2026-08-30, round 42 — `str.String()` is just `str`.** Argless
+  `.String()` becomes *description* (identity on Strings; source form
+  elsewhere), unifying `.String()` ≡ `String(x)` ≡ `print`'s form —
+  round 39's asymmetry dissolved. **Quoting is explicit:
+  `.String(.quoted)`**, and the round-trip law relocates:
+  `eval(x.String(.quoted)) == x` for every value (argless still
+  round-trips every non-String; nested Strings in collections stay
+  quoted). Along the way, **implicit-member parsing** landed (`.hex`
+  in argument position), unblocking rounds 20–21 as implemented:
+  `.String(.hex)/.oct/.bin` (prefixed, literal-ready — the invariant
+  now executes: `Int(255.String(.hex)) == 255`, hex-float `Double`s
+  included) and `.String(radix: n)` (bare digits, 2–36). Format
+  members evaluate *provisionally* as `String`s until enums land —
+  flagged.

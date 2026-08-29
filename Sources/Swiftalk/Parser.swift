@@ -16,6 +16,7 @@ indirect enum Expr {
     case `subscript`(Expr, Expr)                          // a[i], d[k]; $0 ≡ $[0]
     case range(String, Expr, Expr)                        // a...b / a..<b (§: eager [Int] for now)
     case interpolation([Expr])                            // "a\(x)b" — parts concatenate
+    case memberLiteral(String)                            // .quoted, .hex — format members (§3d)
 }
 
 /// An assignment target: a variable, or a subscript path rooted in one
@@ -427,6 +428,12 @@ struct Parser {
             return .variable(name)
         case .identifier(let name):
             return .variable(name)
+        case .punct("."):
+            // Implicit member (§3d format arguments): .quoted, .hex, ...
+            guard case .identifier(let name)? = advance(), !keywords.contains(name) else {
+                throw SwiftalkError.syntax("expected a member name after '.'")
+            }
+            return .memberLiteral(name)
         case .punct("("):
             let inner = try withTrailing(true) { try $0.parseExpr() }
             try expect(")")

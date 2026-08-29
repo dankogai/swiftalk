@@ -201,6 +201,21 @@ swiftalk> fib.prefix(8)
 ["1", "1", "2", "3", "5", "8", "13", "21"]
 ```
 
+**`.String()` formats** — argless is description (`"foo".String()`
+is `"foo"`); quoting is explicit; `.hex`/`.oct`/`.bin` are
+literal-ready while `radix:` is bare:
+
+```text
+swiftalk> "foo".String(.quoted)
+"\"foo\""
+swiftalk> 255.String(.hex)
+"0xff"
+swiftalk> 255.String(radix: 16)
+"ff"
+swiftalk> Int(255.String(.hex)) == 255
+true
+```
+
 ```sh
 swift test
 ```

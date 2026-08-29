@@ -66,14 +66,17 @@ struct EvalTests {
         #expect(try eval("2432902008176640000") == .int(2432902008176640000))
     }
 
-    @Test(".String() emits source form (§3d)")
+    @Test(".String() is description; .String(.quoted) is source form (§3d, round 42)")
     func stringMethod() throws {
         #expect(try eval("(0.1 + 0.2).String()") == .string("0.30000000000000004"))
         #expect(try eval("42.String()") == .string("42"))
         #expect(try eval("nil.String()") == .string("nil"))
-        #expect(try eval(#""a\nb".String()"#) == .string(#""a\nb""#))
+        #expect(try eval(#""foo".String()"#) == .string("foo"))          // identity (round 42)
+        #expect(try eval(#""a\nb".String()"#) == .string("a\nb"))
+        #expect(try eval(#""a\nb".String(.quoted)"#) == .string(#""a\nb""#))
         #expect(try eval("[1, 2].String()") == .string("[1, 2]"))
         #expect(try eval("[:].String()") == .string("[:]"))
+        #expect(try eval(#"[1, "a"].String()"#) == .string(#"[1, "a"]"#))  // nested strings stay quoted
     }
 
     @Test(".Type reports the runtime type (§3; flat — never Primitives; a constructor Function since round 39)")
