@@ -122,8 +122,8 @@ Further decisions:
   when and only when it is evaluated:
 
   ```swiftalk
-  { 42 }.type       // Function
-  { 42 }().type     // Int
+  { 42 }.Type       // Function
+  { 42 }().Type     // Int
   ```
 
   No constant-collapsing special case — braces are never grouping.
@@ -154,9 +154,10 @@ Further decisions:
   coroutine/iterator? does `for i in fib` drive it, making `yield`
   *the* way to write lazy sequences? can `resume` pass values in and
   does `yield` return them — full symmetric coroutines à la Lua, or
-  generator-style out-only? what `.type` reports for a suspended
+  generator-style out-only? what `.Type` reports for a suspended
   instance; and presumably `yield`, like `$`, belongs to the innermost
   enclosing `{}`.)
+* **No declared params means variadic.** Strict arity (round 10)
   applies only to functions that *declare* parameters. A function with
   none accepts any number of arguments — they're all in `$`, and
   whether the body looks is the body's business. So `array.map { 0 }`
@@ -197,9 +198,10 @@ and most especially JavaScript):
 
 * There is no static type *checker*; enforcement happens at runtime.
   Every variable/constant knows its type at runtime.
-* Types are runtime-queryable: `x.type` (cf. Ruby's `x.class`,
+* Types are runtime-queryable: `x.Type` (renamed from `x.type` in
+  round 40 — cf. JS's `.constructor`, Ruby's `x.class`,
   Swift's `type(of: x)`). This is what makes iterating a sequence of
-  mixed types easy — inspect `element.type` as you go.
+  mixed types easy — inspect `element.Type` as you go.
 
 Details:
 
@@ -219,7 +221,7 @@ Details:
 Primitives:
 
 * **`nil`** — the absence value, the sole inhabitant of type **`Nil`**
-  (`nil.type == Nil`). Never again JS's `typeof null === 'object'`.
+  (`nil.Type == Nil`). Never again JS's `typeof null === 'object'`.
   Role model: **`nil` in swiftalk is what `undefined` is in
   JavaScript** — a first-class value denoting "no value", minus the
   type lie. `Int?` is conceptually the flat union `Int`-or-`nil`;
@@ -257,7 +259,7 @@ Primitives:
   of `Primitives`/SION (§3c) — it is a language value, not an
   interchange value; `.Array()` materializes it when needed.
 * **`Function`** — the **one** type of every function/closure (§2.4):
-  `{ 42 }.type == Function`, `{ 42 }().type == Int`. Signatures are
+  `{ 42 }.Type == Function`, `{ 42 }().Type == Int`. Signatures are
   not part of the type (unlike Swift's `(Int, Int) -> Int` zoo);
   functions are ordinary first-class values, JS-style, with signature
   errors trapped at runtime.
@@ -339,9 +341,11 @@ string.Data()       // String → Data   (infallible: text always has bytes)
     revises the round-6 example where bare `data.String()` decoded.)
   * `Function.String()` — source text of the function (JS can;
     Lua punts)? **OPEN**.
-* Nice symmetry with §3: lowercase `.type` *queries* the type
-  (a property), Capitalized `.TypeName(...)` *converts* to it
-  (a method).
+* Symmetry with §3 (revised round 40): `.Type` *queries* — a
+  property returning the constructor — and `.TypeName(...)`
+  *converts* — a method. Capitalized members are type-talk; the
+  constructor's `.name` (a `String`, mandatory on constructors,
+  `nil` on anonymous functions) gives the name back.
 * `obj.TypeName()` is the conversion *idiom* — but initializer-style
   spelling exists too, since **types are constructor `Function`s**
   (§10, round 25): `Type(...)` constructs, so `String(42)` / `Int("42")`
@@ -377,7 +381,7 @@ string.Data()       // String → Data   (infallible: text always has bytes)
   *(Case spelling above is provisional; see OPEN below.)*
 * **`Primitives` is a flat union** — the same model as `T?` (§3a).
   There is no box: a value in a `Primitives` slot *is* itself, and
-  **`x.type` reports `Int`, not `Primitives`**:
+  **`x.Type` reports `Int`, not `Primitives`**:
 
   ```swiftalk
   let mixed = [1, "one", 2.0]   // [Primitives]
@@ -409,7 +413,7 @@ string.Data()       // String → Data   (infallible: text always has bytes)
   `.Date(x)` with a Unix-epoch `Double`).
 * User-defined enums remain the idiom for richer unions.
 * The long-term hope is that reaching for `Any` is rare; unions are
-  spelled as enums, and `element.type` / pattern matching handle the
+  spelled as enums, and `element.Type` / pattern matching handle the
   dispatch when iterating mixed sequences.
 * **Lifting is implicit, and inference prefers `Primitives` —
   DECIDED**: a heterogeneous literal of basic types **infers
@@ -445,14 +449,14 @@ tradition. But unlike Swift, **`T?` is not a wrapper**:
   ```swiftalk
   var maybe: Int? = nil
   maybe = 2
-  maybe.type        // Int — not Optional<Int>
+  maybe.Type        // Int — not Optional<Int>
   maybe = nil
-  maybe.type        // Nil
+  maybe.Type        // Nil
   ```
 
 * Consequently **optionals do not nest**: `Int??` ≡ `Int?`. There is
   exactly one absence, `nil`.
-* **`nil` is the sole value of type `Nil`** — an honest `.type`, never
+* **`nil` is the sole value of type `Nil`** — an honest `.Type`, never
   JS's `typeof null === 'object'` lie.
 * **Bare `var x = nil` is an error** — there is nothing to infer; write
   `var x: Int? = nil`. (Consistent with §2.2's mandatory declarations
@@ -587,9 +591,9 @@ ABI stability, Objective-C interop.
   declaration + definition as in Swift, or get synthesis.)
 * **Types are constructor `Function`s.** Like Swift, `Type()`
   constructs — and so a type is itself a first-class value of type
-  `Function`: `Int.type == Function`. This retroactively answers §3's
-  "is `x.type` first-class?": yes — `x.type` yields the constructor,
-  comparable (`x.type == Int`), storable, callable.
+  `Function`: `Int.Type == Function`. This retroactively answers §3's
+  "is `x.Type` first-class?": yes — `x.Type` yields the constructor,
+  comparable (`x.Type == Int`), storable, callable.
 * **`.conforms(to:)`** — a method on types, the runtime conformance
   test, playing roughly the role of JS's `instanceof`:
 
@@ -670,7 +674,7 @@ if let year = langs["smalltalk"] {
 }
 let y = langs["perl6"] ?? 2015
 var maybe: Int? = langs["swift"]              // Int-or-nil, no box
-maybe.type                                    // Int (or Nil when nil)
+maybe.Type                                    // Int (or Nil when nil)
 
 // functions are closure literals (§2.4); labels optional & reorderable (§2.3)
 let move = { x, y in x + y }
@@ -704,7 +708,7 @@ let readConfig = { path in
 // runtime type queries (§3) and obj.TypeName conversion (§3d)
 let mixed = [1, "one", 2.0]                   // infers [Primitives] (§3c)
 for x in mixed {
-    print("\(x.String()): \(x.type)")         // .String() is universal (§3d)
+    print("\(x.String()): \(x.Type)")         // .String() is universal (§3d)
 }
 let answer = "42".Int() ?? 0                  // failable conversion + default
 let hex    = 255.String(.hex)                 // "0xff"; radix: 16 for bare "ff"
@@ -1032,3 +1036,13 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   Method calls gained labeled arguments along the way. Noted
   asymmetry, decided: `String(x)` is *description* (so `String("a")`
   is identity), while `x.String()` is source form (quoting).
+* **2026-08-30, round 40 — `x.type` renamed to `x.Type`; constructors
+  get `.name`.** `x.Type` returns the constructor Function, à la JS's
+  `.constructor` (capitalized: type-talk members are Capitalized —
+  `.Type` queries, `.TypeName()` converts). Stringification already
+  agrees — a `Function` stringifies to its name when it has one. And
+  since swiftalk's functions are anonymous, **constructors MUST carry
+  `.name`, a `String`** (`Int.name == "Int"`, `42.Type.name == "Int"`;
+  protocols carry theirs too); a plain `{ }`'s `.name` is `nil`.
+  (Also repaired: §2.4's "no declared params means variadic" bullet
+  header, accidentally clobbered by round 24's edit.)

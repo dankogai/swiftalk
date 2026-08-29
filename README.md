@@ -71,8 +71,9 @@ swiftalk> { $.count }(1, 2, 3)
 3
 ```
 
-**Subscripts** are in — `d[k]` is flat-optional, `d[k] = nil`
-deletes, collections are COW values, and `$0` is literally `$[0]`:
+**Subscripts** are in — `d[k]` is flat-optional (`d[k] = nil` stores
+nil; `d.has(k)` asks presence; `d.remove(k)` deletes), collections
+are COW values, and `$0` is literally `$[0]`:
 
 ```text
 swiftalk> var d = ["swift": 2014]
@@ -165,15 +166,18 @@ swiftalk> r.Array()
 [5, 6, 7, 8, 9]
 ```
 
-**Types are constructor `Function`s** — `.type` returns the
-constructor itself, `Type()` constructs, and `.conforms(to:)` asks
-the protocol table:
+**Types are constructor `Function`s** — `.Type` returns the
+constructor itself (à la JS `.constructor`), constructors carry
+`.name`, `Type()` constructs, and `.conforms(to:)` asks the
+protocol table:
 
 ```text
-swiftalk> 42.type
+swiftalk> 42.Type
 Int
-swiftalk> 42.type == Int
+swiftalk> 42.Type == Int
 true
+swiftalk> 42.Type.name
+"Int"
 swiftalk> Int("0xff")
 255
 swiftalk> Double("0x1.fep7")

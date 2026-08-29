@@ -30,7 +30,7 @@ struct PrintTests {
     @Test("print returns nil and is an ordinary Function value")
     func printIsAValue() throws {
         #expect(try capture("print(1)").result == .nil)
-        #expect(try eval("print.type == Function") == .bool(true))
+        #expect(try eval("print.Type == Function") == .bool(true))
         let (_, out) = try capture("let p = print\np(\"via alias\")")
         #expect(out == "via alias\n")
         // usable as an argument like any function

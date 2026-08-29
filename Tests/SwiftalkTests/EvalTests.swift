@@ -76,14 +76,14 @@ struct EvalTests {
         #expect(try eval("[:].String()") == .string("[:]"))
     }
 
-    @Test(".type reports the runtime type (§3; flat — never Primitives; a constructor Function since round 39)")
+    @Test(".Type reports the runtime type (§3; flat — never Primitives; a constructor Function since round 39)")
     func typeProperty() throws {
-        #expect(try eval("42.type == Int") == .bool(true))
-        #expect(try eval("1.5.type == Double") == .bool(true))
-        #expect(try eval("nil.type == Nil") == .bool(true))
-        #expect(try eval(#""s".type == String"#) == .bool(true))
-        #expect(try eval("[1, \"one\"].type == Array") == .bool(true))
-        #expect(try eval("42.type == Double") == .bool(false))
+        #expect(try eval("42.Type == Int") == .bool(true))
+        #expect(try eval("1.5.Type == Double") == .bool(true))
+        #expect(try eval("nil.Type == Nil") == .bool(true))
+        #expect(try eval(#""s".Type == String"#) == .bool(true))
+        #expect(try eval("[1, \"one\"].Type == Array") == .bool(true))
+        #expect(try eval("42.Type == Double") == .bool(false))
     }
 
     @Test("the round-trip law: eval(x.String()) == x (§3d)")

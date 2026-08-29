@@ -722,11 +722,21 @@ private func method(on receiver: Value, name: String,
             throw SwiftalkError.type(".String() format arguments are a later milestone")
         }
         return .string(receiver.sourceString())
-    case ("type", false):
-        // Types are constructor Functions (§10, round 39): .type yields
-        // the singleton the global name binds — x.type == Int compares
-        // identity. A type's own .type is Function.
+    case ("Type", false):
+        // x.Type (round 40; né x.type) — the constructor Function, à la
+        // JS's .constructor: the singleton the global name binds, so
+        // x.Type == Int compares identity. A type's own .Type is Function.
         return .function(Builtins.types[receiver.typeName]!)
+    case ("name", false):
+        // Functions are anonymous, but constructors MUST have a .name
+        // (round 40) — protocols carry theirs too; a plain {} has nil.
+        guard case .function(let f) = receiver else {
+            throw SwiftalkError.unknownMember("\(receiver.typeName).name")
+        }
+        switch f.role {
+        case .type(let n), .protocol(let n): return .string(n)
+        case .plain:                         return .nil
+        }
     case ("count", false):
         switch receiver {
         case .array(let a):      return .int(Int64(a.count))

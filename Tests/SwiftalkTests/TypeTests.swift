@@ -3,15 +3,26 @@ import Testing
 
 @Suite("types as constructor Functions with .conforms(to:) (§10, round 39)")
 struct TypeTests {
-    @Test("x.type is the constructor itself — identity comparison works")
+    @Test("x.Type is the constructor itself — identity comparison works")
     func typeIdentity() throws {
-        #expect(try eval("42.type == Int") == .bool(true))
-        #expect(try eval("Int.type == Function") == .bool(true))
+        #expect(try eval("42.Type == Int") == .bool(true))
+        #expect(try eval("Int.Type == Function") == .bool(true))
         #expect(try eval("Int == Int") == .bool(true))
         #expect(try eval("Int == Double") == .bool(false))
-        #expect(try eval("(1...3).type == Range") == .bool(true))
-        #expect(try eval("nil.type == Nil") == .bool(true))
-        #expect(try eval("Sequence.type == Function") == .bool(true))
+        #expect(try eval("(1...3).Type == Range") == .bool(true))
+        #expect(try eval("nil.Type == Nil") == .bool(true))
+        #expect(try eval("Sequence.Type == Function") == .bool(true))
+    }
+
+    @Test("constructors MUST have .name; plain functions are anonymous (round 40)")
+    func names() throws {
+        #expect(try eval("Int.name") == .string("Int"))
+        #expect(try eval("42.Type.name") == .string("Int"))
+        #expect(try eval("(1...3).Type.name") == .string("Range"))
+        #expect(try eval("Sequence.name") == .string("Sequence"))
+        #expect(try eval("{ 42 }.name") == .nil)             // anonymous
+        #expect(try eval("Int.name.Type == String") == .bool(true))
+        #expect(throws: SwiftalkError.self) { try eval("42.name") }   // .name is a Function's attribute
     }
 
     @Test("Type() constructs: conversions, spelled from the other end of §3d")
@@ -46,7 +57,7 @@ struct TypeTests {
     @Test(".conforms(to:) — instanceof, the swiftalk way")
     func conforms() throws {
         #expect(try eval("Array.conforms(to: Sequence)") == .bool(true))
-        #expect(try eval("\"abc\".type.conforms(to: Sequence)") == .bool(true))
+        #expect(try eval("\"abc\".Type.conforms(to: Sequence)") == .bool(true))
         #expect(try eval("Range.conforms(to: Sequence)") == .bool(true))
         #expect(try eval("Int.conforms(to: Sequence)") == .bool(false))
         #expect(try eval("Int.conforms(to: Comparable)") == .bool(true))
@@ -66,7 +77,7 @@ struct TypeTests {
         #expect(try eval("Int.String()") == .string("Int"))
         #expect(try eval("Sequence.String()") == .string("Sequence"))
         // a type's name round-trips: eval(Int.String()) is Int itself
-        #expect(try eval("[42.type.String()][0]") == .string("Int"))
+        #expect(try eval("[42.Type.String()][0]") == .string("Int"))
         #expect(throws: SwiftalkError.self) { try eval("let Int = 5") }    // no global usurping
     }
 }
