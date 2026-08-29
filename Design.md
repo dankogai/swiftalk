@@ -313,13 +313,26 @@ string.Data      // String → Data    (infallible: text always has bytes)
 * The long-term hope is that reaching for `Any` is rare; unions are
   spelled as enums, and `element.type` / pattern matching handle the
   dispatch when iterating mixed sequences.
+* **Lifting is implicit, and inference prefers `Primitives` —
+  DECIDED**: a heterogeneous literal of basic types **infers
+  `[Primitives]`**, auto-wrapping each element:
+
+  ```swiftalk
+  let mixed = [1, "one", 2.0]     // [Primitives] — NOT [Any]
+  var a: [Any] = []               // Any exists when and only when
+                                  // explicitly written
+  ```
+
+  `Any` never arises from inference; it appears in a program exactly
+  where the programmer typed it. (Homogeneous literals still infer
+  their element type: `[1, 2, 3]` is `[Int]`.)
 * **OPEN — remaining `Primitives` details**: SION's `Ext` (MsgPack
   extension type) — mirror it or leave it to the serializer?
   `BigInt` (not in SION today)? case naming (`.Int` mirroring the
   type name vs. Swift-lowercase `.int`; the `nil` case vs. the
-  keyword); and whether lifting is implicit — does `[1, "one", 2.0]`
-  *infer* `[Primitives]` (auto-wrapping each element) rather than
-  `[Any]`, and does `x.Int` / pattern matching unwrap back out?
+  keyword); what `.type` reports for a lifted element (`Primitives`,
+  or transparently `Int` in the flat spirit of §3a?); and the unwrap
+  surface (`x.Int` conversion, pattern matching, or both).
 
 ## 3a. Optionals & nil — DECIDED
 
@@ -560,7 +573,7 @@ let readConfig = { path in
 }
 
 // runtime type queries (§3) and obj.TypeName conversion (§3d)
-let mixed: [Any] = [1, "one", 2.0]
+let mixed = [1, "one", 2.0]                   // infers [Primitives] (§3c)
 for x in mixed {
     print("\(x.String): \(x.type)")           // .String is universal (§3d)
 }
@@ -677,3 +690,8 @@ let text   = bytes.String                     // String? — bytes may not be te
   https://github.com/dankogai/swift-sion. Consequence: **`Date` joins
   the basic types** (§3b). Opened: SION `Ext`, `Date`
   representation/literals; still open: case naming, implicit lifting.
+* **2026-08-29, round 18** — Decided: **`[1, "one", 2.0]` infers
+  `[Primitives]`** with implicit lifting; **`Any` arises when and only
+  when explicitly written** (`var a: [Any] = []`) — never from
+  inference (§3c). Opened: what `.type` reports for a lifted element;
+  the unwrap surface.
