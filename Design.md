@@ -460,12 +460,15 @@ tradition. But unlike Swift, **`T?` is not a wrapper**:
 * `x == nil` is a valid question of anything; on a binding that can
   never be `nil` it is simply `false` (a best-effort compile-time
   diagnostic may point out the tautology, per §2.4's philosophy).
-* **Dictionary lookups collapse**: with `[K: V?]`, `d[k]` is `nil` for
-  a missing key *and* for a stored `nil` — the flat model's honest
-  consequence (JS lives fine with this). When the difference matters,
-  ask explicitly: `d.has(k)` / `d.keys.contains(k)`. Presumably
-  Swift-compatible on the write side too — `d[k] = nil` deletes the
-  key (**OPEN** to confirm).
+* **Dictionary *reads* collapse; presence stays a distinct fact**
+  *(revised round 35)*: `d[k]` is `nil` for a missing key *and* for a
+  stored `nil` — but the two are semantically distinct, and
+  **`d.has(k)`** tells them apart (`true` for a key holding `nil`,
+  `false` for a missing key). **`d[k] = nil` does NOT delete — it
+  stores `nil`**: `nil` is a right value for a key. This is a
+  deliberate divergence from Swift's subscript-assignment-deletes.
+  (**OPEN**: the explicit removal API — `d.remove(k)`? — since
+  assignment no longer deletes.)
 
 ## 4. Value vs reference semantics — DECIDED
 
@@ -945,3 +948,10 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   source form — exactly Swift's `description` behavior. What bare
   `print()` does — and indeed adding `print()` at all, as the first
   built-in function value in the global environment — remains OPEN.
+* **2026-08-29, round 35 — REVISES rounds 15/32: `d[k] = nil` does
+  NOT delete.** `nil` is a right value for a key; presence is checked
+  via **`d.has(k)`** (implemented: `true` for a stored `nil`, `false`
+  for a missing key). Reads still collapse (`d[k]` is `nil` in both
+  cases), but no-key and has-an-empty-key are semantically distinct.
+  Diverges from Swift's subscript-assignment-deletes. Opened: the
+  explicit removal API, since assignment no longer deletes.

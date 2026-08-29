@@ -379,8 +379,10 @@ private func subscriptRead(_ container: Value, _ index: Value) throws -> Value {
 }
 
 /// A subscripted store: replaces an array element (bad index traps, as
-/// on read), or sets a dictionary key — where `d[k] = nil` deletes the
-/// key, Swift-compatible (round 15, flagged).
+/// on read), or sets a dictionary key. `d[k] = nil` stores nil — a
+/// deliberate divergence from Swift (round 35): nil is a right value
+/// for a key, and presence is `d.has(k)`'s question, so a missing key
+/// and a key holding nil stay semantically distinct.
 private func subscriptWrite(_ container: Value, _ index: Value, _ newValue: Value) throws -> Value {
     switch container {
     case .array(var a):
@@ -393,7 +395,7 @@ private func subscriptWrite(_ container: Value, _ index: Value, _ newValue: Valu
         a[Int(i)] = newValue
         return .array(a)
     case .dictionary(var d):
-        d[index] = newValue == .nil ? nil : newValue
+        d[index] = newValue
         return .dictionary(d)
     case .string:
         throw SwiftalkError.type("String subscripts are undecided (Design.md §11)")
@@ -593,6 +595,17 @@ private func method(on receiver: Value, name: String, args: [Value], called: Boo
         default:
             throw SwiftalkError.unknownMember("\(receiver.typeName).count")
         }
+    case ("has", true):
+        // Presence, distinct from value (round 35): d.has(k) is true for
+        // a key holding nil, false for a missing key — the question
+        // d[k] cannot answer.
+        guard case .dictionary(let d) = receiver else {
+            throw SwiftalkError.unknownMember("\(receiver.typeName).has()")
+        }
+        guard args.count == 1 else {
+            throw SwiftalkError.type(".has(key) takes exactly one argument")
+        }
+        return .bool(d[args[0]] != nil)
     default:
         throw SwiftalkError.unknownMember("\(receiver.typeName).\(name)\(called ? "()" : "")")
     }

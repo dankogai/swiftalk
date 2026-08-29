@@ -37,12 +37,26 @@ struct SubscriptTests {
         #expect(throws: SwiftalkError.self) { try eval("let a = [1]\na[0] = 2") }  // let is immutable
     }
 
-    @Test("dictionary writes: insert, update — and d[k] = nil deletes (round 15)")
+    @Test("dictionary writes: insert, update — and d[k] = nil STORES nil (round 35)")
     func dictionaryWrites() throws {
         #expect(try eval("var d = [\"a\": 1]\nd[\"b\"] = 2\nd.count") == .int(2))
         #expect(try eval("var d = [\"a\": 1]\nd[\"a\"] = 9\nd[\"a\"]") == .int(9))
-        #expect(try eval("var d = [\"a\": 1, \"b\": 2]\nd[\"a\"] = nil\nd.count") == .int(1))
-        #expect(try eval("var d = [\"a\": 1]\nd[\"a\"] = nil\nd") == .dictionary([:]))
+        // nil is a right value for a key: no deletion, count unchanged
+        #expect(try eval("var d = [\"a\": 1, \"b\": 2]\nd[\"a\"] = nil\nd.count") == .int(2))
+        #expect(try eval("var d = [\"a\": 1]\nd[\"a\"] = nil\nd") == .dictionary([.string("a"): .nil]))
+        #expect(try eval("[\"a\": nil][\"a\"]") == .nil)   // nil-valued literal entries too
+    }
+
+    @Test("d.has(k): presence is distinct from value (round 35)")
+    func has() throws {
+        #expect(try eval("var d = [\"a\": 1]\nd[\"a\"] = nil\nd.has(\"a\")") == .bool(true))
+        #expect(try eval("[\"a\": 1].has(\"b\")") == .bool(false))
+        #expect(try eval("[\"a\": nil].has(\"a\")") == .bool(true))
+        // reads collapse — has() is the only way to tell these apart
+        #expect(try eval("[\"a\": nil][\"a\"] == [\"a\": 1][\"b\"]") == .bool(true))
+        #expect(try eval("[1: \"one\"].has(1)") == .bool(true))
+        #expect(throws: SwiftalkError.self) { try eval("[1, 2].has(1)") }
+        #expect(throws: SwiftalkError.self) { try eval("[\"a\": 1].has()") }
     }
 
     @Test("nested writes rebuild the path")
