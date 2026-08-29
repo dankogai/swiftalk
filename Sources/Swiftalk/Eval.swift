@@ -39,8 +39,9 @@ extension Swiftalk {
                 return .nil
             }
             declareBuiltin("debugPrint") { args in
-                // Source form for everything — quoted, round-trippable.
-                box.write(args.map { $0.sourceString() }.joined(separator: " ") + "\n")
+                // .debugDescription for everything: quoted strings, hex
+                // numbers (round 37) — for the programmer's sake.
+                box.write(args.map { $0.sourceString(debug: true) }.joined(separator: " ") + "\n")
                 return .nil
             }
         }
@@ -369,6 +370,22 @@ func evaluate(_ expr: Expr, in env: Environment) throws -> Value {
             throw SwiftalkError.type("'$()' recurses — it only works inside a function")
         }
         return try apply(fn, args: try evaluateArgs(args, in: env))
+    case .method(let receiverExpr, "remove", let argExprs, true):
+        // d.remove(k) mutates (round 37): the receiver must be an
+        // assignable var path; the removed value (or nil) comes back.
+        guard argExprs.count == 1 else {
+            throw SwiftalkError.type(".remove(key) takes exactly one argument")
+        }
+        guard case .dictionary(var d) = try evaluate(receiverExpr, in: env) else {
+            throw SwiftalkError.unknownMember(
+                "\(try evaluate(receiverExpr, in: env).typeName).remove()")
+        }
+        guard let target = asLValue(receiverExpr) else {
+            throw SwiftalkError.type("cannot mutate an immutable Dictionary — bind it to a var first")
+        }
+        let removed = d.removeValue(forKey: try evaluate(argExprs[0], in: env)) ?? .nil
+        try assign(target, .dictionary(d), in: env)
+        return removed
     case .method(let receiver, let name, let args, let called):
         return try method(on: try evaluate(receiver, in: env), name: name,
                           args: try args.map { try evaluate($0, in: env) }, called: called)
@@ -446,6 +463,20 @@ private func subscriptWrite(_ container: Value, _ index: Value, _ newValue: Valu
         throw SwiftalkError.type("String subscripts are undecided (Design.md §11)")
     default:
         throw SwiftalkError.type("cannot subscript \(container.typeName)")
+    }
+}
+
+/// The evaluator's twin of the parser's lvalue converter, for mutating
+/// methods: a variable or subscript chain rooted in one, else nil.
+private func asLValue(_ expr: Expr) -> LValue? {
+    switch expr {
+    case .variable(let name):
+        return .variable(name)
+    case .subscript(let base, let index):
+        guard let inner = asLValue(base) else { return nil }
+        return .index(inner, index)
+    default:
+        return nil
     }
 }
 
@@ -644,6 +675,50 @@ private func method(on receiver: Value, name: String, args: [Value], called: Boo
         default:
             throw SwiftalkError.unknownMember("\(receiver.typeName).count")
         }
+    case ("description", false):
+        // print's form: Strings bare, everything else source form.
+        return .string(displayString(receiver))
+    case ("debugDescription", false):
+        // debugPrint's form: quoted strings, hex numbers (round 37).
+        return .string(receiver.sourceString(debug: true))
+    case ("map", true):
+        guard args.count == 1, case .function(let fn) = args[0] else {
+            throw SwiftalkError.type(".map takes a single Function")
+        }
+        return .array(try elements(of: receiver).map { try apply(fn, args: [(nil, $0)]) })
+    case ("filter", true):
+        guard args.count == 1, case .function(let fn) = args[0] else {
+            throw SwiftalkError.type(".filter takes a single Function")
+        }
+        let kept = try elements(of: receiver).filter {
+            guard case .bool(let keep) = try apply(fn, args: [(nil, $0)]) else {
+                throw SwiftalkError.type("the .filter Function must return a Bool")
+            }
+            return keep
+        }
+        switch receiver {
+        case .string:
+            // Swift-compatible: String.filter gives back a String.
+            return .string(kept.map { if case .string(let s) = $0 { s } else { "" } }.joined())
+        case .dictionary:
+            // Swift-compatible: Dictionary.filter gives back a Dictionary.
+            var d: [Value: Value] = [:]
+            for pair in kept {
+                if case .array(let kv) = pair, kv.count == 2 { d[kv[0]] = kv[1] }
+            }
+            return .dictionary(d)
+        default:
+            return .array(kept)
+        }
+    case ("reduce", true):
+        guard args.count == 2, case .function(let fn) = args[1] else {
+            throw SwiftalkError.type(".reduce takes an initial value and a Function")
+        }
+        var accumulator = args[0]
+        for element in try elements(of: receiver) {
+            accumulator = try apply(fn, args: [(nil, accumulator), (nil, element)])
+        }
+        return accumulator
     case ("has", true):
         // Presence, distinct from value (round 35): d.has(k) is true for
         // a key holding nil, false for a missing key — the question

@@ -70,23 +70,27 @@ extension Value {
     }
 
     /// swiftalk's `.String()`: source form obeying the round-trip law
-    /// `eval(x.String()) == x` (Design.md §3d).
-    public func sourceString() -> String {
+    /// `eval(x.String()) == x` (Design.md §3d). With `debug: true` it is
+    /// `.debugDescription` (round 37): numbers render hexadecimal — Int
+    /// as `0xff`, Double as hex-float `0x1.fep7` — for the programmer's
+    /// sake, recursively through collections.
+    public func sourceString(debug: Bool = false) -> String {
         switch self {
         case .nil:
             return "nil"
         case .bool(let b):
             return b ? "true" : "false"
         case .int(let i):
-            return String(i)
+            return debug ? (i < 0 ? "-0x" : "0x") + String(i.magnitude, radix: 16)
+                         : String(i)
         case .double(let d):
             // Swift's Double description is the shortest string that
             // round-trips, e.g. (0.1 + 0.2) -> "0.30000000000000004".
-            return String(d)
+            return debug ? Value.hexFloat(d) : String(d)
         case .string(let s):
             return Value.quote(s)
         case .array(let a):
-            return "[" + a.map { $0.sourceString() }.joined(separator: ", ") + "]"
+            return "[" + a.map { $0.sourceString(debug: debug) }.joined(separator: ", ") + "]"
         case .function(let f):
             // Function.String() as source text is OPEN (Design.md §3d);
             // until then, a non-round-tripping placeholder.
@@ -96,12 +100,28 @@ extension Value {
             if d.isEmpty { return "[:]" }
             // Deterministic output: order entries by their key's source form.
             let body = d
-                .map { (key: $0.key.sourceString(), value: $0.value.sourceString()) }
+                .map { (key: $0.key.sourceString(debug: debug), value: $0.value.sourceString(debug: debug)) }
                 .sorted { $0.key < $1.key }
                 .map { "\($0.key): \($0.value)" }
                 .joined(separator: ", ")
             return "[" + body + "]"
         }
+    }
+
+    /// Swift-style hex-float notation (`0x1.fep7`), the Double
+    /// `.debugDescription` of round 37. (The lexer does not parse
+    /// hex-float literals yet — that half of the §3d round trip is OPEN.)
+    static func hexFloat(_ d: Double) -> String {
+        if d.isNaN { return "nan" }
+        if d.isInfinite { return d < 0 ? "-inf" : "inf" }
+        if d == 0 { return d.sign == .minus ? "-0x0p0" : "0x0p0" }
+        let m = abs(d)
+        guard m.isNormal else { return String(d) }   // subnormals: decimal fallback
+        var hex = String(m.significandBitPattern, radix: 16)
+        hex = String(repeating: "0", count: 13 - hex.count) + hex
+        while hex.hasSuffix("0") { hex.removeLast() }
+        let frac = hex.isEmpty ? "" : "." + hex
+        return "\(d < 0 ? "-" : "")0x1\(frac)p\(m.exponent)"
     }
 
     static func quote(_ s: String) -> String {

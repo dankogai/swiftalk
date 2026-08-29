@@ -467,8 +467,8 @@ tradition. But unlike Swift, **`T?` is not a wrapper**:
   `false` for a missing key). **`d[k] = nil` does NOT delete — it
   stores `nil`**: `nil` is a right value for a key. This is a
   deliberate divergence from Swift's subscript-assignment-deletes.
-  (**OPEN**: the explicit removal API — `d.remove(k)`? — since
-  assignment no longer deletes.)
+  Removal is explicit — **`d.remove(k)`** (round 37): mutating,
+  returning the removed value (or `nil`).
 
 ## 4. Value vs reference semantics — DECIDED
 
@@ -968,3 +968,21 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   (`Interpreter.output`, default stdout) — the host owns I/O, as in
   Lua (§5). The REPL suppresses `nil` echoes (the Python way), so
   statements and `print` don't double-report.
+* **2026-08-29, round 37 — trailing closures, map/filter/reduce,
+  `d.remove(k)`, and hex debugDescription.** Decisions: **`d.remove(k)`**
+  is the explicit dictionary removal (mutating, returns the removed
+  value or `nil`; requires a `var` path) — closing round 35's OPEN.
+  **`print`/`debugPrint` are `description`/`debugDescription`**, and
+  for `Int`/`Double`, `description` is decimal for the human's sake
+  while **`debugDescription` is hexadecimal for the programmer's**
+  (`0xff`; `0x1.fep7` hex-float — recursively through collections;
+  exposed as `.description`/`.debugDescription` members). Note: hex
+  Int output re-enters via the lexer; hex-*float* literals are not
+  yet lexable — that half of the round trip is OPEN. Implemented:
+  **trailing closures** (bare `f { }`, after args, on methods,
+  chained; disabled inside control-flow headers, Swift's rule) and
+  **`map`/`filter`/`reduce`** over the Sequence conformers —
+  prerequisites for `Sequence` proper — with Swift-compatible result
+  types (`String.filter` → `String`, `Dictionary.filter` →
+  `Dictionary`). §14's opening example, `(1...20).reduce(1) { $0 * $1 }`,
+  now runs verbatim.

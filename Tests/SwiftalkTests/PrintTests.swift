@@ -20,10 +20,10 @@ struct PrintTests {
         #expect(try capture(#"print("\(1 + 1)")"#).output == "2\n")   // same rule as interpolation
     }
 
-    @Test("debugPrint: source form for everything — quoted, round-trippable")
+    @Test("debugPrint: debugDescription for everything — quoted strings, hex numbers (round 37)")
     func debugPrintBasics() throws {
         #expect(try capture(#"debugPrint("hello")"#).output == "\"hello\"\n")
-        #expect(try capture(#"debugPrint("a", 1)"#).output == "\"a\" 1\n")
+        #expect(try capture(#"debugPrint("a", 1)"#).output == "\"a\" 0x1\n")
         #expect(try capture(#"debugPrint("line\nbreak")"#).output == "\"line\\nbreak\"\n")
     }
 

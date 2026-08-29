@@ -52,9 +52,22 @@ private let keywords: Set<String> = [
 struct Parser {
     private let tokens: [Token]
     private var pos = 0
+    /// Trailing closures are disabled while parsing control-flow headers
+    /// (`if c { }` must read `{` as the block, as in Swift) and re-enabled
+    /// inside any parenthesized/bracketed context.
+    private var allowTrailing = true
 
     init(_ tokens: [Token]) {
         self.tokens = tokens
+    }
+
+    private mutating func withTrailing<T>(
+        _ allowed: Bool, _ body: (inout Parser) throws -> T
+    ) rethrows -> T {
+        let saved = allowTrailing
+        allowTrailing = allowed
+        defer { allowTrailing = saved }
+        return try body(&self)
     }
 
     private var peek: Token? { pos < tokens.count ? tokens[pos] : nil }
@@ -120,7 +133,7 @@ struct Parser {
             return try parseIf()
         case .identifier("while"):
             pos += 1
-            let condition = try parseExpr()
+            let condition = try withTrailing(false) { try $0.parseExpr() }
             return .whileS(condition: condition, body: try parseBlock())
         case .identifier("repeat"):
             pos += 1
@@ -128,7 +141,7 @@ struct Parser {
             guard case .identifier("while")? = advance() else {
                 throw SwiftalkError.syntax("expected 'while' after the repeat block")
             }
-            return .repeatS(body: body, condition: try parseExpr())
+            return .repeatS(body: body, condition: try withTrailing(false) { try $0.parseExpr() })
         case .identifier("for"):
             pos += 1
             guard case .identifier(let name)? = advance(),
@@ -138,7 +151,7 @@ struct Parser {
             guard case .identifier("in")? = advance() else {
                 throw SwiftalkError.syntax("expected 'in' after the loop variable")
             }
-            let sequence = try parseExpr()
+            let sequence = try withTrailing(false) { try $0.parseExpr() }
             return .forS(name: name, sequence: sequence, body: try parseBlock())
         case .identifier("break"):
             pos += 1
@@ -169,7 +182,7 @@ struct Parser {
     /// `if condition { … } [else if … | else { … }]` — Swift-style.
     private mutating func parseIf() throws -> Stmt {
         pos += 1  // consume "if"
-        let condition = try parseExpr()
+        let condition = try withTrailing(false) { try $0.parseExpr() }
         let then = try parseBlock()
         // `else` may sit on the next line; backtrack if it isn't there.
         let saved = pos
@@ -299,10 +312,12 @@ struct Parser {
                 if case .punct("(")? = peek {
                     called = true
                     pos += 1
-                    if peek != .punct(")") {
-                        repeat {
-                            args.append(try parseExpr())
-                        } while consumeComma(closing: ")")
+                    try withTrailing(true) {
+                        if $0.peek != .punct(")") {
+                            repeat {
+                                args.append(try $0.parseExpr())
+                            } while $0.consumeComma(closing: ")")
+                        }
                     }
                     try expect(")")
                 }
@@ -316,9 +331,15 @@ struct Parser {
                 }
             case .punct("["):
                 pos += 1
-                let index = try parseExpr()
+                let index = try withTrailing(true) { try $0.parseExpr() }
                 try expect("]")
                 expr = .subscript(expr, index)
+            case .punct("{") where allowTrailing:
+                // Trailing closure (§2.3): the pinned last argument.
+                pos += 1
+                let closure = try withTrailing(true) { try $0.parseFunction() }
+                expr = Parser.attachTrailing(closure, to: expr)
+                if case .punct("{")? = peek { break loop }   // no second bare trailing
             default:
                 break loop
             }
@@ -326,21 +347,41 @@ struct Parser {
         return expr
     }
 
+    /// Attaches a trailing closure as the last argument of whatever call
+    /// shape precedes it — `f { }`, `f(a) { }`, `a.map { }`, `$(n) { }`.
+    private static func attachTrailing(_ closure: Expr, to expr: Expr) -> Expr {
+        switch expr {
+        case .method(let receiver, let name, var args, _):
+            args.append(closure)
+            return .method(receiver, name: name, args: args, called: true)
+        case .call(let callee, var args):
+            args.append((nil, closure))
+            return .call(callee, args: args)
+        case .selfCall(var args):
+            args.append((nil, closure))
+            return .selfCall(args: args)
+        default:
+            return .call(expr, args: [(nil, closure)])
+        }
+    }
+
     /// Parses `( [label:] expr, ... )` — labels are optional and, per
     /// §2.3, matched by name (reorderable) at call time.
     private mutating func parseCallArguments() throws -> [(label: String?, expr: Expr)] {
         try expect("(")
         var args: [(label: String?, expr: Expr)] = []
-        if peek != .punct(")") {
-            repeat {
-                if case .identifier(let label)? = peek, peek(at: 1) == .punct(":"),
-                   !keywords.contains(label) {
-                    pos += 2
-                    args.append((label, try parseExpr()))
-                } else {
-                    args.append((nil, try parseExpr()))
-                }
-            } while consumeComma(closing: ")")
+        try withTrailing(true) {
+            if $0.peek != .punct(")") {
+                repeat {
+                    if case .identifier(let label)? = $0.peek, $0.peek(at: 1) == .punct(":"),
+                       !keywords.contains(label) {
+                        $0.pos += 2
+                        args.append((label, try $0.parseExpr()))
+                    } else {
+                        args.append((nil, try $0.parseExpr()))
+                    }
+                } while $0.consumeComma(closing: ")")
+            }
         }
         try expect(")")
         return args
@@ -384,13 +425,13 @@ struct Parser {
         case .identifier(let name):
             return .variable(name)
         case .punct("("):
-            let inner = try parseExpr()
+            let inner = try withTrailing(true) { try $0.parseExpr() }
             try expect(")")
             return inner
         case .punct("["):
-            return try parseCollection()
+            return try withTrailing(true) { try $0.parseCollection() }
         case .punct("{"):
-            return try parseFunction()
+            return try withTrailing(true) { try $0.parseFunction() }
         case let t:
             throw SwiftalkError.syntax("unexpected token \(t.map { "\($0)" } ?? "end of input")")
         }

@@ -139,6 +139,18 @@ Buzz
 ...
 ```
 
+**Trailing closures and `map`/`filter`/`reduce`** are in — the
+design document's very first example now runs verbatim:
+
+```text
+swiftalk> let fact20 = (1...20).reduce(1) { $0 * $1 }
+2432902008176640000
+swiftalk> (1...10).filter { $0 / 2 * 2 == $0 }.map { $0 * $0 }.reduce(0) { $0 + $1 }
+220
+swiftalk> debugPrint(255, 255.0)   // debugDescription is hex, for the programmer
+0xff 0x1.fep7
+```
+
 ```sh
 swift test
 ```
