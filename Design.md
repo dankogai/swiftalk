@@ -130,9 +130,16 @@ Further decisions:
   Deferred evaluation is thus uniform: `{ expensive() }` is a thunk,
   and trailing-closure APIs (`async { ... }`) work on anything.
 * Functions are first-class values whose runtime type is **`Function`**
-  (§3b). (**OPEN**: whether `.type` reports just `Function` or a
-  parameterized signature; and whether calling a param-less, `$`-less
-  function with arguments is an arity error or ignored.)
+  (§3b) — **collectively**, like JS. Unlike Swift, where every function
+  is strictly typed by its argument and return types
+  (`(Int, Int) -> Int`), swiftalk's functions are all just `Function`;
+  signature mismatches (arity per round 10, §3-style argument type
+  locks) are **trapped at runtime**, not compile time. The
+  implementation *should* catch what it can at compile time — but as a
+  best-effort diagnostic, never a language guarantee.
+  (**OPEN**: whether calling a param-less, `$`-less function with
+  arguments is an arity error or ignored — nub: `array.map { 0 }`
+  wants "no declared params = variadic, body just doesn't look".)
 * **Annotations, Swift-style**: `{ (x: Int, y: Int) -> Int in ... }`
   is allowed; bare names stay fine. Where written, types are enforced
   at runtime per §3.
@@ -211,9 +218,11 @@ Primitives:
   optionally. **No `.utf16` view — UTF-16 needs to go to hell.**
 * **`Data`** — a sequence of unsigned 8-bit bytes, **distinct from
   `String`**. Bytes are bytes; text is text.
-* **`Function`** — the type of every function/closure (§2.4):
-  `{ 42 }.type == Function`, `{ 42 }().type == Int`. Functions are
-  ordinary first-class values.
+* **`Function`** — the **one** type of every function/closure (§2.4):
+  `{ 42 }.type == Function`, `{ 42 }().type == Int`. Signatures are
+  not part of the type (unlike Swift's `(Int, Int) -> Int` zoo);
+  functions are ordinary first-class values, JS-style, with signature
+  errors trapped at runtime.
 
 Collections:
 
@@ -547,3 +556,8 @@ let text   = bytes.String                     // String? — bytes may not be te
   `{42}().type == Int` (§2.4). `Function` added to the basic-type
   roster (§3b). Opened: parameterized signature in `.type`?; args
   passed to a param-less, `$`-less function.
+* **2026-08-29, round 13** — Decided: **`Function` is one collective
+  type**, JS-style — signatures are not part of the type; arity/type
+  mismatches trap at runtime, with compile-time catches as best-effort
+  diagnostics, never a guarantee (§2.4, §3b). Still open: args passed
+  to a param-less, `$`-less function (`array.map { 0 }` is the nub).
