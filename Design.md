@@ -195,13 +195,12 @@ and most especially JavaScript):
 
 Primitives:
 
-* **`nil`** — the absence value, with its own honest type. Never again
-  JS's `typeof null === 'object'`. Role model: **`nil` in swiftalk is
-  what `undefined` is in JavaScript** — a first-class value denoting
-  "no value", minus the type lie. (**OPEN**: what exactly `nil.type`
-  reports; what `var x = nil` does with nothing to infer; and the
-  precise interplay with §3a's typed Optionals — e.g. is `Int?`
-  conceptually `Int`-or-`nil`.)
+* **`nil`** — the absence value, the sole inhabitant of type **`Nil`**
+  (`nil.type == Nil`). Never again JS's `typeof null === 'object'`.
+  Role model: **`nil` in swiftalk is what `undefined` is in
+  JavaScript** — a first-class value denoting "no value", minus the
+  type lie. `Int?` is conceptually the flat union `Int`-or-`nil`;
+  full model in §3a.
 * **`Bool`** — `true` / `false`. Not numbers, not truthy-anything.
 * **`Int`** — **exactly 64-bit**, on every platform. NOT device
   dependent (unlike Swift, where `Int` is word-sized).
@@ -281,12 +280,51 @@ string.Data      // String → Data    (infallible: text always has bytes)
 * **OPEN**: what `[1, "one", 2.0]` infers today (presumably `[Any]`),
   and whether inference could ever synthesize an anonymous union/enum.
 
-## 3a. Optionals — DECIDED
+## 3a. Optionals & nil — DECIDED
 
-**The full Optional suite survives.** `nil` is *not* a member of every
-type; `T?`, `if let`, `guard let`, `??`, and optional chaining `?.` all
-work as in Swift. This is Swift's most recognizable feature and precisely
-the cure for the `undefined`/`null` chaos of the scripting tradition.
+**The full Optional suite survives — on a flat model.** `nil` is *not*
+a member of every type; `T?`, `if let`, `guard let`, `??`, and optional
+chaining `?.` all work. This is Swift's most recognizable feature and
+precisely the cure for the `undefined`/`null` chaos of the scripting
+tradition. But unlike Swift, **`T?` is not a wrapper**:
+
+* **Flat union: `T?` means "a `T`, or `nil`".** There is no
+  `Optional<T>` box, no `.some`/`.none`. A `2` sitting in an `Int?`
+  slot is a plain `Int`:
+
+  ```swiftalk
+  var maybe: Int? = nil
+  maybe = 2
+  maybe.type        // Int — not Optional<Int>
+  maybe = nil
+  maybe.type        // Nil
+  ```
+
+* Consequently **optionals do not nest**: `Int??` ≡ `Int?`. There is
+  exactly one absence, `nil`.
+* **`nil` is the sole value of type `Nil`** — an honest `.type`, never
+  JS's `typeof null === 'object'` lie.
+* **Bare `var x = nil` is an error** — there is nothing to infer; write
+  `var x: Int? = nil`. (Consistent with §2.2's mandatory declarations
+  and §3's type locks: `x` must know what it is.)
+* Type locks and optionals compose the obvious way: `var x: Int? = 1`
+  accepts `Int`s and `nil`, never a `String`.
+* **Postfix `?` is unified with §8**: `expr?` unwraps the value or
+  early-returns the "empty" case from the enclosing function — `nil`
+  for optionals, `.failure` for `Result`s (exactly Rust's `?` on
+  `Option`/`Result`). `?.` remains member-access short-circuit; `??`
+  remains defaulting.
+* **Postfix `!` survives**: force-unwrap, trapping on `nil` (and on
+  `.failure` for `Result`s) — for when the scripter is sure.
+* `x == nil` is a valid question of anything; on a binding that can
+  never be `nil` it is simply `false` (a best-effort compile-time
+  diagnostic may point out the tautology, per §2.4's philosophy).
+* **Dictionary lookups collapse**: with `[K: V?]`, `d[k]` is `nil` for
+  a missing key *and* for a stored `nil` — the flat model's honest
+  consequence (JS lives fine with this). When the difference matters,
+  ask explicitly: `d.has(k)` / `d.keys.contains(k)`. Presumably
+  Swift-compatible on the write side too — `d[k] = nil` deletes the
+  key (**OPEN** to confirm).
 
 ## 4. Value vs reference semantics — DECIDED
 
@@ -354,6 +392,9 @@ values, and the call stack never unwinds invisibly.
   the success value, or returns the failure from the enclosing function.
   It composes naturally with optional chaining `?.` and defaulting `??` —
   one family of "short-circuit on absence/failure" operators.
+  **Unified with Optionals (§3a)**: the same `?` early-returns `nil`
+  from an Optional, and postfix `!` force-unwraps either kind, trapping
+  on `nil`/`.failure`.
 * No `throw`, no `do`/`catch` keywords; handling a failure is pattern
   matching on the `Result` (`switch`, `if case .failure(let e)`).
 * **OPEN**: what genuinely unrecoverable failures do (index out of
@@ -440,11 +481,13 @@ var langs = ["swift": 2014, "smalltalk": 1972]
 let snapshot = langs                          // logical copy
 langs["swiftalk"] = 2026                      // snapshot unaffected
 
-// optionals, full suite (§3a)
+// optionals, full suite on the flat model (§3a)
 if let year = langs["smalltalk"] {
     print("smalltalk: \(year)")
 }
 let y = langs["perl6"] ?? 2015
+var maybe: Int? = langs["swift"]              // Int-or-nil, no box
+maybe.type                                    // Int (or Nil when nil)
 
 // functions are closure literals (§2.4); labels optional & reorderable (§2.3)
 let move = { x, y in x + y }
@@ -572,3 +615,10 @@ let text   = bytes.String                     // String? — bytes may not be te
   `array.map { 0 }` is valid, and `array.fill(0)` must be identical to
   it (§2.4). §2.4 (functions) is now complete but for method syntax
   (deferred to milestone 0).
+* **2026-08-29, round 15 — nil & Optional settled (§3a)**: **flat
+  union model** — `T?` is "`T` or `nil`", no `Optional<T>` box, no
+  `.some`/`.none`, no nesting (`Int??` ≡ `Int?`); `nil` is the sole
+  value of type `Nil`; bare `var x = nil` is an error; postfix `?`
+  unified across Optionals and Results, postfix `!` kept (traps);
+  `[K: V?]` lookups collapse missing/stored-nil, `d.has(k)` for the
+  distinction. Opened: confirm `d[k] = nil` deletes (Swift-compatible).
