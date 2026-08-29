@@ -250,11 +250,12 @@ called with parentheses, and **accepting arguments to fiddle with
 formats**:
 
 ```swiftalk
-data.String()     // Data → String?   (failable: bytes may not be valid text)
-string.Data()     // String → Data    (infallible: text always has bytes)
-"42".Int()        // String → Int?    (failable, presumably)
-42.String()       // Int → String     ("42")
-255.String(.hex)  // Int → String     ("0xff") — format via arguments
+data.String(.utf8)  // Data → String?  (failable: bytes may not be valid text)
+data.String()       // Data → String   (infallible: source form, round-trips)
+string.Data()       // String → Data   (infallible: text always has bytes)
+"42".Int()          // String → Int?   (failable, presumably)
+42.String()         // Int → String    ("42")
+255.String(.hex)    // Int → String    ("0xff") — format via arguments
 ```
 
 * Failable conversions return an Optional; infallible ones return the
@@ -282,8 +283,32 @@ string.Data()     // String → Data    (infallible: text always has bytes)
 * Presumably likewise: encodings for `Data.String()` / `String.Data()`
   (defaulting to UTF-8), date formats for `Date.String()`, etc.
 * **`.String()` is mandatory** — every type must convert to `String`.
-  (This is swiftalk's `toString`/`description`; presumably what `print`
-  and `\(...)` interpolation use, argument-less.)
+* **`.String()` round-trips — the general law.** Its output is
+  swiftalk source that restores the value when fed back to the
+  runtime:
+
+  ```swiftalk
+  eval(x.String()) == x           // for every value x, every type
+  (0.1 + 0.2).String()            // "0.30000000000000004" — not "0.3"
+  ```
+
+  `Double` stringifies as the shortest decimal that parses back to
+  the same bits (JS/Ryū-style); `Array`/`Dictionary` emit literal
+  syntax (`[1, 2, 3]`, `["a": 1]`); `nil` emits `nil`. For
+  `Primitives` values this *is* SION emission (§3c) — the native
+  serializer and `.String()` are one mechanism.
+* Consequences of the law (flagged, not yet confirmed):
+  * A `String`'s own `.String()` must **quote and escape**
+    (`"foo".String()` is `"\"foo\""`) — identity would not round-trip.
+    Whether `print` / `\(...)` interpolation use `.String()` (quoted)
+    or a raw display form is **OPEN**.
+  * **`Data.String()` argument-less must emit source form** (e.g.
+    SION's base64 spelling), *infallibly* — which squares nicely with
+    ".String() is mandatory". The *failable decode* moves to the
+    format-argument variant: `data.String(.utf8) → String?`. (This
+    revises the round-6 example where bare `data.String()` decoded.)
+  * `Function.String()` — source text of the function (JS can;
+    Lua punts)? **OPEN**.
 * Nice symmetry with §3: lowercase `.type` *queries* the type
   (a property), Capitalized `.TypeName(...)` *converts* to it
   (a method).
@@ -618,7 +643,8 @@ for x in mixed {
 let answer = "42".Int() ?? 0                  // failable conversion + default
 let hex    = 255.String(.hex)                 // "0xff"; radix: 16 for bare "ff"
 let bytes  = "café".Data()                    // infallible; UTF-8 default
-let text   = bytes.String()                   // String? — bytes may not be text
+let text   = bytes.String(.utf8)              // String? — bytes may not be text
+let src    = bytes.String()                   // source form; eval(src) == bytes
 ```
 
 ---
@@ -753,3 +779,12 @@ let text   = bytes.String()                   // String? — bytes may not be te
   `Primitives`), `case .Int(let i)` classifies rather than unwraps
   (§3c). User-defined enums still box. Remaining `Primitives` opens:
   `Ext`, `BigInt`, case naming.
+* **2026-08-29, round 23** — **The general round-trip law**:
+  `.String()` emits swiftalk source that restores the value —
+  `eval(x.String()) == x` for **all** data types; `(0.1 + 0.2).String()`
+  is `"0.30000000000000004"`, not `"0.3"` (shortest-round-trip
+  decimals). For `Primitives` values `.String()` *is* SION emission.
+  Consequences: `String.String()` quotes+escapes; bare `Data.String()`
+  becomes infallible source form with failable decode moving to
+  `data.String(.utf8)` (revises round 6's example). Opened: what
+  `print`/interpolation use (quoted vs raw), `Function.String()`.
