@@ -50,6 +50,16 @@ extension Swiftalk {
         case actor(ActorObject)
     }
 
+    /// A computed property (round 57): a getter that runs on read —
+    /// the paren-less read builtins always had (`.count`) — and an
+    /// optional setter that runs on assignment (`newValue` bound, or a
+    /// custom name via `set(v)`).
+    struct ComputedProperty {
+        let annotation: TypeAnnotation?
+        let get: FunctionObject
+        let set: FunctionObject?
+    }
+
     /// A user-declared struct type (§4). Identity is its equality; the
     /// language-facing type object is `constructor` (role `.structType`),
     /// and calling it IS the memberwise initializer.
@@ -70,6 +80,9 @@ extension Swiftalk {
         /// with the memberwise init as the last candidate.
         var methods: [String: FunctionObject] = [:]
         var inits: [FunctionObject] = []
+        /// Computed properties (round 57): read runs `get`, assignment
+        /// runs `set` — the value-semantics write-back still applies.
+        var computed: [String: ComputedProperty] = [:]
 
         init(name: String, propertyOrder: [String],
              properties: [String: Property], declEnv: Environment) {
@@ -222,6 +235,7 @@ typealias StructValue = Swiftalk.StructValue
 typealias TaskObject = Swiftalk.TaskObject
 typealias ActorType = Swiftalk.ActorType
 typealias ActorObject = Swiftalk.ActorObject
+typealias ComputedProperty = Swiftalk.ComputedProperty
 
 extension Value {
     /// The swiftalk type name reported by `.type` (Design.md §3).

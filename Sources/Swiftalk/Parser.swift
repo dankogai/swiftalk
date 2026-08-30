@@ -71,18 +71,27 @@ enum Stmt {
                   methods: [String: Expr])
     case structDecl(name: String, propertyOrder: [String],
                     properties: [String: Swiftalk.StructType.Property],
-                    methods: [String: Expr], inits: [Expr])
+                    methods: [String: Expr], inits: [Expr],
+                    computed: [String: ComputedSpec])
     case actorDecl(name: String, propertyOrder: [String],
                    properties: [String: Swiftalk.StructType.Property],
-                   methods: [String: Expr], inits: [Expr])
+                   methods: [String: Expr], inits: [Expr],
+                   computed: [String: ComputedSpec])
     case classDecl(name: String, superName: String?, propertyOrder: [String],
                    properties: [String: Swiftalk.StructType.Property],
-                   methods: [String: Expr], inits: [Expr])
-    case extensionDecl(typeName: String, methods: [String: Expr])
+                   methods: [String: Expr], inits: [Expr],
+                   computed: [String: ComputedSpec])
+    case extensionDecl(typeName: String, methods: [String: Expr],
+                       computed: [String: ComputedSpec])
     case switchS(subject: Expr,
                  clauses: [(patterns: [Pattern], body: [Stmt])],
                  defaultBody: [Stmt]?)
 }
+
+/// A computed property as parsed (round 57): `get` and `set` are
+/// `.function` exprs (the setter's one parameter is `newValue` or the
+/// `set(v)` custom name); nil `set` means read-only.
+typealias ComputedSpec = (annotation: TypeAnnotation?, get: Expr, set: Expr?)
 
 private let keywords: Set<String> = [
     "let", "var", "true", "false", "nil", "in",
@@ -400,6 +409,7 @@ struct Parser {
         var properties: [String: Swiftalk.StructType.Property] = [:]
         var methods: [String: Expr] = [:]
         var inits: [Expr] = []
+        var computed: [String: ComputedSpec] = [:]
         skipSeparators()
         while peek != .punct("}") {
             // Initializers (round 48): `init { params in ... }`.
@@ -424,7 +434,8 @@ struct Parser {
                   !keywords.contains(propName), !propName.hasPrefix("$") else {
                 throw SwiftalkError.syntax("expected a property name")
             }
-            guard properties[propName] == nil, methods[propName] == nil else {
+            guard properties[propName] == nil, methods[propName] == nil,
+                  computed[propName] == nil else {
                 throw SwiftalkError.syntax("duplicate member '\(propName)'")
             }
             var annotation: TypeAnnotation? = nil
@@ -439,6 +450,22 @@ struct Parser {
                     optional = true
                 }
                 annotation = TypeAnnotation(name: typeName, optional: optional)
+            }
+            // A brace where `=` would go is a COMPUTED property (round
+            // 57): `var area { ... }`, or get/set blocks inside.
+            if case .punct("{")? = peek {
+                guard keyword == "var" else {
+                    throw SwiftalkError.syntax(
+                        "a computed property is declared 'var' — it computes, it is not constant storage")
+                }
+                pos += 1
+                let (getter, setter) = try parseComputedBody()
+                computed[propName] = (annotation: annotation, get: getter, set: setter)
+                guard peek == .punct("}") || consumeSeparator() else {
+                    throw SwiftalkError.syntax("expected a newline between \(kind) members")
+                }
+                skipSeparators()
+                continue
             }
             var defaultExpr: Expr? = nil
             if case .punct("=")? = peek {
@@ -468,14 +495,65 @@ struct Parser {
         switch kind {
         case "actor":
             return .actorDecl(name: name, propertyOrder: propertyOrder, properties: properties,
-                              methods: methods, inits: inits)
+                              methods: methods, inits: inits, computed: computed)
         case "class":
             return .classDecl(name: name, superName: superName, propertyOrder: propertyOrder,
-                              properties: properties, methods: methods, inits: inits)
+                              properties: properties, methods: methods, inits: inits,
+                              computed: computed)
         default:
             return .structDecl(name: name, propertyOrder: propertyOrder, properties: properties,
-                               methods: methods, inits: inits)
+                               methods: methods, inits: inits, computed: computed)
         }
+    }
+
+    /// The body of a computed property, `{` already consumed: either
+    /// `get { ... }` / `set[(v)] { ... }` blocks (get required), or a
+    /// bare block that IS the getter (round 57).
+    private mutating func parseComputedBody() throws -> (get: Expr, set: Expr?) {
+        skipSeparators()
+        guard peek == .identifier("get") || peek == .identifier("set") else {
+            let body = try parseStatements(until: "}")
+            try expect("}")
+            return (.function(parameters: [], body: body), nil)
+        }
+        var getBody: [Stmt]? = nil
+        var setExpr: Expr? = nil
+        while peek == .identifier("get") || peek == .identifier("set") {
+            if case .identifier("get")? = peek {
+                guard getBody == nil else {
+                    throw SwiftalkError.syntax("duplicate 'get'")
+                }
+                pos += 1
+                try expect("{")
+                getBody = try parseStatements(until: "}")
+                try expect("}")
+            } else {
+                guard setExpr == nil else {
+                    throw SwiftalkError.syntax("duplicate 'set'")
+                }
+                pos += 1
+                var param = "newValue"
+                if case .punct("(")? = peek {
+                    pos += 1
+                    guard case .identifier(let custom)? = advance(),
+                          !keywords.contains(custom), !custom.hasPrefix("$") else {
+                        throw SwiftalkError.syntax("expected a parameter name in set(...)")
+                    }
+                    param = custom
+                    try expect(")")
+                }
+                try expect("{")
+                let body = try parseStatements(until: "}")
+                try expect("}")
+                setExpr = .function(parameters: [param], body: body)
+            }
+            skipSeparators()
+        }
+        guard let getBody else {
+            throw SwiftalkError.syntax("a computed property needs a 'get'")
+        }
+        try expect("}")
+        return (.function(parameters: [], body: getBody), setExpr)
     }
 
     /// `extension Name { let m = { ... } }` (§10, rounds 49–50):
@@ -488,20 +566,53 @@ struct Parser {
         }
         try expect("{")
         var methods: [String: Expr] = [:]
+        var computed: [String: ComputedSpec] = [:]
         skipSeparators()
         while peek != .punct("}") {
-            guard case .identifier("let")? = peek else {
-                throw SwiftalkError.syntax("an extension body holds 'let' methods")
+            // `var name [: Type] { ... }` — a computed property
+            // (round 57); `let name = { ... }` — a method.
+            if case .identifier("var")? = peek {
+                pos += 1
+                guard case .identifier(let propName)? = advance(),
+                      !keywords.contains(propName), !propName.hasPrefix("$") else {
+                    throw SwiftalkError.syntax("expected a property name after 'var'")
+                }
+                guard methods[propName] == nil, computed[propName] == nil else {
+                    throw SwiftalkError.syntax("duplicate member '\(propName)'")
+                }
+                var annotation: TypeAnnotation? = nil
+                if case .punct(":")? = peek {
+                    pos += 1
+                    guard case .identifier(let typeName)? = advance() else {
+                        throw SwiftalkError.syntax("expected a type name after ':'")
+                    }
+                    var optional = false
+                    if peek == .punct("?") || peek == .op("?") {
+                        pos += 1
+                        optional = true
+                    }
+                    annotation = TypeAnnotation(name: typeName, optional: optional)
+                }
+                try expect("{")
+                let (getter, setter) = try parseComputedBody()
+                computed[propName] = (annotation: annotation, get: getter, set: setter)
+            } else {
+                guard case .identifier("let")? = peek else {
+                    throw SwiftalkError.syntax(
+                        "an extension body holds 'let' methods and 'var' computed properties")
+                }
+                let (methodName, fn) = try parseMethod(existing: {
+                    methods[$0] != nil || computed[$0] != nil
+                })
+                methods[methodName] = fn
             }
-            let (methodName, fn) = try parseMethod(existing: { methods[$0] != nil })
-            methods[methodName] = fn
             guard peek == .punct("}") || consumeSeparator() else {
                 throw SwiftalkError.syntax("expected a newline between extension members")
             }
             skipSeparators()
         }
         try expect("}")
-        return .extensionDecl(typeName: typeName, methods: methods)
+        return .extensionDecl(typeName: typeName, methods: methods, computed: computed)
     }
 
     /// `switch expr { case pattern, ...: stmts ... default: stmts }` (§7).

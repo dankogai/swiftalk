@@ -514,6 +514,36 @@ swiftalk> Q(21)
 Q { x: 21, y: 42 }
 ```
 
+**Computed properties** are in — paren-less reads and code-running
+assignment, for structs, classes, actors, and extensions (builtins
+read-only):
+
+```text
+swiftalk> struct Temp {
+........ var celsius = 0.0
+........ var fahrenheit {
+........ get { .celsius * 1.8 + 32.0 }
+........ set { .celsius = (newValue - 32.0) / 1.8 }
+........ }
+........ }
+Temp
+swiftalk> var t = Temp()
+Temp(celsius: 0.0)
+swiftalk> t.fahrenheit
+32.0
+swiftalk> t.fahrenheit = 212.0
+212.0
+swiftalk> t.celsius
+100.0
+swiftalk> extension Int { var squared { self * self } }
+swiftalk> 12.squared
+144
+```
+
+On an actor, a computed setter is the actor's own code — callable
+from outside and serialized like any method, while direct storage
+writes stay isolated.
+
 ```sh
 swift test
 ```

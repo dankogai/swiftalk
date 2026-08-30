@@ -30,6 +30,9 @@ extension Swiftalk {
         var constructor: FunctionObject? = nil
         var methods: [String: FunctionObject] = [:]
         var inits: [FunctionObject] = []
+        /// Computed properties (round 57) — inherited up the chain
+        /// like methods; an actor's getter/setter runs serialized.
+        var computed: [String: ComputedProperty] = [:]
 
         init(name: String, propertyOrder: [String],
              properties: [String: StructType.Property], declEnv: Environment,
@@ -47,6 +50,10 @@ extension Swiftalk {
         /// later `extension` on a superclass reaches every subclass.
         func lookupMethod(_ name: String) -> FunctionObject? {
             methods[name] ?? superType?.lookupMethod(name)
+        }
+
+        func lookupComputed(_ name: String) -> ComputedProperty? {
+            computed[name] ?? superType?.lookupComputed(name)
         }
 
         public static func == (lhs: ActorType, rhs: ActorType) -> Bool {

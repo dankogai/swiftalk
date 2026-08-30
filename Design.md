@@ -600,6 +600,30 @@ superclass reaches every subclass), the `Name { prop: v }` echo —
 which, now that cycles are constructible, elides re-visited
 references (`N { next: N { ... } }`) instead of recursing forever.
 
+**Computed properties — DECIDED and implemented (round 57)**, closing
+round 50a's OPEN (`var getset { ... }`, glimpsed in the user's own
+round-50 message). Three quarters existed already: builtins have had
+paren-less computed reads since round 40 (`.count`, `.Type`), and
+`let m = { ... }` methods are getters spelled with `()`. The last
+quarter: **`var name { getter-body }`** (bare block = getter,
+read-only) and **`var name { get { ... } set { ... } }`** (implicit
+`newValue`, or `set(v)` to name it), with an optional `: Type`
+annotation runtime-checked on both read and write. Reads run the
+getter every time; assignment runs the setter — through the normal
+write paths, so **struct value semantics hold** (the setter's
+mutations write back COW-style) and get-modify-set paths
+(`s.list[1] = 42` through a computed `list`) work. Scope: struct,
+class, and actor bodies; `extension` on user types (get/set) and on
+builtins (**read-only** — a builtin receiver is a value, there is no
+storage for a setter to reach; refused at declaration). Classes
+inherit computed properties up the chain, override by redeclaring,
+and `super.prop` now reaches a computed implementation the override
+covered. On an **actor**, getter and setter are the actor's own code:
+callable from anywhere and serialized like any method — so
+`b.dollars = 250` works from outside while `b.balance = 1` stays
+isolated; the round-54 story holds. OPEN: computed properties on
+enums; computed setters on builtins; `willSet`/`didSet` observers.
+
 *When do you actually need it?* Rarely — and that's the design. If
 state is shared across tasks: `actor`. If it isn't shared: `struct`.
 `class` earns its place exactly where neither fits: **object graphs
@@ -1596,3 +1620,27 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   superclass implementation; `super.prop` errors with guidance
   (properties are never overridden); bare `super` is not a value.
   The marquee chain: `C().who()` → `"C>B>A"`.
+* **2026-08-31, round 57 — computed properties implemented** ("Let's
+  implement computed properties. Ahem, have we not :-?" — and the
+  tease lands: **three quarters existed**). Builtins have had
+  paren-less computed reads since round 40 (`.count`, `.Type`,
+  `.description` all run code on read); `let m = { ... }` methods are
+  getters spelled `()`; round 50's own message glimpsed the syntax
+  (`var getset {}`) and round 50a logged it OPEN. The missing
+  quarter, now in: **paren-less reads on user types and the setter
+  half**. Surface: `var name { body }` (bare block = read-only
+  getter) and `var name { get { } set { } }` (implicit `newValue` or
+  `set(v)`), optional annotation checked at runtime on read and
+  write; struct/class/actor bodies plus extensions — user types get
+  get/set, builtins get read-only getters (`extension Int { var
+  squared { self * self } }` → `12.squared`; a setter has no storage
+  to reach and is refused at declaration). Setters run through the
+  normal write paths, so struct COW write-back and get-modify-set
+  subscript paths hold; classes inherit computed up the chain,
+  override by redeclaring, and `super.prop` reaches a covered
+  computed getter (found by a test failure mid-round: superDispatch
+  knew methods only). The round-54 coherence bonus: an actor's
+  getter/setter are the actor's *own code* — callable from outside
+  and serialized like any method, so `b.dollars = 250` (computed)
+  works while `b.balance = 1` (storage) stays isolated. OPEN: enums,
+  builtin setters, `willSet`/`didSet`.

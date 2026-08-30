@@ -408,10 +408,12 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             lock: TypeAnnotation(name: "Function", optional: false),
             value: .function(constructor)))
         return .function(constructor)
-    case .structDecl(let name, let propertyOrder, let properties, let methodExprs, let initExprs):
+    case .structDecl(let name, let propertyOrder, let properties, let methodExprs,
+                     let initExprs, let computedExprs):
         let st = StructType(name: name, propertyOrder: propertyOrder,
                             properties: properties, declEnv: env)
         st.methods = makeMethods(methodExprs, in: env)
+        st.computed = makeComputed(computedExprs, in: env)
         st.inits = initExprs.compactMap {
             guard case .function(let params, let body) = $0 else { return nil }
             return FunctionObject(parameters: params, body: body, closure: env)
@@ -425,12 +427,14 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             lock: TypeAnnotation(name: "Function", optional: false),
             value: .function(constructor)))
         return .function(constructor)
-    case .actorDecl(let name, let propertyOrder, let properties, let methodExprs, let initExprs):
+    case .actorDecl(let name, let propertyOrder, let properties, let methodExprs,
+                    let initExprs, let computedExprs):
         // Round 54: same declaration machinery as a struct; instances
         // are references, and method calls serialize.
         let at = ActorType(name: name, propertyOrder: propertyOrder,
                            properties: properties, declEnv: env)
         at.methods = makeMethods(methodExprs, in: env)
+        at.computed = makeComputed(computedExprs, in: env)
         at.inits = initExprs.compactMap {
             guard case .function(let params, let body) = $0 else { return nil }
             return FunctionObject(parameters: params, body: body, closure: env)
@@ -445,7 +449,7 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             value: .function(actorConstructor)))
         return .function(actorConstructor)
     case .classDecl(let name, let superName, let propertyOrder, let properties,
-                    let methodExprs, let initExprs):
+                    let methodExprs, let initExprs, let computedExprs):
         // Round 55: the open reference — an actor minus serialization
         // and isolation, plus single inheritance. Properties merge at
         // declaration (superclass's first, shadowing is an error);
@@ -482,6 +486,13 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
         let classEnv = Environment(parent: env)
         try classEnv.declare("@superclass", superclassBinding(superType))
         ct.methods = makeMethods(methodExprs, in: classEnv)
+        for computedName in computedExprs.keys {
+            guard mergedProps[computedName] == nil else {
+                throw SwiftalkError.type(
+                    "\(name).\(computedName) shadows an inherited property")
+            }
+        }
+        ct.computed = makeComputed(computedExprs, in: classEnv)
         ct.inits = initExprs.compactMap {
             guard case .function(let params, let body) = $0 else { return nil }
             return FunctionObject(parameters: params, body: body, closure: classEnv)
@@ -495,7 +506,7 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             lock: TypeAnnotation(name: "Function", optional: false),
             value: .function(classConstructor)))
         return .function(classConstructor)
-    case .extensionDecl(let typeName, let methodExprs):
+    case .extensionDecl(let typeName, let methodExprs, let computedExprs):
         let fns = makeMethods(methodExprs, in: env)
         guard let value = try? env.lookup(typeName), case .function(let f) = value else {
             throw SwiftalkError.type("unknown type '\(typeName)'")
@@ -503,12 +514,24 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
         switch f.role {
         case .structType(let st):
             for (name, fn) in fns {
-                guard st.properties[name] == nil, st.methods[name] == nil else {
+                guard st.properties[name] == nil, st.methods[name] == nil,
+                      st.computed[name] == nil else {
                     throw SwiftalkError.type("\(typeName) already has a member '\(name)'")
                 }
                 st.methods[name] = fn
             }
+            for (name, c) in makeComputed(computedExprs, in: env) {
+                guard st.properties[name] == nil, st.methods[name] == nil,
+                      st.computed[name] == nil else {
+                    throw SwiftalkError.type("\(typeName) already has a member '\(name)'")
+                }
+                st.computed[name] = c
+            }
         case .enumType(let et):
+            guard computedExprs.isEmpty else {
+                throw SwiftalkError.type(
+                    "computed properties on enums are not (yet) supported")
+            }
             for (name, fn) in fns {
                 guard et.cases[name] == nil, et.methods[name] == nil else {
                     throw SwiftalkError.type("\(typeName) already has a member '\(name)'")
@@ -519,21 +542,43 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             // A class extension's methods may use `super` (round 56):
             // give them the same lexical @superclass their in-body
             // siblings get. (Actors have none — super errors there.)
-            var extFns = fns
+            var memberEnv = env
             if !at.serialized {
                 let extEnv = Environment(parent: env)
                 try extEnv.declare("@superclass", superclassBinding(at.superType))
-                extFns = makeMethods(methodExprs, in: extEnv)
+                memberEnv = extEnv
             }
+            let extFns = at.serialized ? fns : makeMethods(methodExprs, in: memberEnv)
             for (name, fn) in extFns {
-                guard at.properties[name] == nil, at.methods[name] == nil else {
+                guard at.properties[name] == nil, at.methods[name] == nil,
+                      at.computed[name] == nil else {
                     throw SwiftalkError.type("\(typeName) already has a member '\(name)'")
                 }
                 at.methods[name] = fn
             }
+            for (name, c) in makeComputed(computedExprs, in: memberEnv) {
+                guard at.properties[name] == nil, at.methods[name] == nil,
+                      at.computed[name] == nil else {
+                    throw SwiftalkError.type("\(typeName) already has a member '\(name)'")
+                }
+                at.computed[name] = c
+            }
         case .type(let n), .protocol(let n):
             // Builtins: hidden env bindings, greppable and scoped (§10's
             // "declared and greppable" discipline for monkey-patching).
+            // Computed getters ride the same scheme under "get:" —
+            // read-only: a builtin receiver is a value, there is no
+            // storage for a setter to reach (round 57).
+            for (name, c) in makeComputed(computedExprs, in: env) {
+                guard c.set == nil else {
+                    throw SwiftalkError.type(
+                        "a computed setter on a builtin type is not (yet) supported — \(n).\(name)")
+                }
+                try env.declare("@ext:\(n):get:\(name)", Binding(
+                    mutable: false,
+                    lock: TypeAnnotation(name: "Function", optional: false),
+                    value: .function(c.get)))
+            }
             for (name, fn) in fns {
                 try env.declare("@ext:\(n):\(name)", Binding(
                     mutable: false,
@@ -1211,6 +1256,75 @@ private func asLValue(_ expr: Expr) -> LValue? {
     }
 }
 
+/// Turns parsed computed-property specs into runnable getter/setter
+/// pairs closed over the declaring environment (round 57).
+private func makeComputed(_ exprs: [String: ComputedSpec],
+                          in env: Environment) -> [String: ComputedProperty] {
+    var out: [String: ComputedProperty] = [:]
+    for (name, spec) in exprs {
+        guard case .function(let getParams, let getBody) = spec.get else { continue }
+        var setter: FunctionObject? = nil
+        if case .function(let setParams, let setBody)? = spec.set {
+            setter = FunctionObject(parameters: setParams, body: setBody, closure: env)
+        }
+        out[name] = ComputedProperty(
+            annotation: spec.annotation,
+            get: FunctionObject(parameters: getParams, body: getBody, closure: env),
+            set: setter)
+    }
+    return out
+}
+
+/// The computed property visible on a value, if any (round 57):
+/// structs look in their type; references walk the class chain.
+func computedProperty(of receiver: Value, _ name: String) -> ComputedProperty? {
+    switch receiver {
+    case .structValue(let sv): return sv.type.computed[name]
+    case .actor(let obj):      return obj.type.lookupComputed(name)
+    default:                   return nil
+    }
+}
+
+/// Runs a computed getter — serialized when the receiver is an actor
+/// (a getter is a method); annotation-checked when annotated.
+func readComputed(_ c: ComputedProperty, on receiver: Value) throws -> Value {
+    let value: Value
+    if case .actor(let obj) = receiver {
+        value = try callActorMethod(obj, c.get, args: [])
+    } else {
+        let (bound, _) = try boundMethod(c.get, self: receiver)
+        value = try apply(bound, args: [])
+    }
+    if let annotation = c.annotation {
+        try checkValue(value, against: annotation,
+                       context: "computed \(receiver.typeName) property")
+    }
+    return value
+}
+
+/// Runs a computed setter; returns the (possibly rebuilt) receiver —
+/// value semantics for structs, the same reference for actor/class.
+/// An actor's setter is the actor's own code: allowed from anywhere,
+/// and serialized like any method (the isolation story holds).
+func writeComputed(_ c: ComputedProperty, on receiver: Value, name: String,
+                   newValue: Value) throws -> Value {
+    guard let setter = c.set else {
+        throw SwiftalkError.type(
+            "\(receiver.typeName).\(name) is a read-only computed property")
+    }
+    if let annotation = c.annotation {
+        try checkValue(newValue, against: annotation,
+                       context: "\(receiver.typeName).\(name)")
+    }
+    if case .actor(let obj) = receiver {
+        _ = try callActorMethod(obj, setter, args: [(nil, newValue)])
+        return receiver
+    }
+    let (bound, selfEnv) = try boundMethod(setter, self: receiver, mutableSelf: true)
+    _ = try apply(bound, args: [(nil, newValue)])
+    return try selfEnv.lookup("self")
+}
+
 /// Turns parsed method expressions into FunctionObjects closed over the
 /// declaring environment (round 48).
 private func makeMethods(_ exprs: [String: Expr], in env: Environment) -> [String: FunctionObject] {
@@ -1461,6 +1575,18 @@ private func superDispatch(name: String, args: [(label: String?, value: Value)],
         throw SwiftalkError.type(
             "\(sup.name) declares no init matching these arguments — properties are memberwise-prefilled; assign self.… directly")
     }
+    // A computed property the override covered (round 57): run the
+    // superclass's getter on self. (super is class-only — no baton.)
+    if let c = sup.lookupComputed(name) {
+        let (bound, _) = try boundMethod(c.get, self: .actor(obj))
+        let value = try apply(bound, args: [])
+        if !called { return value }
+        guard case .function(let fn) = value else {
+            throw SwiftalkError.type(
+                "cannot call \(sup.name).\(name), a \(value.typeName)")
+        }
+        return try apply(fn, args: args)
+    }
     guard let m = sup.lookupMethod(name) else {
         if sup.properties[name] != nil {
             throw SwiftalkError.type(
@@ -1474,6 +1600,9 @@ private func superDispatch(name: String, args: [(label: String?, value: Value)],
 
 /// Reads an actor property — open to everyone (atomic under the baton).
 func actorRead(_ obj: ActorObject, _ name: String) throws -> Value {
+    if let c = obj.type.lookupComputed(name) {
+        return try readComputed(c, on: .actor(obj))
+    }
     guard let value = obj.storage[name] else {
         throw SwiftalkError.unknownMember("\(obj.type.name).\(name)")
     }
@@ -1485,6 +1614,12 @@ func actorRead(_ obj: ActorObject, _ name: String) throws -> Value {
 /// mutate; the property's var/let and type lock still govern, as ever.
 func actorWrite(_ obj: ActorObject, _ name: String, _ newValue: Value,
                 in env: Environment) throws {
+    // A computed setter (round 57) is the type's OWN code — so it runs
+    // from anywhere, before the isolation gate, serialized on actors.
+    if let c = obj.type.lookupComputed(name) {
+        _ = try writeComputed(c, on: .actor(obj), name: name, newValue: newValue)
+        return
+    }
     // Isolation is the actor's (round 54); a class (round 55) is the
     // open reference — anyone may write, var/let still governing.
     if obj.type.serialized {
@@ -1529,6 +1664,9 @@ private func propertyRead(_ container: Value, _ name: String) throws -> Value {
     guard case .structValue(let sv) = container else {
         throw SwiftalkError.type("cannot assign through a property of \(container.typeName)")
     }
+    if let c = sv.type.computed[name] {
+        return try readComputed(c, on: container)      // get-modify-set paths
+    }
     guard let value = sv.values[name] else {
         throw SwiftalkError.unknownMember("\(sv.type.name).\(name)")
     }
@@ -1541,6 +1679,9 @@ private func propertyRead(_ container: Value, _ name: String) throws -> Value {
 private func propertyWrite(_ container: Value, _ name: String, _ newValue: Value) throws -> Value {
     guard case .structValue(var sv) = container else {
         throw SwiftalkError.type("cannot assign through a property of \(container.typeName)")
+    }
+    if let c = sv.type.computed[name] {
+        return try writeComputed(c, on: container, name: name, newValue: newValue)
     }
     guard let def = sv.type.properties[name], let current = sv.values[name] else {
         throw SwiftalkError.unknownMember("\(sv.type.name).\(name)")
@@ -1960,6 +2101,18 @@ private func method(on receiver: Value, name: String,
         default: return .array(ev.associated)
         }
     }
+    // Computed properties (round 57): the paren-less read user types
+    // lacked — a read runs the getter; `p.f()` on one that returned a
+    // Function calls through, like a stored Function.
+    if let c = computedProperty(of: receiver, name) {
+        let value = try readComputed(c, on: receiver)
+        if !called { return value }
+        guard case .function(let fn) = value else {
+            throw SwiftalkError.type(
+                "cannot call \(receiver.typeName).\(name), a \(value.typeName)")
+        }
+        return try apply(fn, args: labeledArgs)
+    }
     // Actor members (round 54). Property reads are open — atomic under
     // the baton; stored Functions call through like a struct's.
     if case .actor(let obj) = receiver, let value = obj.storage[name] {
@@ -2004,6 +2157,18 @@ private func method(on receiver: Value, name: String,
     if let m = lookupExtension(env, receiver.typeName, name) {
         let (bound, _) = try boundMethod(m, self: receiver, mutableSelf: true)
         return called ? try apply(bound, args: labeledArgs) : .function(bound)
+    }
+    // Builtin-extension computed getters (round 57): read-only —
+    // `extension Int { var doubled { self * 2 } }` → `21.doubled`.
+    if let g = lookupExtension(env, receiver.typeName, "get:\(name)") {
+        let (bound, _) = try boundMethod(g, self: receiver)
+        let value = try apply(bound, args: [])
+        if !called { return value }
+        guard case .function(let fn) = value else {
+            throw SwiftalkError.type(
+                "cannot call \(receiver.typeName).\(name), a \(value.typeName)")
+        }
+        return try apply(fn, args: labeledArgs)
     }
     // The round-47 law: x.TypeName(tag: ...) is TypeName(x, tag: ...) —
     // one operation, two spellings; the method form chains.
