@@ -59,9 +59,11 @@ enum Stmt {
     case breakS
     case continueS
     case enumDecl(name: String, caseOrder: [String],
-                  cases: [String: [(label: String?, typeName: String?)]])
+                  cases: [String: [(label: String?, typeName: String?)]],
+                  methods: [String: Expr])
     case structDecl(name: String, propertyOrder: [String],
-                    properties: [String: Swiftalk.StructType.Property])
+                    properties: [String: Swiftalk.StructType.Property],
+                    methods: [String: Expr], inits: [Expr])
     case switchS(subject: Expr,
                  clauses: [(patterns: [Pattern], body: [Stmt])],
                  defaultBody: [Stmt]?)
@@ -266,10 +268,21 @@ struct Parser {
         try expect("{")
         var caseOrder: [String] = []
         var cases: [String: [(label: String?, typeName: String?)]] = [:]
+        var methods: [String: Expr] = [:]
         skipSeparators()
         while peek != .punct("}") {
+            // Methods (round 48): `let name = { ... }` among the cases.
+            if case .identifier("let")? = peek {
+                let (methodName, fn) = try parseMethod(existing: { cases[$0] != nil || methods[$0] != nil })
+                methods[methodName] = fn
+                guard peek == .punct("}") || consumeSeparator() else {
+                    throw SwiftalkError.syntax("expected a newline between enum members")
+                }
+                skipSeparators()
+                continue
+            }
             guard case .identifier("case")? = advance() else {
-                throw SwiftalkError.syntax("expected 'case' in an enum body")
+                throw SwiftalkError.syntax("expected 'case' or a 'let' method in an enum body")
             }
             repeat {
                 guard case .identifier(let caseName)? = advance(),
@@ -307,7 +320,27 @@ struct Parser {
             skipSeparators()
         }
         try expect("}")
-        return .enumDecl(name: name, caseOrder: caseOrder, cases: cases)
+        return .enumDecl(name: name, caseOrder: caseOrder, cases: cases, methods: methods)
+    }
+
+    /// `let name = { ... }` inside a type body — a method (round 48):
+    /// the uniform no-`func` spelling; `self` binds at invocation.
+    private mutating func parseMethod(existing: (String) -> Bool) throws -> (String, Expr) {
+        pos += 1  // consume "let"
+        guard case .identifier(let methodName)? = advance(),
+              !keywords.contains(methodName), !methodName.hasPrefix("$") else {
+            throw SwiftalkError.syntax("expected a method name after 'let'")
+        }
+        guard !existing(methodName) else {
+            throw SwiftalkError.syntax("duplicate member '\(methodName)'")
+        }
+        try expect("=")
+        let fn = try parseExpr()
+        guard case .function = fn else {
+            throw SwiftalkError.syntax(
+                "a type-body 'let' holds a method: let \(methodName) = { ... }")
+        }
+        return (methodName, fn)
     }
 
     /// `struct Name { var x: Int = 0\nlet y = 1\nvar z: Double }`
@@ -322,18 +355,34 @@ struct Parser {
         try expect("{")
         var propertyOrder: [String] = []
         var properties: [String: Swiftalk.StructType.Property] = [:]
+        var methods: [String: Expr] = [:]
+        var inits: [Expr] = []
         skipSeparators()
         while peek != .punct("}") {
+            // Initializers (round 48): `init { params in ... }`.
+            if case .identifier("init")? = peek {
+                pos += 1
+                guard case .punct("{")? = advance() else {
+                    throw SwiftalkError.syntax("expected '{' after 'init'")
+                }
+                inits.append(try withTrailing(true) { try $0.parseFunction() })
+                guard peek == .punct("}") || consumeSeparator() else {
+                    throw SwiftalkError.syntax("expected a newline between struct members")
+                }
+                skipSeparators()
+                continue
+            }
             guard case .identifier(let keyword)? = advance(),
                   keyword == "var" || keyword == "let" else {
-                throw SwiftalkError.syntax("a struct body holds 'var'/'let' properties")
+                throw SwiftalkError.syntax(
+                    "a struct body holds 'var'/'let' properties, methods, and inits")
             }
             guard case .identifier(let propName)? = advance(),
                   !keywords.contains(propName), !propName.hasPrefix("$") else {
                 throw SwiftalkError.syntax("expected a property name")
             }
-            guard properties[propName] == nil else {
-                throw SwiftalkError.syntax("duplicate property '\(propName)'")
+            guard properties[propName] == nil, methods[propName] == nil else {
+                throw SwiftalkError.syntax("duplicate member '\(propName)'")
             }
             var annotation: TypeAnnotation? = nil
             if case .punct(":")? = peek {
@@ -353,20 +402,28 @@ struct Parser {
                 pos += 1
                 defaultExpr = try parseExpr()
             }
-            guard annotation != nil || defaultExpr != nil else {
-                throw SwiftalkError.syntax(
-                    "property '\(propName)' needs a type annotation or a default value")
+            // A `let` bound to a closure literal is a METHOD (round 48) —
+            // store a Function in a `var` if you truly want a stored one.
+            if keyword == "let", annotation == nil, let fn = defaultExpr,
+               case .function = fn {
+                methods[propName] = fn
+            } else {
+                guard annotation != nil || defaultExpr != nil else {
+                    throw SwiftalkError.syntax(
+                        "property '\(propName)' needs a type annotation or a default value")
+                }
+                propertyOrder.append(propName)
+                properties[propName] = Swiftalk.StructType.Property(
+                    mutable: keyword == "var", annotation: annotation, defaultExpr: defaultExpr)
             }
-            propertyOrder.append(propName)
-            properties[propName] = Swiftalk.StructType.Property(
-                mutable: keyword == "var", annotation: annotation, defaultExpr: defaultExpr)
             guard peek == .punct("}") || consumeSeparator() else {
                 throw SwiftalkError.syntax("expected a newline between properties")
             }
             skipSeparators()
         }
         try expect("}")
-        return .structDecl(name: name, propertyOrder: propertyOrder, properties: properties)
+        return .structDecl(name: name, propertyOrder: propertyOrder, properties: properties,
+                           methods: methods, inits: inits)
     }
 
     /// `switch expr { case pattern, ...: stmts ... default: stmts }` (§7).

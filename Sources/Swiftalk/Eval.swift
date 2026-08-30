@@ -329,8 +329,9 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
         throw ControlFlow.continue
     case .returnS(let expr):
         throw ReturnSignal(value: try expr.map { try evaluate($0, in: env) } ?? .nil)
-    case .enumDecl(let name, let caseOrder, let cases):
+    case .enumDecl(let name, let caseOrder, let cases, let methodExprs):
         let et = EnumType(name: name, caseOrder: caseOrder, cases: cases)
+        et.methods = makeMethods(methodExprs, in: env)
         let constructor = FunctionObject(
             parameters: [], body: [], closure: env,
             builtin: { _ in
@@ -344,9 +345,14 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             lock: TypeAnnotation(name: "Function", optional: false),
             value: .function(constructor)))
         return .function(constructor)
-    case .structDecl(let name, let propertyOrder, let properties):
+    case .structDecl(let name, let propertyOrder, let properties, let methodExprs, let initExprs):
         let st = StructType(name: name, propertyOrder: propertyOrder,
                             properties: properties, declEnv: env)
+        st.methods = makeMethods(methodExprs, in: env)
+        st.inits = initExprs.compactMap {
+            guard case .function(let params, let body) = $0 else { return nil }
+            return FunctionObject(parameters: params, body: body, closure: env)
+        }
         let constructor = FunctionObject(
             parameters: [], body: [], closure: env, builtin: nil,
             role: .structType(st))
@@ -859,12 +865,74 @@ private func asLValue(_ expr: Expr) -> LValue? {
     }
 }
 
+/// Turns parsed method expressions into FunctionObjects closed over the
+/// declaring environment (round 48).
+private func makeMethods(_ exprs: [String: Expr], in env: Environment) -> [String: FunctionObject] {
+    exprs.compactMapValues {
+        guard case .function(let params, let body) = $0 else { return nil }
+        return FunctionObject(parameters: params, body: body, closure: env)
+    }
+}
+
+/// Binds `self` for a method invocation (round 48): a fresh scope
+/// between the method's lexical home and its locals.
+func boundMethod(_ method: FunctionObject, self receiver: Value,
+                 mutableSelf: Bool = false) throws -> (FunctionObject, Environment) {
+    let selfEnv = Environment(parent: method.closure)
+    try selfEnv.declare("self", Binding(
+        mutable: mutableSelf,
+        lock: TypeAnnotation(name: receiver.typeName, optional: false),
+        value: receiver))
+    return (FunctionObject(parameters: method.parameters, body: method.body,
+                           closure: selfEnv), selfEnv)
+}
+
+/// Does a declared init accept this argument list? Multi-dispatch
+/// (round 48): arity + labels; a param-less init is variadic (round
+/// 14), so it matches anything — declare it last.
+private func initMatches(_ params: [String], _ args: [(label: String?, value: Value)]) -> Bool {
+    if params.isEmpty { return true }
+    guard args.count == params.count else { return false }
+    var used = Set<String>()
+    for (label, _) in args {
+        if let label {
+            guard params.contains(label), !used.contains(label) else { return false }
+            used.insert(label)
+        }
+    }
+    return true
+}
+
 /// The memberwise initializer (round 46): labels optional and
 /// reorderable per §2.3, positionals fill in declaration order,
 /// missing properties take their defaults (evaluated in the struct's
 /// declaring environment), annotations checked per §3.
 func constructStruct(_ st: StructType,
                      args: [(label: String?, value: Value)]) throws -> Value {
+    // Declared inits multi-dispatch first (round 48): the first match
+    // wins; the memberwise init below is the last candidate.
+    for initFn in st.inits where initMatches(initFn.parameters, args) {
+        var values: [String: Value] = [:]
+        for prop in st.propertyOrder {
+            values[prop] = try st.properties[prop]!.defaultExpr.map {
+                try evaluate($0, in: Environment(parent: st.declEnv))
+            } ?? .nil
+        }
+        let underConstruction = Value.structValue(StructValue(type: st, values: values))
+        let (fn, selfEnv) = try boundMethod(initFn, self: underConstruction, mutableSelf: true)
+        _ = try apply(fn, args: args)
+        guard case .structValue(let sv) = try selfEnv.lookup("self") else {
+            fatalError("unreachable")
+        }
+        for prop in st.propertyOrder {
+            if let annotation = st.properties[prop]!.annotation, !annotation.optional,
+               annotation.name != "Nil", sv.values[prop] == .nil {
+                throw SwiftalkError.type(
+                    "\(st.name).\(prop) was not initialized by init")
+            }
+        }
+        return .structValue(sv)
+    }
     var slots: [String: Value] = [:]
     var positionals: [Value] = []
     for (label, value) in args {
@@ -1312,9 +1380,24 @@ private func method(on receiver: Value, name: String,
         default: return .array(ev.associated)
         }
     }
-    // Struct property reads (round 46): p.x.
-    if case .structValue(let sv) = receiver, !called, let value = sv.values[name] {
-        return value
+    // Struct property reads (round 46): p.x — and p.f() when the
+    // property stores a Function (round 48).
+    if case .structValue(let sv) = receiver, let value = sv.values[name] {
+        if !called { return value }
+        guard case .function(let fn) = value else {
+            throw SwiftalkError.type("cannot call \(sv.type.name).\(name), a \(value.typeName)")
+        }
+        return try apply(fn, args: labeledArgs)
+    }
+    // User-type methods (round 48): called invokes with self bound;
+    // uncalled yields the bound Function.
+    if case .structValue(let sv) = receiver, let m = sv.type.methods[name] {
+        let (bound, _) = try boundMethod(m, self: receiver)
+        return called ? try apply(bound, args: labeledArgs) : .function(bound)
+    }
+    if case .enumCase(let ev) = receiver, let m = ev.type.methods[name] {
+        let (bound, _) = try boundMethod(m, self: receiver)
+        return called ? try apply(bound, args: labeledArgs) : .function(bound)
     }
     // The round-47 law: x.TypeName(tag: ...) is TypeName(x, tag: ...) —
     // one operation, two spellings; the method form chains.

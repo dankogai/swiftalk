@@ -195,9 +195,22 @@ Further decisions:
   to advance their state. **`$N` are entry snapshots** of the
   arguments (refining round 32): `$N == $[N]` holds until `$` is
   reassigned; `$[N]` stays the live subscript.
-* **Methods / `init` without `func`** — **deferred until milestone 0**
-  (`eval()` needs free functions only; method syntax can wait for user
-  types to land).
+* **Methods / `init` without `func` — DECIDED (round 48).** Methods
+  are **`let name = { ... }` closure properties** in the type body —
+  the uniform no-`func` spelling — with `self` bound at invocation
+  (a `let`; mutating methods OPEN). Uncalled access yields the bound
+  `Function`. Initializers are **`init { params in ... }`**: the body
+  assigns `self.x = ...` with defaults prefilled; a non-optional
+  annotated property left unset errors. **Initializers are
+  multi-dispatch** — a deliberate carve-out from §6's
+  one-name-one-function: declare several `init`s and the `Type(...)`
+  call dispatches to the first declared match by arity + labels
+  (runtime-type dispatch awaits closure annotations; a param-less
+  `init` is variadic per round 14 — declare it last). The memberwise
+  init remains the *last* dispatch candidate (a divergence from
+  Swift's custom-init-removes-memberwise; flagged). A stored
+  `Function` wants a `var` property — `let` + closure literal means
+  method.
 
 ### 2.5 Everything else — OPEN / TODO
 
@@ -1201,3 +1214,17 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   **`state.Sequence { next }` ≡ `Sequence(state) { next }`** —
   trailing-closure generator construction. OPEN: `Int(s, radix: 16)`
   parsing (Swift has it).
+* **2026-08-30, round 48 — methods and `init` on user types;
+  multi-dispatch initializers** (closing §2.4's oldest deferred
+  question — see the updated §2.4 bullet for the full design).
+  Methods: `let name = { ... }` in type bodies, `self` bound at
+  invocation, uncalled access = bound `Function`, chaining through
+  `map` et al. works, `$()` and `self.method()` both recurse. Enums
+  get methods too (`switch self` inside), coexisting with round 46's
+  case accessors. Inits: `init { params in ... }` with prefilled
+  defaults, `self.x = ...` assignment, post-init verification of
+  non-optional annotated properties, and **multi-dispatch** — first
+  declared match on arity + labels wins, memberwise as the last
+  candidate. Stored `Function` properties call through (`s.f()`).
+  OPEN: mutating methods (`self` is a `let`), enum `init`, computed
+  properties, runtime-type dispatch for inits, `class`.

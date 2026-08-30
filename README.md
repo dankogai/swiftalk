@@ -275,6 +275,26 @@ swiftalk> q                      // a copy is a copy (§4)
 Point(x: 3, y: 4)
 ```
 
+**Methods and `init`** are in — methods are `let name = { ... }`
+closure properties (`self` bound at invocation), and initializers
+**multi-dispatch**:
+
+```text
+swiftalk> struct P {
+........ var x: Int = 0
+........ var y: Int = 0
+........ let norm2 = { self.x * self.x + self.y * self.y }
+........ init { v in self.x = v
+........ self.y = v
+........ }
+........ }
+P
+swiftalk> P(3, 4).norm2()        // memberwise — the last dispatch candidate
+25
+swiftalk> P(7).norm2()           // the declared init
+98
+```
+
 ```sh
 swift test
 ```

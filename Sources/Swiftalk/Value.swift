@@ -52,6 +52,11 @@ extension Swiftalk {
         /// Where the struct was declared — defaults evaluate here.
         let declEnv: Environment
         var constructor: FunctionObject?
+        /// Methods and initializers (round 48). Multiple inits
+        /// multi-dispatch: first declared match (arity + labels) wins,
+        /// with the memberwise init as the last candidate.
+        var methods: [String: FunctionObject] = [:]
+        var inits: [FunctionObject] = []
 
         init(name: String, propertyOrder: [String],
              properties: [String: Property], declEnv: Environment) {
@@ -83,6 +88,9 @@ extension Swiftalk {
         let caseOrder: [String]
         let cases: [String: [(label: String?, typeName: String?)]]
         var constructor: FunctionObject?
+        /// Methods (round 48): closure properties with `self` bound at
+        /// invocation.
+        var methods: [String: FunctionObject] = [:]
 
         init(name: String, caseOrder: [String],
              cases: [String: [(label: String?, typeName: String?)]]) {
