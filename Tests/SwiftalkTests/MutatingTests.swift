@@ -1,13 +1,13 @@
 import Testing
 @testable import Swiftalk
 
-@Suite("mutating methods, implicit self, extensions (round 49)")
+@Suite("mutation without `mutating` (round 50), implicit self, extensions")
 struct MutatingTests {
     private let stack = """
         struct Stack {
             var value: Array = []
-            mutating push = { item in .value.append(item) }
-            mutating pop = {
+            let push = { item in .value.append(item) }
+            let pop = {
                 let last = .value[.value.count - 1]
                 .value = .value.prefix(.value.count - 1)
                 return last
@@ -16,7 +16,7 @@ struct MutatingTests {
         }
         """
 
-    @Test("the marquee: mutating push = { item in .value.append(item) }")
+    @Test("no mutating keyword: let push = { item in .value.append(item) } just mutates")
     func marquee() throws {
         #expect(try eval("\(stack)\nvar s = Stack()\ns.push(1)\ns.push(2)\ns.top()") == .int(2))
         #expect(try eval("\(stack)\nvar s = Stack()\ns.push(1)\ns.push(2)\ns.value.count") == .int(2))
@@ -24,11 +24,31 @@ struct MutatingTests {
             == .array([.int(9), .int(0)]))
     }
 
-    @Test("mutating requires a var; COW keeps copies apart")
+    @Test("mutation permission is the receiver's var-ness — checked when it actually mutates")
     func varDiscipline() throws {
+        // a read-only method on a let receiver is fine
+        #expect(try eval("\(stack)\nlet s = Stack()\ns.top() == nil") == .bool(true))
+        // a mutating call on a let receiver errors — at the write-back
         #expect(throws: SwiftalkError.self) { try eval("\(stack)\nlet s = Stack()\ns.push(1)") }
+        // ...and on a temporary
+        #expect(throws: SwiftalkError.self) { try eval("\(stack)\nStack().push(1)") }
+        // COW keeps copies apart
         #expect(try eval("\(stack)\nvar a = Stack()\na.push(1)\nlet b = a\na.push(2)\nb.value.count")
             == .int(1))
+    }
+
+    @Test("a let property suppresses mutation — var/let on properties is the permission")
+    func letPropertySuppresses() throws {
+        #expect(throws: SwiftalkError.self) {
+            try eval("""
+                struct F {
+                    let k: Int = 1
+                    let bump = { .k = 2 }
+                }
+                var f = F()
+                f.bump()
+                """)
+        }
     }
 
     @Test("Array.append: the builtin mutator")
@@ -49,7 +69,7 @@ struct MutatingTests {
                 var y: Int = 0
                 let sum = { .x + .y }
                 let double = { .sum() * 2 }
-                mutating flip = { let t = .x\n.x = .y\n.y = t }
+                let flip = { let t = .x\n.x = .y\n.y = t }
             }
             var p = P(x: 1, y: 5)
             p.flip()
@@ -57,7 +77,23 @@ struct MutatingTests {
             """) == .array([.int(5), .int(1), .int(6), .int(12)]))
     }
 
-    @Test("mutating through nested lvalue paths")
+    @Test("enum methods may reassign self — enum mutation for free")
+    func enumSelfAssignment() throws {
+        #expect(try eval("""
+            enum Gear {
+                case low, high
+                let shift = { self = self.low != nil ? Gear.high : Gear.low }
+            }
+            var g = Gear.low
+            g.shift()
+            g == Gear.high
+            """) == .bool(true))
+        #expect(throws: SwiftalkError.self) {
+            try eval("enum G { case a, b\nlet go = { self = G.b } }\nlet g = G.a\ng.go()")
+        }
+    }
+
+    @Test("mutation through nested lvalue paths")
     func nestedMutation() throws {
         #expect(try eval("\(stack)\nvar arr = [Stack(), Stack()]\narr[1].push(9)\n[arr[1].value.count, arr[0].value.count]")
             == .array([.int(1), .int(0)]))
@@ -82,7 +118,7 @@ struct MutatingTests {
         #expect(try eval("extension Int { let doubled = { self * 2 } }\n21.doubled()") == .int(42))
         #expect(try eval("extension Int { let squared = { self * self } }\n3.squared().squared()") == .int(81))
         #expect(try eval("""
-            extension Array { mutating pushTwice = { x in .append(x)\n.append(x) } }
+            extension Array { let pushTwice = { x in .append(x)\n.append(x) } }
             var a = [0]
             a.pushTwice(7)
             a
@@ -93,8 +129,14 @@ struct MutatingTests {
         }
     }
 
-    @Test("uncalled mutating methods refuse politely")
-    func uncalledMutating() throws {
-        #expect(throws: SwiftalkError.self) { try eval("\(stack)\nvar s = Stack()\nlet m = s.push") }
+    @Test("an uncalled method is a bound closure over a COPY — value semantics")
+    func uncalledBoundCopy() throws {
+        #expect(try eval("""
+            \(stack)
+            var s = Stack()
+            let m = s.push
+            m(1)
+            s.value.count
+            """) == .int(0))   // the copy mutated, not s
     }
 }

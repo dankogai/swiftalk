@@ -296,13 +296,13 @@ swiftalk> P(7).norm2()           // the declared init
 ```
 
 **Mutating methods, implicit `self`, and extensions** are in —
-`mutating` replaces `let` (there is no `func` to modify), and
+mutation permission is the properties' `var`/`let` (no `mutating` keyword), and
 leading-dot members mean `self.`:
 
 ```text
 swiftalk> struct Stack {
 ........ var value: Array = []
-........ mutating push = { item in .value.append(item) }
+........ let push = { item in .value.append(item) }
 ........ let top = { .value.count == 0 ? nil : .value[.value.count - 1] }
 ........ }
 Stack

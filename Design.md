@@ -1247,3 +1247,19 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   builtin mutator (variadic, lvalue-bound). OPEN: the rest of the
   mutator family (insert/removeLast/...), extension `init`s/stored
   properties, enum mutating methods (`self = .case`).
+* **2026-08-30, round 50a — REVISES round 49: the `mutating` keyword
+  is unnecessary.** Functions are anonymous; a method is just a
+  closure a name is assigned to — so whether it may mutate is not the
+  *method's* declaration but **the properties' `var`/`let` and the
+  receiver's `var`-ness**. Given `struct Foo { var x: Int ... }`, a
+  method that assigns `.x` mutates `foo` when `foo` is a `var`; make
+  `x` a `let` to suppress it. Implementation: `self` is always a
+  `var` inside methods; **mutation is detected at runtime** (self
+  compared before/after — §3's runtime-enforcement philosophy applied
+  to methods) and written back through the receiver's lvalue; a `let`
+  receiver or a temporary errors *only when actually mutated* — a
+  read-only call on a `let` is fine. Bonus: **enum methods may
+  reassign `self`** (`self = Gear.high`), closing round 49's OPEN.
+  An uncalled method remains a closure bound over a *copy* (value
+  semantics). Glimpsed in the dialogue and left OPEN: computed
+  properties (`var getset { ... }`).

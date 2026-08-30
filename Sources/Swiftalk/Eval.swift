@@ -345,11 +345,10 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             lock: TypeAnnotation(name: "Function", optional: false),
             value: .function(constructor)))
         return .function(constructor)
-    case .structDecl(let name, let propertyOrder, let properties, let methodExprs,
-                     let mutatingNames, let initExprs):
+    case .structDecl(let name, let propertyOrder, let properties, let methodExprs, let initExprs):
         let st = StructType(name: name, propertyOrder: propertyOrder,
                             properties: properties, declEnv: env)
-        st.methods = makeMethods(methodExprs, in: env, mutating: mutatingNames)
+        st.methods = makeMethods(methodExprs, in: env)
         st.inits = initExprs.compactMap {
             guard case .function(let params, let body) = $0 else { return nil }
             return FunctionObject(parameters: params, body: body, closure: env)
@@ -363,8 +362,8 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             lock: TypeAnnotation(name: "Function", optional: false),
             value: .function(constructor)))
         return .function(constructor)
-    case .extensionDecl(let typeName, let methodExprs, let mutatingNames):
-        let fns = makeMethods(methodExprs, in: env, mutating: mutatingNames)
+    case .extensionDecl(let typeName, let methodExprs):
+        let fns = makeMethods(methodExprs, in: env)
         guard let value = try? env.lookup(typeName), case .function(let f) = value else {
             throw SwiftalkError.type("unknown type '\(typeName)'")
         }
@@ -810,21 +809,30 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
                 try assign(target, .array(a), in: env)
                 return .nil
             }
-            // User mutating methods (round 49): self is a var, written
-            // back through the receiver's lvalue afterward.
-            var mutatingMethod: FunctionObject? = nil
-            if case .structValue(let sv) = receiver, let m = sv.type.methods[name], m.isMutating {
-                mutatingMethod = m
-            } else if let m = lookupExtension(env, receiver.typeName, name), m.isMutating {
-                mutatingMethod = m
+            // User methods (rounds 48–50): self is always a var; whether
+            // the call MAY mutate is the properties' var/let business
+            // (round 50 — no `mutating` keyword). If self actually
+            // changed, it writes back through the receiver's lvalue —
+            // a let receiver or a temporary errors only then.
+            var userMethod: FunctionObject? = nil
+            if case .structValue(let sv) = receiver, let m = sv.type.methods[name] {
+                userMethod = m
+            } else if case .enumCase(let ev) = receiver, let m = ev.type.methods[name] {
+                userMethod = m
+            } else if let m = lookupExtension(env, receiver.typeName, name) {
+                userMethod = m
             }
-            if let m = mutatingMethod {
-                guard let target = asLValue(receiverExpr) else {
-                    throw SwiftalkError.type("mutating method '\(name)' must be called on a var")
-                }
+            if let m = userMethod {
                 let (bound, selfEnv) = try boundMethod(m, self: receiver, mutableSelf: true)
                 let result = try apply(bound, args: evaluated)
-                try assign(target, try selfEnv.lookup("self"), in: env)
+                let newSelf = try selfEnv.lookup("self")
+                if newSelf != receiver {
+                    guard let target = asLValue(receiverExpr) else {
+                        throw SwiftalkError.type(
+                            "method '\(name)' mutated a temporary — call it on a var")
+                    }
+                    try assign(target, newSelf, in: env)
+                }
                 return result
             }
         }
@@ -948,13 +956,11 @@ private func asLValue(_ expr: Expr) -> LValue? {
 
 /// Turns parsed method expressions into FunctionObjects closed over the
 /// declaring environment (round 48).
-private func makeMethods(_ exprs: [String: Expr], in env: Environment,
-                         mutating mutatingNames: Set<String> = []) -> [String: FunctionObject] {
+private func makeMethods(_ exprs: [String: Expr], in env: Environment) -> [String: FunctionObject] {
     var out: [String: FunctionObject] = [:]
     for (name, expr) in exprs {
         guard case .function(let params, let body) = expr else { continue }
-        out[name] = FunctionObject(parameters: params, body: body, closure: env,
-                                   isMutating: mutatingNames.contains(name))
+        out[name] = FunctionObject(parameters: params, body: body, closure: env)
     }
     return out
 }
@@ -1484,26 +1490,20 @@ private func method(on receiver: Value, name: String,
         }
         return try apply(fn, args: labeledArgs)
     }
-    // User-type methods (round 48): called invokes with self bound;
-    // uncalled yields the bound Function. A mutating method reaching
-    // this path had no var to write back to (round 49).
+    // User-type/extension methods, uncalled path (rounds 48–50): the
+    // bound Function closes over a COPY of self — value semantics; its
+    // later mutations stay in the copy. (Calls route through evaluate's
+    // dispatch, which write-backs actual mutation.)
     if case .structValue(let sv) = receiver, let m = sv.type.methods[name] {
-        guard !m.isMutating else {
-            throw SwiftalkError.type("mutating method '\(name)' must be called on a var")
-        }
-        let (bound, _) = try boundMethod(m, self: receiver)
+        let (bound, _) = try boundMethod(m, self: receiver, mutableSelf: true)
         return called ? try apply(bound, args: labeledArgs) : .function(bound)
     }
     if case .enumCase(let ev) = receiver, let m = ev.type.methods[name] {
-        let (bound, _) = try boundMethod(m, self: receiver)
+        let (bound, _) = try boundMethod(m, self: receiver, mutableSelf: true)
         return called ? try apply(bound, args: labeledArgs) : .function(bound)
     }
-    // Extension methods (round 49) — user or builtin receiver alike.
     if let m = lookupExtension(env, receiver.typeName, name) {
-        guard !m.isMutating else {
-            throw SwiftalkError.type("mutating method '\(name)' must be called on a var")
-        }
-        let (bound, _) = try boundMethod(m, self: receiver)
+        let (bound, _) = try boundMethod(m, self: receiver, mutableSelf: true)
         return called ? try apply(bound, args: labeledArgs) : .function(bound)
     }
     // The round-47 law: x.TypeName(tag: ...) is TypeName(x, tag: ...) —
