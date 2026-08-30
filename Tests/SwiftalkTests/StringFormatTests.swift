@@ -55,3 +55,46 @@ struct StringFormatTests {
         #expect(throws: SwiftalkError.self) { try eval("42.String(.hex, .oct)") }
     }
 }
+
+@Suite("the round-47 law: x.TypeName(tag:) == TypeName(x, tag:)")
+struct ConversionLawTests {
+    @Test("both spellings agree, formats included")
+    func law() throws {
+        #expect(try eval("255.String(radix: 16) == String(255, radix: 16)") == .bool(true))
+        #expect(try eval("(255.0).String(.hex) == String(255.0, .hex)") == .bool(true))
+        #expect(try eval("255.String(.oct) == String(255, .oct)") == .bool(true))
+        #expect(try eval(#""a".String(.quoted) == String("a", .quoted)"#) == .bool(true))
+        #expect(try eval("42.String() == String(42)") == .bool(true))
+        #expect(try eval("(1...3).Array() == Array(1...3)") == .bool(true))
+    }
+
+    @Test("the full converter-method family exists: x.Int(), x.Double(), x.Bool()...")
+    func converterMethods() throws {
+        #expect(try eval(#""42".Int() == Int("42")"#) == .bool(true))
+        #expect(try eval(#""42".Int()"#) == .int(42))
+        #expect(try eval(#""0xff".Int()"#) == .int(255))
+        #expect(try eval(#""nope".Int()"#) == .nil)
+        #expect(try eval("(3.9).Int()") == .int(3))
+        #expect(try eval("2.Double()") == .double(2.0))
+        #expect(try eval(#""1.5".Double()"#) == .double(1.5))
+        #expect(try eval(#""true".Bool()"#) == .bool(true))
+        #expect(try eval(#""abc".Array()"#) == .array([.string("a"), .string("b"), .string("c")]))
+        // chaining, the law's motivation
+        #expect(try eval("255.String(radix: 16).count") == .int(2))
+        #expect(try eval(#""0x1.8p0".Double().Int()"#) == .int(1))
+    }
+
+    @Test("the law's bonus: state.Sequence { next } constructs a generator")
+    func sequenceSpelling() throws {
+        #expect(try eval("[0, 1].Sequence { $ = [$1, $0 + $1]; return $1 }.prefix(5)")
+            == .array([.int(1), .int(1), .int(2), .int(3), .int(5)]))
+    }
+
+    @Test("format errors hold on both ends")
+    func errors() throws {
+        #expect(throws: SwiftalkError.self) { try eval("String(radix: 16)") }     // no subject
+        #expect(throws: SwiftalkError.self) { try eval("Int(42, radix: 16)") }    // Int has no formats (yet)
+        #expect(throws: SwiftalkError.self) { try eval("42.Int(radix: 16)") }
+        #expect(throws: SwiftalkError.self) { try eval(#"String("s", .hex)"#) }   // wrong subject type
+    }
+}

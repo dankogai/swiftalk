@@ -1022,6 +1022,21 @@ func apply(_ fn: FunctionObject, args: [(label: String?, value: Value)]) throws 
     if case .structType(let st) = fn.role {
         return try constructStruct(st, args: args)
     }
+    // The round-47 law, constructor side: TypeName(x, tag: ...) is
+    // x.TypeName(tag: ...) — the first unlabeled argument is the
+    // subject, the rest are format arguments.
+    if case .type(let typeName) = fn.role {
+        var subject: Value? = nil
+        var extra: [(label: String?, value: Value)] = []
+        for (index, arg) in args.enumerated() {
+            if index == 0, arg.label == nil {
+                subject = arg.value
+            } else {
+                extra.append(arg)
+            }
+        }
+        return try convert(typeName, subject: subject, extra: extra)
+    }
     var ordered: [Value]
     if fn.parameters.isEmpty {
         if let label = args.compactMap(\.label).first {
@@ -1175,6 +1190,76 @@ private func compare(_ op: String, _ lhs: Value, _ rhs: Value) throws -> Value {
 
 /// Members so far: `.String()` (the round-trip law, §3d), `.type` (§3,
 /// as a name for now), and `.count` on the Sequence conformers (§10).
+/// The one conversion behind both spellings (round 47):
+/// `x.TypeName(tag: ...)` and `TypeName(x, tag: ...)` land here alike.
+/// No extras → the plain constructor; extras are format arguments
+/// (String's formats; Sequence's generator closure).
+func convert(_ typeName: String, subject: Value?,
+             extra: [(label: String?, value: Value)]) throws -> Value {
+    let object = (Builtins.types[typeName] ?? Builtins.protocols[typeName])!
+    if extra.isEmpty {
+        return try object.builtin!(subject.map { [$0] } ?? [])
+    }
+    switch typeName {
+    case "String":
+        guard let subject else {
+            throw SwiftalkError.type("String formats need a value to format")
+        }
+        return try stringFormat(subject, extra)
+    case "Sequence":
+        // state.Sequence { next } == Sequence(state) { next } — the law's
+        // bonus: trailing-closure generator construction.
+        guard let subject, extra.count == 1, extra[0].label == nil else {
+            throw SwiftalkError.type("Sequence(initialState) { next } — an Array state and a Function")
+        }
+        return try object.builtin!([subject, extra[0].value])
+    default:
+        throw SwiftalkError.type("\(typeName)() takes no format arguments")
+    }
+}
+
+/// String's format vocabulary (rounds 20–21, 42): .quoted, .hex/.oct/
+/// .bin (prefixed, literal-ready), radix: n (bare digits).
+private func stringFormat(_ subject: Value,
+                          _ formats: [(label: String?, value: Value)]) throws -> Value {
+    guard formats.count == 1 else {
+        throw SwiftalkError.type(".String() takes at most one format argument")
+    }
+    let (label, format) = formats[0]
+    if label == "radix" {
+        guard case .int(let radix) = format, (2...36).contains(radix) else {
+            throw SwiftalkError.type(".String(radix:) takes an Int in 2...36")
+        }
+        guard case .int(let i) = subject else {
+            throw SwiftalkError.type(".String(radix:) is an Int's format")
+        }
+        return .string(String(i, radix: Int(radix)))
+    }
+    guard label == nil else {
+        throw SwiftalkError.type("unknown .String() format label '\(label!)'")
+    }
+    switch format {
+    case .string("quoted"):
+        return .string(subject.sourceString())
+    case .string("hex"):
+        // Literal-ready, prefixed — round-trips (rounds 20–21).
+        switch subject {
+        case .int:            return .string(subject.sourceString(debug: true))
+        case .double(let d):  return .string(Value.hexFloat(d))
+        default:
+            throw SwiftalkError.type(".String(.hex) is a number's format")
+        }
+    case .string("oct"), .string("bin"):
+        guard case .int(let i) = subject else {
+            throw SwiftalkError.type(".String(.oct)/.String(.bin) are an Int's formats")
+        }
+        let (prefix, radix) = format == .string("oct") ? ("0o", 8) : ("0b", 2)
+        return .string((i < 0 ? "-" : "") + prefix + String(i.magnitude, radix: radix))
+    default:
+        throw SwiftalkError.type("unknown .String() format \(format.sourceString())")
+    }
+}
+
 /// Rejects labeled arguments where a member takes none, yielding the
 /// bare values.
 private func plainValues(_ args: [(label: String?, value: Value)], for member: String) throws -> [Value] {
@@ -1231,47 +1316,13 @@ private func method(on receiver: Value, name: String,
     if case .structValue(let sv) = receiver, !called, let value = sv.values[name] {
         return value
     }
-    // .String(radix: n) — bare digits in any radix (round 20).
-    if (name, called) == ("String", true),
-       labeledArgs.count == 1, labeledArgs[0].label == "radix" {
-        guard case .int(let radix) = labeledArgs[0].value, (2...36).contains(radix) else {
-            throw SwiftalkError.type(".String(radix:) takes an Int in 2...36")
-        }
-        guard case .int(let i) = receiver else {
-            throw SwiftalkError.type(".String(radix:) is an Int's format")
-        }
-        return .string(String(i, radix: Int(radix)))
+    // The round-47 law: x.TypeName(tag: ...) is TypeName(x, tag: ...) —
+    // one operation, two spellings; the method form chains.
+    if called, Builtins.types[name] != nil || Builtins.protocols[name] != nil {
+        return try convert(name, subject: receiver, extra: labeledArgs)
     }
     let args = try plainValues(labeledArgs, for: ".\(name)")
     switch (name, called) {
-    case ("String", true):
-        guard args.count <= 1 else {
-            throw SwiftalkError.type(".String() takes at most one format argument")
-        }
-        switch args.first {
-        case nil:
-            // Argless .String() is description (round 42): a String is
-            // itself — quoting is explicit via .String(.quoted).
-            return .string(displayString(receiver))
-        case .string("quoted")?:
-            return .string(receiver.sourceString())
-        case .string("hex")?:
-            // Literal-ready, prefixed — round-trips (rounds 20–21).
-            switch receiver {
-            case .int:            return .string(receiver.sourceString(debug: true))
-            case .double(let d):  return .string(Value.hexFloat(d))
-            default:
-                throw SwiftalkError.type(".String(.hex) is a number's format")
-            }
-        case .string("oct")?, .string("bin")?:
-            guard case .int(let i) = receiver else {
-                throw SwiftalkError.type(".String(.oct)/.String(.bin) are an Int's formats")
-            }
-            let (prefix, radix) = args.first == .string("oct") ? ("0o", 8) : ("0b", 2)
-            return .string((i < 0 ? "-" : "") + prefix + String(i.magnitude, radix: radix))
-        case let other?:
-            throw SwiftalkError.type("unknown .String() format \(other.sourceString())")
-        }
     case ("Type", false):
         // x.Type (round 40; né x.type) — the constructor Function, à la
         // JS's .constructor: the singleton the global name binds, so
@@ -1311,13 +1362,6 @@ private func method(on receiver: Value, name: String,
         default:
             throw SwiftalkError.unknownMember("\(receiver.typeName).count")
         }
-    case ("Array", true):
-        // §3d converter doubling as the Sequence materializer:
-        // seq.Array() collects any Sequence's elements eagerly.
-        guard args.isEmpty else {
-            throw SwiftalkError.type(".Array() takes no arguments")
-        }
-        return .array(try collect(receiver))
     case ("prefix", true):
         // The lazy world's terminal (round 41): materialize the first n.
         guard args.count == 1, case .int(let n) = args[0], n >= 0 else {

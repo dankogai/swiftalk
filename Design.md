@@ -369,13 +369,23 @@ string.Data()       // String → Data   (infallible: text always has bytes)
   *converts* — a method. Capitalized members are type-talk; the
   constructor's `.name` (a `String`, mandatory on constructors,
   `nil` on anonymous functions) gives the name back.
-* `obj.TypeName()` is the conversion *idiom* — but initializer-style
-  spelling exists too, since **types are constructor `Function`s**
-  (§10, round 25): `Type(...)` constructs, so `String(42)` / `Int("42")`
-  are valid calls. (**OPEN**: the exact division of labor between
-  constructor `Type(x)` and converter `x.Type()` — presumably the same
-  operation spelled from either end; which conversions are failable,
-  per pair; the format-argument vocabulary per pair.)
+* **The two spellings are one operation — by law** (round 47,
+  closing round 39's OPEN): `x.TypeName(tag: ...)` is normally
+  identical to `TypeName(x, tag: ...)`, format arguments included —
+
+  ```swiftalk
+  dbl.String(radix: 16) == String(dbl, radix: 16)   // always
+  "42".Int()            == Int("42")
+  [0, 1].Sequence { next } == Sequence([0, 1]) { next }
+  ```
+
+  Swift prefers the constructor spelling; swiftalk supports both, and
+  the method spelling is favored for chaining
+  (`255.String(radix: 16).count`). Constructor side: the first
+  *unlabeled* argument is the subject, the rest are format arguments.
+  (**OPEN**: which conversions are failable, per pair; the
+  format-argument vocabulary per pair — e.g. `Int(s, radix: 16)`
+  parsing, which Swift has and swiftalk does not yet.)
 
 ### 3c. `Any`, `Primitives`, and heterogeneous collections — DECIDED (direction)
 
@@ -1177,3 +1187,17 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   45's lesson, now structural). OPEN: **methods and `init` on user
   types — the §2.4 deferred question is now due**; also computed
   properties, `mutating`, nested type declarations, `class`.
+* **2026-08-30, round 47 — the conversion law: `x.TypeName(tag:)` ≡
+  `TypeName(x, tag:)`** (§3d; closes round 39's division-of-labor
+  OPEN). One operation, two spellings, formats included —
+  `dbl.String(radix: 16) == String(dbl, radix: 16)`; Swift prefers
+  the constructor form, swiftalk keeps both with the method form
+  favored for chaining. Implementation: one shared `convert` path
+  behind both ends (constructor side: first unlabeled arg = subject,
+  rest = formats). Consequences: the **full converter-method family
+  now exists** (`"42".Int()`, `x.Double()`, `x.Bool()`,
+  `"abc".Array()`, ...), sloppy extra constructor args now error
+  instead of being ignored, and a bonus fell out:
+  **`state.Sequence { next }` ≡ `Sequence(state) { next }`** —
+  trailing-closure generator construction. OPEN: `Int(s, radix: 16)`
+  parsing (Swift has it).
