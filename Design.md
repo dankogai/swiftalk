@@ -1228,3 +1228,22 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   candidate. Stored `Function` properties call through (`s.f()`).
   OPEN: mutating methods (`self` is a `let`), enum `init`, computed
   properties, runtime-type dispatch for inits, `class`.
+* **2026-08-30, round 49 — mutating methods, implicit self, and
+  extensions.** With `func` gone, **`mutating name = { ... }`** is the
+  spelling (`mutating` replaces `let`); inside, `self` is a `var`, and
+  the mutated self **writes back through the receiver's lvalue** —
+  composing through nested paths (`arr[1].push(9)`), refusing `let`
+  receivers and non-lvalues. **Implicit self**: in type/extension
+  bodies, leading-dot members mean `self.` — `.value` reads,
+  `.value = x` writes, `.method()` calls — the marquee runs verbatim:
+  `mutating push = { item in .value.append(item) }`. Resolution
+  prefers self's members, falling back to format members (a self
+  member named `hex` shadows `.hex` — documented, tested).
+  **`extension Name { ... }` implemented** (§10 delivered): `let` and
+  `mutating` methods onto user types (merged into the type) and
+  builtins (hidden per-scope bindings — declared and greppable, as
+  §10's monkey-patching discipline demands): `extension Int { let
+  doubled = { self * 2 } }`. **`Array.append` arrives** as the first
+  builtin mutator (variadic, lvalue-bound). OPEN: the rest of the
+  mutator family (insert/removeLast/...), extension `init`s/stored
+  properties, enum mutating methods (`self = .case`).

@@ -345,10 +345,11 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             lock: TypeAnnotation(name: "Function", optional: false),
             value: .function(constructor)))
         return .function(constructor)
-    case .structDecl(let name, let propertyOrder, let properties, let methodExprs, let initExprs):
+    case .structDecl(let name, let propertyOrder, let properties, let methodExprs,
+                     let mutatingNames, let initExprs):
         let st = StructType(name: name, propertyOrder: propertyOrder,
                             properties: properties, declEnv: env)
-        st.methods = makeMethods(methodExprs, in: env)
+        st.methods = makeMethods(methodExprs, in: env, mutating: mutatingNames)
         st.inits = initExprs.compactMap {
             guard case .function(let params, let body) = $0 else { return nil }
             return FunctionObject(parameters: params, body: body, closure: env)
@@ -362,6 +363,39 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             lock: TypeAnnotation(name: "Function", optional: false),
             value: .function(constructor)))
         return .function(constructor)
+    case .extensionDecl(let typeName, let methodExprs, let mutatingNames):
+        let fns = makeMethods(methodExprs, in: env, mutating: mutatingNames)
+        guard let value = try? env.lookup(typeName), case .function(let f) = value else {
+            throw SwiftalkError.type("unknown type '\(typeName)'")
+        }
+        switch f.role {
+        case .structType(let st):
+            for (name, fn) in fns {
+                guard st.properties[name] == nil, st.methods[name] == nil else {
+                    throw SwiftalkError.type("\(typeName) already has a member '\(name)'")
+                }
+                st.methods[name] = fn
+            }
+        case .enumType(let et):
+            for (name, fn) in fns {
+                guard et.cases[name] == nil, et.methods[name] == nil else {
+                    throw SwiftalkError.type("\(typeName) already has a member '\(name)'")
+                }
+                et.methods[name] = fn
+            }
+        case .type(let n), .protocol(let n):
+            // Builtins: hidden env bindings, greppable and scoped (§10's
+            // "declared and greppable" discipline for monkey-patching).
+            for (name, fn) in fns {
+                try env.declare("@ext:\(n):\(name)", Binding(
+                    mutable: false,
+                    lock: TypeAnnotation(name: "Function", optional: false),
+                    value: .function(fn)))
+            }
+        case .plain, .todo:
+            throw SwiftalkError.type("'\(typeName)' is not a type")
+        }
+        return .nil
     case .switchS(let subjectExpr, let clauses, let defaultBody):
         let subject = try evaluate(subjectExpr, in: env)
         for clause in clauses {
@@ -673,6 +707,11 @@ func evaluate(_ expr: Expr, in env: Environment) throws -> Value {
         }
         return try evaluate(flag ? thenBranch : elseBranch, in: env)
     case .call(let callee, let args):
+        // Implicit self (round 49): `.method(args)` in a type body.
+        if case .memberLiteral(let name) = callee, (try? env.lookup("self")) != nil {
+            return try evaluateSlow(
+                .method(.variable("self"), name: name, args: args, called: true), in: env)
+        }
         guard case .function(let fn) = try evaluate(callee, in: env) else {
             let v = try evaluate(callee, in: env)
             throw SwiftalkError.type("cannot call a \(v.typeName)")
@@ -754,10 +793,42 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
         let removed = d.removeValue(forKey: try evaluate(argExprs[0].expr, in: env)) ?? .nil
         try assign(target, .dictionary(d), in: env)
         return removed
-    case .method(let receiver, let name, let args, let called):
-        return try method(on: try evaluate(receiver, in: env), name: name,
-                          args: try args.map { ($0.label, try evaluate($0.expr, in: env)) },
-                          called: called)
+    case .method(let receiverExpr, let name, let args, let called):
+        let receiver = try evaluate(receiverExpr, in: env)
+        let evaluated = try args.map { ($0.label, try evaluate($0.expr, in: env)) }
+        if called {
+            // Builtin Array mutator (round 49): a.append(x) — the family
+            // grows as needed.
+            if name == "append", case .array(var a) = receiver {
+                guard let target = asLValue(receiverExpr) else {
+                    throw SwiftalkError.type("'.append' mutates — call it on a var Array")
+                }
+                guard !evaluated.isEmpty, evaluated.allSatisfy({ $0.0 == nil }) else {
+                    throw SwiftalkError.type(".append takes unlabeled item(s)")
+                }
+                a.append(contentsOf: evaluated.map(\.1))
+                try assign(target, .array(a), in: env)
+                return .nil
+            }
+            // User mutating methods (round 49): self is a var, written
+            // back through the receiver's lvalue afterward.
+            var mutatingMethod: FunctionObject? = nil
+            if case .structValue(let sv) = receiver, let m = sv.type.methods[name], m.isMutating {
+                mutatingMethod = m
+            } else if let m = lookupExtension(env, receiver.typeName, name), m.isMutating {
+                mutatingMethod = m
+            }
+            if let m = mutatingMethod {
+                guard let target = asLValue(receiverExpr) else {
+                    throw SwiftalkError.type("mutating method '\(name)' must be called on a var")
+                }
+                let (bound, selfEnv) = try boundMethod(m, self: receiver, mutableSelf: true)
+                let result = try apply(bound, args: evaluated)
+                try assign(target, try selfEnv.lookup("self"), in: env)
+                return result
+            }
+        }
+        return try method(on: receiver, name: name, args: evaluated, called: called, env: env)
     case .subscript(let base, let index):
         return try subscriptRead(try evaluate(base, in: env), try evaluate(index, in: env))
     case .range(let op, let lhs, let rhs):
@@ -772,9 +843,16 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
         }
         return .range(from: a, to: b, closed: op == "...")
     case .memberLiteral(let name):
-        // Format members (.quoted, .hex, ...) — provisionally String
-        // values until enums land (round 42; §3d format vocabularies
-        // are meant to be enums).
+        // Implicit self first (round 49): inside a type body, `.value`
+        // means `self.value`. Otherwise a format member (.quoted, .hex,
+        // ...) — provisionally a String until enums back them (round 42).
+        if let selfValue = try? env.lookup("self") {
+            do {
+                return try method(on: selfValue, name: name, args: [], called: false, env: env)
+            } catch SwiftalkError.unknownMember {
+                // fall through to the format-member reading
+            }
+        }
         return .string(name)
     case .interpolation(let parts):
         // Swift-style display: a String embeds raw; everything else embeds
@@ -860,6 +938,9 @@ private func asLValue(_ expr: Expr) -> LValue? {
     case .method(let base, let name, let args, false) where args.isEmpty:
         guard let inner = asLValue(base) else { return nil }
         return .property(inner, name)
+    case .memberLiteral(let name):
+        // Implicit self (round 49): `.value` is an lvalue on self.
+        return .property(.variable("self"), name)
     default:
         return nil
     }
@@ -867,11 +948,24 @@ private func asLValue(_ expr: Expr) -> LValue? {
 
 /// Turns parsed method expressions into FunctionObjects closed over the
 /// declaring environment (round 48).
-private func makeMethods(_ exprs: [String: Expr], in env: Environment) -> [String: FunctionObject] {
-    exprs.compactMapValues {
-        guard case .function(let params, let body) = $0 else { return nil }
-        return FunctionObject(parameters: params, body: body, closure: env)
+private func makeMethods(_ exprs: [String: Expr], in env: Environment,
+                         mutating mutatingNames: Set<String> = []) -> [String: FunctionObject] {
+    var out: [String: FunctionObject] = [:]
+    for (name, expr) in exprs {
+        guard case .function(let params, let body) = expr else { continue }
+        out[name] = FunctionObject(parameters: params, body: body, closure: env,
+                                   isMutating: mutatingNames.contains(name))
     }
+    return out
+}
+
+/// Extension methods on builtin types live as hidden env bindings
+/// (`@` cannot appear in identifiers); user types carry theirs
+/// directly.
+func lookupExtension(_ env: Environment, _ typeName: String, _ name: String) -> FunctionObject? {
+    guard let value = try? env.lookup("@ext:\(typeName):\(name)"),
+          case .function(let fn) = value else { return nil }
+    return fn
 }
 
 /// Binds `self` for a method invocation (round 48): a fresh scope
@@ -1338,7 +1432,8 @@ private func plainValues(_ args: [(label: String?, value: Value)], for member: S
 }
 
 private func method(on receiver: Value, name: String,
-                    args labeledArgs: [(label: String?, value: Value)], called: Bool) throws -> Value {
+                    args labeledArgs: [(label: String?, value: Value)], called: Bool,
+                    env: Environment) throws -> Value {
     // `.conforms(to:)` is the one member with a label; everything else
     // takes bare values.
     if (name, called) == ("conforms", true) {
@@ -1390,12 +1485,24 @@ private func method(on receiver: Value, name: String,
         return try apply(fn, args: labeledArgs)
     }
     // User-type methods (round 48): called invokes with self bound;
-    // uncalled yields the bound Function.
+    // uncalled yields the bound Function. A mutating method reaching
+    // this path had no var to write back to (round 49).
     if case .structValue(let sv) = receiver, let m = sv.type.methods[name] {
+        guard !m.isMutating else {
+            throw SwiftalkError.type("mutating method '\(name)' must be called on a var")
+        }
         let (bound, _) = try boundMethod(m, self: receiver)
         return called ? try apply(bound, args: labeledArgs) : .function(bound)
     }
     if case .enumCase(let ev) = receiver, let m = ev.type.methods[name] {
+        let (bound, _) = try boundMethod(m, self: receiver)
+        return called ? try apply(bound, args: labeledArgs) : .function(bound)
+    }
+    // Extension methods (round 49) — user or builtin receiver alike.
+    if let m = lookupExtension(env, receiver.typeName, name) {
+        guard !m.isMutating else {
+            throw SwiftalkError.type("mutating method '\(name)' must be called on a var")
+        }
         let (bound, _) = try boundMethod(m, self: receiver)
         return called ? try apply(bound, args: labeledArgs) : .function(bound)
     }

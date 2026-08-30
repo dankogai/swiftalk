@@ -63,7 +63,8 @@ enum Stmt {
                   methods: [String: Expr])
     case structDecl(name: String, propertyOrder: [String],
                     properties: [String: Swiftalk.StructType.Property],
-                    methods: [String: Expr], inits: [Expr])
+                    methods: [String: Expr], mutatingNames: Set<String>, inits: [Expr])
+    case extensionDecl(typeName: String, methods: [String: Expr], mutatingNames: Set<String>)
     case switchS(subject: Expr,
                  clauses: [(patterns: [Pattern], body: [Stmt])],
                  defaultBody: [Stmt]?)
@@ -72,7 +73,7 @@ enum Stmt {
 private let keywords: Set<String> = [
     "let", "var", "true", "false", "nil", "in",
     "if", "else", "while", "repeat", "for", "break", "continue", "return",
-    "enum", "case", "switch", "default", "struct",
+    "enum", "case", "switch", "default", "struct", "mutating", "extension",
 ]
 
 struct Parser {
@@ -187,6 +188,8 @@ struct Parser {
             return try parseEnum()
         case .identifier("struct"):
             return try parseStruct()
+        case .identifier("extension"):
+            return try parseExtension()
         case .identifier("switch"):
             return try parseSwitch()
         case .identifier("return"):
@@ -356,9 +359,23 @@ struct Parser {
         var propertyOrder: [String] = []
         var properties: [String: Swiftalk.StructType.Property] = [:]
         var methods: [String: Expr] = [:]
+        var mutatingNames: Set<String> = []
         var inits: [Expr] = []
         skipSeparators()
         while peek != .punct("}") {
+            // Mutating methods (round 49): `mutating name = { ... }` —
+            // `mutating` replaces `let`, since there is no `func`.
+            if case .identifier("mutating")? = peek {
+                let (methodName, fn) = try parseMethod(
+                    existing: { properties[$0] != nil || methods[$0] != nil })
+                methods[methodName] = fn
+                mutatingNames.insert(methodName)
+                guard peek == .punct("}") || consumeSeparator() else {
+                    throw SwiftalkError.syntax("expected a newline between struct members")
+                }
+                skipSeparators()
+                continue
+            }
             // Initializers (round 48): `init { params in ... }`.
             if case .identifier("init")? = peek {
                 pos += 1
@@ -423,7 +440,40 @@ struct Parser {
         }
         try expect("}")
         return .structDecl(name: name, propertyOrder: propertyOrder, properties: properties,
-                           methods: methods, inits: inits)
+                           methods: methods, mutatingNames: mutatingNames, inits: inits)
+    }
+
+    /// `extension Name { let m = { ... }\nmutating n = { ... } }` (§10,
+    /// round 49): methods added to an existing type — user or builtin.
+    private mutating func parseExtension() throws -> Stmt {
+        pos += 1  // consume "extension"
+        guard case .identifier(let typeName)? = advance(),
+              !keywords.contains(typeName), !typeName.hasPrefix("$") else {
+            throw SwiftalkError.syntax("expected a type name after 'extension'")
+        }
+        try expect("{")
+        var methods: [String: Expr] = [:]
+        var mutatingNames: Set<String> = []
+        skipSeparators()
+        while peek != .punct("}") {
+            let isMutating: Bool
+            switch peek {
+            case .identifier("let"):      isMutating = false
+            case .identifier("mutating"): isMutating = true
+            default:
+                throw SwiftalkError.syntax(
+                    "an extension body holds 'let'/'mutating' methods")
+            }
+            let (methodName, fn) = try parseMethod(existing: { methods[$0] != nil })
+            methods[methodName] = fn
+            if isMutating { mutatingNames.insert(methodName) }
+            guard peek == .punct("}") || consumeSeparator() else {
+                throw SwiftalkError.syntax("expected a newline between extension members")
+            }
+            skipSeparators()
+        }
+        try expect("}")
+        return .extensionDecl(typeName: typeName, methods: methods, mutatingNames: mutatingNames)
     }
 
     /// `switch expr { case pattern, ...: stmts ... default: stmts }` (§7).
@@ -529,6 +579,9 @@ struct Parser {
             return .index(try lvalue(from: base), index)
         case .method(let base, let name, let args, false) where args.isEmpty:
             return .property(try lvalue(from: base), name)
+        case .memberLiteral(let name):
+            // Implicit self (round 49): `.x = 1` in a type body.
+            return .property(.variable("self"), name)
         default:
             throw SwiftalkError.syntax("this expression is not assignable")
         }

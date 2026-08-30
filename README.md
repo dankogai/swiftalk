@@ -295,6 +295,27 @@ swiftalk> P(7).norm2()           // the declared init
 98
 ```
 
+**Mutating methods, implicit `self`, and extensions** are in —
+`mutating` replaces `let` (there is no `func` to modify), and
+leading-dot members mean `self.`:
+
+```text
+swiftalk> struct Stack {
+........ var value: Array = []
+........ mutating push = { item in .value.append(item) }
+........ let top = { .value.count == 0 ? nil : .value[.value.count - 1] }
+........ }
+Stack
+swiftalk> var s = Stack()
+swiftalk> s.push(1)
+swiftalk> s.push(2)
+swiftalk> s.top()
+2
+swiftalk> extension Int { let doubled = { self * 2 } }
+swiftalk> 21.doubled()
+42
+```
+
 ```sh
 swift test
 ```

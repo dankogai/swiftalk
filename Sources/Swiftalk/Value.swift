@@ -171,14 +171,19 @@ extension Swiftalk {
         let closure: Environment      // lexical capture
         let builtin: (([Value]) throws -> Value)?
         let role: Role
+        /// A `mutating` method (round 49): `self` is a var, written back
+        /// to the receiver's lvalue after the call.
+        let isMutating: Bool
 
         init(parameters: [String], body: [Stmt], closure: Environment,
-             builtin: (([Value]) throws -> Value)? = nil, role: Role = .plain) {
+             builtin: (([Value]) throws -> Value)? = nil, role: Role = .plain,
+             isMutating: Bool = false) {
             self.parameters = parameters
             self.body = body
             self.closure = closure
             self.builtin = builtin
             self.role = role
+            self.isMutating = isMutating
         }
 
         public static func == (lhs: FunctionObject, rhs: FunctionObject) -> Bool {
