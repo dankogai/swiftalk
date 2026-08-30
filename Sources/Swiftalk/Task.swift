@@ -215,10 +215,15 @@ final class Scheduler {
 
     private func wakeDueSleepers() {
         let time = Scheduler.now()
-        let due = sleepers.filter { $0.deadline <= time }
+        // Ready due sleepers in *deadline* order (ties by insertion):
+        // when a stall makes several due at once, wake order must
+        // still follow timer order — determinism survives slow hosts.
+        let due = sleepers.enumerated()
+            .filter { $0.element.deadline <= time }
+            .sorted { ($0.element.deadline, $0.offset) < ($1.element.deadline, $1.offset) }
         guard !due.isEmpty else { return }
         sleepers.removeAll { $0.deadline <= time }
-        ready.append(contentsOf: due.map(\.ctx))
+        ready.append(contentsOf: due.map(\.element.ctx))
     }
 
     private static func now() -> Double {
