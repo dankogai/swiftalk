@@ -329,6 +329,24 @@ swiftalk> Date(0.0) < Date()
 true
 ```
 
+**`Result` and the `?`/`!` family** are in — Result-first errors
+(§8), no exceptions; one rule for absence and failure:
+
+```text
+swiftalk> let halve = { n in n / 2 * 2 == n ? Result.success(n / 2) : Result.failure("odd: \(n)") }
+swiftalk> let quarter = { n in Result.success(halve(halve(n)?)?) }
+swiftalk> quarter(8)
+Result.success(2)
+swiftalk> quarter(6)                 // the failure propagated through ?
+Result.failure("odd: 3")
+swiftalk> quarter(6) ?? -1
+-1
+swiftalk> ["k": [1, 2]]["k"]?.count
+2
+swiftalk> nil!
+type error: force-unwrapped nil
+```
+
 ```sh
 swift test
 ```

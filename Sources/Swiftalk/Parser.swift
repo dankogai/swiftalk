@@ -17,6 +17,11 @@ indirect enum Expr {
     case range(String, Expr, Expr)                        // a...b / a..<b (§: eager [Int] for now)
     case interpolation([Expr])                            // "a\(x)b" — parts concatenate
     case memberLiteral(String)                            // .quoted, .hex — format members (§3d)
+    case propagate(Expr)                                  // x? — unwrap or early-return (§3a/§8)
+    case forceUnwrap(Expr)                                // x! — unwrap or trap
+    case coalesce(Expr, Expr)                             // a ?? b — default on nil/failure
+    case optionalMember(Expr, name: String,               // a?.b / a?.b(args) — nil skips
+                        args: [(label: String?, expr: Expr)], called: Bool)
 }
 
 /// An assignment target: a variable, or a subscript/property path
@@ -394,7 +399,7 @@ struct Parser {
                     throw SwiftalkError.syntax("expected a type name after ':'")
                 }
                 var optional = false
-                if case .punct("?")? = peek {
+                if peek == .punct("?") || peek == .op("?") {
                     pos += 1
                     optional = true
                 }
@@ -582,7 +587,7 @@ struct Parser {
                 throw SwiftalkError.syntax("expected a type name after ':'")
             }
             var optional = false
-            if case .punct("?")? = peek {
+            if peek == .punct("?") || peek == .op("?") {
                 pos += 1
                 optional = true
             }
@@ -606,10 +611,19 @@ struct Parser {
     }
 
     private mutating func parseComparison() throws -> Expr {
-        let lhs = try parseRange()
-        guard case .op(let op)? = peek, op != "...", op != "..<" else { return lhs }
+        let lhs = try parseCoalescing()
+        guard case .op(let op)? = peek,
+              !["...", "..<", "??", "?", "!", "?."].contains(op) else { return lhs }
         pos += 1
-        return .comparison(op, lhs, try parseRange())
+        return .comparison(op, lhs, try parseCoalescing())
+    }
+
+    /// `a ?? b` — right-associative, lazy on the right (round 51).
+    private mutating func parseCoalescing() throws -> Expr {
+        let lhs = try parseRange()
+        guard case .op("??")? = peek else { return lhs }
+        pos += 1
+        return .coalesce(lhs, try parseCoalescing())
     }
 
     private mutating func parseRange() throws -> Expr {
@@ -679,6 +693,24 @@ struct Parser {
                 let closure = try withTrailing(true) { try $0.parseFunction() }
                 expr = Parser.attachTrailing(closure, to: expr)
                 if case .punct("{")? = peek { break loop }   // no second bare trailing
+            case .op("?"):
+                pos += 1
+                expr = .propagate(expr)
+            case .op("!"):
+                pos += 1
+                expr = .forceUnwrap(expr)
+            case .op("?."):
+                pos += 1
+                guard case .identifier(let name)? = advance(), !keywords.contains(name) else {
+                    throw SwiftalkError.syntax("expected a member name after '?.'")
+                }
+                var args: [(label: String?, expr: Expr)] = []
+                var called = false
+                if case .punct("(")? = peek {
+                    called = true
+                    args = try parseCallArguments()
+                }
+                expr = .optionalMember(expr, name: name, args: args, called: called)
             default:
                 break loop
             }

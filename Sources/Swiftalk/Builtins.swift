@@ -15,6 +15,27 @@ enum Builtins {
     /// (nonisolated(unsafe): created once, never mutated afterward.)
     nonisolated(unsafe) static let emptyEnvironment = Environment()
 
+    /// `Result` (round 51, §8): a built-in enum riding round 45's
+    /// machinery — switch, case accessors (`r.success` → value-or-nil),
+    /// equality, and source form all come free. Payloads are untyped:
+    /// a failure carries any value (§8's mixed-error-types answer until
+    /// typed errors are designed).
+    nonisolated(unsafe) static let resultType: EnumType = {
+        let et = EnumType(name: "Result",
+                          caseOrder: ["success", "failure"],
+                          cases: ["success": [(label: nil, typeName: nil)],
+                                  "failure": [(label: nil, typeName: nil)]])
+        let constructor = FunctionObject(
+            parameters: [], body: [], closure: emptyEnvironment,
+            builtin: { _ in
+                throw SwiftalkError.type(
+                    "construct a Result via Result.success(v) or Result.failure(e)")
+            },
+            role: .enumType(et))
+        et.constructor = constructor
+        return et
+    }()
+
     /// The `.todo` placeholder Function (round 44).
     nonisolated(unsafe) static let todo = FunctionObject(
         parameters: [], body: [], closure: emptyEnvironment,

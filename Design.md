@@ -1287,3 +1287,21 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   Array, Dictionary — plus Function, Range, Sequence. OPEN: Data as
   Sequence, base64 format, byte-subscript writes, calendar output,
   debug hex-float literals in the lexer.
+* **2026-08-30, round 51 — `Result` and the `?`/`!` family
+  implemented** (§8 and §3a made real). **`Result` is a built-in
+  enum** riding round 45's machinery — `switch`, round-46 case
+  accessors (`r.success` → value-or-nil, `r.failure` → error-or-nil),
+  equality, and `Result.success(42)` source form all free; payloads
+  are **untyped** (a failure carries any value — §8's
+  mixed-error-types OPEN answered as "E is untyped until typed errors
+  are designed"). **Postfix `?`** unwraps `.success`, early-returns
+  `.failure` *or* `nil` from the enclosing function (via the `return`
+  machinery — one rule for absence and failure, as §3a unified);
+  **postfix `!`** force-unwraps, trapping on either; **`??`** defaults
+  on nil/failure, unwraps success, lazy on the right; **`?.`** skips
+  the member (arguments unevaluated) on nil — chains of `?.` compose,
+  though a bare `.` after nil errors rather than Swift's whole-chain
+  short-circuit (noted divergence). Lexing disambiguation: unspaced
+  `?` is postfix, spaced is ternary, `??` and unspaced `?.` are their
+  own operators. §8's marquee chain runs:
+  `Result.success(halve(halve(n)?)?)`.

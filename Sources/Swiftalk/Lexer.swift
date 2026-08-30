@@ -93,9 +93,26 @@ struct Lexer {
                 if !brackets.isEmpty { brackets.removeLast() }
                 pos += 1
                 tokens.append(.punct(Character(c)))
-            case ":", ",", "+", "-", "*", "?", ";":
+            case ":", ",", "+", "-", "*", ";":
                 pos += 1
                 tokens.append(.punct(Character(c)))
+            case "?":
+                // Disambiguation (round 51): `??` coalesces; unspaced
+                // `?.` chains; unspaced `?` is the postfix propagator;
+                // spaced `?` is the ternary.
+                let unspaced = pos > 0 && !" \t\n\r".unicodeScalars.contains(scalars[pos - 1])
+                pos += 1
+                if peek == "?" {
+                    pos += 1
+                    tokens.append(.op("??"))
+                } else if unspaced, peek == "." {
+                    pos += 1
+                    tokens.append(.op("?."))
+                } else if unspaced {
+                    tokens.append(.op("?"))
+                } else {
+                    tokens.append(.punct("?"))
+                }
             case "=", "!", "<", ">":
                 pos += 1
                 if peek == "=" {
@@ -106,7 +123,7 @@ struct Lexer {
                 } else if c == "<" || c == ">" {
                     tokens.append(.op(String(c)))
                 } else {
-                    throw SwiftalkError.syntax("'!' (force-unwrap) is a later milestone")
+                    tokens.append(.op("!"))   // postfix force-unwrap (round 51)
                 }
             case "$":
                 pos += 1

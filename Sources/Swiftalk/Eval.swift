@@ -53,6 +53,11 @@ extension Swiftalk {
                     lock: TypeAnnotation(name: "Function", optional: false),
                     value: .function(object)))
             }
+            // Result (round 51, §8): a built-in enum, globally bound.
+            try! environment.declare("Result", Binding(
+                mutable: false,
+                lock: TypeAnnotation(name: "Function", optional: false),
+                value: .function(Builtins.resultType.constructor!)))
         }
 
         private func declareBuiltin(_ name: String, _ body: @escaping ([Value]) throws -> Value) {
@@ -875,6 +880,57 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
             }
         }
         return .string(name)
+    case .propagate(let inner):
+        // Postfix ? (§3a/§8, unified): unwrap .success; early-return
+        // .failure or nil from the enclosing function; anything else is
+        // already its unwrapped self (flat optionals).
+        let v = try evaluate(inner, in: env)
+        switch v {
+        case .nil:
+            throw ReturnSignal(value: .nil)
+        case .enumCase(let ev) where ev.type === Builtins.resultType:
+            guard ev.caseName == "success" else {
+                throw ReturnSignal(value: v)      // the failure propagates whole
+            }
+            return ev.associated[0]
+        default:
+            return v
+        }
+    case .forceUnwrap(let inner):
+        // Postfix ! (§3a): for when the scripter is sure — trapping when
+        // they were wrong.
+        let v = try evaluate(inner, in: env)
+        switch v {
+        case .nil:
+            throw SwiftalkError.type("force-unwrapped nil")
+        case .enumCase(let ev) where ev.type === Builtins.resultType:
+            guard ev.caseName == "success" else {
+                throw SwiftalkError.type(
+                    "force-unwrapped a failure: \(ev.associated[0].sourceString())")
+            }
+            return ev.associated[0]
+        default:
+            return v
+        }
+    case .coalesce(let lhs, let rhs):
+        // a ?? b: default on absence or failure; the right side stays
+        // unevaluated when the left provides.
+        switch try evaluate(lhs, in: env) {
+        case .nil:
+            return try evaluate(rhs, in: env)
+        case .enumCase(let ev) where ev.type === Builtins.resultType:
+            return ev.caseName == "success" ? ev.associated[0] : try evaluate(rhs, in: env)
+        case let v:
+            return v
+        }
+    case .optionalMember(let receiverExpr, let name, let args, let called):
+        // a?.b — nil skips the member (arguments unevaluated). Chains of
+        // ?. compose; a plain `.` after a nil errors (unlike Swift's
+        // whole-chain short-circuit — noted divergence).
+        let receiver = try evaluate(receiverExpr, in: env)
+        if receiver == .nil { return .nil }
+        return try evaluateSlow(
+            .method(.literal(receiver), name: name, args: args, called: called), in: env)
     case .interpolation(let parts):
         // Swift-style display: a String embeds raw; everything else embeds
         // as its .String() source form (round 23; decided for
