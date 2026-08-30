@@ -656,6 +656,15 @@ can `yield`), so cooperative multitasking has a substrate; whether
    open, prompts suppressed when stdin is not a TTY (pipe-friendly).
 2. *(TBD — script runner, embedding API, stdlib growth...)*
 
+∞. **Make swiftalk self-hosting** *(added round 43; not necessarily
+   the next milestone)* — a swiftalk interpreter written in swiftalk
+   itself. Distinct from milestone 0: today's `eval()` is implemented
+   in Swift; self-hosting means `eval.swt` — the metacircular moment
+   where the language is complete enough to describe itself. Also the
+   ultimate integration test: it will demand mature strings, enums
+   (the AST wants them), user-defined types, `Data`, and honest
+   performance from the Swift host underneath.
+
 **File extension — DECIDED**: `.swt` (as in `hello.swt`). Short,
 reads as **sw**if**t**alk; the only notable prior claim (Adobe Flash
 "Generator template") died with Flash.
@@ -1090,3 +1099,9 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   included) and `.String(radix: n)` (bare digits, 2–36). Format
   members evaluate *provisionally* as `String`s until enums land —
   flagged.
+* **2026-08-30, round 43 — milestone added: self-hosting** (§13, not
+  necessarily next): a swiftalk interpreter written in swiftalk —
+  `eval.swt`. Distinct from milestone 0's Swift-implemented `eval()`;
+  the metacircular proof that the language can describe itself, and
+  the forcing function for enums, user types, `Data`, and stdlib
+  maturity.
