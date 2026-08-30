@@ -19,6 +19,7 @@ indirect enum Expr {
     case memberLiteral(String)                            // .quoted, .hex — format members (§3d)
     case propagate(Expr)                                  // x? — unwrap or early-return (§3a/§8)
     case forceUnwrap(Expr)                                // x! — unwrap or trap
+    case awaitE(Expr)                                     // await t — join a Task (§12)
     case coalesce(Expr, Expr)                             // a ?? b — default on nil/failure
     case optionalMember(Expr, name: String,               // a?.b / a?.b(args) — nil skips
                         args: [(label: String?, expr: Expr)], called: Bool)
@@ -79,6 +80,7 @@ enum Stmt {
 private let keywords: Set<String> = [
     "let", "var", "true", "false", "nil", "in",
     "if", "else", "while", "repeat", "for", "break", "continue", "return", "yield",
+    "async", "await",
     "enum", "case", "switch", "default", "struct", "extension",
 ]
 
@@ -665,6 +667,12 @@ struct Parser {
             pos += 1
             return .unaryMinus(try parseUnary())
         }
+        if case .identifier("await")? = peek {
+            // Prefix, binding at unary level — the JS way, so
+            // `await t1 + await t2` reads as `(await t1) + (await t2)`.
+            pos += 1
+            return .awaitE(try parseUnary())
+        }
         return try parsePostfix()
     }
 
@@ -794,6 +802,15 @@ struct Parser {
         case .identifier("true"):  return .literal(.bool(true))
         case .identifier("false"): return .literal(.bool(false))
         case .identifier("nil"):   return .literal(.nil)
+        case .identifier("async"):
+            // `async { ... }` is sugar for `Task { ... }` (round 53):
+            // the word survives at the spawn site, not as a function
+            // color — swiftalk functions are colorless.
+            guard case .punct("{")? = advance() else {
+                throw SwiftalkError.syntax("expected '{' after 'async' — async { ... } spawns a Task")
+            }
+            let closure = try withTrailing(true) { try $0.parseFunction() }
+            return .call(.variable("Task"), args: [(nil, closure)])
         case .identifier(let name) where keywords.contains(name):
             throw SwiftalkError.syntax("'\(name)' is not an expression")
         case .identifier(let name) where name.hasPrefix("$") && name.count > 1:

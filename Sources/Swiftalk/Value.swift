@@ -42,6 +42,9 @@ extension Swiftalk {
         /// seconds since the Unix epoch, stored as a Double — SION's own
         /// representation.
         case date(Double)
+        /// A spawned concurrent computation (round 53, §12): what
+        /// `Task { ... }` / `async { ... }` returns and `await` joins.
+        case task(TaskObject)
     }
 
     /// A user-declared struct type (§4). Identity is its equality; the
@@ -210,6 +213,7 @@ typealias EnumType = Swiftalk.EnumType
 typealias EnumCaseValue = Swiftalk.EnumCaseValue
 typealias StructType = Swiftalk.StructType
 typealias StructValue = Swiftalk.StructValue
+typealias TaskObject = Swiftalk.TaskObject
 
 extension Value {
     /// The swiftalk type name reported by `.type` (Design.md §3).
@@ -231,6 +235,7 @@ extension Value {
         case .structValue(let sv): return sv.type.name
         case .data: return "Data"
         case .date: return "Date"
+        case .task: return "Task"
         }
     }
 
@@ -283,6 +288,9 @@ extension Value {
             // Lazy and possibly infinite — a placeholder, like plain
             // Functions (source text is OPEN, §3d).
             return "Sequence { ... }"
+        case .task:
+            // A live computation — a placeholder, like Functions.
+            return "Task { ... }"
         case .data(let bytes):
             // Constructor source form — round-trips (SION's base64
             // spelling is OPEN).

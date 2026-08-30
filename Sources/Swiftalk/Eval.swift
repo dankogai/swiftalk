@@ -12,6 +12,9 @@ extension Swiftalk {
         private var environment = Environment()
         private let relaxed: Bool
         private let outputBox = OutputBox()
+        /// The cooperative scheduler (§12, round 53): tasks spawned in
+        /// one eval persist — parked — into the next (the REPL's world).
+        private let scheduler = Scheduler()
 
         /// Where `print`/`debugPrint` write. Defaults to stdout; an
         /// embedder may redirect it (the Lua way — the host owns I/O).
@@ -28,6 +31,11 @@ extension Swiftalk {
             installBuiltins()
         }
 
+        deinit {
+            // Wake every parked task into an unwind so its thread exits.
+            scheduler.shutdown()
+        }
+
         /// The stdlib arrives as ordinary let-bound Function values in
         /// the global environment (§2.4) — not keywords.
         private func installBuiltins() {
@@ -42,6 +50,24 @@ extension Swiftalk {
                 // .debugDescription for everything: quoted strings, hex
                 // numbers (round 37) — for the programmer's sake.
                 box.write(args.map { $0.sourceString(debug: true) }.joined(separator: " ") + "\n")
+                return .nil
+            }
+            declareBuiltin("sleep") { args in
+                // sleep(seconds) suspends only the *current* context
+                // (§12, round 53) — parked tasks run meanwhile. At the
+                // top level it doubles as "run the loop for a while".
+                let seconds: Double
+                switch (args.count, args.first) {
+                case (1, .double(let d)?) where d >= 0: seconds = d
+                case (1, .int(let i)?) where i >= 0:    seconds = Double(i)
+                default:
+                    throw SwiftalkError.type("sleep(seconds) — a non-negative Int or Double")
+                }
+                guard let ctx = Scheduler.current else {
+                    throw SwiftalkError.type(
+                        "'sleep' inside a Sequence coroutine body is not (yet) supported")
+                }
+                try ctx.scheduler.sleep(seconds: seconds, from: ctx)
                 return .nil
             }
             // Types and protocols are values too (round 39): the global
@@ -74,6 +100,11 @@ extension Swiftalk {
             var lexer = Lexer(source)
             var parser = Parser(try lexer.tokenize())
             let program = try parser.parseProgram()
+            // The top level is the scheduler's main context (round 53:
+            // top-level await) — installed thread-locally for the
+            // duration, which is all "colorless" costs.
+            let previous = Scheduler.activate(scheduler.main)
+            defer { Scheduler.restore(previous) }
             var last = Value.nil
             do {
                 for statement in program {
@@ -201,7 +232,7 @@ final class Environment {
 
 private let knownTypeNames: Set<String> =
     ["Nil", "Bool", "Int", "Double", "String", "Array", "Dictionary", "Function",
-     "Range", "Sequence", "Data", "Date"]
+     "Range", "Sequence", "Data", "Date", "Task"]
 
 /// The hidden binding through which `$(...)` finds the current function
 /// (§2.4). `@` cannot appear in a swiftalk identifier, so user code can
@@ -898,6 +929,20 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
             }
         }
         return .string(name)
+    case .awaitE(let inner):
+        // `await t` (§12, round 53): join a Task — colorless, so this
+        // is legal in any function; what matters is the *running
+        // context* (main at top level, the task's own inside a task),
+        // found through the scheduler's thread-local.
+        let value = try evaluate(inner, in: env)
+        guard case .task(let task) = value else {
+            throw SwiftalkError.type("can only await a Task — got \(value.typeName)")
+        }
+        guard let ctx = Scheduler.current else {
+            throw SwiftalkError.type(
+                "'await' inside a Sequence coroutine body is not (yet) supported")
+        }
+        return try ctx.scheduler.awaitTask(task, from: ctx)
     case .propagate(let inner):
         // Postfix ? (§3a/§8, unified): unwrap .success; early-return
         // .failure or nil from the enclosing function; anything else is

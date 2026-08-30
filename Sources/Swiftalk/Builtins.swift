@@ -154,6 +154,27 @@ enum Builtins {
             case let v?: throw SwiftalkError.type("cannot convert \(v.typeName) to Data")
             }
         },
+        "Task": type("Task") { args in
+            // Task { ... } / Task(f) — spawn (round 53, §12). Eager,
+            // the JS way: the body runs at once, until it suspends or
+            // completes; the spawner resumes next. `async { ... }` is
+            // parse-level sugar for exactly this call.
+            guard args.count == 1, case .function(let f) = args[0] else {
+                throw SwiftalkError.type("Task { ... } spawns a Function as a concurrent task")
+            }
+            guard f.builtin == nil else {
+                throw SwiftalkError.type("Task(f): cannot spawn a builtin Function")
+            }
+            guard f.parameters.isEmpty else {
+                throw SwiftalkError.type(
+                    "Task(f): a task body declares no parameters — nothing is passed in")
+            }
+            guard let ctx = Scheduler.current else {
+                throw SwiftalkError.type(
+                    "Task { ... } inside a Sequence coroutine body is not (yet) supported")
+            }
+            return try ctx.scheduler.spawn(f, from: ctx)
+        },
         "Date": type("Date") { args in
             switch args.first {
             case nil:
@@ -205,7 +226,7 @@ enum Builtins {
 
     private static let allTypeNames: Set<String> =
         ["Nil", "Bool", "Int", "Double", "String", "Array", "Dictionary",
-         "Range", "Function", "Sequence", "Data", "Date"]
+         "Range", "Function", "Sequence", "Data", "Date", "Task"]
 
     /// Who conforms to what (§10, rounds 26/38/41): built-ins conform
     /// natively — everything is Equatable and Hashable (all values are

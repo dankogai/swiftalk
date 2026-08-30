@@ -377,6 +377,35 @@ type error: 'yield' outside a coroutine — wrap the function: Sequence(f)
 `yield` is dynamic, the Lua way: a helper function called from the
 body yields on its behalf.
 
+**`async`/`await`** are in — and swiftalk is **colorless**: no
+function is marked `async` (the keyword survives only as spawn-site
+sugar for `Task { ... }`, the way `mutating` and `func` fell before
+it), any function may `await`, and top-level `await` just works:
+
+```text
+swiftalk> var log = []
+[]
+swiftalk> let t1 = async { log.append(1); sleep(0.03); log.append(3) }
+Task { ... }
+swiftalk> let t2 = async { log.append(2); sleep(0.01); log.append(4) }
+Task { ... }
+swiftalk> sleep(0.05)          // tasks interleave only at suspension points
+swiftalk> log
+[1, 2, 4, 3]
+swiftalk> await async { 40 } + await async { 2 }
+42
+swiftalk> let f = { t in await t + 1 }    // colorless: any function may await
+{ t in ... }
+swiftalk> f(Task { 41 })
+42
+swiftalk> async { 1 }.Type == Task
+true
+```
+
+Tasks are cooperative green threads on round 52's coroutine
+substrate — deterministic, no preemption, and an `await` that can
+never complete throws a deadlock error instead of hanging.
+
 ```sh
 swift test
 ```

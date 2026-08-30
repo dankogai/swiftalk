@@ -692,16 +692,53 @@ O(1) indexing.
 * **OPEN**: whether to relax Swift's index-type dance
   (integer subscripts at O(n)?), regex literals.
 
-## 12. Concurrency — OPEN (probably defer)
+## 12. Concurrency — `async`/`await`, colorless (round 53)
 
-`async`/`await`? Actors? Or single-threaded like classic scripting, with
-concurrency added later? **Coroutines now exist and are implemented**
-(§2.4: every function can `yield`; `Sequence(f)` wraps, round 52), so
-cooperative multitasking has a substrate; whether `async`/`await` is
-later built atop it (as in Lua ecosystems) is TBD. (Implementation
-note: the language stays single-threaded in effect — a coroutine body
-runs on a dedicated thread under a strict baton-pass, so exactly one
-thread ever executes interpreter code.)
+**DECIDED (round 53): swiftalk has `async`/`await` — and functions are
+colorless.** Swift and JS mark declarations `async` and forbid `await`
+outside them — the famous two-color split. Swiftalk does not: just as
+`func` and `mutating` proved unnecessary, **`async` as a function
+color is unnecessary** — *any* function may `await`, the way any
+function may `yield` (round 52's dynamic rule). Asynchrony is a
+property of the *running context*, not of the function.
+
+* **`Task { ... }`** (equivalently `Task(f)` — and `f.Task()`, the
+  round-47 law) spawns the body as a concurrent task and returns a
+  first-class `Task` value (`.Type == Task`, identity equality like
+  Function). **`async { ... }` is sugar for `Task { ... }`** — the
+  word survives at the spawn site, not as a color.
+* **Spawn is eager, the JS way**: the newborn runs at once, until *it*
+  suspends or completes; the spawner resumes next. A task with no
+  suspension point completes synchronously at the spawn.
+* **`await t`** joins: returns the task's value, memoized (awaiting
+  a settled task never re-runs it; every awaiter gets the value). A
+  prefix at unary precedence, the JS way: `await t1 + await t2` is
+  `(await t1) + (await t2)`. Awaiting a non-Task is a type error.
+  **Top-level `await` is allowed** — eval drives the loop (JS
+  retrofitted exactly this; a REPL without it is misery).
+* **Errors are the awaiter's problem**: a task-body error settles the
+  task as failed and rethrows at *every* `await` of it; a failed task
+  nobody awaits takes its error to the grave. `return` from the body
+  is the task's value.
+* **`sleep(seconds)`** (builtin, Int or Double) suspends only the
+  current context — parked tasks run meanwhile. At the top level it
+  doubles as "run the loop for a while".
+* **Cooperative, deterministic**: a single baton; tasks interleave
+  *only* at suspension points (`await`, `sleep`) — no preemption, no
+  data races, the interpreter stays single-threaded in effect. An
+  `await` that can never complete (all contexts parked, no timers) is
+  **detected and thrown as a deadlock error**, not hung.
+* Tasks live in an `Interpreter`'s scheduler: they persist — parked —
+  across a REPL's lines, and are cancelled (threads unwound) at
+  interpreter teardown.
+
+(Implementation: round 52's substrate generalized — every task is a
+green thread, a real pthread parked on a condvar; `await`/`sleep`/
+`Task{}` find the current context through a thread-local, which is
+what colorless costs. **OPEN**: `await` inside a §2.4 coroutine body
+(the two baton systems don't compose yet — it errors); actors or
+structured concurrency (task groups, cancellation as API); whether
+`Task` gets members like `.done`.)
 
 ## 13. Milestones
 
@@ -1350,3 +1387,34 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   must declare no parameters and cannot be a builtin. OPEN: symmetric
   resume (values in through `yield`), and whether `async`/`await`
   ever rides this substrate (§12).
+* **2026-08-31, round 53 — `async`/`await` implemented, and swiftalk
+  is colorless** ("Heck, both Swift and JS has gotten them already"),
+  closing §12's OPEN the day after round 52 built its substrate.
+  Asked the deep question — is `async`-marking necessary? — the user
+  chose **colorless**: no function is marked `async`, *any* function
+  may `await` (round 52's dynamic rule, again), and the famous
+  two-color split Swift and JS are stuck with never enters the
+  language — `async` joins `func` and `mutating` in the graveyard of
+  keywords swiftalk proved unnecessary, surviving only as spawn-site
+  sugar. Also chosen: **`Task { }` spawning** per
+  types-are-constructors (a new built-in `Task` type, exactly
+  parallel to round 52's `Sequence(f)`; `async { ... }` is
+  parse-level sugar for `Task { ... }`, and `f.Task()` falls out of
+  the round-47 law), and **top-level `await`** (eval drives the
+  loop — JS's own retrofit, for the same REPL reasons). Decisions
+  made in implementation and logged: **spawn is eager** (JS
+  semantics: the body runs to its first suspension before the
+  spawner resumes); await is **unary-tight** (`await t1 + await t2`
+  works); results are **memoized** and errors **rethrow at every
+  await** (unawaited errors vanish); `sleep(seconds)` is the first
+  suspending builtin; **deadlock is detected and thrown**, not hung;
+  tasks persist parked across REPL lines and are cancelled at
+  interpreter teardown. The marquee, deterministic by construction:
+  two tasks logging around `sleep`s produce `[1, 2, 4, 3]`.
+  Implementation: round 52's baton generalized to N contexts (main +
+  tasks) under one cooperative scheduler — green threads on parked
+  pthreads, a symmetric scheduling loop run by whichever context is
+  parked, timers via `pthread_cond_timedwait`, and a thread-local
+  "current context" that is all colorless costs. OPEN: `await`
+  inside a coroutine body (the two batons don't compose yet); task
+  groups/cancellation-as-API/actors; `Task` members like `.done`.
