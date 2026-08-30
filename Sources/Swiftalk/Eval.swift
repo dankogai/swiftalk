@@ -414,6 +414,7 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
                             properties: properties, declEnv: env)
         st.methods = makeMethods(methodExprs, in: env)
         st.computed = makeComputed(computedExprs, in: env)
+        st.observers = makeObservers(propertyOrder, properties, in: env)
         st.inits = initExprs.compactMap {
             guard case .function(let params, let body) = $0 else { return nil }
             return FunctionObject(parameters: params, body: body, closure: env)
@@ -435,6 +436,7 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
                            properties: properties, declEnv: env)
         at.methods = makeMethods(methodExprs, in: env)
         at.computed = makeComputed(computedExprs, in: env)
+        at.observers = makeObservers(propertyOrder, properties, in: env)
         at.inits = initExprs.compactMap {
             guard case .function(let params, let body) = $0 else { return nil }
             return FunctionObject(parameters: params, body: body, closure: env)
@@ -493,6 +495,10 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             }
         }
         ct.computed = makeComputed(computedExprs, in: classEnv)
+        // Own observers (declared props, classEnv so super works) over
+        // the superclass's — inherited props keep their observers.
+        ct.observers = (superType?.observers ?? [:])
+            .merging(makeObservers(propertyOrder, properties, in: classEnv)) { _, own in own }
         ct.inits = initExprs.compactMap {
             guard case .function(let params, let body) = $0 else { return nil }
             return FunctionObject(parameters: params, body: body, closure: classEnv)
@@ -1325,6 +1331,23 @@ func writeComputed(_ c: ComputedProperty, on receiver: Value, name: String,
     return try selfEnv.lookup("self")
 }
 
+/// Builds runnable observers for the properties that declared any
+/// (round 58b), closed over the declaring environment.
+private func makeObservers(_ order: [String],
+                           _ props: [String: StructType.Property],
+                           in env: Environment) -> [String: PropertyObservers] {
+    var out: [String: PropertyObservers] = [:]
+    for name in order {
+        guard let p = props[name], p.willSetExpr != nil || p.didSetExpr != nil else { continue }
+        func build(_ expr: Expr?) -> FunctionObject? {
+            guard case .function(let params, let body)? = expr else { return nil }
+            return FunctionObject(parameters: params, body: body, closure: env)
+        }
+        out[name] = PropertyObservers(will: build(p.willSetExpr), did: build(p.didSetExpr))
+    }
+    return out
+}
+
 /// Turns parsed method expressions into FunctionObjects closed over the
 /// declaring environment (round 48).
 private func makeMethods(_ exprs: [String: Expr], in env: Environment) -> [String: FunctionObject] {
@@ -1391,6 +1414,9 @@ func constructStruct(_ st: StructType,
         }
         let underConstruction = Value.structValue(StructValue(type: st, values: values))
         let (fn, selfEnv) = try boundMethod(initFn, self: underConstruction, mutableSelf: true)
+        // Observers stay silent during init (round 58b, Swift's rule).
+        let claimed = ObserverGuard.enter(all: st.observers.keys.map { "\(st.name).\($0)" })
+        defer { ObserverGuard.leave(all: claimed) }
         _ = try apply(fn, args: args)
         guard case .structValue(let sv) = try selfEnv.lookup("self") else {
             fatalError("unreachable")
@@ -1463,6 +1489,10 @@ func constructActor(_ at: ActorType,
     for initFn in at.inits where initMatches(initFn.parameters, args) {
         let obj = ActorObject(type: at, storage: try defaults())
         let (fn, _) = try boundMethod(initFn, self: .actor(obj))
+        // Observers stay silent during init (round 58b, Swift's rule).
+        let claimed = ObserverGuard.enter(
+            all: at.observers.keys.map { "\(ObjectIdentifier(obj)).\($0)" })
+        defer { ObserverGuard.leave(all: claimed) }
         _ = try apply(fn, args: args)
         for prop in at.propertyOrder {
             if let annotation = at.properties[prop]!.annotation, !annotation.optional,
@@ -1640,7 +1670,24 @@ func actorWrite(_ obj: ActorObject, _ name: String, _ newValue: Value,
         throw SwiftalkError.type(
             "cannot assign \(newValue.typeName) to \(obj.type.name).\(name) of type \(current.typeName)")
     }
+    // Observers (round 58b) — reference edition: in-place, keyed by
+    // identity, guarded against re-entrant self-assignment. No extra
+    // serialization: an actor write is already inside its methods.
+    let guardKey = "\(ObjectIdentifier(obj)).\(name)"
+    guard let observers = obj.type.observers[name], ObserverGuard.enter(guardKey) else {
+        obj.storage[name] = newValue
+        return
+    }
+    defer { ObserverGuard.leave(guardKey) }
+    if let will = observers.will {
+        let (bound, _) = try boundMethod(will, self: .actor(obj))
+        _ = try apply(bound, args: [(nil, newValue)])
+    }
     obj.storage[name] = newValue
+    if let did = observers.did {
+        let (bound, _) = try boundMethod(did, self: .actor(obj))
+        _ = try apply(bound, args: [(nil, current)])
+    }
 }
 
 /// The §3 lock check, standalone (shared by bindings and properties).
@@ -1695,7 +1742,26 @@ private func propertyWrite(_ container: Value, _ name: String, _ newValue: Value
         throw SwiftalkError.type(
             "cannot assign \(newValue.typeName) to \(sv.type.name).\(name) of type \(current.typeName)")
     }
+    // Observers (round 58b): willSet before the store (self still
+    // old), didSet after (self new, and it may clamp — its self
+    // writes back). The guard cuts re-entrancy: a didSet assigning
+    // its own property stores directly instead of recursing.
+    let guardKey = "\(sv.type.name).\(name)"
+    guard let observers = sv.type.observers[name], ObserverGuard.enter(guardKey) else {
+        sv.values[name] = newValue
+        return .structValue(sv)
+    }
+    defer { ObserverGuard.leave(guardKey) }
+    if let will = observers.will {
+        let (bound, _) = try boundMethod(will, self: .structValue(sv))
+        _ = try apply(bound, args: [(nil, newValue)])
+    }
     sv.values[name] = newValue
+    if let did = observers.did {
+        let (bound, selfEnv) = try boundMethod(did, self: .structValue(sv), mutableSelf: true)
+        _ = try apply(bound, args: [(nil, current)])
+        return try selfEnv.lookup("self")
+    }
     return .structValue(sv)
 }
 

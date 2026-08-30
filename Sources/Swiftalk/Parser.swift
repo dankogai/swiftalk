@@ -451,16 +451,30 @@ struct Parser {
                 }
                 annotation = TypeAnnotation(name: typeName, optional: optional)
             }
-            // A brace where `=` would go is a COMPUTED property (round
-            // 57): `var area { ... }`, or get/set blocks inside.
+            // A brace where `=` would go: an OBSERVER block on an
+            // annotated stored property (round 58b), or a COMPUTED
+            // property (round 57) — willSet/didSet disambiguates.
             if case .punct("{")? = peek {
                 guard keyword == "var" else {
                     throw SwiftalkError.syntax(
                         "a computed property is declared 'var' — it computes, it is not constant storage")
                 }
-                pos += 1
-                let (getter, setter) = try parseComputedBody()
-                computed[propName] = (annotation: annotation, get: getter, set: setter)
+                if isObserverBlock(at: pos + 1) {
+                    guard annotation != nil else {
+                        throw SwiftalkError.syntax(
+                            "an observed property needs a type annotation or a default value")
+                    }
+                    pos += 1
+                    let (will, did) = try parseObserverBlock()
+                    propertyOrder.append(propName)
+                    properties[propName] = Swiftalk.StructType.Property(
+                        mutable: true, annotation: annotation, defaultExpr: nil,
+                        willSetExpr: will, didSetExpr: did)
+                } else {
+                    pos += 1
+                    let (getter, setter) = try parseComputedBody()
+                    computed[propName] = (annotation: annotation, get: getter, set: setter)
+                }
                 guard peek == .punct("}") || consumeSeparator() else {
                     throw SwiftalkError.syntax("expected a newline between \(kind) members")
                 }
@@ -471,6 +485,17 @@ struct Parser {
             if case .punct("=")? = peek {
                 pos += 1
                 defaultExpr = try parseExpr()
+            }
+            // `var x = 0 { willSet { ... } }` — observers after the
+            // default (round 58b; the trailing-closure grab refuses
+            // observer blocks, so the brace is still here).
+            var observerPair: (will: Expr?, did: Expr?)? = nil
+            if case .punct("{")? = peek, isObserverBlock(at: pos + 1) {
+                guard keyword == "var" else {
+                    throw SwiftalkError.syntax("only a 'var' property is observable")
+                }
+                pos += 1
+                observerPair = try parseObserverBlock()
             }
             // A `let` bound to a closure literal is a METHOD (round 48) —
             // store a Function in a `var` if you truly want a stored one.
@@ -484,7 +509,8 @@ struct Parser {
                 }
                 propertyOrder.append(propName)
                 properties[propName] = Swiftalk.StructType.Property(
-                    mutable: keyword == "var", annotation: annotation, defaultExpr: defaultExpr)
+                    mutable: keyword == "var", annotation: annotation, defaultExpr: defaultExpr,
+                    willSetExpr: observerPair?.will, didSetExpr: observerPair?.did)
             }
             guard peek == .punct("}") || consumeSeparator() else {
                 throw SwiftalkError.syntax("expected a newline between properties")
@@ -504,6 +530,58 @@ struct Parser {
             return .structDecl(name: name, propertyOrder: propertyOrder, properties: properties,
                                methods: methods, inits: inits, computed: computed)
         }
+    }
+
+    /// Does a `{` at `index` open a willSet/didSet observer block?
+    /// (Peeks past newlines for an observer keyword followed by its
+    /// block or parameter — the disambiguator against both trailing
+    /// closures and computed properties.)
+    private func isObserverBlock(at index: Int) -> Bool {
+        var i = index
+        while case .newline? = (i < tokens.count ? tokens[i] : nil) { i += 1 }
+        guard i + 1 < tokens.count,
+              case .identifier(let word) = tokens[i],
+              word == "willSet" || word == "didSet" else { return false }
+        return tokens[i + 1] == .punct("{") || tokens[i + 1] == .punct("(")
+    }
+
+    /// `{ willSet[(v)] { ... } didSet[(v)] { ... } }`, `{` already
+    /// consumed — either order, each at most once, at least one
+    /// (round 58b). Parameters default to newValue / oldValue.
+    private mutating func parseObserverBlock() throws -> (will: Expr?, did: Expr?) {
+        var will: Expr? = nil
+        var did: Expr? = nil
+        skipSeparators()
+        while case .identifier(let word)? = peek, word == "willSet" || word == "didSet" {
+            pos += 1
+            var param = word == "willSet" ? "newValue" : "oldValue"
+            if case .punct("(")? = peek {
+                pos += 1
+                guard case .identifier(let custom)? = advance(),
+                      !keywords.contains(custom), !custom.hasPrefix("$") else {
+                    throw SwiftalkError.syntax("expected a parameter name in \(word)(...)")
+                }
+                param = custom
+                try expect(")")
+            }
+            try expect("{")
+            let body = try parseStatements(until: "}")
+            try expect("}")
+            let fn = Expr.function(parameters: [param], body: body)
+            if word == "willSet" {
+                guard will == nil else { throw SwiftalkError.syntax("duplicate 'willSet'") }
+                will = fn
+            } else {
+                guard did == nil else { throw SwiftalkError.syntax("duplicate 'didSet'") }
+                did = fn
+            }
+            skipSeparators()
+        }
+        guard will != nil || did != nil else {
+            throw SwiftalkError.syntax("an observer block holds willSet and/or didSet")
+        }
+        try expect("}")
+        return (will, did)
     }
 
     /// The body of a computed property, `{` already consumed: either
@@ -875,6 +953,10 @@ struct Parser {
                 try expect("]")
                 expr = .subscript(expr, index)
             case .punct("{") where allowTrailing:
+                // An observer block (round 58b) is NOT a trailing
+                // closure — `var x = 0 { willSet { ... } }` must leave
+                // the brace for the property parser.
+                if isObserverBlock(at: pos + 1) { break loop }
                 // Trailing closure (§2.3): the pinned last argument.
                 pos += 1
                 let closure = try withTrailing(true) { try $0.parseFunction() }

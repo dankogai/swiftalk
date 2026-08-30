@@ -630,7 +630,25 @@ covered. On an **actor**, getter and setter are the actor's own code:
 callable from anywhere and serialized like any method — so
 `b.dollars = 250` works from outside while `b.balance = 1` stays
 isolated; the round-54 story holds. OPEN: computed properties on
-enums; computed setters on builtins; `willSet`/`didSet` observers.
+enums; computed setters on builtins.
+
+**Property observers — DECIDED and implemented (round 58b)**:
+**`willSet`/`didSet` on stored `var` properties** of struct, class,
+and actor — `var x = 0 { willSet { ... } didSet { ... } }`, or on an
+annotated property with no default. willSet runs before the store
+(self still old, the incoming value as `newValue` or `set`-style
+custom name); didSet after (self new, the replaced value as
+`oldValue`/custom). Swift's rules carried over: **silent during
+init** (memberwise and declared alike); **didSet may reassign its own
+property without recursing** (the canonical clamp — a per-context
+re-entrancy guard, keyed by identity for references and by type for
+structs, cuts the loop); path writes (`s.list[1] = v`) fire the
+container property's observers. Classes inherit observers with their
+inherited properties. Observers are for STORED properties only —
+a computed property puts that code in its setter (round 57). The
+disambiguation that made the syntax parseable: a brace opening with
+`willSet`/`didSet` is never a trailing closure. OPEN: observers on
+globals/locals.
 
 *When do you actually need it?* Rarely — and that's the design. If
 state is shared across tasks: `actor`. If it isn't shared: `struct`.
@@ -1665,3 +1683,27 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   so this spelling does named recursion without `.todo` — `let
   fact(n:) { n < 2 ? 1 : n * fact(n: n - 1) }` just works. (Noted in
   passing: no `sqrt` — math builtins remain an undecided battery.)
+* **2026-08-31, round 58b — `willSet`/`didSet` implemented**,
+  closing round 57's last OPEN the same day it was logged. Stored
+  `var` properties of struct/class/actor take an observer block —
+  after the default (`var x = 0 { willSet { } didSet { } }`) or on an
+  annotated default-less property; `willSet` runs before the store
+  (self old, incoming value as `newValue` or a `willSet(v)` custom
+  name), `didSet` after (self new, replaced value as `oldValue`/
+  custom), either order, each at most once. Swift's semantics kept
+  where they are load-bearing: **observers are silent during init**
+  (both memberwise and declared — suppression keys claimed around the
+  init body), and **didSet may reassign its own property without
+  recursing** — the canonical clamp `didSet { if .x > 10 { .x = 10 } }`
+  terminates via a thread-local re-entrancy guard (per-identity for
+  references, per-type for structs, which have none). A struct's
+  didSet writes back COW-style (it can clamp); classes inherit
+  observers with their properties; an actor's observers are its own
+  code, running inside the already-held method write. Two parsing
+  battles won: a brace whose first word is `willSet`/`didSet` is
+  never a trailing closure (so `var x = 0 { willSet { } }` parses
+  while `var squares = (1...3).map { $0 * $0 }` still does), and the
+  same test distinguishes observer blocks from round-57 computed
+  bodies. Observers remain stored-property-only — computed
+  properties put that code in their setters. OPEN: observers on
+  globals/locals.

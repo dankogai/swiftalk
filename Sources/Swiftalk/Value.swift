@@ -50,6 +50,13 @@ extension Swiftalk {
         case actor(ActorObject)
     }
 
+    /// A stored property's observers, runnable (round 58b): built at
+    /// declaration, closed over the declaring environment.
+    struct PropertyObservers {
+        let will: FunctionObject?
+        let did: FunctionObject?
+    }
+
     /// A computed property (round 57): a getter that runs on read —
     /// the paren-less read builtins always had (`.count`) — and an
     /// optional setter that runs on assignment (`newValue` bound, or a
@@ -68,6 +75,12 @@ extension Swiftalk {
             let mutable: Bool
             let annotation: TypeAnnotation?
             let defaultExpr: Expr?
+            /// Observer bodies as parsed (round 58b): `.function`
+            /// exprs — willSet's parameter is the incoming value
+            /// (`newValue` or custom), didSet's the replaced one
+            /// (`oldValue` or custom). Stored properties only.
+            var willSetExpr: Expr? = nil
+            var didSetExpr: Expr? = nil
         }
         let name: String
         let propertyOrder: [String]
@@ -83,6 +96,8 @@ extension Swiftalk {
         /// Computed properties (round 57): read runs `get`, assignment
         /// runs `set` — the value-semantics write-back still applies.
         var computed: [String: ComputedProperty] = [:]
+        /// Stored-property observers (round 58b), keyed by property.
+        var observers: [String: PropertyObservers] = [:]
 
         init(name: String, propertyOrder: [String],
              properties: [String: Property], declEnv: Environment) {
@@ -236,6 +251,7 @@ typealias TaskObject = Swiftalk.TaskObject
 typealias ActorType = Swiftalk.ActorType
 typealias ActorObject = Swiftalk.ActorObject
 typealias ComputedProperty = Swiftalk.ComputedProperty
+typealias PropertyObservers = Swiftalk.PropertyObservers
 
 extension Value {
     /// The swiftalk type name reported by `.type` (Design.md §3).

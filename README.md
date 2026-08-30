@@ -544,6 +544,41 @@ On an actor, a computed setter is the actor's own code — callable
 from outside and serialized like any method, while direct storage
 writes stay isolated.
 
+**`let name(x:y:) { body }`** is in — argument labels go straight to
+the variable names (as `{ x, y in ... }` always did; this spelling
+joins it, and gives named recursion without `.todo`) — and
+**`willSet`/`didSet`** observers, silent during init, clamp-safe:
+
+```text
+swiftalk> let hypotenuse(x:y:) { x * x + y * y }
+{ x, y in ... }
+swiftalk> hypotenuse(y: 4, x: 3)
+25
+swiftalk> let fact(n:) { n < 2 ? 1 : n * fact(n: n - 1) }
+{ n in ... }
+swiftalk> fact(n: 20)
+2432902008176640000
+swiftalk> var log = []
+[]
+swiftalk> struct Score {
+........ var points = 0 {
+........ willSet { log.append("will \(.points) -> \(newValue)") }
+........ didSet(old) { log.append("did \(old) -> \(.points)")
+........ if .points > 100 { .points = 100 }
+........ }
+........ }
+........ }
+Score
+swiftalk> var s = Score()
+Score(points: 0)
+swiftalk> s.points = 500
+500
+swiftalk> s.points                // the didSet clamp — no recursion
+100
+swiftalk> log
+["will 0 -> 500", "did 0 -> 500"]
+```
+
 ```sh
 swift test
 ```

@@ -33,6 +33,9 @@ extension Swiftalk {
         /// Computed properties (round 57) — inherited up the chain
         /// like methods; an actor's getter/setter runs serialized.
         var computed: [String: ComputedProperty] = [:]
+        /// Stored-property observers (round 58b): a class merges its
+        /// superclass's in at declaration (see classDecl).
+        var observers: [String: PropertyObservers] = [:]
 
         init(name: String, propertyOrder: [String],
              properties: [String: StructType.Property], declEnv: Environment,
