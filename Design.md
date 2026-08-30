@@ -170,6 +170,14 @@ Further decisions:
   resume) and cannot be a builtin. A coroutine `Sequence` is
   re-iterable like any Sequence value: each iteration is a fresh run
   of the body.
+* **`let name(x:y:) { body }` declares a function with its labels as
+  the bindings** (round 58a): pure sugar for `let name = { x, y in
+  body }`, which is also how it echoes — `{}` remains the one
+  function form, and the labels go straight to the variable names (no
+  `let x = $0` ceremony; that has held since round 32, this spelling
+  joins it). Empty labels `()` = variadic (below); a bonus: the name
+  is in scope when the body runs, so **named recursion needs no
+  `.todo`** — `let fact(n:) { n < 2 ? 1 : n * fact(n: n - 1) }`.
 * **No declared params means variadic.** Strict arity (round 10)
   applies only to functions that *declare* parameters. A function with
   none accepts any number of arguments — they're all in `$`, and
@@ -1644,3 +1652,16 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   and serialized like any method, so `b.dollars = 250` (computed)
   works while `b.balance = 1` (storage) stays isolated. OPEN: enums,
   builtin setters, `willSet`/`didSet`.
+* **2026-08-31, round 58a — `let name(x:y:) { body }` implemented**
+  ("before that, I want to make sure that argument labels goes
+  straight to the variable names"). The semantic already held — since
+  round 32, `{ x, y in ... }` binds its declared names directly,
+  labels and all, reorderable, no `$0` unpacking — and the user chose
+  to ALSO add the spelling from their example: labels attached to the
+  name, no `in` header. Pure sugar: it desugars to (and echoes as)
+  `{ x, y in ... }`, keeping §2.4's "`{}` is the only function form"
+  true underneath. Empty labels give a variadic (round 17). The happy
+  accident: the declared name is in scope when the body later runs,
+  so this spelling does named recursion without `.todo` — `let
+  fact(n:) { n < 2 ? 1 : n * fact(n: n - 1) }` just works. (Noted in
+  passing: no `sqrt` — math builtins remain an undecided battery.)

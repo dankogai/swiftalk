@@ -735,6 +735,32 @@ struct Parser {
         if keywords.contains(name) || name.hasPrefix("$") {
             throw SwiftalkError.syntax("'\(name)' cannot be declared")
         }
+        // `let name(x:y:) { body }` (round 58a): the labels ARE the
+        // bindings — sugar for `let name = { x, y in body }`, which is
+        // also how it echoes; `{}` stays the one function form (§2.4).
+        if case .punct("(")? = peek {
+            pos += 1
+            var parameters: [String] = []
+            while peek != .punct(")") {
+                guard case .identifier(let param)? = advance(),
+                      !keywords.contains(param), !param.hasPrefix("$") else {
+                    throw SwiftalkError.syntax("expected a parameter label in \(name)(...)")
+                }
+                guard parameters.firstIndex(of: param) == nil else {
+                    throw SwiftalkError.syntax("duplicate parameter label '\(param)'")
+                }
+                try expect(":")
+                parameters.append(param)
+            }
+            try expect(")")
+            guard case .punct("{")? = advance() else {
+                throw SwiftalkError.syntax("expected '{' after \(name)(\(parameters.map { "\($0):" }.joined()))")
+            }
+            let body = try withTrailing(true) { try $0.parseStatements(until: "}") }
+            try expect("}")
+            return .declaration(mutable: mutable, name: name, annotation: nil,
+                                initializer: .function(parameters: parameters, body: body))
+        }
         var annotation: TypeAnnotation? = nil
         if case .punct(":")? = peek {
             pos += 1
