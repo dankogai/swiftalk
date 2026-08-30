@@ -347,6 +347,36 @@ swiftalk> nil!
 type error: force-unwrapped nil
 ```
 
+**Coroutines and `yield`** are in — any function may `yield` (no
+`function*`, the Lua model), and `Sequence(f)` wraps it into an
+ordinary lazy Sequence — round 24's §2.4 example, verbatim but for
+tuples:
+
+```text
+swiftalk> let fib = {
+........ var a = 0
+........ var b = 1
+........ while true {
+........ yield a
+........ let t = a + b
+........ a = b
+........ b = t
+........ }
+........ }
+{ ... }
+swiftalk> Sequence(fib).prefix(8)
+[0, 1, 1, 2, 3, 5, 8, 13]
+swiftalk> fib.Sequence().filter { $0 / 2 * 2 == $0 }.prefix(3)
+[0, 2, 8]
+swiftalk> Sequence { yield "one"; yield "two" }.Array()
+["one", "two"]
+swiftalk> yield 1                    // Lua's rule
+type error: 'yield' outside a coroutine — wrap the function: Sequence(f)
+```
+
+`yield` is dynamic, the Lua way: a helper function called from the
+body yields on its behalf.
+
 ```sh
 swift test
 ```

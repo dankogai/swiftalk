@@ -335,6 +335,17 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
         throw ControlFlow.continue
     case .returnS(let expr):
         throw ReturnSignal(value: try expr.map { try evaluate($0, in: env) } ?? .nil)
+    case .yieldS(let expr):
+        // `yield` is dynamic, the Lua way (round 52): it suspends the
+        // innermost *running* coroutine — even from a helper function
+        // the body called — found through the thread-local.
+        let value = try expr.map { try evaluate($0, in: env) } ?? .nil
+        guard let runner = CoroutineRunner.current else {
+            throw SwiftalkError.type(
+                "'yield' outside a coroutine — wrap the function: Sequence(f)")
+        }
+        try runner.yieldValue(value)
+        return .nil
     case .enumDecl(let name, let caseOrder, let cases, let methodExprs):
         let et = EnumType(name: name, caseOrder: caseOrder, cases: cases)
         et.methods = makeMethods(methodExprs, in: env)
@@ -663,6 +674,13 @@ extension SequenceObject {
                 state = newState
                 return element
             }
+        case .coroutine(let body):
+            // Round 52: a fresh run of the body per iteration — a
+            // Sequence value is re-iterable, like any value. The handle
+            // cancels the parked body thread when the pull side walks
+            // away (e.g. after `.prefix` of an infinite sequence).
+            let handle = CoroutineHandle(CoroutineRunner(body: body))
+            return ValueIterator { try handle.next() }
         case .mapped(let base, let fn):
             let it = base.makeIterator()
             return ValueIterator {

@@ -149,14 +149,27 @@ Further decisions:
   }
   ```
 
-  (**OPEN — the surface**: how a coroutine instance is created and
-  resumed — does calling a yielding `Function` return a live
-  coroutine/iterator? does `for i in fib` drive it, making `yield`
-  *the* way to write lazy sequences? can `resume` pass values in and
-  does `yield` return them — full symmetric coroutines à la Lua, or
-  generator-style out-only? what `.Type` reports for a suspended
-  instance; and presumably `yield`, like `$`, belongs to the innermost
-  enclosing `{}`.)
+  **DECIDED (round 52) — the surface is Sequence-unified**: there is
+  no `Coroutine` type. `Sequence(f)` (equivalently `f.Sequence()`,
+  the round-47 law; `Sequence { ... }` with a bare trailing closure
+  also works) wraps a yielding `Function` into an ordinary lazy
+  `Sequence` — each pull resumes the body, each `yield expr` emits an
+  element (`yield` alone yields `nil` — nil is a value, §3a), and
+  *returning* terminates the sequence (the return value is
+  discarded). `for i in Sequence(fib)`, `.map`/`.filter`/`.prefix`,
+  and `.Array()` all just work; `.Type` reports `Sequence`, nothing
+  more. `yield` is out-only for now (the yield expression resumes
+  with nothing); symmetric resume à la Lua can be layered on later.
+  Calling a yielding function *without* the wrap is a plain call, and
+  its `yield` errors — Lua's "attempt to yield from outside a
+  coroutine". And `yield` is **dynamic, the Lua way** — it suspends
+  the innermost *running* coroutine, not the innermost `{}`: a helper
+  function called from the body may yield on its behalf (this
+  supersedes round 24's "presumably lexical, like `$`" speculation).
+  The wrapped body declares no parameters (nothing is passed in on
+  resume) and cannot be a builtin. A coroutine `Sequence` is
+  re-iterable like any Sequence value: each iteration is a fresh run
+  of the body.
 * **No declared params means variadic.** Strict arity (round 10)
   applies only to functions that *declare* parameters. A function with
   none accepts any number of arguments — they're all in `$`, and
@@ -682,9 +695,13 @@ O(1) indexing.
 ## 12. Concurrency — OPEN (probably defer)
 
 `async`/`await`? Actors? Or single-threaded like classic scripting, with
-concurrency added later? **Coroutines now exist** (§2.4: every function
-can `yield`), so cooperative multitasking has a substrate; whether
-`async`/`await` is later built atop it (as in Lua ecosystems) is TBD.
+concurrency added later? **Coroutines now exist and are implemented**
+(§2.4: every function can `yield`; `Sequence(f)` wraps, round 52), so
+cooperative multitasking has a substrate; whether `async`/`await` is
+later built atop it (as in Lua ecosystems) is TBD. (Implementation
+note: the language stays single-threaded in effect — a coroutine body
+runs on a dedicated thread under a strict baton-pass, so exactly one
+thread ever executes interpreter code.)
 
 ## 13. Milestones
 
@@ -1305,3 +1322,31 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   `?` is postfix, spaced is ternary, `??` and unspaced `?.` are their
   own operators. §8's marquee chain runs:
   `Result.success(halve(halve(n)?)?)`.
+* **2026-08-30, round 52 — coroutines and `yield` implemented**,
+  closing round 24's OPEN surface (§2.4, §12). Asked, the user chose
+  **Sequence-unified** creation (no `Coroutine` type: `Sequence(f)` /
+  `f.Sequence()` / `Sequence { ... }` wraps a yielding Function into
+  an ordinary lazy Sequence — `for`-`in`, `.map`/`.filter`/`.prefix`,
+  `.Array()`, re-iterability, and `.Type == Sequence` all inherited)
+  and **out-only** yields (symmetric Lua resume deferred, layerable
+  later). `yield expr` emits an element; bare `yield` yields `nil`;
+  `return` *terminates* (value discarded); `yield` outside a wrap
+  errors, Lua's rule — so an unwrapped call of a yielding function is
+  a plain call. One divergence from round 24's speculation, decided
+  the Lua way: **`yield` is dynamic, not lexical** — it suspends the
+  innermost *running* coroutine, so helper functions can yield on the
+  body's behalf (nested coroutines resolve naturally: each body knows
+  its own runner). The §2.4 marquee runs:
+  `Sequence(fib).prefix(8)` → `[0, 1, 1, 2, 3, 5, 8, 13]`, lazily,
+  off `while true { yield a; ... }`. Implementation: the tree-walking
+  evaluator cannot suspend its own Swift stack, so a coroutine body
+  runs on a **dedicated pthread under a strict baton-pass** (mutex +
+  condvar; exactly one thread ever executes interpreter code — the
+  interpreter stays effectively single-threaded), with an 8MB stack
+  (round 45's law: frame size is the recursion budget), a
+  thread-local for `yield`'s dynamic lookup, and a cancellation
+  throw that unwinds a parked body when the pull side walks away
+  (`.prefix(8)` of infinite fib leaks no thread). The wrapped body
+  must declare no parameters and cannot be a builtin. OPEN: symmetric
+  resume (values in through `yield`), and whether `async`/`await`
+  ever rides this substrate (§12).

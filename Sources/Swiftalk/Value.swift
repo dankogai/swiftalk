@@ -130,6 +130,10 @@ extension Swiftalk {
             /// snapshots); the returned value is the element (`nil` ends
             /// the sequence); the closure's final `$` is the next state.
             case generator(initial: [Value], next: FunctionObject)
+            /// Coroutine-backed (round 52): `Sequence(f)` — each pull
+            /// resumes the body, each `yield` emits an element, and
+            /// returning ends the sequence.
+            case coroutine(body: FunctionObject)
             case mapped(SequenceObject, FunctionObject)
             case filtered(SequenceObject, FunctionObject)
         }

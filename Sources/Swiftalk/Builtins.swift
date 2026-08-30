@@ -176,11 +176,24 @@ enum Builtins {
         "Sequence": FunctionObject(
             parameters: [], body: [], closure: emptyEnvironment,
             builtin: { args in
+                // Sequence(f) — the coroutine wrap (round 52): pulls
+                // resume f, `yield`s are the elements, returning ends it.
+                if args.count == 1, case .function(let f) = args[0] {
+                    guard f.builtin == nil else {
+                        throw SwiftalkError.type(
+                            "Sequence(f): cannot wrap a builtin Function as a coroutine")
+                    }
+                    guard f.parameters.isEmpty else {
+                        throw SwiftalkError.type(
+                            "Sequence(f): a coroutine body declares no parameters — nothing is passed in on resume")
+                    }
+                    return .sequence(SequenceObject(kind: .coroutine(body: f)))
+                }
                 guard args.count == 2,
                       case .array(let initial) = args[0],
                       case .function(let next) = args[1] else {
                     throw SwiftalkError.type(
-                        "Sequence(initialState) { next } — an Array state and a Function")
+                        "Sequence(f) wraps a yielding Function; Sequence(initialState) { next } generates")
                 }
                 return .sequence(SequenceObject(kind: .generator(initial: initial, next: next)))
             },

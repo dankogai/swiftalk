@@ -56,6 +56,7 @@ enum Stmt {
     case assignment(target: LValue, expr: Expr)
     case expression(Expr)
     case returnS(Expr?)
+    case yieldS(Expr?)
     indirect case ifS(condition: Expr, then: [Stmt], else: [Stmt]?)
     indirect case ifCaseS(pattern: Pattern, subject: Expr, then: [Stmt], else: [Stmt]?)
     case whileS(condition: Expr, body: [Stmt])
@@ -77,7 +78,7 @@ enum Stmt {
 
 private let keywords: Set<String> = [
     "let", "var", "true", "false", "nil", "in",
-    "if", "else", "while", "repeat", "for", "break", "continue", "return",
+    "if", "else", "while", "repeat", "for", "break", "continue", "return", "yield",
     "enum", "case", "switch", "default", "struct", "extension",
 ]
 
@@ -204,6 +205,14 @@ struct Parser {
                 return .returnS(nil)
             default:
                 return .returnS(try parseExpr())
+            }
+        case .identifier("yield"):
+            pos += 1
+            switch peek {
+            case nil, .newline, .punct(";"), .punct("}"):
+                return .yieldS(nil)
+            default:
+                return .yieldS(try parseExpr())
             }
         case .identifier("break"):
             pos += 1
