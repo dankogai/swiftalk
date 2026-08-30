@@ -19,11 +19,12 @@ indirect enum Expr {
     case memberLiteral(String)                            // .quoted, .hex — format members (§3d)
 }
 
-/// An assignment target: a variable, or a subscript path rooted in one
-/// (`a[0] = x`, `m[1][0] = x`, `d["k"] = v`).
+/// An assignment target: a variable, or a subscript/property path
+/// rooted in one (`a[0] = x`, `m[1][0] = x`, `p.x = 1`, `r.origin.x = 5`).
 indirect enum LValue {
     case variable(String)
     case index(LValue, Expr)
+    case property(LValue, String)
 }
 
 /// A type annotation: `: Int` or `: Int?` (the flat optional of §3a —
@@ -59,6 +60,8 @@ enum Stmt {
     case continueS
     case enumDecl(name: String, caseOrder: [String],
                   cases: [String: [(label: String?, typeName: String?)]])
+    case structDecl(name: String, propertyOrder: [String],
+                    properties: [String: Swiftalk.StructType.Property])
     case switchS(subject: Expr,
                  clauses: [(patterns: [Pattern], body: [Stmt])],
                  defaultBody: [Stmt]?)
@@ -67,7 +70,7 @@ enum Stmt {
 private let keywords: Set<String> = [
     "let", "var", "true", "false", "nil", "in",
     "if", "else", "while", "repeat", "for", "break", "continue", "return",
-    "enum", "case", "switch", "default",
+    "enum", "case", "switch", "default", "struct",
 ]
 
 struct Parser {
@@ -180,6 +183,8 @@ struct Parser {
             return .forS(name: name, sequence: sequence, body: try parseBlock())
         case .identifier("enum"):
             return try parseEnum()
+        case .identifier("struct"):
+            return try parseStruct()
         case .identifier("switch"):
             return try parseSwitch()
         case .identifier("return"):
@@ -305,6 +310,65 @@ struct Parser {
         return .enumDecl(name: name, caseOrder: caseOrder, cases: cases)
     }
 
+    /// `struct Name { var x: Int = 0\nlet y = 1\nvar z: Double }`
+    /// (§4, round 46): stored properties — mutability, optional
+    /// annotation, optional default; at least one of the two required.
+    private mutating func parseStruct() throws -> Stmt {
+        pos += 1  // consume "struct"
+        guard case .identifier(let name)? = advance(),
+              !keywords.contains(name), !name.hasPrefix("$") else {
+            throw SwiftalkError.syntax("expected a name after 'struct'")
+        }
+        try expect("{")
+        var propertyOrder: [String] = []
+        var properties: [String: Swiftalk.StructType.Property] = [:]
+        skipSeparators()
+        while peek != .punct("}") {
+            guard case .identifier(let keyword)? = advance(),
+                  keyword == "var" || keyword == "let" else {
+                throw SwiftalkError.syntax("a struct body holds 'var'/'let' properties")
+            }
+            guard case .identifier(let propName)? = advance(),
+                  !keywords.contains(propName), !propName.hasPrefix("$") else {
+                throw SwiftalkError.syntax("expected a property name")
+            }
+            guard properties[propName] == nil else {
+                throw SwiftalkError.syntax("duplicate property '\(propName)'")
+            }
+            var annotation: TypeAnnotation? = nil
+            if case .punct(":")? = peek {
+                pos += 1
+                guard case .identifier(let typeName)? = advance() else {
+                    throw SwiftalkError.syntax("expected a type name after ':'")
+                }
+                var optional = false
+                if case .punct("?")? = peek {
+                    pos += 1
+                    optional = true
+                }
+                annotation = TypeAnnotation(name: typeName, optional: optional)
+            }
+            var defaultExpr: Expr? = nil
+            if case .punct("=")? = peek {
+                pos += 1
+                defaultExpr = try parseExpr()
+            }
+            guard annotation != nil || defaultExpr != nil else {
+                throw SwiftalkError.syntax(
+                    "property '\(propName)' needs a type annotation or a default value")
+            }
+            propertyOrder.append(propName)
+            properties[propName] = Swiftalk.StructType.Property(
+                mutable: keyword == "var", annotation: annotation, defaultExpr: defaultExpr)
+            guard peek == .punct("}") || consumeSeparator() else {
+                throw SwiftalkError.syntax("expected a newline between properties")
+            }
+            skipSeparators()
+        }
+        try expect("}")
+        return .structDecl(name: name, propertyOrder: propertyOrder, properties: properties)
+    }
+
     /// `switch expr { case pattern, ...: stmts ... default: stmts }` (§7).
     private mutating func parseSwitch() throws -> Stmt {
         pos += 1  // consume "switch"
@@ -406,6 +470,8 @@ struct Parser {
             return .variable(name)
         case .subscript(let base, let index):
             return .index(try lvalue(from: base), index)
+        case .method(let base, let name, let args, false) where args.isEmpty:
+            return .property(try lvalue(from: base), name)
         default:
             throw SwiftalkError.syntax("this expression is not assignable")
         }

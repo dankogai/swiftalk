@@ -1158,3 +1158,22 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   as an `Array` (`s.rect` → `[w, h]` — tuples TBD), a payload-less
   case answers with itself (`s.point != nil` asks "is it `.point`?").
   Flat-optional in spirit: absence is `nil`, presence is the value.
+* **2026-08-30, round 46b — structs implemented (§4).** `struct Point
+  { var x: Int = 0\nvar y: Int = 0 }` — stored `var`/`let` properties
+  with annotations and/or defaults (one of the two required; defaults
+  evaluate at construction, in the declaring scope). **Calling the
+  type is the memberwise initializer** (labels optional/reorderable
+  per §2.3, positionals fill declaration order, annotations checked
+  per §3). Property reads (`p.x`), writes through lvalue paths —
+  including mixed nesting (`r.origin.x = 5`, `ps[1].y = 7`,
+  `b.items[0] = 9`) — with `let` bindings and `let` properties both
+  refusing. **COW value semantics verified**: copies are copies (§4,
+  free from the Swift host). Structural `Equatable`/`Hashable`
+  (dictionary keys work); `.Type`/`.name`/`conforms`; memberwise
+  source form round-trips where declared. Engineering note: the
+  evaluator's `execute`/`evaluate` split into thin hot dispatchers +
+  slow paths — a Swift switch's frame carries the union of its cases'
+  locals, and frame size is the language's recursion budget (round
+  45's lesson, now structural). OPEN: **methods and `init` on user
+  types — the §2.4 deferred question is now due**; also computed
+  properties, `mutating`, nested type declarations, `class`.

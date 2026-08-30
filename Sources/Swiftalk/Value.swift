@@ -32,6 +32,48 @@ extension Swiftalk {
         /// (`indirect` keeps Value's inline size small — the evaluator
         /// recurses on the Swift stack, and frame size is depth budget.)
         indirect case enumCase(EnumCaseValue)
+        /// A user-defined struct's instance (round 46, §4): a COW value,
+        /// consistent with the built-in collections.
+        indirect case structValue(StructValue)
+    }
+
+    /// A user-declared struct type (§4). Identity is its equality; the
+    /// language-facing type object is `constructor` (role `.structType`),
+    /// and calling it IS the memberwise initializer.
+    public final class StructType: Hashable {
+        struct Property {
+            let mutable: Bool
+            let annotation: TypeAnnotation?
+            let defaultExpr: Expr?
+        }
+        let name: String
+        let propertyOrder: [String]
+        let properties: [String: Property]
+        /// Where the struct was declared — defaults evaluate here.
+        let declEnv: Environment
+        var constructor: FunctionObject?
+
+        init(name: String, propertyOrder: [String],
+             properties: [String: Property], declEnv: Environment) {
+            self.name = name
+            self.propertyOrder = propertyOrder
+            self.properties = properties
+            self.declEnv = declEnv
+        }
+
+        public static func == (lhs: StructType, rhs: StructType) -> Bool {
+            lhs === rhs
+        }
+        public func hash(into hasher: inout Hasher) {
+            hasher.combine(ObjectIdentifier(self))
+        }
+    }
+
+    /// One struct instance: Swift's value semantics make §4's COW story
+    /// free — copies are copies.
+    public struct StructValue: Hashable {
+        let type: StructType
+        var values: [String: Value]
     }
 
     /// A user-declared enum type (§7). Identity is its equality; the
@@ -111,6 +153,9 @@ extension Swiftalk {
             /// A user-declared enum type (round 45): member access
             /// constructs its cases; calling it directly is an error.
             case enumType(EnumType)
+            /// A user-declared struct type (round 46): calling it is the
+            /// memberwise initializer.
+            case structType(StructType)
         }
 
         let parameters: [String]      // empty means variadic (round 14)
@@ -144,6 +189,8 @@ typealias FunctionObject = Swiftalk.FunctionObject
 typealias SequenceObject = Swiftalk.SequenceObject
 typealias EnumType = Swiftalk.EnumType
 typealias EnumCaseValue = Swiftalk.EnumCaseValue
+typealias StructType = Swiftalk.StructType
+typealias StructValue = Swiftalk.StructValue
 
 extension Value {
     /// The swiftalk type name reported by `.type` (Design.md §3).
@@ -162,6 +209,7 @@ extension Value {
         case .range:      return "Range"
         case .sequence:   return "Sequence"
         case .enumCase(let ev): return ev.type.name
+        case .structValue(let sv): return sv.type.name
         }
     }
 
@@ -197,6 +245,8 @@ extension Value {
                 return name
             case .enumType(let et):
                 return et.name
+            case .structType(let st):
+                return st.name
             case .todo:
                 return ".todo"
             case .plain:
@@ -212,6 +262,11 @@ extension Value {
             // Lazy and possibly infinite — a placeholder, like plain
             // Functions (source text is OPEN, §3d).
             return "Sequence { ... }"
+        case .structValue(let sv):
+            // Memberwise source form — round-trips wherever declared.
+            return sv.type.name + "(" + sv.type.propertyOrder.map { prop in
+                "\(prop): \((sv.values[prop] ?? .nil).sourceString(debug: debug))"
+            }.joined(separator: ", ") + ")"
         case .enumCase(let ev):
             // Source form — round-trips wherever the enum is declared.
             var out = "\(ev.type.name).\(ev.caseName)"

@@ -202,7 +202,27 @@ private let knownTypeNames: Set<String> =
 /// never collide with it.
 private let calleeKey = "@callee"
 
+/// The hot dispatcher: recursion (function bodies, loops) runs through
+/// here, so its frame must stay tiny — Swift allocates one frame for
+/// the union of a switch's cases, and the evaluator's Swift-stack
+/// depth is the language's recursion budget (see round 45's war
+/// story). Everything with real locals lives in `executeSlow`.
 func execute(_ statement: Stmt, in env: Environment, relaxed: Bool = false) throws -> Value {
+    switch statement {
+    case .expression(let expr):
+        return try evaluate(expr, in: env)
+    case .returnS(let expr):
+        throw ReturnSignal(value: try expr.map { try evaluate($0, in: env) } ?? .nil)
+    case .breakS:
+        throw ControlFlow.break
+    case .continueS:
+        throw ControlFlow.continue
+    default:
+        return try executeSlow(statement, in: env, relaxed: relaxed)
+    }
+}
+
+private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) throws -> Value {
     switch statement {
     case .declaration(let mutable, let name, let annotation, let initializer):
         // An annotation naming a user enum enables `.case` initializers
@@ -227,7 +247,8 @@ func execute(_ statement: Stmt, in env: Environment, relaxed: Bool = false) thro
         }
         let lock: TypeAnnotation
         if let annotation {
-            guard knownTypeNames.contains(annotation.name) || annotatedEnum != nil else {
+            guard knownTypeNames.contains(annotation.name) || annotatedEnum != nil
+                    || isUserType(annotation.name, in: env) else {
                 throw SwiftalkError.type("unknown type '\(annotation.name)'")
             }
             lock = annotation
@@ -323,6 +344,18 @@ func execute(_ statement: Stmt, in env: Environment, relaxed: Bool = false) thro
             lock: TypeAnnotation(name: "Function", optional: false),
             value: .function(constructor)))
         return .function(constructor)
+    case .structDecl(let name, let propertyOrder, let properties):
+        let st = StructType(name: name, propertyOrder: propertyOrder,
+                            properties: properties, declEnv: env)
+        let constructor = FunctionObject(
+            parameters: [], body: [], closure: env, builtin: nil,
+            role: .structType(st))
+        st.constructor = constructor
+        try env.declare(name, Binding(
+            mutable: false,
+            lock: TypeAnnotation(name: "Function", optional: false),
+            value: .function(constructor)))
+        return .function(constructor)
     case .switchS(let subjectExpr, let clauses, let defaultBody):
         let subject = try evaluate(subjectExpr, in: env)
         for clause in clauses {
@@ -393,6 +426,18 @@ private func resolveEnumAnnotation(_ annotation: TypeAnnotation,
           case .function(let f) = value,
           case .enumType(let et) = f.role else { return nil }
     return et
+}
+
+/// True when `name` binds a user-declared type (enum or struct) in
+/// scope — annotations may name them like any built-in.
+private func isUserType(_ name: String, in env: Environment) -> Bool {
+    guard let value = try? env.lookup(name), case .function(let f) = value else {
+        return false
+    }
+    switch f.role {
+    case .enumType, .structType: return true
+    default: return false
+    }
 }
 
 /// Constructs `Enum.case(...)` (round 45): labels optional and
@@ -603,7 +648,43 @@ private func rangeCount(from lower: Int64, to upper: Int64, closed: Bool) throws
     return closed ? span + 1 : span
 }
 
+/// The hot dispatcher (see `execute`): arithmetic, comparisons,
+/// ternary, and calls — the recursion diet — stay in this tiny frame;
+/// everything else defers to `evaluateSlow`.
 func evaluate(_ expr: Expr, in env: Environment) throws -> Value {
+    switch expr {
+    case .literal(let v):
+        return v
+    case .variable(let name):
+        return try env.lookup(name)
+    case .binary(let op, let lhs, let rhs):
+        return try binary(op, try evaluate(lhs, in: env), try evaluate(rhs, in: env))
+    case .comparison(let op, let lhs, let rhs):
+        return try compare(op, try evaluate(lhs, in: env), try evaluate(rhs, in: env))
+    case .ternary(let condition, let thenBranch, let elseBranch):
+        guard case .bool(let flag) = try evaluate(condition, in: env) else {
+            throw SwiftalkError.type("the '?:' condition must be a Bool — nothing is truthy (§3b)")
+        }
+        return try evaluate(flag ? thenBranch : elseBranch, in: env)
+    case .call(let callee, let args):
+        guard case .function(let fn) = try evaluate(callee, in: env) else {
+            let v = try evaluate(callee, in: env)
+            throw SwiftalkError.type("cannot call a \(v.typeName)")
+        }
+        return try apply(fn, args: try evaluateArgs(args, in: env))
+    case .selfCall(let args):
+        guard case .function(let fn) = try? env.lookup(calleeKey) else {
+            throw SwiftalkError.type("'$()' recurses — it only works inside a function")
+        }
+        return try apply(fn, args: try evaluateArgs(args, in: env))
+    case .subscript(let base, let index):
+        return try subscriptRead(try evaluate(base, in: env), try evaluate(index, in: env))
+    default:
+        return try evaluateSlow(expr, in: env)
+    }
+}
+
+private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
     switch expr {
     case .literal(let v):
         return v
@@ -762,7 +843,7 @@ private func subscriptWrite(_ container: Value, _ index: Value, _ newValue: Valu
 }
 
 /// The evaluator's twin of the parser's lvalue converter, for mutating
-/// methods: a variable or subscript chain rooted in one, else nil.
+/// methods: a variable or subscript/property chain rooted in one.
 private func asLValue(_ expr: Expr) -> LValue? {
     switch expr {
     case .variable(let name):
@@ -770,35 +851,158 @@ private func asLValue(_ expr: Expr) -> LValue? {
     case .subscript(let base, let index):
         guard let inner = asLValue(base) else { return nil }
         return .index(inner, index)
+    case .method(let base, let name, let args, false) where args.isEmpty:
+        guard let inner = asLValue(base) else { return nil }
+        return .property(inner, name)
     default:
         return nil
     }
 }
 
-/// Assigns through an lvalue path. Subscript paths are read-modify-write
-/// on COW values: indices evaluate once, left to right; the rebuilt
-/// container lands back in the root binding, whose mutability and type
-/// lock still govern.
+/// The memberwise initializer (round 46): labels optional and
+/// reorderable per §2.3, positionals fill in declaration order,
+/// missing properties take their defaults (evaluated in the struct's
+/// declaring environment), annotations checked per §3.
+func constructStruct(_ st: StructType,
+                     args: [(label: String?, value: Value)]) throws -> Value {
+    var slots: [String: Value] = [:]
+    var positionals: [Value] = []
+    for (label, value) in args {
+        if let label {
+            guard st.properties[label] != nil else {
+                throw SwiftalkError.type("\(st.name) has no property '\(label)'")
+            }
+            guard slots[label] == nil else {
+                throw SwiftalkError.type("duplicate property '\(label)'")
+            }
+            slots[label] = value
+        } else {
+            positionals.append(value)
+        }
+    }
+    var remaining = positionals[...]
+    var values: [String: Value] = [:]
+    for prop in st.propertyOrder {
+        let def = st.properties[prop]!
+        let value: Value
+        if let given = slots[prop] {
+            value = given
+        } else if !remaining.isEmpty {
+            value = remaining.removeFirst()
+        } else if let defaultExpr = def.defaultExpr {
+            value = try evaluate(defaultExpr, in: Environment(parent: st.declEnv))
+        } else {
+            throw SwiftalkError.type("missing property '\(prop)' of \(st.name)")
+        }
+        if let annotation = def.annotation {
+            try checkValue(value, against: annotation, context: "\(st.name).\(prop)")
+        }
+        values[prop] = value
+    }
+    guard remaining.isEmpty else {
+        throw SwiftalkError.type("too many values for \(st.name)")
+    }
+    return .structValue(StructValue(type: st, values: values))
+}
+
+/// The §3 lock check, standalone (shared by bindings and properties).
+func checkValue(_ value: Value, against lock: TypeAnnotation, context: String) throws {
+    if case .nil = value {
+        guard lock.optional || lock.name == "Nil" else {
+            throw SwiftalkError.type(
+                "cannot assign nil to \(context) of type \(lock.name) — declare it \(lock.name)?")
+        }
+        return
+    }
+    guard value.typeName == lock.name else {
+        throw SwiftalkError.type(
+            "cannot assign \(value.typeName) to \(context) of type \(lock.name)\(lock.optional ? "?" : "")")
+    }
+}
+
+/// Reads a struct property (assignment paths; expression reads go
+/// through `method()`).
+private func propertyRead(_ container: Value, _ name: String) throws -> Value {
+    guard case .structValue(let sv) = container else {
+        throw SwiftalkError.type("cannot assign through a property of \(container.typeName)")
+    }
+    guard let value = sv.values[name] else {
+        throw SwiftalkError.unknownMember("\(sv.type.name).\(name)")
+    }
+    return value
+}
+
+/// Writes a struct property: the property must exist and be a `var`;
+/// annotated properties re-check per §3, unannotated ones lock to the
+/// current value's type.
+private func propertyWrite(_ container: Value, _ name: String, _ newValue: Value) throws -> Value {
+    guard case .structValue(var sv) = container else {
+        throw SwiftalkError.type("cannot assign through a property of \(container.typeName)")
+    }
+    guard let def = sv.type.properties[name], let current = sv.values[name] else {
+        throw SwiftalkError.unknownMember("\(sv.type.name).\(name)")
+    }
+    guard def.mutable else {
+        throw SwiftalkError.type("cannot assign to let property '\(sv.type.name).\(name)'")
+    }
+    if let annotation = def.annotation {
+        try checkValue(newValue, against: annotation, context: "\(sv.type.name).\(name)")
+    } else if current != .nil, newValue.typeName != current.typeName {
+        throw SwiftalkError.type(
+            "cannot assign \(newValue.typeName) to \(sv.type.name).\(name) of type \(current.typeName)")
+    }
+    sv.values[name] = newValue
+    return .structValue(sv)
+}
+
+/// One step of an assignment path: a subscript or a property.
+private enum PathStep {
+    case index(Value)
+    case property(String)
+}
+
+/// Assigns through an lvalue path. Subscript/property paths are
+/// read-modify-write on COW values: steps evaluate once, left to
+/// right; the rebuilt container lands back in the root binding, whose
+/// mutability and type lock still govern.
 private func assign(_ target: LValue, _ value: Value, in env: Environment) throws {
-    var indexExprs: [Expr] = []
+    var steps: [PathStep] = []
     var root = target
-    while case .index(let base, let index) = root {
-        indexExprs.insert(index, at: 0)
-        root = base
+    flatten: while true {
+        switch root {
+        case .index(let base, let indexExpr):
+            steps.insert(.index(try evaluate(indexExpr, in: env)), at: 0)
+            root = base
+        case .property(let base, let name):
+            steps.insert(.property(name), at: 0)
+            root = base
+        case .variable:
+            break flatten
+        }
     }
     guard case .variable(let name) = root else { fatalError("unreachable") }
-    if indexExprs.isEmpty {
+    if steps.isEmpty {
         try env.assign(name, value)
         return
     }
-    let indices = try indexExprs.map { try evaluate($0, in: env) }
-    func rebuild(_ container: Value, _ depth: Int) throws -> Value {
-        if depth == indices.count - 1 {
-            return try subscriptWrite(container, indices[depth], value)
+    func read(_ container: Value, _ step: PathStep) throws -> Value {
+        switch step {
+        case .index(let i):        return try subscriptRead(container, i)
+        case .property(let p):     return try propertyRead(container, p)
         }
-        let inner = try subscriptRead(container, indices[depth])
-        return try subscriptWrite(container, indices[depth],
-                                  try rebuild(inner, depth + 1))
+    }
+    func write(_ container: Value, _ step: PathStep, _ v: Value) throws -> Value {
+        switch step {
+        case .index(let i):        return try subscriptWrite(container, i, v)
+        case .property(let p):     return try propertyWrite(container, p, v)
+        }
+    }
+    func rebuild(_ container: Value, _ depth: Int) throws -> Value {
+        if depth == steps.count - 1 {
+            return try write(container, steps[depth], value)
+        }
+        let inner = try read(container, steps[depth])
+        return try write(container, steps[depth], try rebuild(inner, depth + 1))
     }
     try env.assign(name, try rebuild(try env.lookup(name), 0))
 }
@@ -814,6 +1018,10 @@ private func evaluateArgs(
 /// means variadic (round 14). `$` is the argument array, `$N` its
 /// elements, and `@callee` lets `$()` recurse.
 func apply(_ fn: FunctionObject, args: [(label: String?, value: Value)]) throws -> Value {
+    // Calling a struct type IS the memberwise initializer (round 46).
+    if case .structType(let st) = fn.role {
+        return try constructStruct(st, args: args)
+    }
     var ordered: [Value]
     if fn.parameters.isEmpty {
         if let label = args.compactMap(\.label).first {
@@ -993,8 +1201,8 @@ private func method(on receiver: Value, name: String,
         switch t.role {
         case .type(let n), .protocol(let n):
             return .bool(Builtins.conformance[protoName]?.contains(n) ?? false)
-        case .enumType:
-            // User enums get synthesized Equatable/Hashable (§10).
+        case .enumType, .structType:
+            // User types get synthesized Equatable/Hashable (§10).
             return .bool(protoName == "Equatable" || protoName == "Hashable")
         case .plain, .todo:
             throw SwiftalkError.type("'.conforms(to:)' is a question asked of a type")
@@ -1018,6 +1226,10 @@ private func method(on receiver: Value, name: String,
         case 1:  return ev.associated[0]
         default: return .array(ev.associated)
         }
+    }
+    // Struct property reads (round 46): p.x.
+    if case .structValue(let sv) = receiver, !called, let value = sv.values[name] {
+        return value
     }
     // .String(radix: n) — bare digits in any radix (round 20).
     if (name, called) == ("String", true),
@@ -1069,6 +1281,9 @@ private func method(on receiver: Value, name: String,
         if case .enumCase(let ev) = receiver {
             return .function(ev.type.constructor!)
         }
+        if case .structValue(let sv) = receiver {
+            return .function(sv.type.constructor!)
+        }
         return .function(Builtins.types[receiver.typeName]
                          ?? Builtins.protocols[receiver.typeName]!)
     case ("name", false):
@@ -1080,6 +1295,7 @@ private func method(on receiver: Value, name: String,
         switch f.role {
         case .type(let n), .protocol(let n): return .string(n)
         case .enumType(let et):              return .string(et.name)
+        case .structType(let st):            return .string(st.name)
         case .plain, .todo:                  return .nil
         }
     case ("count", false):

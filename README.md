@@ -253,6 +253,28 @@ swiftalk> Shape.circle(r: 2.5).Type == Shape
 true
 ```
 
+**Case accessors** — `.casename` gives the associated value or `nil`
+(the piece Swift itself is missing) — and **structs** — COW values
+with memberwise init:
+
+```text
+swiftalk> Shape.circle(r: 3.0).circle
+3.0
+swiftalk> Shape.circle(r: 3.0).rect == nil
+true
+swiftalk> struct Point {
+........ var x: Int = 0
+........ var y: Int = 0
+........ }
+Point
+swiftalk> var p = Point(x: 3, y: 4)
+Point(x: 3, y: 4)
+swiftalk> let q = p
+swiftalk> p.x = 30
+swiftalk> q                      // a copy is a copy (§4)
+Point(x: 3, y: 4)
+```
+
 ```sh
 swift test
 ```
