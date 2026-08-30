@@ -216,6 +216,20 @@ swiftalk> Int(255.String(.hex)) == 255
 true
 ```
 
+**`.todo`** is in — deferred initialization for named (and mutual)
+recursion; a `let` holding `.todo` accepts exactly one assignment:
+
+```text
+swiftalk> let fact: Function = .todo
+.todo
+swiftalk> fact = { n in n < 2 ? n : n * fact(n - 1) }
+{ n in ... }
+swiftalk> fact(20)
+2432902008176640000
+swiftalk> fact = { 0 }
+type error: cannot assign to let constant 'fact'
+```
+
 ```sh
 swift test
 ```

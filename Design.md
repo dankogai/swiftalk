@@ -172,6 +172,21 @@ Further decisions:
 * **Params are labels**: declared parameter names double as the
   optional, reorderable call-site labels of §2.3 — `add(y: 3, x: 2)`
   just works. No separate label syntax.
+* **Named recursion via `.todo`** (round 44): `Function` has a
+  placeholder member, and a `let` holding it accepts **exactly one**
+  later assignment — deferred initialization, Swift's
+  declare-then-assign `let` reborn as a value:
+
+  ```swiftalk
+  let fact: Function = .todo
+  fact = { n in n < 2 ? n : n * fact(n - 1) }   // by name, not $()
+  fact = { 0 }                                  // error: fact is frozen
+  ```
+
+  A `var` overwrites as many times as you want. Calling a `.todo`
+  is an error; it displays as `.todo`; bare `let f = .todo` infers
+  `Function`. The payoff beyond self-reference: **mutual recursion**
+  (`isEven`/`isOdd`), which `$()` alone cannot express.
 * **`return` exists** (round 41): `return expr` / bare `return` exit
   the enclosing function early; the last-statement value remains the
   implicit return for bodies that never `return`.
@@ -1105,3 +1120,9 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   the metacircular proof that the language can describe itself, and
   the forcing function for enums, user types, `Data`, and stdlib
   maturity.
+* **2026-08-30, round 44 — `.todo`: named recursion via deferred
+  initialization** (§2.4). `let fact: Function = .todo` declares a
+  placeholder; the one later assignment initializes it (then frozen —
+  a `var` overwrites freely); the closure refers to `fact` *by name*,
+  and mutual recursion falls out. Calling a `.todo` errors; displays
+  as `.todo`; bare `= .todo` infers `Function`.

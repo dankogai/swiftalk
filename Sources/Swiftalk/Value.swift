@@ -67,6 +67,11 @@ extension Swiftalk {
             case plain
             case type(String)
             case `protocol`(String)
+            /// The `.todo` placeholder (round 44): a not-yet-implemented
+            /// Function. A `let` holding it may be assigned exactly once —
+            /// deferred initialization, enabling named (and mutual)
+            /// recursion; calling it is an error.
+            case todo
         }
 
         let parameters: [String]      // empty means variadic (round 14)
@@ -148,6 +153,8 @@ extension Value {
             switch f.role {
             case .type(let name), .protocol(let name):
                 return name
+            case .todo:
+                return ".todo"
             case .plain:
                 let params = f.parameters.isEmpty ? "" : f.parameters.joined(separator: ", ") + " in "
                 return "{ \(params)... }"

@@ -9,6 +9,15 @@ enum Builtins {
     /// (nonisolated(unsafe): created once, never mutated afterward.)
     nonisolated(unsafe) static let emptyEnvironment = Environment()
 
+    /// The `.todo` placeholder Function (round 44).
+    nonisolated(unsafe) static let todo = FunctionObject(
+        parameters: [], body: [], closure: emptyEnvironment,
+        builtin: { _ in
+            throw SwiftalkError.type(
+                "this Function is .todo — assign an implementation before calling it")
+        },
+        role: .todo)
+
     private static func type(_ name: String,
                              _ construct: @escaping ([Value]) throws -> Value) -> FunctionObject {
         FunctionObject(parameters: [], body: [], closure: emptyEnvironment,

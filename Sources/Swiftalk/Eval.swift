@@ -154,8 +154,12 @@ final class Environment {
             throw SwiftalkError.type(
                 "cannot assign to undeclared '\(name)' — declare it with let or var")
         }
-        guard binding.mutable else {
-            throw SwiftalkError.type("cannot assign to let constant '\(name)'")
+        if !binding.mutable {
+            // A let holding .todo accepts exactly one assignment — its
+            // deferred initialization (round 44). Once real, it is frozen.
+            guard case .function(let f) = binding.value, case .todo = f.role else {
+                throw SwiftalkError.type("cannot assign to let constant '\(name)'")
+            }
         }
         try check(value, against: binding.lock, for: name)
         binding.value = value
@@ -201,7 +205,15 @@ private let calleeKey = "@callee"
 func execute(_ statement: Stmt, in env: Environment, relaxed: Bool = false) throws -> Value {
     switch statement {
     case .declaration(let mutable, let name, let annotation, let initializer):
-        let value = try evaluate(initializer, in: env)
+        let value: Value
+        if case .memberLiteral("todo") = initializer,
+           annotation == nil || annotation?.name == "Function" {
+            // `let f: Function = .todo` (round 44): a placeholder that
+            // grants an immutable binding exactly one later assignment.
+            value = .function(Builtins.todo)
+        } else {
+            value = try evaluate(initializer, in: env)
+        }
         let lock: TypeAnnotation
         if let annotation {
             guard knownTypeNames.contains(annotation.name) else {
@@ -825,7 +837,7 @@ private func method(on receiver: Value, name: String,
         let typeName: String
         switch t.role {
         case .type(let n), .protocol(let n): typeName = n
-        case .plain:
+        case .plain, .todo:
             throw SwiftalkError.type("'.conforms(to:)' is a question asked of a type")
         }
         guard labeledArgs.count == 1, labeledArgs[0].label == nil || labeledArgs[0].label == "to" else {
@@ -892,7 +904,7 @@ private func method(on receiver: Value, name: String,
         }
         switch f.role {
         case .type(let n), .protocol(let n): return .string(n)
-        case .plain:                         return .nil
+        case .plain, .todo:                  return .nil
         }
     case ("count", false):
         switch receiver {
