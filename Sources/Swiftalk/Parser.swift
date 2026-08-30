@@ -33,22 +33,41 @@ struct TypeAnnotation: Equatable {
     let optional: Bool
 }
 
+/// A `switch`/`if case` pattern (§7).
+enum Pattern {
+    case wildcard                          // _
+    case expr(Expr)                        // equality (and Range contains)
+    case enumCase(name: String, bindings: [CaseBinding]?)  // .name / .name(let x, _)
+}
+
+enum CaseBinding {
+    case bind(String)                      // let x
+    case wildcard                          // _
+}
+
 enum Stmt {
     case declaration(mutable: Bool, name: String, annotation: TypeAnnotation?, initializer: Expr)
     case assignment(target: LValue, expr: Expr)
     case expression(Expr)
     case returnS(Expr?)
     indirect case ifS(condition: Expr, then: [Stmt], else: [Stmt]?)
+    indirect case ifCaseS(pattern: Pattern, subject: Expr, then: [Stmt], else: [Stmt]?)
     case whileS(condition: Expr, body: [Stmt])
     case repeatS(body: [Stmt], condition: Expr)
     case forS(name: String, sequence: Expr, body: [Stmt])
     case breakS
     case continueS
+    case enumDecl(name: String, caseOrder: [String],
+                  cases: [String: [(label: String?, typeName: String?)]])
+    case switchS(subject: Expr,
+                 clauses: [(patterns: [Pattern], body: [Stmt])],
+                 defaultBody: [Stmt]?)
 }
 
 private let keywords: Set<String> = [
     "let", "var", "true", "false", "nil", "in",
     "if", "else", "while", "repeat", "for", "break", "continue", "return",
+    "enum", "case", "switch", "default",
 ]
 
 struct Parser {
@@ -101,11 +120,15 @@ struct Parser {
     /// Parses statements until `closing` (or end of input when nil).
     /// Does not consume the closing token.
     private mutating func parseStatements(until closing: Character?) throws -> [Stmt] {
+        try parseStatements(stopWhen: { $0 == closing.map { .punct($0) } })
+    }
+
+    private mutating func parseStatements(stopWhen stop: (Token?) -> Bool) throws -> [Stmt] {
         var statements: [Stmt] = []
         skipSeparators()
-        while pos < tokens.count, peek != closing.map({ .punct($0) }) {
+        while pos < tokens.count, !stop(peek) {
             statements.append(try parseStatement())
-            let atEnd = pos == tokens.count || peek == closing.map({ .punct($0) })
+            let atEnd = pos == tokens.count || stop(peek)
             guard atEnd || consumeSeparator() else {
                 throw SwiftalkError.syntax("expected a newline or ';' between statements")
             }
@@ -155,6 +178,10 @@ struct Parser {
             }
             let sequence = try withTrailing(false) { try $0.parseExpr() }
             return .forS(name: name, sequence: sequence, body: try parseBlock())
+        case .identifier("enum"):
+            return try parseEnum()
+        case .identifier("switch"):
+            return try parseSwitch()
         case .identifier("return"):
             pos += 1
             switch peek {
@@ -189,23 +216,178 @@ struct Parser {
         return expr
     }
 
-    /// `if condition { … } [else if … | else { … }]` — Swift-style.
+    /// `if condition { … }` or `if case pattern = expr { … }`, with
+    /// `else`/`else if` — Swift-style.
     private mutating func parseIf() throws -> Stmt {
         pos += 1  // consume "if"
+        if case .identifier("case")? = peek {
+            pos += 1
+            let pattern = try parsePattern()
+            try expect("=")
+            let subject = try withTrailing(false) { try $0.parseExpr() }
+            let then = try parseBlock()
+            let elseBranch = try parseElse()
+            return .ifCaseS(pattern: pattern, subject: subject, then: then, else: elseBranch)
+        }
         let condition = try withTrailing(false) { try $0.parseExpr() }
         let then = try parseBlock()
-        // `else` may sit on the next line; backtrack if it isn't there.
+        let elseBranch = try parseElse()
+        return .ifS(condition: condition, then: then, else: elseBranch)
+    }
+
+    /// The optional `else`/`else if` tail; `else` may sit on the next
+    /// line (backtracks when absent).
+    private mutating func parseElse() throws -> [Stmt]? {
         let saved = pos
         skipSeparators()
         guard case .identifier("else")? = peek else {
             pos = saved
-            return .ifS(condition: condition, then: then, else: nil)
+            return nil
         }
         pos += 1
         if case .identifier("if")? = peek {
-            return .ifS(condition: condition, then: then, else: [try parseIf()])
+            return [try parseIf()]
         }
-        return .ifS(condition: condition, then: then, else: try parseBlock())
+        return try parseBlock()
+    }
+
+    /// `enum Name { case a, b(label: Type, Type), ... }` (§7, round 45).
+    private mutating func parseEnum() throws -> Stmt {
+        pos += 1  // consume "enum"
+        guard case .identifier(let name)? = advance(),
+              !keywords.contains(name), !name.hasPrefix("$") else {
+            throw SwiftalkError.syntax("expected a name after 'enum'")
+        }
+        try expect("{")
+        var caseOrder: [String] = []
+        var cases: [String: [(label: String?, typeName: String?)]] = [:]
+        skipSeparators()
+        while peek != .punct("}") {
+            guard case .identifier("case")? = advance() else {
+                throw SwiftalkError.syntax("expected 'case' in an enum body")
+            }
+            repeat {
+                guard case .identifier(let caseName)? = advance(),
+                      !keywords.contains(caseName) else {
+                    throw SwiftalkError.syntax("expected a case name")
+                }
+                guard cases[caseName] == nil else {
+                    throw SwiftalkError.syntax("duplicate case '\(caseName)'")
+                }
+                var params: [(label: String?, typeName: String?)] = []
+                if case .punct("(")? = peek {
+                    pos += 1
+                    repeat {
+                        guard case .identifier(let first)? = advance() else {
+                            throw SwiftalkError.syntax("expected an associated-value type")
+                        }
+                        if case .punct(":")? = peek {
+                            pos += 1
+                            guard case .identifier(let typeName)? = advance() else {
+                                throw SwiftalkError.syntax("expected a type after ':'")
+                            }
+                            params.append((first, typeName))
+                        } else {
+                            params.append((nil, first))
+                        }
+                    } while consumeComma(closing: ")")
+                    try expect(")")
+                }
+                caseOrder.append(caseName)
+                cases[caseName] = params
+            } while consumeComma(closing: "}")
+            guard peek == .punct("}") || consumeSeparator() else {
+                throw SwiftalkError.syntax("expected a newline between enum cases")
+            }
+            skipSeparators()
+        }
+        try expect("}")
+        return .enumDecl(name: name, caseOrder: caseOrder, cases: cases)
+    }
+
+    /// `switch expr { case pattern, ...: stmts ... default: stmts }` (§7).
+    private mutating func parseSwitch() throws -> Stmt {
+        pos += 1  // consume "switch"
+        let subject = try withTrailing(false) { try $0.parseExpr() }
+        try expect("{")
+        var clauses: [(patterns: [Pattern], body: [Stmt])] = []
+        var defaultBody: [Stmt]? = nil
+        skipSeparators()
+        while peek != .punct("}") {
+            switch advance() {
+            case .identifier("case"):
+                var patterns = [try parsePattern()]
+                while case .punct(",")? = peek {
+                    pos += 1
+                    patterns.append(try parsePattern())
+                }
+                try expect(":")
+                clauses.append((patterns, try parseCaseBody()))
+            case .identifier("default"):
+                guard defaultBody == nil else {
+                    throw SwiftalkError.syntax("duplicate 'default'")
+                }
+                try expect(":")
+                defaultBody = try parseCaseBody()
+            default:
+                throw SwiftalkError.syntax("expected 'case' or 'default' in a switch body")
+            }
+        }
+        try expect("}")
+        return .switchS(subject: subject, clauses: clauses, defaultBody: defaultBody)
+    }
+
+    private mutating func parseCaseBody() throws -> [Stmt] {
+        try parseStatements(stopWhen: { token in
+            switch token {
+            case .identifier("case"), .identifier("default"), .punct("}"):
+                return true
+            default:
+                return false
+            }
+        })
+    }
+
+    /// A pattern: `_`, `.name`, `.name(let x, _)`, or an expression
+    /// (equality; a Range expression matches by containment). Parsed at
+    /// comparison level — ternary would fight the clause's `:`.
+    private mutating func parsePattern() throws -> Pattern {
+        switch peek {
+        case .identifier("_"):
+            pos += 1
+            return .wildcard
+        case .punct("."):
+            pos += 1
+            guard case .identifier(let name)? = advance(), !keywords.contains(name) else {
+                throw SwiftalkError.syntax("expected a case name after '.'")
+            }
+            guard case .punct("(")? = peek else {
+                return .enumCase(name: name, bindings: nil)
+            }
+            pos += 1
+            var bindings: [CaseBinding] = []
+            if peek != .punct(")") {
+                repeat {
+                    switch advance() {
+                    case .identifier("let"):
+                        guard case .identifier(let binding)? = advance(),
+                              !keywords.contains(binding), !binding.hasPrefix("$") else {
+                            throw SwiftalkError.syntax("expected a name after 'let'")
+                        }
+                        bindings.append(.bind(binding))
+                    case .identifier("_"):
+                        bindings.append(.wildcard)
+                    default:
+                        throw SwiftalkError.syntax(
+                            "a case pattern binds with 'let x' or ignores with '_'")
+                    }
+                } while consumeComma(closing: ")")
+            }
+            try expect(")")
+            return .enumCase(name: name, bindings: bindings)
+        default:
+            return .expr(try parseComparison())
+        }
     }
 
     /// `{ statements }` in statement context — a block, not a closure.

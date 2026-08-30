@@ -27,6 +27,42 @@ extension Swiftalk {
         /// over one. Lazy *by default* — unlike Swift's opt-in `.lazy` —
         /// so nothing runs until iterated, `.prefix(n)`'d, or `.Array()`'d.
         case sequence(SequenceObject)
+        /// A user-defined enum's case (round 45, §7): a real boxing sum —
+        /// unlike the flat built-in unions (`T?`, `Primitives`).
+        /// (`indirect` keeps Value's inline size small — the evaluator
+        /// recurses on the Swift stack, and frame size is depth budget.)
+        indirect case enumCase(EnumCaseValue)
+    }
+
+    /// A user-declared enum type (§7). Identity is its equality; the
+    /// language-facing type object is `constructor` (role `.enumType`).
+    public final class EnumType: Hashable {
+        let name: String
+        let caseOrder: [String]
+        let cases: [String: [(label: String?, typeName: String?)]]
+        var constructor: FunctionObject?
+
+        init(name: String, caseOrder: [String],
+             cases: [String: [(label: String?, typeName: String?)]]) {
+            self.name = name
+            self.caseOrder = caseOrder
+            self.cases = cases
+        }
+
+        public static func == (lhs: EnumType, rhs: EnumType) -> Bool {
+            lhs === rhs
+        }
+        public func hash(into hasher: inout Hasher) {
+            hasher.combine(ObjectIdentifier(self))
+        }
+    }
+
+    /// One value of a user enum: its type, its case, and the associated
+    /// values. Structurally equatable and hashable (§10, synthesized).
+    public struct EnumCaseValue: Hashable {
+        let type: EnumType
+        let caseName: String
+        let associated: [Value]
     }
 
     /// A lazy sequence value. Identity equality, like Function.
@@ -72,6 +108,9 @@ extension Swiftalk {
             /// deferred initialization, enabling named (and mutual)
             /// recursion; calling it is an error.
             case todo
+            /// A user-declared enum type (round 45): member access
+            /// constructs its cases; calling it directly is an error.
+            case enumType(EnumType)
         }
 
         let parameters: [String]      // empty means variadic (round 14)
@@ -103,6 +142,8 @@ extension Swiftalk {
 typealias Value = Swiftalk.Value
 typealias FunctionObject = Swiftalk.FunctionObject
 typealias SequenceObject = Swiftalk.SequenceObject
+typealias EnumType = Swiftalk.EnumType
+typealias EnumCaseValue = Swiftalk.EnumCaseValue
 
 extension Value {
     /// The swiftalk type name reported by `.type` (Design.md §3).
@@ -120,6 +161,7 @@ extension Value {
         case .function:   return "Function"
         case .range:      return "Range"
         case .sequence:   return "Sequence"
+        case .enumCase(let ev): return ev.type.name
         }
     }
 
@@ -153,6 +195,8 @@ extension Value {
             switch f.role {
             case .type(let name), .protocol(let name):
                 return name
+            case .enumType(let et):
+                return et.name
             case .todo:
                 return ".todo"
             case .plain:
@@ -168,6 +212,17 @@ extension Value {
             // Lazy and possibly infinite — a placeholder, like plain
             // Functions (source text is OPEN, §3d).
             return "Sequence { ... }"
+        case .enumCase(let ev):
+            // Source form — round-trips wherever the enum is declared.
+            var out = "\(ev.type.name).\(ev.caseName)"
+            if !ev.associated.isEmpty {
+                let params = ev.type.cases[ev.caseName] ?? []
+                out += "(" + zip(params, ev.associated).map { param, value in
+                    let v = value.sourceString(debug: debug)
+                    return param.label.map { "\($0): \(v)" } ?? v
+                }.joined(separator: ", ") + ")"
+            }
+            return out
         case .dictionary(let d):
             if d.isEmpty { return "[:]" }
             // Deterministic output: order entries by their key's source form.

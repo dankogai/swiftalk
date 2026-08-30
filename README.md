@@ -230,6 +230,29 @@ swiftalk> fact = { 0 }
 type error: cannot assign to let constant 'fact'
 ```
 
+**Enums** are in — associated values, `switch` with `case let`
+destructuring, `if case`, and runtime-enforced exhaustiveness:
+
+```text
+swiftalk> enum Shape {
+........ case circle(r: Double)
+........ case rect(w: Double, h: Double)
+........ }
+Shape
+swiftalk> let area = { s in
+........ switch s {
+........ case .circle(let r): return 3.14159265358979 * r * r
+........ case .rect(let w, let h): return w * h
+........ }
+........ }
+swiftalk> area(Shape.rect(w: 3.0, h: 4.0))
+12.0
+swiftalk> Shape.circle(r: 2.5)
+Shape.circle(r: 2.5)
+swiftalk> Shape.circle(r: 2.5).Type == Shape
+true
+```
+
 ```sh
 swift test
 ```

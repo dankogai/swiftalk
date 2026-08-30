@@ -205,18 +205,29 @@ private let calleeKey = "@callee"
 func execute(_ statement: Stmt, in env: Environment, relaxed: Bool = false) throws -> Value {
     switch statement {
     case .declaration(let mutable, let name, let annotation, let initializer):
+        // An annotation naming a user enum enables `.case` initializers
+        // (round 45), the way `Function` enables `.todo` (round 44).
+        let annotatedEnum = try annotation.flatMap { try resolveEnumAnnotation($0, in: env) }
         let value: Value
         if case .memberLiteral("todo") = initializer,
            annotation == nil || annotation?.name == "Function" {
             // `let f: Function = .todo` (round 44): a placeholder that
             // grants an immutable binding exactly one later assignment.
             value = .function(Builtins.todo)
+        } else if let et = annotatedEnum, case .memberLiteral(let caseName) = initializer {
+            value = try constructEnumCase(et, caseName, args: [], called: false)
+        } else if let et = annotatedEnum,
+                  case .call(.memberLiteral(let caseName), let argExprs) = initializer {
+            value = try constructEnumCase(
+                et, caseName,
+                args: try argExprs.map { ($0.label, try evaluate($0.expr, in: env)) },
+                called: true)
         } else {
             value = try evaluate(initializer, in: env)
         }
         let lock: TypeAnnotation
         if let annotation {
-            guard knownTypeNames.contains(annotation.name) else {
+            guard knownTypeNames.contains(annotation.name) || annotatedEnum != nil else {
                 throw SwiftalkError.type("unknown type '\(annotation.name)'")
             }
             lock = annotation
@@ -297,7 +308,139 @@ func execute(_ statement: Stmt, in env: Environment, relaxed: Bool = false) thro
         throw ControlFlow.continue
     case .returnS(let expr):
         throw ReturnSignal(value: try expr.map { try evaluate($0, in: env) } ?? .nil)
+    case .enumDecl(let name, let caseOrder, let cases):
+        let et = EnumType(name: name, caseOrder: caseOrder, cases: cases)
+        let constructor = FunctionObject(
+            parameters: [], body: [], closure: env,
+            builtin: { _ in
+                throw SwiftalkError.type(
+                    "construct \(name) via a case: \(name).\(caseOrder.first ?? "someCase")")
+            },
+            role: .enumType(et))
+        et.constructor = constructor
+        try env.declare(name, Binding(
+            mutable: false,
+            lock: TypeAnnotation(name: "Function", optional: false),
+            value: .function(constructor)))
+        return .function(constructor)
+    case .switchS(let subjectExpr, let clauses, let defaultBody):
+        let subject = try evaluate(subjectExpr, in: env)
+        for clause in clauses {
+            for pattern in clause.patterns {
+                if let bindings = try match(pattern, subject, in: env) {
+                    try runBlock(clause.body, in: env, bindings: bindings)
+                    return .nil
+                }
+            }
+        }
+        if let defaultBody {
+            try runBlock(defaultBody, in: env)
+            return .nil
+        }
+        // Runtime exhaustiveness (§7): reaching a value no case matches,
+        // with no default, is an error — never a silent skip.
+        throw SwiftalkError.type(
+            "switch is not exhaustive — nothing matches \(subject.sourceString())")
+    case .ifCaseS(let pattern, let subjectExpr, let then, let elseBranch):
+        let subject = try evaluate(subjectExpr, in: env)
+        if let bindings = try match(pattern, subject, in: env) {
+            try runBlock(then, in: env, bindings: bindings)
+        } else if let elseBranch {
+            try runBlock(elseBranch, in: env)
+        }
+        return .nil
     }
+}
+
+/// Matches a pattern against a value: nil for no match, else the
+/// bindings a `case let` destructuring produced.
+private func match(_ pattern: Pattern, _ subject: Value,
+                   in env: Environment) throws -> [(String, Value)]? {
+    switch pattern {
+    case .wildcard:
+        return []
+    case .expr(let e):
+        let v = try evaluate(e, in: env)
+        if v == subject { return [] }
+        // A Range pattern matches an Int by containment (Swift's ~=).
+        if case .range(let lower, let upper, let closed) = v, case .int(let i) = subject {
+            if lower <= i && (closed ? i <= upper : i < upper) { return [] }
+        }
+        return nil
+    case .enumCase(let name, let bindings):
+        guard case .enumCase(let ev) = subject, ev.caseName == name else { return nil }
+        guard let bindings else { return [] }         // bare .name matches any payload
+        guard bindings.count == ev.associated.count else {
+            throw SwiftalkError.type(
+                "pattern .\(name) destructures \(bindings.count) value(s); the case has \(ev.associated.count)")
+        }
+        var bound: [(String, Value)] = []
+        for (binding, value) in zip(bindings, ev.associated) {
+            if case .bind(let bindingName) = binding {
+                bound.append((bindingName, value))
+            }
+        }
+        return bound
+    }
+}
+
+/// Resolves an annotation to a user enum type when it names one; nil
+/// for built-ins and unknowns (the caller validates those).
+private func resolveEnumAnnotation(_ annotation: TypeAnnotation,
+                                   in env: Environment) throws -> EnumType? {
+    guard !knownTypeNames.contains(annotation.name),
+          let value = try? env.lookup(annotation.name),
+          case .function(let f) = value,
+          case .enumType(let et) = f.role else { return nil }
+    return et
+}
+
+/// Constructs `Enum.case(...)` (round 45): labels optional and
+/// reorderable per §2.3; declared associated types checked at runtime
+/// per §3.
+func constructEnumCase(_ et: EnumType, _ caseName: String,
+                       args: [(label: String?, value: Value)], called: Bool) throws -> Value {
+    guard let params = et.cases[caseName] else {
+        throw SwiftalkError.unknownMember("\(et.name).\(caseName)")
+    }
+    guard called || args.isEmpty else { fatalError("unreachable") }
+    if !called || params.isEmpty {
+        guard params.isEmpty else {
+            throw SwiftalkError.type(
+                "\(et.name).\(caseName) has associated values — call it")
+        }
+        guard args.isEmpty else {
+            throw SwiftalkError.type("\(et.name).\(caseName) takes no associated values")
+        }
+        return .enumCase(EnumCaseValue(type: et, caseName: caseName, associated: []))
+    }
+    guard args.count == params.count else {
+        throw SwiftalkError.type(
+            "\(et.name).\(caseName) takes \(params.count) associated value(s), got \(args.count)")
+    }
+    var slots = [Value?](repeating: nil, count: params.count)
+    for (label, value) in args where label != nil {
+        guard let index = params.firstIndex(where: { $0.label == label }) else {
+            throw SwiftalkError.type("unknown label '\(label!)' for \(et.name).\(caseName)")
+        }
+        guard slots[index] == nil else {
+            throw SwiftalkError.type("duplicate label '\(label!)'")
+        }
+        slots[index] = value
+    }
+    var positionals = args.filter { $0.label == nil }.map(\.value)[...]
+    let associated: [Value] = try slots.enumerated().map { index, slot in
+        let value: Value
+        if let slot { value = slot }
+        else if let next = positionals.popFirst() { value = next }
+        else { throw SwiftalkError.type("missing associated value") }
+        if let expected = params[index].typeName, value.typeName != expected {
+            throw SwiftalkError.type(
+                "\(et.name).\(caseName) expects \(expected), got \(value.typeName)")
+        }
+        return value
+    }
+    return .enumCase(EnumCaseValue(type: et, caseName: caseName, associated: associated))
 }
 
 /// `break`/`continue` travel as thrown signals; loops catch them, and
@@ -314,9 +457,16 @@ struct ReturnSignal: Swift.Error {
 }
 
 /// Runs a block in a fresh child scope (block-local let/var, §2.2-style
-/// lexical scoping).
-private func runBlock(_ body: [Stmt], in env: Environment) throws {
+/// lexical scoping); `bindings` are pattern-match spoils (`case let`).
+private func runBlock(_ body: [Stmt], in env: Environment,
+                      bindings: [(String, Value)] = []) throws {
     let scope = Environment(parent: env)
+    for (name, value) in bindings {
+        try scope.declare(name, Binding(
+            mutable: false,
+            lock: TypeAnnotation(name: value.typeName, optional: true),
+            value: value))
+    }
     for statement in body {
         _ = try execute(statement, in: scope)
     }
@@ -834,19 +984,27 @@ private func method(on receiver: Value, name: String,
         guard case .function(let t) = receiver else {
             throw SwiftalkError.type("'.conforms(to:)' is a question asked of a type")
         }
-        let typeName: String
-        switch t.role {
-        case .type(let n), .protocol(let n): typeName = n
-        case .plain, .todo:
-            throw SwiftalkError.type("'.conforms(to:)' is a question asked of a type")
-        }
         guard labeledArgs.count == 1, labeledArgs[0].label == nil || labeledArgs[0].label == "to" else {
             throw SwiftalkError.type(".conforms(to:) takes exactly one argument")
         }
         guard case .function(let p) = labeledArgs[0].value, case .protocol(let protoName) = p.role else {
             throw SwiftalkError.type("the argument to .conforms(to:) must be a protocol")
         }
-        return .bool(Builtins.conformance[protoName]?.contains(typeName) ?? false)
+        switch t.role {
+        case .type(let n), .protocol(let n):
+            return .bool(Builtins.conformance[protoName]?.contains(n) ?? false)
+        case .enumType:
+            // User enums get synthesized Equatable/Hashable (§10).
+            return .bool(protoName == "Equatable" || protoName == "Hashable")
+        case .plain, .todo:
+            throw SwiftalkError.type("'.conforms(to:)' is a question asked of a type")
+        }
+    }
+    // Member access on a user enum type constructs its cases (round 45):
+    // Shape.circle(r: 3.0), Shape.point.
+    if case .function(let f) = receiver, case .enumType(let et) = f.role,
+       et.cases[name] != nil {
+        return try constructEnumCase(et, name, args: labeledArgs, called: called)
     }
     // .String(radix: n) — bare digits in any radix (round 20).
     if (name, called) == ("String", true),
@@ -893,7 +1051,11 @@ private func method(on receiver: Value, name: String,
         // x.Type (round 40; né x.type) — the constructor Function, à la
         // JS's .constructor: the singleton the global name binds, so
         // x.Type == Int compares identity. A type's own .Type is Function.
-        // A lazy sequence's .Type is Sequence (round 41).
+        // A lazy sequence's .Type is Sequence (round 41); an enum
+        // value's is its enum type (round 45).
+        if case .enumCase(let ev) = receiver {
+            return .function(ev.type.constructor!)
+        }
         return .function(Builtins.types[receiver.typeName]
                          ?? Builtins.protocols[receiver.typeName]!)
     case ("name", false):
@@ -904,6 +1066,7 @@ private func method(on receiver: Value, name: String,
         }
         switch f.role {
         case .type(let n), .protocol(let n): return .string(n)
+        case .enumType(let et):              return .string(et.name)
         case .plain, .todo:                  return .nil
         }
     case ("count", false):

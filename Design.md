@@ -1126,3 +1126,26 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   a `var` overwrites freely); the closure refers to `fact` *by name*,
   and mutual recursion falls out. Calling a `.todo` errors; displays
   as `.todo`; bare `= .todo` infers `Function`.
+* **2026-08-30, round 45 — enums implemented (§7).** `enum Shape {
+  case circle(r: Double), rect(w: Double, h: Double), point }` —
+  associated values labeled or bare, multiple cases per line. The
+  enum type is a **constructor Function** (round 39 style): member
+  access constructs (`Shape.circle(r: 3.0)`, labels optional and
+  reorderable per §2.3, associated types checked at runtime per §3;
+  calling the type itself errors), `.name`/`.Type` work, and
+  `conforms` reports **synthesized `Equatable`/`Hashable`** — enum
+  values are structurally equatable and usable as dictionary keys.
+  **`switch`** lands as a statement: `.case(let x)` destructuring,
+  bare `.case` matching any payload, comma-shared patterns,
+  expression patterns (`case 1, 2:`), Range patterns (`case 3...4:`),
+  `_`, `default` — and §7's rule enforced: **no match with no
+  `default` is a runtime error**. **`if case`** binds too;
+  annotation-directed initializers work (`let s: Shape = .circle(r:
+  1.0)`, the round-44 `.todo` mechanism generalized). Source form
+  round-trips where the enum is declared. §14's `area` example runs.
+  Boxing, not flat — the §3c contrast holds: `Wrap.just(42)` has
+  typeName `Wrap` until destructured. OPEN: `guard case`/`if let`
+  (still no `guard`), labeled patterns, `break` inside `switch`
+  (currently loop-`break`, diverging from Swift), switch-as-
+  expression, methods on enums (with user types), `Primitives` as a
+  real declared enum, `indirect` enums.
