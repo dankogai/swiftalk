@@ -35,6 +35,13 @@ extension Swiftalk {
         /// A user-defined struct's instance (round 46, §4): a COW value,
         /// consistent with the built-in collections.
         indirect case structValue(StructValue)
+        /// Bytes (round 50, §3b): distinct from String — bytes are
+        /// bytes, text is text. Foundation-free.
+        case data([UInt8])
+        /// A point in time (round 50, §3b via §3c's SION-completeness):
+        /// seconds since the Unix epoch, stored as a Double — SION's own
+        /// representation.
+        case date(Double)
     }
 
     /// A user-declared struct type (§4). Identity is its equality; the
@@ -218,6 +225,8 @@ extension Value {
         case .sequence:   return "Sequence"
         case .enumCase(let ev): return ev.type.name
         case .structValue(let sv): return sv.type.name
+        case .data: return "Data"
+        case .date: return "Date"
         }
     }
 
@@ -270,6 +279,16 @@ extension Value {
             // Lazy and possibly infinite — a placeholder, like plain
             // Functions (source text is OPEN, §3d).
             return "Sequence { ... }"
+        case .data(let bytes):
+            // Constructor source form — round-trips (SION's base64
+            // spelling is OPEN).
+            return "Data([" + bytes.map {
+                Value.int(Int64($0)).sourceString(debug: debug)
+            }.joined(separator: ", ") + "])"
+        case .date(let epoch):
+            // SION's own spelling — .Date(epoch); hex-float under debug,
+            // exactly as SION serializes dates.
+            return ".Date(\(Value.double(epoch).sourceString(debug: debug)))"
         case .structValue(let sv):
             // Memberwise source form — round-trips wherever declared.
             return sv.type.name + "(" + sv.type.propertyOrder.map { prop in

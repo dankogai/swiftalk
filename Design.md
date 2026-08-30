@@ -283,10 +283,18 @@ Primitives:
   grapheme cluster (§11). `.utf8` and `.utf32` views available
   optionally. **No `.utf16` view — UTF-16 needs to go to hell.**
 * **`Data`** — a sequence of unsigned 8-bit bytes, **distinct from
-  `String`**. Bytes are bytes; text is text.
+  `String`**. Bytes are bytes; text is text. **Implemented round 50**:
+  `Data([255, 1])` source form (hex bytes under debug; SION's base64
+  spelling OPEN); `Data(str)` ≡ `str.Data()` (UTF-8, infallible);
+  `data.String(.utf8)` decodes failably (`nil` on invalid bytes);
+  `.count` and read-only byte subscripts; `Hashable`.
 * **`Date`** — joined the roster in round 17 as a consequence of
-  `Primitives`' SION-completeness (§3c): SION carries dates natively,
-  so swiftalk does too. Representation/literals **OPEN**.
+  `Primitives`' SION-completeness (§3c); **implemented round 50**:
+  seconds since the Unix epoch as a `Double` — SION's own
+  representation — printing as SION's own spelling, `.Date(epoch)`
+  (hex-float under debug, exactly as SION serializes). `Date()` is
+  now (wall clock, Foundation-free); `Date(x)` ⇄ `Double(date)`
+  convert; `Comparable`. Calendar/format output stays **OPEN**.
 * **`Range`** — first-class and **lazy** (round 38): `a...b` / `a..<b`.
   Spelled `Range<I>` in the design: `I` is `Int` today, `BigInt`
   someday (unimplemented), and **never `Double`** — a deliberate
@@ -1263,3 +1271,19 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   An uncalled method remains a closure bound over a *copy* (value
   semantics). Glimpsed in the dialogue and left OPEN: computed
   properties (`var getset { ... }`).
+* **2026-08-30, round 50b — `Data` and `Date` implemented: the §3b
+  SION roster is COMPLETE.** `Data` is `[UInt8]`, Foundation-free:
+  `Data(str)` ≡ `str.Data()` (UTF-8 in, infallible),
+  `data.String(.utf8)` decodes failably, `Data([255, 1])` is the
+  round-tripping source form (hex under debug; SION's base64 OPEN),
+  byte subscripts and `.count` read. `Date` is epoch seconds as a
+  `Double` — SION's representation — printing SION's spelling
+  `.Date(epoch)` (hex-float under debug, exactly as SION writes it),
+  re-entering via a new sugar: **leading-dot type calls** —
+  `.Date(x)` ≡ `Date(x)` when no `self` claims the name and the name
+  binds a type. `Date()` is now (wall clock via `clock_gettime`);
+  `Date` is `Comparable` (§10's "Date surely" honored). Every §3b
+  primitive now exists: nil, Bool, Int, Double, String, Data, Date,
+  Array, Dictionary — plus Function, Range, Sequence. OPEN: Data as
+  Sequence, base64 format, byte-subscript writes, calendar output,
+  debug hex-float literals in the lexer.

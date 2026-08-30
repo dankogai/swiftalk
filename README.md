@@ -316,6 +316,19 @@ swiftalk> 21.doubled()
 42
 ```
 
+**`Data` and `Date`** are in — the SION roster is complete:
+
+```text
+swiftalk> "café".Data()
+Data([99, 97, 102, 195, 169])
+swiftalk> Data([255, 254]).String(.utf8) == nil    // failable decode
+true
+swiftalk> Date()
+.Date(1788085109.733562)                           // SION's own spelling
+swiftalk> Date(0.0) < Date()
+true
+```
+
 ```sh
 swift test
 ```

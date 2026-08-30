@@ -1,3 +1,9 @@
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
+
 /// Types as constructor Functions, protocols as values, and the
 /// conformance table (Design.md §10, rounds 25/26, implemented round 39).
 ///
@@ -70,6 +76,7 @@ enum Builtins {
             case .int(let i)?:    return .double(Double(i))
             case .string(let s)?: // Swift's parser accepts hex floats: Double("0x1.8p0") == 1.5
                 return Double(s).map(Value.double) ?? .nil
+            case .date(let t)?:   return .double(t)   // a Date IS its epoch (round 50)
             case let v?: throw SwiftalkError.type("cannot convert \(v.typeName) to Double")
             }
         },
@@ -110,6 +117,35 @@ enum Builtins {
             case let v?: throw SwiftalkError.type("cannot convert \(v.typeName) to Function")
             }
         },
+        "Data": type("Data") { args in
+            switch args.first {
+            case nil:              return .data([])
+            case .data(let b)?:    return .data(b)
+            case .string(let s)?:  return .data(Array(s.utf8))   // str.Data() — infallible (§3d)
+            case .array(let a)?:
+                // Data([255, 1]) — the source form; a non-byte is nil (failable)
+                var bytes: [UInt8] = []
+                for v in a {
+                    guard case .int(let i) = v, let byte = UInt8(exactly: i) else { return .nil }
+                    bytes.append(byte)
+                }
+                return .data(bytes)
+            case let v?: throw SwiftalkError.type("cannot convert \(v.typeName) to Data")
+            }
+        },
+        "Date": type("Date") { args in
+            switch args.first {
+            case nil:
+                // Date() is now — wall clock, Foundation-free.
+                var ts = timespec()
+                clock_gettime(CLOCK_REALTIME, &ts)
+                return .date(Double(ts.tv_sec) + Double(ts.tv_nsec) / 1e9)
+            case .date(let t)?:    return .date(t)
+            case .double(let t)?:  return .date(t)
+            case .int(let t)?:     return .date(Double(t))
+            case let v?: throw SwiftalkError.type("cannot convert \(v.typeName) to Date")
+            }
+        },
     ]
 
     /// The protocol roster (§10): coarse-grained, exactly four.
@@ -135,7 +171,7 @@ enum Builtins {
 
     private static let allTypeNames: Set<String> =
         ["Nil", "Bool", "Int", "Double", "String", "Array", "Dictionary",
-         "Range", "Function", "Sequence"]
+         "Range", "Function", "Sequence", "Data", "Date"]
 
     /// Who conforms to what (§10, rounds 26/38/41): built-ins conform
     /// natively — everything is Equatable and Hashable (all values are
@@ -145,7 +181,7 @@ enum Builtins {
         "Sequence":   ["String", "Array", "Dictionary", "Range", "Sequence"],
         "Equatable":  allTypeNames,
         "Hashable":   allTypeNames,
-        "Comparable": ["Int", "Double", "String"],
+        "Comparable": ["Int", "Double", "String", "Date"],
     ]
 
     /// Int-from-String, accepting everything the lexer does: optional

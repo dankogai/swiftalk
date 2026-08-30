@@ -195,7 +195,8 @@ final class Environment {
 }
 
 private let knownTypeNames: Set<String> =
-    ["Nil", "Bool", "Int", "Double", "String", "Array", "Dictionary", "Function", "Range", "Sequence"]
+    ["Nil", "Bool", "Int", "Double", "String", "Array", "Dictionary", "Function",
+     "Range", "Sequence", "Data", "Date"]
 
 /// The hidden binding through which `$(...)` finds the current function
 /// (§2.4). `@` cannot appear in a swiftalk identifier, so user code can
@@ -706,10 +707,22 @@ func evaluate(_ expr: Expr, in env: Environment) throws -> Value {
         }
         return try evaluate(flag ? thenBranch : elseBranch, in: env)
     case .call(let callee, let args):
-        // Implicit self (round 49): `.method(args)` in a type body.
-        if case .memberLiteral(let name) = callee, (try? env.lookup("self")) != nil {
-            return try evaluateSlow(
-                .method(.variable("self"), name: name, args: args, called: true), in: env)
+        if case .memberLiteral(let name) = callee {
+            // Implicit self (round 49): `.method(args)` in a type body...
+            if (try? env.lookup("self")) != nil {
+                return try evaluateSlow(
+                    .method(.variable("self"), name: name, args: args, called: true), in: env)
+            }
+            // ...else the SION spelling (round 50): `.Date(...)` is
+            // `Date(...)` when the name binds a type in scope.
+            if case .function(let f)? = try? env.lookup(name) {
+                switch f.role {
+                case .type, .protocol, .enumType, .structType:
+                    return try apply(f, args: try evaluateArgs(args, in: env))
+                case .plain, .todo:
+                    break
+                }
+            }
         }
         guard case .function(let fn) = try evaluate(callee, in: env) else {
             let v = try evaluate(callee, in: env)
@@ -901,6 +914,14 @@ private func subscriptRead(_ container: Value, _ index: Value) throws -> Value {
             throw SwiftalkError.type("index \(i) out of range (count \(count))")
         }
         return .int(lower + i)
+    case .data(let bytes):
+        guard case .int(let i) = index else {
+            throw SwiftalkError.type("Data index must be an Int, not \(index.typeName)")
+        }
+        guard bytes.indices.contains(Int(i)) else {
+            throw SwiftalkError.type("index \(i) out of range (count \(bytes.count))")
+        }
+        return .int(Int64(bytes[Int(i)]))
     case .string:
         throw SwiftalkError.type("String subscripts are undecided (Design.md §11)")
     default:
@@ -1341,6 +1362,7 @@ private func compare(_ op: String, _ lhs: Value, _ rhs: Value) throws -> Value {
         case (.int(let a), .int(let b)):       ascending = a < b
         case (.double(let a), .double(let b)): ascending = a < b
         case (.string(let a), .string(let b)): ascending = a < b
+        case (.date(let a), .date(let b)):     ascending = a < b   // Comparable (round 50)
         default:
             throw SwiftalkError.type(
                 "'\(op)' is not defined between \(lhs.typeName) and \(rhs.typeName)")
@@ -1409,6 +1431,22 @@ private func stringFormat(_ subject: Value,
     switch format {
     case .string("quoted"):
         return .string(subject.sourceString())
+    case .string("utf8"):
+        // data.String(.utf8) — the failable decode (§3d, round 23):
+        // bytes may not be valid text, so nil when they aren't.
+        guard case .data(let bytes) = subject else {
+            throw SwiftalkError.type(".String(.utf8) decodes Data")
+        }
+        var decoder = UTF8()
+        var iterator = bytes.makeIterator()
+        var out = ""
+        while true {
+            switch decoder.decode(&iterator) {
+            case .scalarValue(let scalar): out.unicodeScalars.append(scalar)
+            case .emptyInput:              return .string(out)
+            case .error:                   return .nil
+            }
+        }
     case .string("hex"):
         // Literal-ready, prefixed — round-trips (rounds 20–21).
         switch subject {
@@ -1546,6 +1584,7 @@ private func method(on receiver: Value, name: String,
         case .dictionary(let d): return .int(Int64(d.count))
         case .range(let lower, let upper, let closed):
             return .int(try rangeCount(from: lower, to: upper, closed: closed))
+        case .data(let bytes): return .int(Int64(bytes.count))
         case .sequence:
             throw SwiftalkError.type(
                 "a Sequence may be infinite — take .prefix(n) or .Array() it deliberately")
