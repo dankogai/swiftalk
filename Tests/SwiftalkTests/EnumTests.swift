@@ -148,3 +148,56 @@ struct EnumTests {
         #expect(throws: SwiftalkError.self) { try eval("enum W { case a }\nW.a + 1") }
     }
 }
+
+@Suite("case accessors: .casename gives the value or nil (round 46)")
+struct CaseAccessorTests {
+    private let shape = """
+        enum Shape {
+            case circle(r: Double)
+            case rect(w: Double, h: Double)
+            case point
+        }
+        """
+
+    @Test("one payload comes bare; a mismatched case is nil")
+    func single() throws {
+        #expect(try eval("\(shape)\nShape.circle(r: 3.0).circle") == .double(3.0))
+        #expect(try eval("\(shape)\nShape.circle(r: 3.0).rect") == .nil)
+        #expect(try eval("\(shape)\nShape.point.circle") == .nil)
+        #expect(try eval("\(shape)\nlet s = Shape.circle(r: 2.0)\ns.circle * 10.0") == .double(20.0))
+    }
+
+    @Test("several payloads come as an Array")
+    func multiple() throws {
+        #expect(try eval("\(shape)\nShape.rect(w: 3.0, h: 4.0).rect") == .array([.double(3.0), .double(4.0)]))
+        #expect(try eval("\(shape)\nShape.rect(w: 3.0, h: 4.0).rect[1]") == .double(4.0))
+        #expect(try eval("\(shape)\nShape.point.rect") == .nil)
+    }
+
+    @Test("a payload-less case answers with itself — s.point != nil asks 'is it .point?'")
+    func payloadLess() throws {
+        #expect(try eval("\(shape)\nShape.point.point == Shape.point") == .bool(true))
+        #expect(try eval("\(shape)\nShape.point.point != nil") == .bool(true))
+        #expect(try eval("\(shape)\nShape.circle(r: 1.0).point == nil") == .bool(true))
+    }
+
+    @Test("accessors replace if-case ceremony in real flow")
+    func flow() throws {
+        #expect(try eval("""
+            \(shape)
+            let shapes = [Shape.circle(r: 1.0), Shape.point, Shape.circle(r: 3.0)]
+            var total = 0.0
+            for s in shapes {
+                if s.circle != nil { total = total + s.circle }
+            }
+            total
+            """) == .double(4.0))
+    }
+
+    @Test("non-case members still behave: unknown errors, builtins reachable")
+    func boundaries() throws {
+        #expect(throws: SwiftalkError.self) { try eval("\(shape)\nShape.point.triangle") }
+        #expect(try eval("\(shape)\nShape.point.Type == Shape") == .bool(true))
+        #expect(try eval("\(shape)\nShape.circle(r: 1.0).String()") == .string("Shape.circle(r: 1.0)"))
+    }
+}

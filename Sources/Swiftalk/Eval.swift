@@ -1006,6 +1006,19 @@ private func method(on receiver: Value, name: String,
        et.cases[name] != nil {
         return try constructEnumCase(et, name, args: labeledArgs, called: called)
     }
+    // Case accessors (round 46) — the endless `if case .name(let v)`
+    // ceremony, dissolved: value.casename extracts the associated
+    // value(s) when the value IS that case, nil otherwise. One payload
+    // comes bare, several come as an Array, none returns the case
+    // value itself (so `s.point != nil` asks "is it .point?").
+    if case .enumCase(let ev) = receiver, !called, ev.type.cases[name] != nil {
+        guard ev.caseName == name else { return .nil }
+        switch ev.associated.count {
+        case 0:  return receiver
+        case 1:  return ev.associated[0]
+        default: return .array(ev.associated)
+        }
+    }
     // .String(radix: n) — bare digits in any radix (round 20).
     if (name, called) == ("String", true),
        labeledArgs.count == 1, labeledArgs[0].label == "radix" {

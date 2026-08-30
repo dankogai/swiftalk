@@ -1149,3 +1149,12 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   (currently loop-`break`, diverging from Swift), switch-as-
   expression, methods on enums (with user types), `Primitives` as a
   real declared enum, `indirect` enums.
+* **2026-08-30, round 46a — case accessors: `.casename` by default.**
+  Every enum value answers every of its type's case names — the
+  associated value when it *is* that case, **`nil`** otherwise —
+  dissolving the endless `if case .casename(let v)` ceremony (the
+  piece Swift itself is missing; cf. the CasePaths libraries built to
+  fake it). One payload comes bare (`s.circle` → `3.0`), several come
+  as an `Array` (`s.rect` → `[w, h]` — tuples TBD), a payload-less
+  case answers with itself (`s.point != nil` asks "is it `.point`?").
+  Flat-optional in spirit: absence is `nil`, presence is the value.
