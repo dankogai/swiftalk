@@ -564,9 +564,35 @@ wholesale: value types by default, classes when identity matters.
 
 **swiftalk's first reference type arrived as the `actor`, not the
 `class`** (round 54, §12): state that is *shared* must be an actor —
-serialized by construction; state that isn't stays a value. `class`
-remains OPEN, and may stay a smaller step (an actor minus the
-serialization?) whenever it lands.
+serialized by construction; state that isn't stays a value.
+
+**`class` — DECIDED and implemented (round 55): the open reference,
+and indeed the smaller step** — an actor minus the serialization and
+minus the isolation, plus **single inheritance**. `class Dog: Animal`
+merges the superclass's properties (shadowing is an error), resolves
+methods up the chain at call time (override = redeclare; **dynamic
+dispatch**: a superclass method calling `.speak()` gets the
+subclass's override), and satisfies annotations up the chain (`let
+pet: Animal = Dog(...)`). No `super` yet (OPEN), no init inheritance.
+Everything else is round 54's reference machinery verbatim: aliasing,
+identity equality, in-place mutation stopping the COW write-back,
+memberwise/multi-dispatch init, implicit self, extensions (one on a
+superclass reaches every subclass), the `Name { prop: v }` echo —
+which, now that cycles are constructible, elides re-visited
+references (`N { next: N { ... } }`) instead of recursing forever.
+
+*When do you actually need it?* Rarely — and that's the design. If
+state is shared across tasks: `actor`. If it isn't shared: `struct`.
+`class` earns its place exactly where neither fits: **object graphs
+values cannot express** — cycles and shared nodes (a tree with parent
+pointers, a doubly-linked anything, an observer registry, a cache
+whose entries alias) — when you want *identity without concurrency
+semantics*: no baton, no isolation, callable even where no scheduler
+context exists (inside a §2.4 coroutine body, where actor calls
+error). And inheritance, for when a hierarchy genuinely is one. The
+cost is the classic one, demonstrated in the test suite: the round-54
+lost update returns the moment the shared state is a class. Classes
+give identity; actors give safety; pick on purpose.
 
 ## 5. Implementation — LEANING (goal DECIDED)
 
@@ -1499,3 +1525,31 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   `Counter { count: 1 }` — informative placeholder; identity never
   round-trips. OPEN: actor calls inside coroutine bodies,
   nonisolated escape hatches, `class`.
+* **2026-08-31, round 55 — `class` implemented** ("Let's implement
+  `class`. But do we really need it?" — answered honestly in §4, and
+  implemented regardless, as asked). **Mostly no — and that's the
+  design**: struct for unshared state, actor for shared; `class`
+  earns its keep exactly where neither fits — object graphs values
+  cannot express (cycles, shared nodes: parent pointers, linked
+  structures, observers, caches) when you want *identity without
+  concurrency semantics*, plus inheritance when a hierarchy genuinely
+  is one. Implementation confirms round 54's musing: **class IS the
+  smaller step** — one `serialized` flag on the reference-type
+  machinery (false: no baton, no isolation, works inside coroutine
+  bodies where actors error), plus what's genuinely new: **single
+  inheritance** — `class Dog: Animal`, properties merged at
+  declaration (shadowing errors), methods resolved up the chain at
+  call time giving real **dynamic dispatch** (Animal's `intro` calls
+  `.speak()`, gets Dog's override — "Rex says woof"), subtype-aware
+  type locks (`let pet: Animal = Dog()`; the lock check walks the
+  chain), and superclass extensions reaching subclasses. `super`
+  calls and init inheritance are OPEN; a class inherits only from a
+  class. One crash found and fixed in the same round: cyclic
+  references (`a.next = b; b.next = a`) sent the recursive
+  `sourceString` printer into a stack overflow — the printer now
+  threads a visited set and elides re-visited references
+  (`N { next: N { ... } }`); cycles are precisely what class made
+  newly possible, so the printer had to learn about them the same
+  day. The honest cost, in the test suite: the round-54 lost update
+  returns the moment shared state is a class — classes give
+  identity, actors give safety, pick on purpose.

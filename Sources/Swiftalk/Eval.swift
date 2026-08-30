@@ -223,11 +223,26 @@ final class Environment {
             }
             return
         }
-        guard value.typeName == lock.name else {
+        guard typeMatches(value, lock.name) else {
             throw SwiftalkError.type(
                 "cannot assign \(value.typeName) to '\(name)' of type \(lock.name)\(lock.optional ? "?" : "")")
         }
     }
+}
+
+/// Does `value` satisfy a lock naming `lockName`? Exact type name — or,
+/// for a class instance (round 55), any superclass up the chain: a Dog
+/// IS an Animal, so `let a: Animal = Dog()` holds.
+func typeMatches(_ value: Value, _ lockName: String) -> Bool {
+    if value.typeName == lockName { return true }
+    if case .actor(let obj) = value {
+        var walker = obj.type.superType
+        while let current = walker {
+            if current.name == lockName { return true }
+            walker = current.superType
+        }
+    }
+    return false
 }
 
 private let knownTypeNames: Set<String> =
@@ -429,6 +444,49 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             lock: TypeAnnotation(name: "Function", optional: false),
             value: .function(actorConstructor)))
         return .function(actorConstructor)
+    case .classDecl(let name, let superName, let propertyOrder, let properties,
+                    let methodExprs, let initExprs):
+        // Round 55: the open reference — an actor minus serialization
+        // and isolation, plus single inheritance. Properties merge at
+        // declaration (superclass's first, shadowing is an error);
+        // methods resolve up the chain at call time (override =
+        // redeclare; `super` is OPEN).
+        var superType: ActorType? = nil
+        if let superName {
+            guard let value = try? env.lookup(superName), case .function(let f) = value,
+                  case .actorType(let sup) = f.role, !sup.serialized else {
+                throw SwiftalkError.type(
+                    "a class inherits only from a class — '\(superName)' is not one")
+            }
+            superType = sup
+        }
+        var mergedOrder = superType?.propertyOrder ?? []
+        var mergedProps = superType?.properties ?? [:]
+        for prop in propertyOrder {
+            guard mergedProps[prop] == nil else {
+                throw SwiftalkError.type(
+                    "\(name).\(prop) shadows an inherited property")
+            }
+            mergedOrder.append(prop)
+            mergedProps[prop] = properties[prop]
+        }
+        let ct = ActorType(name: name, propertyOrder: mergedOrder,
+                           properties: mergedProps, declEnv: env,
+                           serialized: false, superType: superType)
+        ct.methods = makeMethods(methodExprs, in: env)
+        ct.inits = initExprs.compactMap {
+            guard case .function(let params, let body) = $0 else { return nil }
+            return FunctionObject(parameters: params, body: body, closure: env)
+        }
+        let classConstructor = FunctionObject(
+            parameters: [], body: [], closure: env, builtin: nil,
+            role: .actorType(ct))
+        ct.constructor = classConstructor
+        try env.declare(name, Binding(
+            mutable: false,
+            lock: TypeAnnotation(name: "Function", optional: false),
+            value: .function(classConstructor)))
+        return .function(classConstructor)
     case .extensionDecl(let typeName, let methodExprs):
         let fns = makeMethods(methodExprs, in: env)
         guard let value = try? env.lookup(typeName), case .function(let f) = value else {
@@ -889,9 +947,10 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
         let receiver = try evaluate(receiverExpr, in: env)
         let evaluated = try args.map { ($0.label, try evaluate($0.expr, in: env)) }
         if called {
-            // Actor methods (round 54): serialized, self bound to the
-            // reference — mutation is in place, so no write-back dance.
-            if case .actor(let obj) = receiver, let m = obj.type.methods[name] {
+            // Reference-type methods (rounds 54–55): self bound to the
+            // reference — mutation is in place, so no write-back dance;
+            // actors serialize, classes dispatch up the chain.
+            if case .actor(let obj) = receiver, let m = obj.type.lookupMethod(name) {
                 return try callActorMethod(obj, m, args: evaluated)
             }
             // Builtin Array mutator (round 49): a.append(x) — the family
@@ -1319,6 +1378,12 @@ func constructActor(_ at: ActorType,
 /// divergence from Swift); a circular wait becomes a deadlock error.
 func callActorMethod(_ obj: ActorObject, _ method: FunctionObject,
                      args: [(label: String?, value: Value)]) throws -> Value {
+    // A class method (round 55) is just a call: no baton, no queue —
+    // which also means classes work fine inside coroutine bodies.
+    guard obj.type.serialized else {
+        let (bound, _) = try boundMethod(method, self: .actor(obj))
+        return try apply(bound, args: args)
+    }
     guard let ctx = Scheduler.current else {
         throw SwiftalkError.type(
             "actor methods need a task or top-level context — not (yet) inside a Sequence coroutine body")
@@ -1342,9 +1407,13 @@ func actorRead(_ obj: ActorObject, _ name: String) throws -> Value {
 /// mutate; the property's var/let and type lock still govern, as ever.
 func actorWrite(_ obj: ActorObject, _ name: String, _ newValue: Value,
                 in env: Environment) throws {
-    guard case .actor(let selfObj)? = try? env.lookup("self"), selfObj === obj else {
-        throw SwiftalkError.type(
-            "an actor's state is mutated only by its own methods — \(obj.type.name).\(name) is isolated")
+    // Isolation is the actor's (round 54); a class (round 55) is the
+    // open reference — anyone may write, var/let still governing.
+    if obj.type.serialized {
+        guard case .actor(let selfObj)? = try? env.lookup("self"), selfObj === obj else {
+            throw SwiftalkError.type(
+                "an actor's state is mutated only by its own methods — \(obj.type.name).\(name) is isolated")
+        }
     }
     guard let def = obj.type.properties[name], let current = obj.storage[name] else {
         throw SwiftalkError.unknownMember("\(obj.type.name).\(name)")
@@ -1370,7 +1439,7 @@ func checkValue(_ value: Value, against lock: TypeAnnotation, context: String) t
         }
         return
     }
-    guard value.typeName == lock.name else {
+    guard typeMatches(value, lock.name) else {
         throw SwiftalkError.type(
             "cannot assign \(value.typeName) to \(context) of type \(lock.name)\(lock.optional ? "?" : "")")
     }
@@ -1825,7 +1894,7 @@ private func method(on receiver: Value, name: String,
     // Actor methods: called (the ?. path lands here) — serialized; an
     // uncalled extraction gets a wrapper so serialization survives the
     // trip (`let f = a.inc; f()` still queues like a direct call).
-    if case .actor(let obj) = receiver, let m = obj.type.methods[name] {
+    if case .actor(let obj) = receiver, let m = obj.type.lookupMethod(name) {
         if called { return try callActorMethod(obj, m, args: labeledArgs) }
         return .function(FunctionObject(
             parameters: m.parameters, body: [], closure: Builtins.emptyEnvironment,

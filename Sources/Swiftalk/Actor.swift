@@ -9,24 +9,44 @@
 /// call held to the end (round 54's anti-reentrancy divergence from
 /// Swift), calls colorless like everything else.
 extension Swiftalk {
-    /// The declared type: `actor Name { ... }` — properties, methods,
-    /// and multi-dispatch inits, exactly a struct's shape (round 46/48
-    /// machinery reused); the difference is what instances ARE.
+    /// The declared type behind BOTH reference kinds: `actor Name {}`
+    /// (round 54, `serialized`) and `class Name {}` (round 55, not) —
+    /// properties, methods, and multi-dispatch inits, exactly a
+    /// struct's shape (round 46/48 machinery reused); the difference
+    /// is what instances ARE, and whether calls take the baton.
     public final class ActorType: Hashable {
         let name: String
         let propertyOrder: [String]
         let properties: [String: StructType.Property]
         let declEnv: Environment
+        /// true = actor (serialized calls, isolated writes);
+        /// false = class (open reference — no serialization, no
+        /// isolation, and single inheritance).
+        let serialized: Bool
+        /// A class's superclass (round 55): properties are merged at
+        /// declaration; methods resolve up this chain (override =
+        /// redeclare). Always nil for actors and root classes.
+        let superType: ActorType?
         var constructor: FunctionObject? = nil
         var methods: [String: FunctionObject] = [:]
         var inits: [FunctionObject] = []
 
         init(name: String, propertyOrder: [String],
-             properties: [String: StructType.Property], declEnv: Environment) {
+             properties: [String: StructType.Property], declEnv: Environment,
+             serialized: Bool = true, superType: ActorType? = nil) {
             self.name = name
             self.propertyOrder = propertyOrder
             self.properties = properties
             self.declEnv = declEnv
+            self.serialized = serialized
+            self.superType = superType
+        }
+
+        /// Dynamic dispatch, the whole of it: own methods first, then
+        /// up the superclass chain — so an override shadows and a
+        /// later `extension` on a superclass reaches every subclass.
+        func lookupMethod(_ name: String) -> FunctionObject? {
+            methods[name] ?? superType?.lookupMethod(name)
         }
 
         public static func == (lhs: ActorType, rhs: ActorType) -> Bool {
@@ -37,12 +57,14 @@ extension Swiftalk {
         }
     }
 
-    /// An instance: a reference — `let b = a` aliases, equality is
-    /// identity, and mutation through one name is visible through all.
+    /// An instance of either reference kind: a reference — `let b = a`
+    /// aliases, equality is identity, and mutation through one name is
+    /// visible through all.
     public final class ActorObject: Hashable {
         let type: ActorType
-        /// The isolated state. Reads are open (atomic under the baton);
-        /// writes happen only inside the actor's own methods (round 54).
+        /// The state. For an actor: reads open (atomic under the
+        /// baton), writes only inside its own methods (round 54). For
+        /// a class: open both ways — the untamed reference (round 55).
         var storage: [String: Value]
 
         /// Serialization state — guarded by the scheduler's mutex.

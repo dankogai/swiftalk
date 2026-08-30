@@ -74,6 +74,9 @@ enum Stmt {
     case actorDecl(name: String, propertyOrder: [String],
                    properties: [String: Swiftalk.StructType.Property],
                    methods: [String: Expr], inits: [Expr])
+    case classDecl(name: String, superName: String?, propertyOrder: [String],
+                   properties: [String: Swiftalk.StructType.Property],
+                   methods: [String: Expr], inits: [Expr])
     case extensionDecl(typeName: String, methods: [String: Expr])
     case switchS(subject: Expr,
                  clauses: [(patterns: [Pattern], body: [Stmt])],
@@ -84,7 +87,7 @@ private let keywords: Set<String> = [
     "let", "var", "true", "false", "nil", "in",
     "if", "else", "while", "repeat", "for", "break", "continue", "return", "yield",
     "async", "await",
-    "enum", "case", "switch", "default", "struct", "extension", "actor",
+    "enum", "case", "switch", "default", "struct", "extension", "actor", "class",
 ]
 
 struct Parser {
@@ -203,6 +206,10 @@ struct Parser {
             // Same body grammar as a struct (round 54) — the difference
             // is what instances ARE: references, serialized.
             return try parseStruct(kind: "actor")
+        case .identifier("class"):
+            // Round 55: the open reference — a struct's grammar plus
+            // `class Dog: Animal` single inheritance.
+            return try parseStruct(kind: "class")
         case .identifier("extension"):
             return try parseExtension()
         case .identifier("switch"):
@@ -378,6 +385,15 @@ struct Parser {
               !keywords.contains(name), !name.hasPrefix("$") else {
             throw SwiftalkError.syntax("expected a name after '\(kind)'")
         }
+        var superName: String? = nil
+        if kind == "class", case .punct(":")? = peek {
+            pos += 1
+            guard case .identifier(let sup)? = advance(),
+                  !keywords.contains(sup), !sup.hasPrefix("$") else {
+                throw SwiftalkError.syntax("expected a superclass name after ':'")
+            }
+            superName = sup
+        }
         try expect("{")
         var propertyOrder: [String] = []
         var properties: [String: Swiftalk.StructType.Property] = [:]
@@ -448,11 +464,17 @@ struct Parser {
             skipSeparators()
         }
         try expect("}")
-        return kind == "actor"
-            ? .actorDecl(name: name, propertyOrder: propertyOrder, properties: properties,
-                         methods: methods, inits: inits)
-            : .structDecl(name: name, propertyOrder: propertyOrder, properties: properties,
-                          methods: methods, inits: inits)
+        switch kind {
+        case "actor":
+            return .actorDecl(name: name, propertyOrder: propertyOrder, properties: properties,
+                              methods: methods, inits: inits)
+        case "class":
+            return .classDecl(name: name, superName: superName, propertyOrder: propertyOrder,
+                              properties: properties, methods: methods, inits: inits)
+        default:
+            return .structDecl(name: name, propertyOrder: propertyOrder, properties: properties,
+                               methods: methods, inits: inits)
+        }
     }
 
     /// `extension Name { let m = { ... } }` (§10, rounds 49–50):

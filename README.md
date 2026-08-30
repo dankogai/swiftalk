@@ -444,6 +444,46 @@ swiftalk> g                       // ...loses an update — why actors exist
 1
 ```
 
+**`class`** is in — the open reference (an actor minus serialization
+and isolation), with **single inheritance** and dynamic dispatch. Its
+reason to exist: object graphs values can't express —
+
+```text
+swiftalk> class Node {
+........ var value = 0
+........ var next: Node? = nil
+........ }
+Node
+swiftalk> let a = Node(value: 1)
+Node { value: 1, next: nil }
+swiftalk> let b = Node(value: 2)
+Node { value: 2, next: nil }
+swiftalk> a.next = b
+Node { value: 2, next: nil }
+swiftalk> b.next = a              // a cycle — impossible with COW values
+Node { value: 1, next: Node { value: 2, next: Node { ... } } }
+swiftalk> a.next.next == a
+true
+swiftalk> class Animal {
+........ var name = "?"
+........ let speak = { "..." }
+........ let intro = { "\(.name) says \(.speak())" }
+........ }
+Animal
+swiftalk> class Dog: Animal { let speak = { "woof" } }
+Dog
+swiftalk> Dog(name: "Rex").intro()    // dynamic dispatch, for real
+"Rex says woof"
+swiftalk> let pet: Animal = Dog(name: "Rex")
+Dog { name: "Rex" }
+```
+
+When to use which: unshared state → `struct`; shared across tasks →
+`actor`; identity without concurrency semantics (cycles, shared
+nodes, hierarchies) → `class`. The test suite shows the round-54 lost
+update returning the moment shared state is a class — classes give
+identity, actors give safety.
+
 ```sh
 swift test
 ```

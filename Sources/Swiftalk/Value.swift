@@ -254,6 +254,14 @@ extension Value {
     /// as `0xff`, Double as hex-float `0x1.fep7` — for the programmer's
     /// sake, recursively through collections.
     public func sourceString(debug: Bool = false) -> String {
+        sourceString(debug: debug, seen: [])
+    }
+
+    /// The worker: `seen` carries the reference objects already being
+    /// printed on this path, so a cyclic graph (possible since round
+    /// 55's class references — a.next = b; b.next = a) elides instead
+    /// of recursing forever.
+    private func sourceString(debug: Bool, seen: Set<ObjectIdentifier>) -> String {
         switch self {
         case .nil:
             return "nil"
@@ -269,7 +277,7 @@ extension Value {
         case .string(let s):
             return Value.quote(s)
         case .array(let a):
-            return "[" + a.map { $0.sourceString(debug: debug) }.joined(separator: ", ") + "]"
+            return "[" + a.map { $0.sourceString(debug: debug, seen: seen) }.joined(separator: ", ") + "]"
         case .function(let f):
             // A type or protocol prints as its name — which round-trips,
             // since eval("Int") is the very same value (round 39).
@@ -292,9 +300,9 @@ extension Value {
             }
         case .range(let lower, let upper, let closed):
             // Literal syntax — round-trips through the lexer (§3d).
-            return Value.int(lower).sourceString(debug: debug)
+            return Value.int(lower).sourceString(debug: debug, seen: seen)
                 + (closed ? "..." : "..<")
-                + Value.int(upper).sourceString(debug: debug)
+                + Value.int(upper).sourceString(debug: debug, seen: seen)
         case .sequence:
             // Lazy and possibly infinite — a placeholder, like plain
             // Functions (source text is OPEN, §3d).
@@ -306,24 +314,31 @@ extension Value {
             // A reference: identity can never round-trip (a re-entered
             // spelling would be a NEW actor), so a placeholder in the
             // Function family — but an informative one, showing state.
+            // A reference already on this print path elides — a cycle
+            // must not print forever.
+            guard !seen.contains(ObjectIdentifier(obj)) else {
+                return "\(obj.type.name) { ... }"
+            }
+            var seen = seen
+            seen.insert(ObjectIdentifier(obj))
             let props = obj.type.propertyOrder.map {
-                "\($0): \((obj.storage[$0] ?? .nil).sourceString(debug: debug))"
+                "\($0): \((obj.storage[$0] ?? .nil).sourceString(debug: debug, seen: seen))"
             }.joined(separator: ", ")
             return props.isEmpty ? "\(obj.type.name) { }" : "\(obj.type.name) { \(props) }"
         case .data(let bytes):
             // Constructor source form — round-trips (SION's base64
             // spelling is OPEN).
             return "Data([" + bytes.map {
-                Value.int(Int64($0)).sourceString(debug: debug)
+                Value.int(Int64($0)).sourceString(debug: debug, seen: seen)
             }.joined(separator: ", ") + "])"
         case .date(let epoch):
             // SION's own spelling — .Date(epoch); hex-float under debug,
             // exactly as SION serializes dates.
-            return ".Date(\(Value.double(epoch).sourceString(debug: debug)))"
+            return ".Date(\(Value.double(epoch).sourceString(debug: debug, seen: seen)))"
         case .structValue(let sv):
             // Memberwise source form — round-trips wherever declared.
             return sv.type.name + "(" + sv.type.propertyOrder.map { prop in
-                "\(prop): \((sv.values[prop] ?? .nil).sourceString(debug: debug))"
+                "\(prop): \((sv.values[prop] ?? .nil).sourceString(debug: debug, seen: seen))"
             }.joined(separator: ", ") + ")"
         case .enumCase(let ev):
             // Source form — round-trips wherever the enum is declared.
@@ -331,7 +346,7 @@ extension Value {
             if !ev.associated.isEmpty {
                 let params = ev.type.cases[ev.caseName] ?? []
                 out += "(" + zip(params, ev.associated).map { param, value in
-                    let v = value.sourceString(debug: debug)
+                    let v = value.sourceString(debug: debug, seen: seen)
                     return param.label.map { "\($0): \(v)" } ?? v
                 }.joined(separator: ", ") + ")"
             }
@@ -340,7 +355,7 @@ extension Value {
             if d.isEmpty { return "[:]" }
             // Deterministic output: order entries by their key's source form.
             let body = d
-                .map { (key: $0.key.sourceString(debug: debug), value: $0.value.sourceString(debug: debug)) }
+                .map { (key: $0.key.sourceString(debug: debug, seen: seen), value: $0.value.sourceString(debug: debug, seen: seen)) }
                 .sorted { $0.key < $1.key }
                 .map { "\($0.key): \($0.value)" }
                 .joined(separator: ", ")
