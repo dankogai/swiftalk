@@ -473,10 +473,18 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
         let ct = ActorType(name: name, propertyOrder: mergedOrder,
                            properties: mergedProps, declEnv: env,
                            serialized: false, superType: superType)
-        ct.methods = makeMethods(methodExprs, in: env)
+        // `super` resolves from the class that DECLARED the running
+        // method, not from self's dynamic type (round 56) — so the
+        // declaring class's superclass is a hidden *lexical* binding
+        // in the methods' closure chain (the `@callee` trick again).
+        // Bound even when nil, so a nested class never inherits an
+        // outer class's `@superclass` by accident.
+        let classEnv = Environment(parent: env)
+        try classEnv.declare("@superclass", superclassBinding(superType))
+        ct.methods = makeMethods(methodExprs, in: classEnv)
         ct.inits = initExprs.compactMap {
             guard case .function(let params, let body) = $0 else { return nil }
-            return FunctionObject(parameters: params, body: body, closure: env)
+            return FunctionObject(parameters: params, body: body, closure: classEnv)
         }
         let classConstructor = FunctionObject(
             parameters: [], body: [], closure: env, builtin: nil,
@@ -508,7 +516,16 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
                 et.methods[name] = fn
             }
         case .actorType(let at):
-            for (name, fn) in fns {
+            // A class extension's methods may use `super` (round 56):
+            // give them the same lexical @superclass their in-body
+            // siblings get. (Actors have none — super errors there.)
+            var extFns = fns
+            if !at.serialized {
+                let extEnv = Environment(parent: env)
+                try extEnv.declare("@superclass", superclassBinding(at.superType))
+                extFns = makeMethods(methodExprs, in: extEnv)
+            }
+            for (name, fn) in extFns {
                 guard at.properties[name] == nil, at.methods[name] == nil else {
                     throw SwiftalkError.type("\(typeName) already has a member '\(name)'")
                 }
@@ -944,6 +961,14 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
         try assign(target, .dictionary(d), in: env)
         return removed
     case .method(let receiverExpr, let name, let args, let called):
+        // super.method(...) (round 56): not a value's member — a
+        // lookup pinned to the declaring class's superclass.
+        if case .superRef = receiverExpr {
+            return try superDispatch(
+                name: name,
+                args: try args.map { ($0.label, try evaluate($0.expr, in: env)) },
+                called: called, env: env)
+        }
         let receiver = try evaluate(receiverExpr, in: env)
         let evaluated = try args.map { ($0.label, try evaluate($0.expr, in: env)) }
         if called {
@@ -1007,6 +1032,8 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
             throw SwiftalkError.type("range lower bound \(a) exceeds upper bound \(b)")
         }
         return .range(from: a, to: b, closed: op == "...")
+    case .superRef:
+        throw SwiftalkError.type("'super' is not a value — call super.method(...)")
     case .memberLiteral(let name):
         // Implicit self first (round 49): inside a type body, `.value`
         // means `self.value`. Otherwise a format member (.quoted, .hex,
@@ -1392,6 +1419,57 @@ func callActorMethod(_ obj: ActorObject, _ method: FunctionObject,
     defer { ctx.scheduler.release(obj, from: ctx) }
     let (bound, _) = try boundMethod(method, self: .actor(obj))
     return try apply(bound, args: args)
+}
+
+/// The hidden lexical binding through which `super` finds the
+/// declaring class's superclass (round 56). Bound to nil for a root
+/// class, so `super` there says so instead of finding an outer one.
+func superclassBinding(_ superType: ActorType?) -> Binding {
+    Binding(mutable: false,
+            lock: TypeAnnotation(name: superType == nil ? "Nil" : "Function",
+                                 optional: superType == nil),
+            value: superType.map { .function($0.constructor!) } ?? .nil)
+}
+
+/// `super.name(...)` (round 56) — class-only, by construction: super
+/// goes where OVERRIDE goes, override exists only where inheritance
+/// does, and inheritance is class-only (§4). The lookup starts at the
+/// *declaring* class's superclass (the lexical `@superclass`), never
+/// at self's dynamic type — a three-level chain must not loop. `self`
+/// stays dynamic inside the super-dispatched body, as in Swift.
+private func superDispatch(name: String, args: [(label: String?, value: Value)],
+                           called: Bool, env: Environment) throws -> Value {
+    guard case .actor(let obj)? = try? env.lookup("self"),
+          let marker = try? env.lookup("@superclass") else {
+        throw SwiftalkError.type("'super' works inside a class method")
+    }
+    guard case .function(let f) = marker, case .actorType(let sup) = f.role else {
+        throw SwiftalkError.type(
+            "\(obj.type.name) has no superclass — 'super' has nothing to reach")
+    }
+    if name == "init" {
+        // super.init(...) runs a DECLARED superclass init on self —
+        // multi-dispatch, round-48 style. (No declared init to reach:
+        // memberwise initialization already ran before yours did.)
+        guard called else {
+            throw SwiftalkError.type("super.init is called: super.init(...)")
+        }
+        for initFn in sup.inits where initMatches(initFn.parameters, args) {
+            let (bound, _) = try boundMethod(initFn, self: .actor(obj))
+            return try apply(bound, args: args)
+        }
+        throw SwiftalkError.type(
+            "\(sup.name) declares no init matching these arguments — properties are memberwise-prefilled; assign self.… directly")
+    }
+    guard let m = sup.lookupMethod(name) else {
+        if sup.properties[name] != nil {
+            throw SwiftalkError.type(
+                "'super' reaches methods — properties are never overridden; read self.\(name)")
+        }
+        throw SwiftalkError.unknownMember("\(sup.name).\(name)")
+    }
+    let (bound, _) = try boundMethod(m, self: .actor(obj))
+    return called ? try apply(bound, args: args) : .function(bound)
 }
 
 /// Reads an actor property — open to everyone (atomic under the baton).

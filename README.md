@@ -484,6 +484,36 @@ nodes, hierarchies) → `class`. The test suite shows the round-54 lost
 update returning the moment shared state is a class — classes give
 identity, actors give safety.
 
+**`super`** is in — class-only *by construction* (super goes where
+override goes; override exists only where inheritance does; only
+classes inherit). It resolves from the **declaring** class, so chains
+never loop — while `self` stays dynamic inside, as in Swift:
+
+```text
+swiftalk> class A { let who = { "A" } }
+A
+swiftalk> class B: A { let who = { "B>" + super.who() } }
+B
+swiftalk> class C: B { let who = { "C>" + super.who() } }
+C
+swiftalk> C().who()
+"C>B>A"
+swiftalk> class P {
+........ var x: Int = 0
+........ init { v in self.x = v }
+........ }
+P
+swiftalk> class Q: P {
+........ var y: Int = 0
+........ init { v in super.init(v)
+........ self.y = v * 2
+........ }
+........ }
+Q
+swiftalk> Q(21)
+Q { x: 21, y: 42 }
+```
+
 ```sh
 swift test
 ```

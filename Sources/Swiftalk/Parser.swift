@@ -20,6 +20,7 @@ indirect enum Expr {
     case propagate(Expr)                                  // x? — unwrap or early-return (§3a/§8)
     case forceUnwrap(Expr)                                // x! — unwrap or trap
     case awaitE(Expr)                                     // await t — join a Task (§12)
+    case superRef                                         // super — receiver position only (round 56)
     case coalesce(Expr, Expr)                             // a ?? b — default on nil/failure
     case optionalMember(Expr, name: String,               // a?.b / a?.b(args) — nil skips
                         args: [(label: String?, expr: Expr)], called: Bool)
@@ -87,7 +88,7 @@ private let keywords: Set<String> = [
     "let", "var", "true", "false", "nil", "in",
     "if", "else", "while", "repeat", "for", "break", "continue", "return", "yield",
     "async", "await",
-    "enum", "case", "switch", "default", "struct", "extension", "actor", "class",
+    "enum", "case", "switch", "default", "struct", "extension", "actor", "class", "super",
 ]
 
 struct Parser {
@@ -834,6 +835,10 @@ struct Parser {
         case .identifier("true"):  return .literal(.bool(true))
         case .identifier("false"): return .literal(.bool(false))
         case .identifier("nil"):   return .literal(.nil)
+        case .identifier("super"):
+            // A receiver, not a value (round 56): postfix builds
+            // super.method(...) from here; a bare `super` errors at eval.
+            return .superRef
         case .identifier("async"):
             // `async { ... }` is sugar for `Task { ... }` (round 53):
             // the word survives at the spawn site, not as a function

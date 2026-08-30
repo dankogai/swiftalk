@@ -573,7 +573,26 @@ merges the superclass's properties (shadowing is an error), resolves
 methods up the chain at call time (override = redeclare; **dynamic
 dispatch**: a superclass method calling `.speak()` gets the
 subclass's override), and satisfies annotations up the chain (`let
-pet: Animal = Dog(...)`). No `super` yet (OPEN), no init inheritance.
+pet: Animal = Dog(...)`). No init inheritance.
+
+**`super` — DECIDED and implemented (round 56), class-only by
+construction**: `super` goes wherever *override* goes; override
+exists only where inheritance does; inheritance is class-only (actors
+deliberately don't inherit, values have no hierarchy, extensions
+can't override — there is never a covered-up method anywhere else).
+`super.m(...)` calls the implementation the override covered;
+`super.init(...)` runs a *declared* superclass init on self
+(multi-dispatch; with none declared it errors — memberwise prefill
+already ran). Resolution starts at the **declaring** class's
+superclass — a hidden lexical `@superclass` binding in each class's
+method-closure chain (the `@callee` trick) — never at self's dynamic
+type, so a three-level chain (`C().who()` → `"C>B>A"`) cannot loop;
+and `self` stays dynamic inside the super-dispatched body, as in
+Swift. Class extensions get the binding too, so their methods may use
+`super`; a class nested in another class's method does NOT inherit
+the outer `@superclass` (bound-to-nil sentinel). `super.prop` is a
+guided error — properties are never overridden; bare `super` is not
+a value.
 Everything else is round 54's reference machinery verbatim: aliasing,
 identity equality, in-place mutation stopping the COW write-back,
 memberwise/multi-dispatch init, implicit self, extensions (one on a
@@ -1553,3 +1572,27 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   day. The honest cost, in the test suite: the round-54 lost update
   returns the moment shared state is a class — classes give
   identity, actors give safety, pick on purpose.
+* **2026-08-31, round 56 — `super` implemented** ("Let's implement
+  `super`. But hey, is that `class` only?"). **Yes — and by
+  construction, not by fiat**: `super` is the companion of
+  *override*; override exists only where inheritance does;
+  inheritance is class-only (§4) — actors deliberately don't inherit
+  (as shipped Swift's don't), values have no hierarchy, and
+  extensions can't override, so nowhere else is there a covered-up
+  method to reach. Surface: `super.m(...)` and `super.init(...)`
+  (declared superclass inits, multi-dispatch; none declared → guided
+  error, since memberwise prefill already ran). The load-bearing
+  subtlety: **resolution starts at the *declaring* class's
+  superclass, never self's dynamic type** — else `C: B: A` with
+  chained `super.who()` loops on a C instance. Implemented lexically:
+  a hidden `@superclass` binding (the `@callee` trick) in each
+  class's method-closure environment — methods, inits, and class
+  *extensions* alike — bound to a nil sentinel in root classes so a
+  class nested inside another class's method can't inherit the outer
+  binding by accident. `self` stays dynamic inside a super-dispatched
+  body (Swift semantics): Dog's `intro` calling `super.intro()` runs
+  Animal's body, whose `.speak()` still finds Dog's override —
+  `"[dog] Rex says woof"`. Uncalled `super.m` extracts the bound
+  superclass implementation; `super.prop` errors with guidance
+  (properties are never overridden); bare `super` is not a value.
+  The marquee chain: `C().who()` → `"C>B>A"`.
