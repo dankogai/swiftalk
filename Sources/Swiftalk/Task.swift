@@ -264,6 +264,53 @@ final class Scheduler {
     }
 }
 
+// MARK: actor serialization (round 54)
+
+extension Scheduler {
+    /// Colorless actor entry: same context re-enters freely (self-calls
+    /// never self-deadlock); a foreign context parks until the current
+    /// call — held to the end, suspensions included — hands over.
+    func acquire(_ actor: ActorObject, from me: Context) throws {
+        pthread_mutex_lock(mutex)
+        defer { pthread_mutex_unlock(mutex) }
+        if actor.owner == nil || actor.owner === me {
+            actor.owner = me
+            actor.depth += 1
+            return
+        }
+        actor.waiters.append(me)
+        running = nil
+        do {
+            try waitUntilRunning(me)
+            // release() handed us ownership before readying us
+        } catch {
+            // deadlock or teardown: withdraw from the queue and let the
+            // error propagate (inside a task it fails the task, which
+            // wakes ITS awaiters — errors flow like any other)
+            actor.waiters.removeAll { $0 === me }
+            throw error
+        }
+    }
+
+    /// Actor exit: the outermost `defer`red release hands the actor to
+    /// the first waiter (readied; it runs when the baton next frees).
+    func release(_ actor: ActorObject, from me: Context) {
+        pthread_mutex_lock(mutex)
+        defer { pthread_mutex_unlock(mutex) }
+        guard actor.owner === me else { return }
+        actor.depth -= 1
+        guard actor.depth == 0 else { return }
+        if actor.waiters.isEmpty {
+            actor.owner = nil
+        } else {
+            let next = actor.waiters.removeFirst()
+            actor.owner = next
+            actor.depth = 1
+            ready.append(next)
+        }
+    }
+}
+
 /// Keeps the scheduler (and the context) alive for as long as the task
 /// thread lives — mutex and condvar must outlive every parked thread.
 private final class TaskThreadBox {

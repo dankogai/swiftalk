@@ -45,6 +45,9 @@ extension Swiftalk {
         /// A spawned concurrent computation (round 53, §12): what
         /// `Task { ... }` / `async { ... }` returns and `await` joins.
         case task(TaskObject)
+        /// An actor instance (round 54, §12): serialized mutable state,
+        /// and swiftalk's first REFERENCE type — `let b = a` aliases.
+        case actor(ActorObject)
     }
 
     /// A user-declared struct type (§4). Identity is its equality; the
@@ -178,6 +181,9 @@ extension Swiftalk {
             /// A user-declared struct type (round 46): calling it is the
             /// memberwise initializer.
             case structType(StructType)
+            /// A user-declared actor type (round 54): calling it
+            /// constructs an instance — a reference.
+            case actorType(ActorType)
         }
 
         let parameters: [String]      // empty means variadic (round 14)
@@ -214,6 +220,8 @@ typealias EnumCaseValue = Swiftalk.EnumCaseValue
 typealias StructType = Swiftalk.StructType
 typealias StructValue = Swiftalk.StructValue
 typealias TaskObject = Swiftalk.TaskObject
+typealias ActorType = Swiftalk.ActorType
+typealias ActorObject = Swiftalk.ActorObject
 
 extension Value {
     /// The swiftalk type name reported by `.type` (Design.md §3).
@@ -236,6 +244,7 @@ extension Value {
         case .data: return "Data"
         case .date: return "Date"
         case .task: return "Task"
+        case .actor(let obj): return obj.type.name
         }
     }
 
@@ -273,6 +282,8 @@ extension Value {
                 return et.name
             case .structType(let st):
                 return st.name
+            case .actorType(let at):
+                return at.name
             case .todo:
                 return ".todo"
             case .plain:
@@ -291,6 +302,14 @@ extension Value {
         case .task:
             // A live computation — a placeholder, like Functions.
             return "Task { ... }"
+        case .actor(let obj):
+            // A reference: identity can never round-trip (a re-entered
+            // spelling would be a NEW actor), so a placeholder in the
+            // Function family — but an informative one, showing state.
+            let props = obj.type.propertyOrder.map {
+                "\($0): \((obj.storage[$0] ?? .nil).sourceString(debug: debug))"
+            }.joined(separator: ", ")
+            return props.isEmpty ? "\(obj.type.name) { }" : "\(obj.type.name) { \(props) }"
         case .data(let bytes):
             // Constructor source form — round-trips (SION's base64
             // spelling is OPEN).

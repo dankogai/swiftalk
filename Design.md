@@ -562,6 +562,12 @@ consistent with the built-in collections), `class` (reference, with
 inheritance), plus `enum` (§7). The Swift mental model carries over
 wholesale: value types by default, classes when identity matters.
 
+**swiftalk's first reference type arrived as the `actor`, not the
+`class`** (round 54, §12): state that is *shared* must be an actor —
+serialized by construction; state that isn't stays a value. `class`
+remains OPEN, and may stay a smaller step (an actor minus the
+serialization?) whenever it lands.
+
 ## 5. Implementation — LEANING (goal DECIDED)
 
 * **The core implementation must be as small as possible — Lua is the
@@ -736,9 +742,51 @@ property of the *running context*, not of the function.
 green thread, a real pthread parked on a condvar; `await`/`sleep`/
 `Task{}` find the current context through a thread-local, which is
 what colorless costs. **OPEN**: `await` inside a §2.4 coroutine body
-(the two baton systems don't compose yet — it errors); actors or
-structured concurrency (task groups, cancellation as API); whether
-`Task` gets members like `.done`.)
+(the two baton systems don't compose yet — it errors); structured
+concurrency (task groups, cancellation as API); whether `Task` gets
+members like `.done`.)
+
+### Actors — DECIDED (round 54)
+
+**`actor Name { ... }` — serialized mutable state, and swiftalk's
+first REFERENCE type** (§4 amended: it arrived ahead of `class`).
+Even round 53's cooperative world has interleaving hazards — a task
+that reads-modifies-writes shared state across a suspension point can
+interleave with another task (the classic lost update). Actors remove
+them:
+
+* **The body grammar is a struct's** (rounds 46/48 machinery reused):
+  `var`/`let` properties with annotations and defaults, `let m = {}`
+  methods with implicit self, multi-dispatch `init { }`, memberwise
+  init last, `extension` works. The difference is what instances ARE.
+* **References**: `let b = a` aliases; equality is identity (like
+  Function); mutation is in place, visible through every name — a
+  `let`-bound actor mutates fine, since the *reference* never changes.
+* **Colorless calls**: `counter.inc()` reads like any call, from
+  anywhere; if the actor is busy the caller cooperatively parks until
+  its turn. No `await` at actor call sites — serialization, like
+  asynchrony, is a property of the running context, not the syntax.
+* **Isolation — reads open, writes sealed**: `a.count` reads from
+  anywhere (atomic under the baton); `a.count = 1` outside the
+  actor's own methods is an error ("mutated only by its own
+  methods"), including through paths (`a.list.append(x)`). Inside,
+  the properties' `var`/`let` still governs, round-50a style.
+* **Held to the end — a deliberate divergence from Swift**: a method
+  call owns the actor from entry to exit, *suspensions included* —
+  the state cannot be interleaved mid-method, the guarantee people
+  think actors give (Swift's reentrancy is a documented gotcha we
+  decline). Self-calls re-enter freely (an ownership depth count); a
+  circular wait is caught by round 53's deadlock detector and thrown,
+  not hung; an error inside a method releases on the way out.
+* Extracted methods keep the guarantee: `let f = a.inc; f()` runs
+  through a serializing wrapper, queueing like a direct call.
+* Echo form: `Counter { count: 1 }` — an informative placeholder in
+  the Function family (a reference's identity can never round-trip;
+  a re-entered spelling would be a *new* actor).
+
+(**OPEN**: actor methods inside a §2.4 coroutine body (no context
+there — errors, same as `await`); nonisolated escape hatches;
+`class`.)
 
 ## 13. Milestones
 
@@ -1418,3 +1466,36 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   "current context" that is all colorless costs. OPEN: `await`
   inside a coroutine body (the two batons don't compose yet); task
   groups/cancellation-as-API/actors; `Task` members like `.done`.
+* **2026-08-31, round 54 — actors implemented: swiftalk's first
+  REFERENCE type** ("Let's implement actors"), and §12 is OPEN no
+  more. Asked three questions, three recommendations taken:
+  **colorless calls** (`counter.inc()` from anywhere, cooperatively
+  parking when busy — no `await` at actor call sites, extending round
+  53's rule: serialization is a property of the running context, not
+  the syntax); **reads open, writes sealed** (`a.count` reads from
+  anywhere; `a.count = 1` outside the actor's own methods errors,
+  including through paths like `a.list.append(x)`; inside, var/let
+  still governs per round 50a); and **held to the end** — a method
+  call owns the actor from entry to exit, suspensions included, so
+  state cannot be interleaved mid-method: a deliberate divergence
+  from Swift, whose reentrancy-at-await is a documented gotcha
+  swiftalk declines. The premise stated and accepted silently: an
+  actor only means something *shared*, so actors arrive as the first
+  reference type, ahead of `class` (§4 amended — "value types by
+  default, actors when identity-plus-concurrency matters"). The body
+  grammar is a struct's verbatim (one `parseStruct(kind:)` serves
+  both; rounds 46/48/49/50 machinery — memberwise/multi-dispatch
+  init, implicit self, extensions — carries over wholesale), but
+  instances alias, equality is identity, and mutation is in place —
+  the COW write-back path stops at an actor boundary, so a
+  `let`-bound actor (or one inside a `let` collection) mutates fine.
+  Self-calls re-enter via a depth count; circular waits hit round
+  53's deadlock detector; method errors release on the way out;
+  extracted methods (`let f = a.inc`) get a serializing wrapper so
+  the guarantee survives extraction. The marquee pair: two tasks
+  doing read-`sleep`-write through an actor end at 2; the identical
+  pattern on a bare shared `var` ends at 1 — the lost update, live in
+  the test suite as the reason actors exist. Echo form
+  `Counter { count: 1 }` — informative placeholder; identity never
+  round-trips. OPEN: actor calls inside coroutine bodies,
+  nonisolated escape hatches, `class`.

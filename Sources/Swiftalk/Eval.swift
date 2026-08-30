@@ -410,6 +410,25 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             lock: TypeAnnotation(name: "Function", optional: false),
             value: .function(constructor)))
         return .function(constructor)
+    case .actorDecl(let name, let propertyOrder, let properties, let methodExprs, let initExprs):
+        // Round 54: same declaration machinery as a struct; instances
+        // are references, and method calls serialize.
+        let at = ActorType(name: name, propertyOrder: propertyOrder,
+                           properties: properties, declEnv: env)
+        at.methods = makeMethods(methodExprs, in: env)
+        at.inits = initExprs.compactMap {
+            guard case .function(let params, let body) = $0 else { return nil }
+            return FunctionObject(parameters: params, body: body, closure: env)
+        }
+        let actorConstructor = FunctionObject(
+            parameters: [], body: [], closure: env, builtin: nil,
+            role: .actorType(at))
+        at.constructor = actorConstructor
+        try env.declare(name, Binding(
+            mutable: false,
+            lock: TypeAnnotation(name: "Function", optional: false),
+            value: .function(actorConstructor)))
+        return .function(actorConstructor)
     case .extensionDecl(let typeName, let methodExprs):
         let fns = makeMethods(methodExprs, in: env)
         guard let value = try? env.lookup(typeName), case .function(let f) = value else {
@@ -429,6 +448,13 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
                     throw SwiftalkError.type("\(typeName) already has a member '\(name)'")
                 }
                 et.methods[name] = fn
+            }
+        case .actorType(let at):
+            for (name, fn) in fns {
+                guard at.properties[name] == nil, at.methods[name] == nil else {
+                    throw SwiftalkError.type("\(typeName) already has a member '\(name)'")
+                }
+                at.methods[name] = fn
             }
         case .type(let n), .protocol(let n):
             // Builtins: hidden env bindings, greppable and scoped (§10's
@@ -522,7 +548,7 @@ private func isUserType(_ name: String, in env: Environment) -> Bool {
         return false
     }
     switch f.role {
-    case .enumType, .structType: return true
+    case .enumType, .structType, .actorType: return true
     default: return false
     }
 }
@@ -771,7 +797,7 @@ func evaluate(_ expr: Expr, in env: Environment) throws -> Value {
             // `Date(...)` when the name binds a type in scope.
             if case .function(let f)? = try? env.lookup(name) {
                 switch f.role {
-                case .type, .protocol, .enumType, .structType:
+                case .type, .protocol, .enumType, .structType, .actorType:
                     return try apply(f, args: try evaluateArgs(args, in: env))
                 case .plain, .todo:
                     break
@@ -863,6 +889,11 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
         let receiver = try evaluate(receiverExpr, in: env)
         let evaluated = try args.map { ($0.label, try evaluate($0.expr, in: env)) }
         if called {
+            // Actor methods (round 54): serialized, self bound to the
+            // reference — mutation is in place, so no write-back dance.
+            if case .actor(let obj) = receiver, let m = obj.type.methods[name] {
+                return try callActorMethod(obj, m, args: evaluated)
+            }
             // Builtin Array mutator (round 49): a.append(x) — the family
             // grows as needed.
             if name == "append", case .array(var a) = receiver {
@@ -1213,6 +1244,123 @@ func constructStruct(_ st: StructType,
     return .structValue(StructValue(type: st, values: values))
 }
 
+/// Constructs an actor instance (round 54): the struct construction
+/// story — declared inits multi-dispatch, memberwise last, defaults
+/// prefilled, post-init nil verification — except the result is born a
+/// reference and init writes mutate it in place (no acquire needed:
+/// nobody else can hold a reference yet).
+func constructActor(_ at: ActorType,
+                    args: [(label: String?, value: Value)]) throws -> Value {
+    func defaults() throws -> [String: Value] {
+        var storage: [String: Value] = [:]
+        for prop in at.propertyOrder {
+            storage[prop] = try at.properties[prop]!.defaultExpr.map {
+                try evaluate($0, in: Environment(parent: at.declEnv))
+            } ?? .nil
+        }
+        return storage
+    }
+    for initFn in at.inits where initMatches(initFn.parameters, args) {
+        let obj = ActorObject(type: at, storage: try defaults())
+        let (fn, _) = try boundMethod(initFn, self: .actor(obj))
+        _ = try apply(fn, args: args)
+        for prop in at.propertyOrder {
+            if let annotation = at.properties[prop]!.annotation, !annotation.optional,
+               annotation.name != "Nil", obj.storage[prop] == .nil {
+                throw SwiftalkError.type("\(at.name).\(prop) was not initialized by init")
+            }
+        }
+        return .actor(obj)
+    }
+    var slots: [String: Value] = [:]
+    var positionals: [Value] = []
+    for (label, value) in args {
+        if let label {
+            guard at.properties[label] != nil else {
+                throw SwiftalkError.type("\(at.name) has no property '\(label)'")
+            }
+            guard slots[label] == nil else {
+                throw SwiftalkError.type("duplicate property '\(label)'")
+            }
+            slots[label] = value
+        } else {
+            positionals.append(value)
+        }
+    }
+    var remaining = positionals[...]
+    var storage: [String: Value] = [:]
+    for prop in at.propertyOrder {
+        let def = at.properties[prop]!
+        let value: Value
+        if let given = slots[prop] {
+            value = given
+        } else if !remaining.isEmpty {
+            value = remaining.removeFirst()
+        } else if let defaultExpr = def.defaultExpr {
+            value = try evaluate(defaultExpr, in: Environment(parent: at.declEnv))
+        } else {
+            throw SwiftalkError.type("missing property '\(prop)' of \(at.name)")
+        }
+        if let annotation = def.annotation {
+            try checkValue(value, against: annotation, context: "\(at.name).\(prop)")
+        }
+        storage[prop] = value
+    }
+    guard remaining.isEmpty else {
+        throw SwiftalkError.type("too many values for \(at.name)")
+    }
+    return .actor(ActorObject(type: at, storage: storage))
+}
+
+/// Calls an actor method (round 54): acquire — colorless, parking the
+/// caller if another context is inside — run with `self` bound to the
+/// reference, release on the way out (error or not). Held to the end:
+/// suspensions inside the body do NOT release (the anti-reentrancy
+/// divergence from Swift); a circular wait becomes a deadlock error.
+func callActorMethod(_ obj: ActorObject, _ method: FunctionObject,
+                     args: [(label: String?, value: Value)]) throws -> Value {
+    guard let ctx = Scheduler.current else {
+        throw SwiftalkError.type(
+            "actor methods need a task or top-level context — not (yet) inside a Sequence coroutine body")
+    }
+    try ctx.scheduler.acquire(obj, from: ctx)
+    defer { ctx.scheduler.release(obj, from: ctx) }
+    let (bound, _) = try boundMethod(method, self: .actor(obj))
+    return try apply(bound, args: args)
+}
+
+/// Reads an actor property — open to everyone (atomic under the baton).
+func actorRead(_ obj: ActorObject, _ name: String) throws -> Value {
+    guard let value = obj.storage[name] else {
+        throw SwiftalkError.unknownMember("\(obj.type.name).\(name)")
+    }
+    return value
+}
+
+/// Writes an actor property, in place — round 54's isolation: only the
+/// actor's own methods (any scope whose `self` IS this actor) may
+/// mutate; the property's var/let and type lock still govern, as ever.
+func actorWrite(_ obj: ActorObject, _ name: String, _ newValue: Value,
+                in env: Environment) throws {
+    guard case .actor(let selfObj)? = try? env.lookup("self"), selfObj === obj else {
+        throw SwiftalkError.type(
+            "an actor's state is mutated only by its own methods — \(obj.type.name).\(name) is isolated")
+    }
+    guard let def = obj.type.properties[name], let current = obj.storage[name] else {
+        throw SwiftalkError.unknownMember("\(obj.type.name).\(name)")
+    }
+    guard def.mutable else {
+        throw SwiftalkError.type("cannot assign to let property '\(obj.type.name).\(name)'")
+    }
+    if let annotation = def.annotation {
+        try checkValue(newValue, against: annotation, context: "\(obj.type.name).\(name)")
+    } else if current != .nil, newValue.typeName != current.typeName {
+        throw SwiftalkError.type(
+            "cannot assign \(newValue.typeName) to \(obj.type.name).\(name) of type \(current.typeName)")
+    }
+    obj.storage[name] = newValue
+}
+
 /// The §3 lock check, standalone (shared by bindings and properties).
 func checkValue(_ value: Value, against lock: TypeAnnotation, context: String) throws {
     if case .nil = value {
@@ -1305,14 +1453,36 @@ private func assign(_ target: LValue, _ value: Value, in env: Environment) throw
         case .property(let p):     return try propertyWrite(container, p, v)
         }
     }
-    func rebuild(_ container: Value, _ depth: Int) throws -> Value {
+    // Rebuild is COW — except through an actor (round 54): a reference
+    // mutates in place, and the rebuild STOPS there (the reference
+    // itself never changed, so outer containers and the root binding —
+    // even a `let` — are untouched, as with Swift's class references).
+    func rebuild(_ container: Value, _ depth: Int) throws -> (Value, inPlace: Bool) {
+        if case .actor(let obj) = container {
+            guard case .property(let p) = steps[depth] else {
+                throw SwiftalkError.type("\(obj.type.name) has no subscripts")
+            }
+            if depth == steps.count - 1 {
+                try actorWrite(obj, p, value, in: env)
+            } else {
+                let inner = try actorRead(obj, p)
+                let (newInner, done) = try rebuild(inner, depth + 1)
+                if !done { try actorWrite(obj, p, newInner, in: env) }
+            }
+            return (container, true)
+        }
         if depth == steps.count - 1 {
-            return try write(container, steps[depth], value)
+            return (try write(container, steps[depth], value), false)
         }
         let inner = try read(container, steps[depth])
-        return try write(container, steps[depth], try rebuild(inner, depth + 1))
+        let (newInner, done) = try rebuild(inner, depth + 1)
+        if done { return (container, true) }
+        return (try write(container, steps[depth], newInner), false)
     }
-    try env.assign(name, try rebuild(try env.lookup(name), 0))
+    let (rebuilt, inPlace) = try rebuild(try env.lookup(name), 0)
+    if !inPlace {
+        try env.assign(name, rebuilt)
+    }
 }
 
 private func evaluateArgs(
@@ -1329,6 +1499,10 @@ func apply(_ fn: FunctionObject, args: [(label: String?, value: Value)]) throws 
     // Calling a struct type IS the memberwise initializer (round 46).
     if case .structType(let st) = fn.role {
         return try constructStruct(st, args: args)
+    }
+    // Calling an actor type constructs a fresh reference (round 54).
+    if case .actorType(let at) = fn.role {
+        return try constructActor(at, args: args)
     }
     // The round-47 law, constructor side: TypeName(x, tag: ...) is
     // x.TypeName(tag: ...) — the first unlabeled argument is the
@@ -1612,8 +1786,9 @@ private func method(on receiver: Value, name: String,
         switch t.role {
         case .type(let n), .protocol(let n):
             return .bool(Builtins.conformance[protoName]?.contains(n) ?? false)
-        case .enumType, .structType:
-            // User types get synthesized Equatable/Hashable (§10).
+        case .enumType, .structType, .actorType:
+            // User types get synthesized Equatable/Hashable (§10) —
+            // an actor's by identity, like Function.
             return .bool(protoName == "Equatable" || protoName == "Hashable")
         case .plain, .todo:
             throw SwiftalkError.type("'.conforms(to:)' is a question asked of a type")
@@ -1637,6 +1812,26 @@ private func method(on receiver: Value, name: String,
         case 1:  return ev.associated[0]
         default: return .array(ev.associated)
         }
+    }
+    // Actor members (round 54). Property reads are open — atomic under
+    // the baton; stored Functions call through like a struct's.
+    if case .actor(let obj) = receiver, let value = obj.storage[name] {
+        if !called { return value }
+        guard case .function(let fn) = value else {
+            throw SwiftalkError.type("cannot call \(obj.type.name).\(name), a \(value.typeName)")
+        }
+        return try apply(fn, args: labeledArgs)
+    }
+    // Actor methods: called (the ?. path lands here) — serialized; an
+    // uncalled extraction gets a wrapper so serialization survives the
+    // trip (`let f = a.inc; f()` still queues like a direct call).
+    if case .actor(let obj) = receiver, let m = obj.type.methods[name] {
+        if called { return try callActorMethod(obj, m, args: labeledArgs) }
+        return .function(FunctionObject(
+            parameters: m.parameters, body: [], closure: Builtins.emptyEnvironment,
+            builtin: { ordered in
+                try callActorMethod(obj, m, args: ordered.map { (nil, $0) })
+            }))
     }
     // Struct property reads (round 46): p.x — and p.f() when the
     // property stores a Function (round 48).
@@ -1682,6 +1877,9 @@ private func method(on receiver: Value, name: String,
         if case .structValue(let sv) = receiver {
             return .function(sv.type.constructor!)
         }
+        if case .actor(let obj) = receiver {
+            return .function(obj.type.constructor!)
+        }
         return .function(Builtins.types[receiver.typeName]
                          ?? Builtins.protocols[receiver.typeName]!)
     case ("name", false):
@@ -1694,6 +1892,7 @@ private func method(on receiver: Value, name: String,
         case .type(let n), .protocol(let n): return .string(n)
         case .enumType(let et):              return .string(et.name)
         case .structType(let st):            return .string(st.name)
+        case .actorType(let at):             return .string(at.name)
         case .plain, .todo:                  return .nil
         }
     case ("count", false):

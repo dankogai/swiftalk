@@ -406,6 +406,44 @@ Tasks are cooperative green threads on round 52's coroutine
 substrate — deterministic, no preemption, and an `await` that can
 never complete throws a deadlock error instead of hanging.
 
+**Actors** are in — **swiftalk's first reference type** (`let b = a`
+aliases; equality is identity), with colorless serialized calls,
+isolation (reads open, writes only from the actor's own methods), and
+each call **held to the end** — no mid-method interleaving, declining
+Swift's reentrancy gotcha:
+
+```text
+swiftalk> actor Counter {
+........ var count = 0
+........ let bump = { let c = .count; sleep(0.01); .count = c + 1 }
+........ }
+Counter
+swiftalk> let a = Counter()
+Counter { count: 0 }
+swiftalk> let t1 = async { a.bump() }
+Task { ... }
+swiftalk> let t2 = async { a.bump() }
+Task { ... }
+swiftalk> await t2
+2
+swiftalk> a.count                 // held to the end: no lost update
+2
+swiftalk> a.count = 99
+type error: an actor's state is mutated only by its own methods — Counter.count is isolated
+swiftalk> var g = 0               // the same dance on a bare var...
+0
+swiftalk> let racy = { let c = g; sleep(0.01); g = c + 1 }
+{ ... }
+swiftalk> let u1 = async { racy() }
+Task { ... }
+swiftalk> let u2 = async { racy() }
+Task { ... }
+swiftalk> await u2
+1
+swiftalk> g                       // ...loses an update — why actors exist
+1
+```
+
 ```sh
 swift test
 ```

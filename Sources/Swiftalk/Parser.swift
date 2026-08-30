@@ -71,6 +71,9 @@ enum Stmt {
     case structDecl(name: String, propertyOrder: [String],
                     properties: [String: Swiftalk.StructType.Property],
                     methods: [String: Expr], inits: [Expr])
+    case actorDecl(name: String, propertyOrder: [String],
+                   properties: [String: Swiftalk.StructType.Property],
+                   methods: [String: Expr], inits: [Expr])
     case extensionDecl(typeName: String, methods: [String: Expr])
     case switchS(subject: Expr,
                  clauses: [(patterns: [Pattern], body: [Stmt])],
@@ -81,7 +84,7 @@ private let keywords: Set<String> = [
     "let", "var", "true", "false", "nil", "in",
     "if", "else", "while", "repeat", "for", "break", "continue", "return", "yield",
     "async", "await",
-    "enum", "case", "switch", "default", "struct", "extension",
+    "enum", "case", "switch", "default", "struct", "extension", "actor",
 ]
 
 struct Parser {
@@ -195,7 +198,11 @@ struct Parser {
         case .identifier("enum"):
             return try parseEnum()
         case .identifier("struct"):
-            return try parseStruct()
+            return try parseStruct(kind: "struct")
+        case .identifier("actor"):
+            // Same body grammar as a struct (round 54) — the difference
+            // is what instances ARE: references, serialized.
+            return try parseStruct(kind: "actor")
         case .identifier("extension"):
             return try parseExtension()
         case .identifier("switch"):
@@ -365,11 +372,11 @@ struct Parser {
     /// `struct Name { var x: Int = 0\nlet y = 1\nvar z: Double }`
     /// (§4, round 46): stored properties — mutability, optional
     /// annotation, optional default; at least one of the two required.
-    private mutating func parseStruct() throws -> Stmt {
-        pos += 1  // consume "struct"
+    private mutating func parseStruct(kind: String) throws -> Stmt {
+        pos += 1  // consume "struct"/"actor"
         guard case .identifier(let name)? = advance(),
               !keywords.contains(name), !name.hasPrefix("$") else {
-            throw SwiftalkError.syntax("expected a name after 'struct'")
+            throw SwiftalkError.syntax("expected a name after '\(kind)'")
         }
         try expect("{")
         var propertyOrder: [String] = []
@@ -386,7 +393,7 @@ struct Parser {
                 }
                 inits.append(try withTrailing(true) { try $0.parseFunction() })
                 guard peek == .punct("}") || consumeSeparator() else {
-                    throw SwiftalkError.syntax("expected a newline between struct members")
+                    throw SwiftalkError.syntax("expected a newline between \(kind) members")
                 }
                 skipSeparators()
                 continue
@@ -394,7 +401,7 @@ struct Parser {
             guard case .identifier(let keyword)? = advance(),
                   keyword == "var" || keyword == "let" else {
                 throw SwiftalkError.syntax(
-                    "a struct body holds 'var'/'let' properties, methods, and inits")
+                    "a \(kind) body holds 'var'/'let' properties, methods, and inits")
             }
             guard case .identifier(let propName)? = advance(),
                   !keywords.contains(propName), !propName.hasPrefix("$") else {
@@ -441,8 +448,11 @@ struct Parser {
             skipSeparators()
         }
         try expect("}")
-        return .structDecl(name: name, propertyOrder: propertyOrder, properties: properties,
-                           methods: methods, inits: inits)
+        return kind == "actor"
+            ? .actorDecl(name: name, propertyOrder: propertyOrder, properties: properties,
+                         methods: methods, inits: inits)
+            : .structDecl(name: name, propertyOrder: propertyOrder, properties: properties,
+                          methods: methods, inits: inits)
     }
 
     /// `extension Name { let m = { ... } }` (§10, rounds 49–50):
