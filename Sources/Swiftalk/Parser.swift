@@ -68,6 +68,14 @@ enum CaseBinding {
     case wildcard                          // _
 }
 
+/// One clause of an `if let` condition list (round 60): a binding
+/// that must land non-nil, or a Bool that must hold — evaluated left
+/// to right, short-circuiting, later clauses seeing earlier bindings.
+enum IfCondition {
+    case binding(mutable: Bool, name: String, expr: Expr)
+    case boolean(Expr)
+}
+
 enum Stmt {
     case declaration(mutable: Bool, name: String, annotation: TypeAnnotation?, initializer: Expr)
     case assignment(target: LValue, expr: Expr)
@@ -75,6 +83,7 @@ enum Stmt {
     case returnS(Expr?)
     case yieldS(Expr?)
     indirect case ifS(condition: Expr, then: [Stmt], else: [Stmt]?)
+    indirect case ifLetS(conditions: [IfCondition], then: [Stmt], else: [Stmt]?)
     indirect case ifCaseS(pattern: Pattern, subject: Expr, then: [Stmt], else: [Stmt]?)
     case whileS(condition: Expr, body: [Stmt])
     case repeatS(body: [Stmt], condition: Expr)
@@ -294,10 +303,38 @@ struct Parser {
             let elseBranch = try parseElse()
             return .ifCaseS(pattern: pattern, subject: subject, then: then, else: elseBranch)
         }
-        let condition = try withTrailing(false) { try $0.parseExpr() }
+        // A comma-separated condition list (round 60): booleans and
+        // `let`/`var` bindings mix — `if x > 0, let y = f(x), y < 9`.
+        // (`guard` is deliberately absent: it is only `if not` — §9.)
+        var conditions: [IfCondition] = []
+        while true {
+            if peek == .identifier("let") || peek == .identifier("var") {
+                let mutable = peek == .identifier("var")
+                pos += 1
+                guard case .identifier(let name)? = advance(),
+                      !keywords.contains(name), !name.hasPrefix("$") else {
+                    throw SwiftalkError.syntax("expected a name after 'if let'")
+                }
+                let expr: Expr
+                if case .punct("=")? = peek {
+                    pos += 1
+                    expr = try withTrailing(false) { try $0.parseExpr() }
+                } else {
+                    expr = .variable(name)     // shorthand: if let x { }
+                }
+                conditions.append(.binding(mutable: mutable, name: name, expr: expr))
+            } else {
+                conditions.append(.boolean(try withTrailing(false) { try $0.parseExpr() }))
+            }
+            guard case .punct(",")? = peek else { break }
+            pos += 1
+        }
         let then = try parseBlock()
         let elseBranch = try parseElse()
-        return .ifS(condition: condition, then: then, else: elseBranch)
+        if conditions.count == 1, case .boolean(let condition) = conditions[0] {
+            return .ifS(condition: condition, then: then, else: elseBranch)
+        }
+        return .ifLetS(conditions: conditions, then: then, else: elseBranch)
     }
 
     /// The optional `else`/`else if` tail; `else` may sit on the next

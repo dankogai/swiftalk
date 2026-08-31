@@ -748,10 +748,22 @@ values, and the call stack never unwinds invisibly.
   (`Result<T, Error>` and you switch on `e.type` at the catch site);
   an enum-of-errors per module, hand-rolled.
 
-## 9. Non-goals — TODO
+## 9. Non-goals — the keyword graveyard, and more
 
-To be filled in. Candidates: manual memory control, `unsafe` anything,
-ABI stability, Objective-C interop.
+Keywords swiftalk has PROVEN unnecessary, each killed in dialogue:
+
+* **`func`** (round 8): `{}` is the only function form.
+* **`mutating`** (round 50a): mutation permission is the properties'
+  `var`/`let` and the receiver's var-ness.
+* **`async`** as a function color (round 53): any function may
+  `await`; the word survives only as spawn-site sugar for `Task {}`.
+* **`guard`** (round 60): "it is only `if not`" — the user's own
+  words, wanting as few keywords as possible. `if let ... { } else
+  { return ... }` covers the pattern; `guard` never became a keyword,
+  and `let guard = 1` is legal swiftalk (the test suite proves it).
+
+Also non-goals: manual memory control, `unsafe` anything, ABI
+stability, Objective-C interop.
 
 ## 10. Protocols, extensions, generics — DECIDED (core)
 
@@ -1750,3 +1762,18 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   Dictionary, like JS and PHP** — arrays stay dense (`[1, nil]`
   needs `[Int?]`). OPEN: reifying Primitives/SION/Any as values;
   Primitives as a real switchable enum (§3c) unchanged.
+* **2026-08-31, round 60 — `if let` implemented; `guard` skipped, by
+  decree** ("Ahem. skip `guard` it is only `if not`. I want to reduce
+  as many keywords as possible" — §9 now keeps the keyword graveyard:
+  func, mutating, async-as-color, and guard; `let guard = 1` is
+  legal, and a test proves it). `if let x = expr` binds non-nil into
+  the then-scope — flat optionals mean the bound value IS itself, no
+  unwrap layer (§3a); nil takes the else. With it, the full Swift
+  condition-list surface: **comma chains** mixing bindings and
+  booleans (`if x > 0, let y = f(x), y < 9`), left-to-right,
+  short-circuiting, later clauses seeing earlier bindings; **`if
+  var`** for a mutable binding; the **Swift 5.7 shorthand** `if let
+  x { }` shadowing an optional-typed x; `else if let` composing via
+  the existing else machinery. A boolean clause stays strictly Bool —
+  nothing is truthy. Single-boolean conditions still parse to the
+  round-36 ifS, so nothing else moved. OPEN: `while let`.

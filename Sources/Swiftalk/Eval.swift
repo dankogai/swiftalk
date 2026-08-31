@@ -367,6 +367,41 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             try runBlock(elseBranch, in: env)
         }
         return .nil
+    case .ifLetS(let conditions, let then, let elseBranch):
+        // Round 60: bindings must land non-nil (flat optionals — the
+        // bound value IS itself, §3a), booleans must hold; left to
+        // right, short-circuit, later clauses seeing earlier bindings.
+        let scope = Environment(parent: env)
+        var pass = true
+        loop: for condition in conditions {
+            switch condition {
+            case .binding(let mutable, let name, let expr):
+                let value = try evaluate(expr, in: scope)
+                guard value != .nil else {
+                    pass = false
+                    break loop
+                }
+                try scope.declare(name, Binding(
+                    mutable: mutable,
+                    lock: TypeAnnotation(name: value.typeName, optional: false),
+                    value: value))
+            case .boolean(let expr):
+                guard case .bool(let flag) = try evaluate(expr, in: scope) else {
+                    throw SwiftalkError.type(
+                        "an 'if' condition must be a Bool — nothing is truthy (§3b)")
+                }
+                guard flag else {
+                    pass = false
+                    break loop
+                }
+            }
+        }
+        if pass {
+            try runBlock(then, in: scope)
+        } else if let elseBranch {
+            try runBlock(elseBranch, in: env)
+        }
+        return .nil
     case .whileS(let condition, let body):
         while true {
             guard case .bool(let flag) = try evaluate(condition, in: env) else {

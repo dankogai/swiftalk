@@ -607,6 +607,25 @@ swiftalk> 0x1.999999999999ap-4 == 0.1
 true
 ```
 
+**`if let`** is in — comma chains, `if var`, the Swift 5.7 shorthand.
+**`guard` is not**, and never will be: "it is only `if not`" — the
+keyword graveyard (§9) now holds `func`, `mutating`, `async`-as-color,
+and `guard`:
+
+```text
+swiftalk> let ages = ["alice": 42]
+["alice": 42]
+swiftalk> if let age = ages["alice"], age < 100 { print("alice is \(age)") }
+........ else { print("unknown") }
+alice is 42
+swiftalk> let x: Int? = 41
+41
+swiftalk> if let x { print(x + 1) }     // the 5.7 shorthand
+42
+swiftalk> let guard = "just an identifier"
+"just an identifier"
+```
+
 ```sh
 swift test
 ```
