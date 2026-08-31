@@ -1,7 +1,7 @@
 import Testing
 @testable import Swiftalk
 
-@Suite("super: class-only, by construction (§4, round 56)")
+@Suite("super: class-only, by construction (§4, round 56)", .disabled("shelved — round 62: actor/class/super are off the surface"))
 struct SuperTests {
     @Test("an override reaches the implementation it covered")
     func basicSuper() throws {

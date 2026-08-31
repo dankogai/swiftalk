@@ -406,117 +406,16 @@ Tasks are cooperative green threads on round 52's coroutine
 substrate — deterministic, no preemption, and an `await` that can
 never complete throws a deadlock error instead of hanging.
 
-**Actors** are in — **swiftalk's first reference type** (`let b = a`
-aliases; equality is identity), with colorless serialized calls,
-isolation (reads open, writes only from the actor's own methods), and
-each call **held to the end** — no mid-method interleaving, declining
-Swift's reentrancy gotcha:
-
-```text
-swiftalk> actor Counter {
-........ var count = 0
-........ let bump = { let c = .count; sleep(0.01); .count = c + 1 }
-........ }
-Counter
-swiftalk> let a = Counter()
-Counter { count: 0 }
-swiftalk> let t1 = async { a.bump() }
-Task { ... }
-swiftalk> let t2 = async { a.bump() }
-Task { ... }
-swiftalk> await t2
-2
-swiftalk> a.count                 // held to the end: no lost update
-2
-swiftalk> a.count = 99
-type error: an actor's state is mutated only by its own methods — Counter.count is isolated
-swiftalk> var g = 0               // the same dance on a bare var...
-0
-swiftalk> let racy = { let c = g; sleep(0.01); g = c + 1 }
-{ ... }
-swiftalk> let u1 = async { racy() }
-Task { ... }
-swiftalk> let u2 = async { racy() }
-Task { ... }
-swiftalk> await u2
-1
-swiftalk> g                       // ...loses an update — why actors exist
-1
-```
-
-**`class`** is in — the open reference (an actor minus serialization
-and isolation), with **single inheritance** and dynamic dispatch. Its
-reason to exist: object graphs values can't express —
-
-```text
-swiftalk> class Node {
-........ var value = 0
-........ var next: Node? = nil
-........ }
-Node
-swiftalk> let a = Node(value: 1)
-Node { value: 1, next: nil }
-swiftalk> let b = Node(value: 2)
-Node { value: 2, next: nil }
-swiftalk> a.next = b
-Node { value: 2, next: nil }
-swiftalk> b.next = a              // a cycle — impossible with COW values
-Node { value: 1, next: Node { value: 2, next: Node { ... } } }
-swiftalk> a.next.next == a
-true
-swiftalk> class Animal {
-........ var name = "?"
-........ let speak = { "..." }
-........ let intro = { "\(.name) says \(.speak())" }
-........ }
-Animal
-swiftalk> class Dog: Animal { let speak = { "woof" } }
-Dog
-swiftalk> Dog(name: "Rex").intro()    // dynamic dispatch, for real
-"Rex says woof"
-swiftalk> let pet: Animal = Dog(name: "Rex")
-Dog { name: "Rex" }
-```
-
-When to use which: unshared state → `struct`; shared across tasks →
-`actor`; identity without concurrency semantics (cycles, shared
-nodes, hierarchies) → `class`. The test suite shows the round-54 lost
-update returning the moment shared state is a class — classes give
-identity, actors give safety.
-
-**`super`** is in — class-only *by construction* (super goes where
-override goes; override exists only where inheritance does; only
-classes inherit). It resolves from the **declaring** class, so chains
-never loop — while `self` stays dynamic inside, as in Swift:
-
-```text
-swiftalk> class A { let who = { "A" } }
-A
-swiftalk> class B: A { let who = { "B>" + super.who() } }
-B
-swiftalk> class C: B { let who = { "C>" + super.who() } }
-C
-swiftalk> C().who()
-"C>B>A"
-swiftalk> class P {
-........ var x: Int = 0
-........ init { v in self.x = v }
-........ }
-P
-swiftalk> class Q: P {
-........ var y: Int = 0
-........ init { v in super.init(v)
-........ self.y = v * 2
-........ }
-........ }
-Q
-swiftalk> Q(21)
-Q { x: 21, y: 42 }
-```
+**Actors, `class`, and `super`** were built (rounds 54–56) and are
+now **shelved** (round 62) — the reference types made swiftalk feel
+too much like Swift. Their designs stand in [Design.md](Design.md)
+§4/§12, the machinery stays in-tree, and their tests sleep under
+`.disabled("shelved")`, ready to re-arm. Until then swiftalk is
+values + coroutines + tasks — and `class`, like `guard`, is just an
+identifier.
 
 **Computed properties** are in — paren-less reads and code-running
-assignment, for structs, classes, actors, and extensions (builtins
-read-only):
+assignment, for structs and extensions (builtins read-only):
 
 ```text
 swiftalk> struct Temp {
@@ -540,9 +439,8 @@ swiftalk> 12.squared
 144
 ```
 
-On an actor, a computed setter is the actor's own code — callable
-from outside and serialized like any method, while direct storage
-writes stay isolated.
+(The actor/class halves of computed properties are shelved with
+their types — round 62.)
 
 **The call convention, simplified** (round 61 — "swiftalk is getting
 too close to swift"): one function notation, `{ x, y in ... }` (round

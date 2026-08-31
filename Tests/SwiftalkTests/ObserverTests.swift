@@ -27,6 +27,10 @@ struct ObserverTests {
             s.x = 42
             s.x
             """) == .int(10))
+    }
+
+    @Test("the clamp on a class", .disabled("shelved — round 62: actor/class/super are off the surface"))
+    func clampOnClass() throws {
         #expect(try eval("""
             class Gauge { var level: Int = 0 { didSet { if .level > 9 { .level = 9 } } } }
             let g = Gauge()
@@ -54,7 +58,7 @@ struct ObserverTests {
             """) == .array([.int(9), .int(0)]))
     }
 
-    @Test("references: class inheritance carries observers; actors observe method writes")
+    @Test("references: class inheritance carries observers; actors observe method writes", .disabled("shelved — round 62: actor/class/super are off the surface"))
     func referenceKinds() throws {
         #expect(try eval("""
             var log = []

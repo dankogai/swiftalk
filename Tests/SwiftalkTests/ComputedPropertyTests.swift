@@ -75,7 +75,7 @@ struct ComputedPropertyTests {
         }
     }
 
-    @Test("classes: computed with inheritance and super in the getter")
+    @Test("classes: computed with inheritance and super in the getter", .disabled("shelved — round 62: actor/class/super are off the surface"))
     func classes() throws {
         #expect(try eval("""
             class Counter { var n = 10
@@ -92,7 +92,7 @@ struct ComputedPropertyTests {
             """) == .array([.int(9), .int(90)]))
     }
 
-    @Test("actors: getter/setter are the actor's own code — serialized, and allowed from outside")
+    @Test("actors: getter/setter are the actor's own code — serialized, and allowed from outside", .disabled("shelved — round 62: actor/class/super are off the surface"))
     func actors() throws {
         #expect(try eval("""
             actor Bank {

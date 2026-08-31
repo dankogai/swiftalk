@@ -1,7 +1,7 @@
 import Testing
 @testable import Swiftalk
 
-@Suite("actors: serialized state, swiftalk's first reference type (§12, round 54)")
+@Suite("actors: serialized state, swiftalk's first reference type (§12, round 54)", .disabled("shelved — round 62: actor/class/super are off the surface"))
 struct ActorTests {
     @Test("declaration, memberwise init, defaults, property reads, .Type")
     func basics() throws {

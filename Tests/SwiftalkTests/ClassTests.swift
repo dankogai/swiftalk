@@ -1,7 +1,7 @@
 import Testing
 @testable import Swiftalk
 
-@Suite("class: the open reference, with single inheritance (§4, round 55)")
+@Suite("class: the open reference, with single inheritance (§4, round 55)", .disabled("shelved — round 62: actor/class/super are off the surface"))
 struct ClassTests {
     @Test("a reference, unserialized and unsealed: aliasing, identity, open writes")
     func openReference() throws {

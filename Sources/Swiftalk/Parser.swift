@@ -121,7 +121,10 @@ private let keywords: Set<String> = [
     "let", "var", "true", "false", "nil", "in",
     "if", "else", "while", "repeat", "for", "break", "continue", "return", "yield",
     "async", "await",
-    "enum", "case", "switch", "default", "struct", "extension", "actor", "class", "super",
+    "enum", "case", "switch", "default", "struct", "extension",
+    // "actor", "class", "super" — SHELVED (round 62): the reference
+    // types are off the surface; the machinery stays in-tree, dormant.
+    // Three fewer keywords: `let class = 1` is legal, like `guard`.
 ]
 
 struct Parser {
@@ -236,14 +239,11 @@ struct Parser {
             return try parseEnum()
         case .identifier("struct"):
             return try parseStruct(kind: "struct")
-        case .identifier("actor"):
-            // Same body grammar as a struct (round 54) — the difference
-            // is what instances ARE: references, serialized.
-            return try parseStruct(kind: "actor")
-        case .identifier("class"):
-            // Round 55: the open reference — a struct's grammar plus
-            // `class Dog: Animal` single inheritance.
-            return try parseStruct(kind: "class")
+        // SHELVED (round 62): `actor` (round 54) and `class` (rounds
+        // 55–56) are off the surface for now — the routes below stay
+        // for their possible return:
+        // case .identifier("actor"): return try parseStruct(kind: "actor")
+        // case .identifier("class"): return try parseStruct(kind: "class")
         case .identifier("extension"):
             return try parseExtension()
         case .identifier("switch"):
@@ -1095,10 +1095,8 @@ struct Parser {
         case .identifier("true"):  return .literal(.bool(true))
         case .identifier("false"): return .literal(.bool(false))
         case .identifier("nil"):   return .literal(.nil)
-        case .identifier("super"):
-            // A receiver, not a value (round 56): postfix builds
-            // super.method(...) from here; a bare `super` errors at eval.
-            return .superRef
+        // SHELVED (round 62) with class: `super` (round 56) —
+        // case .identifier("super"): return .superRef
         case .identifier("async"):
             // `async { ... }` is sugar for `Task { ... }` (round 53):
             // the word survives at the spawn site, not as a function

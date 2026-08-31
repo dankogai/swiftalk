@@ -592,8 +592,11 @@ wholesale: value types by default, classes when identity matters.
 **swiftalk's first reference type arrived as the `actor`, not the
 `class`** (round 54, §12): state that is *shared* must be an actor —
 serialized by construction; state that isn't stays a value.
+**(SHELVED, round 62 — both reference types are off the surface for
+now; swiftalk is values + coroutines + tasks until they earn their
+way back.)**
 
-**`class` — DECIDED and implemented (round 55): the open reference,
+**`class` — DECIDED and implemented (round 55), SHELVED (round 62): the open reference,
 and indeed the smaller step** — an actor minus the serialization and
 minus the isolation, plus **single inheritance**. `class Dog: Animal`
 merges the superclass's properties (shadowing is an error), resolves
@@ -602,7 +605,7 @@ dispatch**: a superclass method calling `.speak()` gets the
 subclass's override), and satisfies annotations up the chain (`let
 pet: Animal = Dog(...)`). No init inheritance.
 
-**`super` — DECIDED and implemented (round 56), class-only by
+**`super` — DECIDED and implemented (round 56), SHELVED (round 62) with class, class-only by
 construction**: `super` goes wherever *override* goes; override
 exists only where inheritance does; inheritance is class-only (actors
 deliberately don't inherit, values have no hierarchy, extensions
@@ -876,7 +879,13 @@ what colorless costs. **OPEN**: `await` inside a §2.4 coroutine body
 concurrency (task groups, cancellation as API); whether `Task` gets
 members like `.done`.)
 
-### Actors — DECIDED (round 54)
+### Actors — DECIDED (round 54), SHELVED (round 62)
+
+> **SHELVED (round 62)** with `class`: "When we implemented actor,
+> we resorted to implement class. Let us shelve them for the time
+> being." The design below stands as recorded; the machinery stays
+> in-tree, dormant; the surface keywords are gone (and are plain
+> identifiers again).
 
 **`actor Name { ... }` — serialized mutable state, and swiftalk's
 first REFERENCE type** (§4 amended: it arrived ahead of `class`).
@@ -1802,3 +1811,23 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   takes no label (`g(_: 5)` is a syntax error), binds no name (the
   value reaches the body as `$0` alone), and may repeat
   (`{ _, _, z in }`), while named parameters may not.
+* **2026-08-31, round 62 — actor, class, and super SHELVED** ("When
+  we implemented actor, we resorted to implement class. Let us shelve
+  them for the time being. leave the source codes in case we need
+  them later" — asked, the user confirmed BOTH reference types go).
+  The round-61 simplification arc reaches the reference types: the
+  round-54 actor led to the round-55 class led to the round-56
+  super — a slippery slope of Swift-shaped surface, now paused
+  whole. The cut is surgical: the parser no longer routes `actor`/
+  `class` declarations or `super` (three fewer keywords — all three
+  are plain identifiers again, `let class = 1` legal like `guard`);
+  Actor.swift, the scheduler's acquire/release, inheritance,
+  isolation, and the superDispatch machinery all stay in-tree,
+  compiled and dormant, per the instruction to leave the source; the
+  three test suites (plus the class/actor tests inside the computed
+  and observer suites) are `.disabled("shelved")`, not deleted — 33
+  tests skipped, ready to re-arm. §4 and §12 keep the full designs
+  under SHELVED banners: shelved is not the graveyard (§9) — these
+  earned their designs and may return. Until then swiftalk is values
+  + coroutines + tasks: the round-53 concurrency story (colorless
+  Task/await/sleep) never depended on actors and stands whole.
