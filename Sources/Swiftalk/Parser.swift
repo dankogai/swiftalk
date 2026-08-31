@@ -39,6 +39,21 @@ indirect enum LValue {
 struct TypeAnnotation: Equatable {
     let name: String
     let optional: Bool
+    /// Round 59: `[T]` is Array with one parameter, `[K: V]` is
+    /// Dictionary with two — recursive, so `[[Int]]` and `[String:
+    /// [Int?]]` compose. Empty = an unparameterized name, as before.
+    var parameters: [TypeAnnotation] = []
+
+    /// The source spelling, for error messages: `[Int: String?]?`.
+    var display: String {
+        let base: String
+        switch (name, parameters.count) {
+        case ("Array", 1):      base = "[\(parameters[0].display)]"
+        case ("Dictionary", 2): base = "[\(parameters[0].display): \(parameters[1].display)]"
+        default:                base = name
+        }
+        return optional ? base + "?" : base
+    }
 }
 
 /// A `switch`/`if case` pattern (§7).
@@ -441,15 +456,7 @@ struct Parser {
             var annotation: TypeAnnotation? = nil
             if case .punct(":")? = peek {
                 pos += 1
-                guard case .identifier(let typeName)? = advance() else {
-                    throw SwiftalkError.syntax("expected a type name after ':'")
-                }
-                var optional = false
-                if peek == .punct("?") || peek == .op("?") {
-                    pos += 1
-                    optional = true
-                }
-                annotation = TypeAnnotation(name: typeName, optional: optional)
+                annotation = try parseTypeAnnotation()
             }
             // A brace where `=` would go: an OBSERVER block on an
             // annotated stored property (round 58b), or a COMPUTED
@@ -530,6 +537,37 @@ struct Parser {
             return .structDecl(name: name, propertyOrder: propertyOrder, properties: properties,
                                methods: methods, inits: inits, computed: computed)
         }
+    }
+
+    /// A type annotation, recursive (round 59): a name, `[Element]`,
+    /// or `[Key: Value]` — each optionally suffixed `?`.
+    private mutating func parseTypeAnnotation() throws -> TypeAnnotation {
+        if case .punct("[")? = peek {
+            pos += 1
+            var parameters = [try parseTypeAnnotation()]
+            var name = "Array"
+            if case .punct(":")? = peek {
+                pos += 1
+                parameters.append(try parseTypeAnnotation())
+                name = "Dictionary"
+            }
+            try expect("]")
+            var optional = false
+            if peek == .punct("?") || peek == .op("?") {
+                pos += 1
+                optional = true
+            }
+            return TypeAnnotation(name: name, optional: optional, parameters: parameters)
+        }
+        guard case .identifier(let typeName)? = advance(), !keywords.contains(typeName) else {
+            throw SwiftalkError.syntax("expected a type name after ':'")
+        }
+        var optional = false
+        if peek == .punct("?") || peek == .op("?") {
+            pos += 1
+            optional = true
+        }
+        return TypeAnnotation(name: typeName, optional: optional)
     }
 
     /// Does a `{` at `index` open a willSet/didSet observer block?
@@ -661,15 +699,7 @@ struct Parser {
                 var annotation: TypeAnnotation? = nil
                 if case .punct(":")? = peek {
                     pos += 1
-                    guard case .identifier(let typeName)? = advance() else {
-                        throw SwiftalkError.syntax("expected a type name after ':'")
-                    }
-                    var optional = false
-                    if peek == .punct("?") || peek == .op("?") {
-                        pos += 1
-                        optional = true
-                    }
-                    annotation = TypeAnnotation(name: typeName, optional: optional)
+                    annotation = try parseTypeAnnotation()
                 }
                 try expect("{")
                 let (getter, setter) = try parseComputedBody()
@@ -842,15 +872,7 @@ struct Parser {
         var annotation: TypeAnnotation? = nil
         if case .punct(":")? = peek {
             pos += 1
-            guard case .identifier(let typeName)? = advance() else {
-                throw SwiftalkError.syntax("expected a type name after ':'")
-            }
-            var optional = false
-            if peek == .punct("?") || peek == .op("?") {
-                pos += 1
-                optional = true
-            }
-            annotation = TypeAnnotation(name: typeName, optional: optional)
+            annotation = try parseTypeAnnotation()
         }
         try expect("=")
         return .declaration(mutable: mutable, name: name, annotation: annotation,

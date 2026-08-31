@@ -65,9 +65,11 @@ struct DataDateTests {
         #expect(try eval("Date(255.5).String()") == .string(".Date(255.5)"))
         let v = try eval("Date(1234567890.5)")
         #expect(try eval(v.sourceString()) == v)               // .Date(...) re-enters
-        // (the debug form uses hex-float notation, as SION does —
-        // re-entering it awaits hex-float literals in the lexer, OPEN)
+        // the debug form is hex-float, as SION writes it — and since
+        // round 59 the lexer reads hex floats, so it re-enters WHOLE
+        // (the OPEN this assertion was trimmed to in round 50, closed)
         #expect(v.sourceString(debug: true).hasPrefix(".Date(0x"))
+        #expect(try eval(v.sourceString(debug: true)) == v)
         #expect(try eval(".Date(42.0)") == .date(42))          // the SION spelling, directly
     }
 

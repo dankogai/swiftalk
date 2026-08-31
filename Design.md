@@ -490,19 +490,34 @@ string.Data()       // String → Data   (infallible: text always has bytes)
 * The long-term hope is that reaching for `Any` is rare; unions are
   spelled as enums, and `element.Type` / pattern matching handle the
   dispatch when iterating mixed sequences.
-* **Lifting is implicit, and inference prefers `Primitives` —
-  DECIDED**: a heterogeneous literal of basic types **infers
-  `[Primitives]`**, auto-wrapping each element:
+* **Inference is homogeneous-or-annotate — REVISED (round 59,
+  revising round 18/21's implicit `[Primitives]` inference)**: a
+  homogeneous literal infers its element type — `let ary = [0, 1, 2,
+  3]` is `[Int]`, `[0: "zero", 1: "one"]` is `[Int: String]`
+  (recursively: `[[1, 2], [3]]` is `[[Int]]`). A heterogeneous
+  literal is an **error at binding** — `let bad = [0.0, 1, 2, 3]`
+  does not infer; you must say what you mean:
 
   ```swiftalk
-  let mixed = [1, "one", 2.0]     // [Primitives] — NOT [Any]
-  var a: [Any] = []               // Any exists when and only when
-                                  // explicitly written
+  let ok: [Primitives] = [0.0, 1, 2, 3]   // the closed SION-ish sum
+  let s: SION = [1, "one", Data([255])]   // full SION roster, Data/Date included
+  var a: Any = [0.0, 1, {}]               // the escape hatch, spelled out
   ```
 
-  `Any` never arises from inference; it appears in a program exactly
-  where the programmer typed it. (Homogeneous literals still infer
-  their element type: `[1, 2, 3]` is `[Int]`.)
+  The annotation vocabulary (round 59): **`Primitives`** admits the
+  scalar roster plus Arrays/Dictionaries thereof; **`SION`** is
+  Primitives plus `Data` and `Date` (the full serialization roster);
+  **`Any`** admits everything — and an `Any` binding may retype
+  (`var a: Any = 1; a = "s"` holds; the §3 lock is `Any`). All three
+  are annotation vocabulary only for now — not values (OPEN: reify).
+  `Any` still never arises from inference. Mixed literals as bare
+  *expressions* still evaluate — dynamism intact; only inference
+  refuses to guess. Inferred locks **enforce**: `var a = [1, 2]`
+  rejects `a.append("x")`, element-deep. Dictionary values are
+  implicitly optional per round 35 (nil stores fine and shapes no
+  inference); arrays are dense — nil elements need `[Int?]`, and a
+  **sparse array is a Dictionary**, like JS and PHP. Annotations are
+  now structural and recursive: `[T]`, `[K: V]`, `[String: [Int?]]?`.
 * **OPEN — remaining `Primitives` details**: SION's `Ext` (MsgPack
   extension type) — mirror it or leave it to the serializer?
   `BigInt` (not in SION today)? case naming (`.Int` mirroring the
@@ -1707,3 +1722,31 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   bodies. Observers remain stored-property-only — computed
   properties put that code in their setters. OPEN: observers on
   globals/locals.
+* **2026-08-31, round 59 — type inference: homogeneous-or-annotate,
+  typed collection locks, and hex-float literals.** Three decisions
+  in one drop. (1) **`let ary = [0, 1, 2, 3]` is `[Int]`; `[0.0, 1,
+  2, 3]` is an error** — annotate `[Primitives]`, `SION`, or `Any` to
+  accept it. This REVISES rounds 18/21 (heterogeneous used to infer
+  `[Primitives]` silently); the two round-trip tests that embodied
+  the old rule were re-annotated. `SION` (full roster, Data/Date
+  included) and `Any` (everything; an `Any` binding may retype) join
+  `Primitives` as annotation vocabulary — annotations are now
+  structural and recursive (`[T]`, `[K: V]`, `[String: [Int?]]?`),
+  and inferred locks ENFORCE element-deep: `var a = [1, 2]` rejects
+  `a.append("x")` through every write path, subscripts and mutators
+  included. Mixed literals as bare expressions still evaluate — only
+  binding refuses to guess. (2) **`1` is explicitly Int, `1.0`
+  explicitly Double — and so are `1e0` and `0x1p0`**: scientific
+  notation already lexed; **hex-float literals now lex too**
+  (`0x1.fep7`, `0x1.8p-1`; the p-exponent is required with a
+  fraction, Swift's rule, which is what keeps `0xff.description` a
+  member access — `d` and `e` are hex digits). This closes the
+  round-50 OPEN: the round-37 DEBUG round trip is complete —
+  `debugPrint`'s hex output re-enters, and the Date debug test
+  un-trimmed. (3) **`let dict = [0: "zero", 1: "one"]` is
+  `[Int: String]`** — keys and values each homogeneous or annotated;
+  values are implicitly optional (round 35: nil is a right value for
+  a key, and shapes no inference); a **sparse array is made of
+  Dictionary, like JS and PHP** — arrays stay dense (`[1, nil]`
+  needs `[Int?]`). OPEN: reifying Primitives/SION/Any as values;
+  Primitives as a real switchable enum (§3c) unchanged.

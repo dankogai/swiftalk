@@ -70,7 +70,8 @@ struct BindingTests {
     func roundTripThroughBindings() throws {
         #expect(try eval("let x = [1: \"one\"]\nx.String()") == .string("[1: \"one\"]"))
         let interp = Interpreter()
-        _ = try interp.eval("let v = [1, \"one\", 2.0]")
+        // round 59: a mixed literal binds only under an annotation
+        _ = try interp.eval("let v: [Primitives] = [1, \"one\", 2.0]")
         let src = try interp.eval("v.String()")
         guard case .string(let s) = src else { throw SwiftalkError.type("expected string") }
         #expect(try interp.eval(s) == interp.eval("v"))      // eval(v.String()) == v

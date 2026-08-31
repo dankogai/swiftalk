@@ -29,7 +29,8 @@ struct REPLTests {
     @Test("the REPL's printer is source form: echo re-enters as what it was (§3d)")
     func printerRoundTrips() throws {
         let repl = Interpreter(relaxed: true)
-        _ = try repl.eval("v = [1, \"one\", [2.0, nil]]")
+        // round 59: a mixed literal binds only under an annotation
+        _ = try repl.eval("var v: [Primitives] = [1, \"one\", [2.0, nil]]")
         let echo = try repl.eval("v").sourceString()
         #expect(try repl.eval(echo) == repl.eval("v"))
     }

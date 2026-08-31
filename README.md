@@ -579,6 +579,34 @@ swiftalk> log
 ["will 0 -> 500", "did 0 -> 500"]
 ```
 
+**Type inference** is in — homogeneous-or-annotate: collections infer
+element types and the locks enforce them; mixed literals bind only
+under `[Primitives]`, `SION`, or `Any`; and hex-float literals close
+the debug round trip:
+
+```text
+swiftalk> let ary = [0, 1, 2, 3]        // [Int]
+[0, 1, 2, 3]
+swiftalk> let bad = [0.0, 1, 2, 3]
+type error: cannot infer one element type for 'bad' (Double vs Int) — annotate it: [Primitives], SION, or Any
+swiftalk> let ok: [Primitives] = [0.0, 1, 2, 3]
+[0.0, 1, 2, 3]
+swiftalk> var a = [1, 2]
+[1, 2]
+swiftalk> a.append("x")                 // the inferred [Int] lock enforces
+type error: cannot assign String to 'a'[2] of type Int
+swiftalk> let dict = [0: "zero", 1: "one"]   // [Int: String] — sparse
+[0: "zero", 1: "one"]                        // arrays are Dictionaries
+swiftalk> dict[9] == nil
+true
+swiftalk> 0x1.fep7                      // hex floats lex at last:
+255.0
+swiftalk> debugPrint(0.1)               // ...debug output re-enters
+0x1.999999999999ap-4
+swiftalk> 0x1.999999999999ap-4 == 0.1
+true
+```
+
 ```sh
 swift test
 ```

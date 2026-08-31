@@ -216,17 +216,29 @@ final class Environment {
     /// the lock, or be `nil` where the lock is optional (`Int?` is the flat
     /// union Int-or-nil, not a wrapper).
     func check(_ value: Value, against lock: TypeAnnotation, for name: String) throws {
-        if case .nil = value {
-            guard lock.optional || lock.name == "Nil" else {
-                throw SwiftalkError.type(
-                    "cannot assign nil to '\(name)' of type \(lock.name) — declare it \(lock.name)?")
-            }
-            return
-        }
-        guard typeMatches(value, lock.name) else {
-            throw SwiftalkError.type(
-                "cannot assign \(value.typeName) to '\(name)' of type \(lock.name)\(lock.optional ? "?" : "")")
-        }
+        try checkValue(value, against: lock, context: "'\(name)'")
+    }
+}
+
+/// Is `value` a Primitive (§3c, rounds 19–20): the scalar roster plus
+/// Arrays and Dictionaries thereof — SION-complete minus Data/Date.
+func isPrimitives(_ value: Value) -> Bool {
+    switch value {
+    case .nil, .bool, .int, .double, .string: return true
+    case .array(let a):      return a.allSatisfy(isPrimitives)
+    case .dictionary(let d): return d.allSatisfy { isPrimitives($0.key) && isPrimitives($0.value) }
+    default: return false
+    }
+}
+
+/// Is `value` SION-serializable (§3b's full roster, round 59):
+/// Primitives plus Data and Date, recursively.
+func isSION(_ value: Value) -> Bool {
+    switch value {
+    case .nil, .bool, .int, .double, .string, .data, .date: return true
+    case .array(let a):      return a.allSatisfy(isSION)
+    case .dictionary(let d): return d.allSatisfy { isSION($0.key) && isSION($0.value) }
+    default: return false
     }
 }
 
@@ -247,7 +259,17 @@ func typeMatches(_ value: Value, _ lockName: String) -> Bool {
 
 private let knownTypeNames: Set<String> =
     ["Nil", "Bool", "Int", "Double", "String", "Array", "Dictionary", "Function",
-     "Range", "Sequence", "Data", "Date", "Task"]
+     "Range", "Sequence", "Data", "Date", "Task",
+     // Round 59: annotation vocabulary — Any admits everything,
+     // Primitives/SION admit their rosters. Not (yet) values.
+     "Primitives", "SION", "Any"]
+
+/// A parameterized annotation is known iff its name and every
+/// parameter's are (round 59) — `[Int]`, `[String: [Wat]]` checks Wat.
+private func annotationIsKnown(_ annotation: TypeAnnotation, in env: Environment) -> Bool {
+    (knownTypeNames.contains(annotation.name) || isUserType(annotation.name, in: env))
+        && annotation.parameters.allSatisfy { annotationIsKnown($0, in: env) }
+}
 
 /// The hidden binding through which `$(...)` finds the current function
 /// (§2.4). `@` cannot appear in a swiftalk identifier, so user code can
@@ -299,19 +321,19 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
         }
         let lock: TypeAnnotation
         if let annotation {
-            guard knownTypeNames.contains(annotation.name) || annotatedEnum != nil
-                    || isUserType(annotation.name, in: env) else {
-                throw SwiftalkError.type("unknown type '\(annotation.name)'")
+            guard annotationIsKnown(annotation, in: env) || annotatedEnum != nil else {
+                throw SwiftalkError.type("unknown type '\(annotation.display)'")
             }
             lock = annotation
         } else {
             // Inference locks to the initializer's runtime type. Bare
-            // `var x = nil` has nothing to infer and is rejected (§3a).
+            // `var x = nil` has nothing to infer and is rejected (§3a);
+            // collections must be homogeneous to infer (round 59).
             guard value != .nil else {
                 throw SwiftalkError.type(
                     "cannot infer a type for '\(name)' from nil — annotate it, e.g. \(mutable ? "var" : "let") \(name): Int? = nil")
             }
-            lock = TypeAnnotation(name: value.typeName, optional: false)
+            lock = try inferLock(value, for: name)
         }
         try env.check(value, against: lock, for: name)
         try env.declare(name, Binding(mutable: mutable, lock: lock, value: value))
@@ -327,7 +349,7 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             }
             try env.declare(name, Binding(
                 mutable: true,
-                lock: TypeAnnotation(name: value.typeName, optional: false),
+                lock: try inferLock(value, for: name),
                 value: value))
             return value
         }
@@ -1691,17 +1713,108 @@ func actorWrite(_ obj: ActorObject, _ name: String, _ newValue: Value,
 }
 
 /// The §3 lock check, standalone (shared by bindings and properties).
+/// Round 59 additions: `Any` admits everything, `Primitives`/`SION`
+/// admit their rosters (nil included — nil IS a Primitive), and
+/// parameterized locks (`[Int]`, `[String: Int]`) check elements,
+/// keys, and values recursively. Per round 35, a Dictionary's values
+/// are implicitly optional — nil is a right value for a key.
 func checkValue(_ value: Value, against lock: TypeAnnotation, context: String) throws {
     if case .nil = value {
-        guard lock.optional || lock.name == "Nil" else {
+        guard lock.optional || lock.name == "Nil" || lock.name == "Any"
+                || lock.name == "Primitives" || lock.name == "SION" else {
             throw SwiftalkError.type(
-                "cannot assign nil to \(context) of type \(lock.name) — declare it \(lock.name)?")
+                "cannot assign nil to \(context) of type \(lock.display) — declare it \(lock.display)?")
         }
         return
     }
+    switch lock.name {
+    case "Any":
+        return
+    case "Primitives":
+        guard isPrimitives(value) else {
+            throw SwiftalkError.type(
+                "cannot assign \(value.typeName) to \(context) of type Primitives")
+        }
+        return
+    case "SION":
+        guard isSION(value) else {
+            throw SwiftalkError.type(
+                "cannot assign \(value.typeName) to \(context) of type SION")
+        }
+        return
+    default:
+        break
+    }
     guard typeMatches(value, lock.name) else {
         throw SwiftalkError.type(
-            "cannot assign \(value.typeName) to \(context) of type \(lock.name)\(lock.optional ? "?" : "")")
+            "cannot assign \(value.typeName) to \(context) of type \(lock.display)")
+    }
+    if lock.name == "Array", lock.parameters.count == 1, case .array(let a) = value {
+        for (index, element) in a.enumerated() {
+            try checkValue(element, against: lock.parameters[0], context: "\(context)[\(index)]")
+        }
+    }
+    if lock.name == "Dictionary", lock.parameters.count == 2, case .dictionary(let d) = value {
+        for (key, val) in d {
+            try checkValue(key, against: lock.parameters[0], context: "a key of \(context)")
+            if val != .nil {
+                try checkValue(val, against: lock.parameters[1],
+                               context: "\(context)[\(key.sourceString())]")
+            }
+        }
+    }
+}
+
+/// Infers the lock a binding takes from its initializer (round 59):
+/// scalars lock to their type as ever; an Array must be HOMOGENEOUS —
+/// `[0, 1, 2]` is `[Int]`, `[0.0, 1, 2]` is an error unless annotated
+/// (`[Primitives]`, `SION`, or `Any`); a Dictionary infers `[K: V]`
+/// from homogeneous keys and non-nil values (a sparse array is a
+/// Dictionary, like JS and PHP — round 59's own words).
+func inferLock(_ value: Value, for name: String) throws -> TypeAnnotation {
+    switch value {
+    case .array(let a):
+        guard !a.isEmpty else { return TypeAnnotation(name: "Array", optional: false) }
+        var element: TypeAnnotation? = nil
+        for v in a {
+            guard v != .nil else {
+                throw SwiftalkError.type(
+                    "cannot infer an element type for '\(name)' from a nil element — annotate it, e.g. [Int?]")
+            }
+            let t = try inferLock(v, for: name)
+            if let element, element != t {
+                throw SwiftalkError.type(
+                    "cannot infer one element type for '\(name)' (\(element.display) vs \(t.display)) — annotate it: [Primitives], SION, or Any")
+            }
+            element = t
+        }
+        return TypeAnnotation(name: "Array", optional: false, parameters: [element!])
+    case .dictionary(let d):
+        guard !d.isEmpty else { return TypeAnnotation(name: "Dictionary", optional: false) }
+        var key: TypeAnnotation? = nil
+        var val: TypeAnnotation? = nil
+        for (k, v) in d {
+            let kt = try inferLock(k, for: name)
+            if let key, key != kt {
+                throw SwiftalkError.type(
+                    "cannot infer one key type for '\(name)' (\(key.display) vs \(kt.display)) — annotate it, e.g. [Primitives: Any]")
+            }
+            key = kt
+            guard v != .nil else { continue }        // round 35: nil shapes nothing
+            let vt = try inferLock(v, for: name)
+            if let val, val != vt {
+                throw SwiftalkError.type(
+                    "cannot infer one value type for '\(name)' (\(val.display) vs \(vt.display)) — annotate it, e.g. [\(key!.display): Any]")
+            }
+            val = vt
+        }
+        guard let key, let val else {
+            throw SwiftalkError.type(
+                "cannot infer a value type for '\(name)' — every value is nil; annotate it, e.g. [\(key?.display ?? "Int"): Int?]")
+        }
+        return TypeAnnotation(name: "Dictionary", optional: false, parameters: [key, val])
+    default:
+        return TypeAnnotation(name: value.typeName, optional: false)
     }
 }
 

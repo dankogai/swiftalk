@@ -303,8 +303,8 @@ struct Lexer {
     }
 
     private mutating func lexNumber() throws -> Token {
-        // Radix prefixes: 0x / 0o / 0b (integers; hex floats are a later
-        // milestone, Design.md §3d).
+        // Radix prefixes: 0x / 0o / 0b — and 0x floats (round 59):
+        // `0x1.fep7` / `0x1p-2`, closing the round-37 debug round trip.
         if peek == "0", pos + 1 < scalars.count {
             let radix: Int? = switch scalars[pos + 1] {
             case "x": 16
@@ -314,6 +314,9 @@ struct Lexer {
             }
             if let radix {
                 pos += 2
+                if radix == 16, let d = try lexHexFloat() {
+                    return .double(d)
+                }
                 return .int(try lexInteger(radix: radix))
             }
         }
@@ -356,6 +359,57 @@ struct Lexer {
             throw SwiftalkError.overflow("integer literal '\(text)' does not fit in Int")
         }
         return .int(i)
+    }
+
+    /// Tries a hex-float literal at the position right after `0x`
+    /// (round 59): mantissa, optional `.fraction`, and a `p` exponent —
+    /// REQUIRED whenever a fraction is present (Swift's rule), which is
+    /// what keeps `0xff.description` a member access: `d` and `e` are
+    /// hex digits, so without the p-requirement the fraction would eat
+    /// them. Rewinds and returns nil when it is not a float after all.
+    private mutating func lexHexFloat() throws -> Double? {
+        func isHexDigit(_ c: UnicodeScalar) -> Bool {
+            ("0"..."9").contains(c) || ("a"..."f").contains(c) || ("A"..."F").contains(c)
+        }
+        let start = pos
+        var text = "0x"
+        while let c = peek, isHexDigit(c) || c == "_" {
+            if c != "_" { text.unicodeScalars.append(c) }
+            pos += 1
+        }
+        if peek == ".", pos + 1 < scalars.count, isHexDigit(scalars[pos + 1]) {
+            let beforeFraction = pos
+            pos += 1
+            var fraction = "."
+            while let c = peek, isHexDigit(c) || c == "_" {
+                if c != "_" { fraction.unicodeScalars.append(c) }
+                pos += 1
+            }
+            if peek == "p" || peek == "P" {
+                text += fraction
+            } else {
+                pos = beforeFraction     // 0xff.description — not ours
+            }
+        }
+        guard peek == "p" || peek == "P" else {
+            pos = start                  // a plain hex integer
+            return nil
+        }
+        text += "p"
+        pos += 1
+        if let sign = peek, sign == "+" || sign == "-" {
+            text.unicodeScalars.append(sign)
+            pos += 1
+        }
+        var sawDigit = false
+        while let c = peek, ("0"..."9").contains(c) || c == "_" {
+            if c != "_" { text.unicodeScalars.append(c); sawDigit = true }
+            pos += 1
+        }
+        guard sawDigit, let d = Double(text) else {
+            throw SwiftalkError.syntax("invalid hex-float literal '\(text)'")
+        }
+        return d
     }
 
     private mutating func lexInteger(radix: Int) throws -> Int64 {
