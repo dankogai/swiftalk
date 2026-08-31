@@ -71,8 +71,7 @@ final class LineEditor {
         var original = termios()
         guard tcgetattr(0, &original) == 0 else {
             // not a terminal after all — plain buffered reading
-            fputs(prompt, stdout)
-            fflush(stdout)
+            emit(prompt)
             return Swift.readLine().map { .line($0) } ?? .eof
         }
         var raw = original
@@ -87,8 +86,7 @@ final class LineEditor {
         // blocks until the reader drains output (hanging on an idle
         // pty). NOW applies immediately and touches neither queue.
         guard tcsetattr(0, TCSANOW, &raw) == 0 else {
-            fputs(prompt, stdout)
-            fflush(stdout)
+            emit(prompt)
             return Swift.readLine().map { .line($0) } ?? .eof
         }
         defer { tcsetattr(0, TCSANOW, &original) }
@@ -102,8 +100,7 @@ final class LineEditor {
             var out = "\r\u{1B}[2K" + prompt + String(buffer)
             let tail = buffer.count - cursor
             if tail > 0 { out += "\u{1B}[\(tail)D" }
-            fputs(out, stdout)
-            fflush(stdout)
+            emit(out)
         }
         func recall(_ index: Int) {
             if historyIndex == history.count { draft = String(buffer) }
@@ -115,19 +112,19 @@ final class LineEditor {
         refresh()
         while true {
             guard let byte = readByte() else {
-                fputs("\n", stdout)
+                emit("\n")
                 return buffer.isEmpty ? .eof : .line(String(buffer))
             }
             switch byte {
             case 13, 10:                              // Enter
-                fputs("\n", stdout)
+                emit("\n")
                 return .line(String(buffer))
             case 3:                                   // ^C — cancel
-                fputs("^C\n", stdout)
+                emit("^C\n")
                 return .interrupted
             case 4:                                   // ^D — EOF when empty, else delete
                 if buffer.isEmpty {
-                    fputs("\n", stdout)
+                    emit("\n")
                     return .eof
                 }
                 if cursor < buffer.count { buffer.remove(at: cursor) }
@@ -153,7 +150,7 @@ final class LineEditor {
             case 16: if historyIndex > 0 { recall(historyIndex - 1) }              // ^P
             case 14: if historyIndex < history.count { recall(historyIndex + 1) }  // ^N
             case 12:                                  // ^L — clear screen
-                fputs("\u{1B}[H\u{1B}[2J", stdout)
+                emit("\u{1B}[H\u{1B}[2J")
             case 27:                                  // ESC sequences
                 guard let b1 = readByte() else { break }
                 if b1 == UInt8(ascii: "[") {
@@ -191,6 +188,14 @@ final class LineEditor {
             }
             refresh()
         }
+    }
+
+    /// Writes straight to fd 1 — Glibc's `stdout` is a shared
+    /// mutable var Swift 6 refuses to touch, and raw fd writes need
+    /// no flushing anyway.
+    private func emit(_ s: String) {
+        let bytes = Array(s.utf8)
+        _ = bytes.withUnsafeBufferPointer { write(1, $0.baseAddress, $0.count) }
     }
 
     private func readByte() -> UInt8? {
