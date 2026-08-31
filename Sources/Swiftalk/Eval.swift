@@ -2064,7 +2064,8 @@ func apply(_ fn: FunctionObject, args: [(label: String?, value: Value)]) throws 
 /// from it as the next state.
 func run(_ fn: FunctionObject, ordered: [Value]) throws -> (result: Value, local: Environment) {
     let local = Environment(parent: fn.closure)
-    for (name, value) in zip(fn.parameters, ordered) {
+    for (name, value) in zip(fn.parameters, ordered) where name != "_" {
+        // `_` (round 61): positional-only — no binding; $N still holds.
         try local.declare(name, Binding(
             mutable: false,
             lock: TypeAnnotation(name: value.typeName, optional: true),

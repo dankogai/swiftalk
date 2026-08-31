@@ -170,14 +170,18 @@ Further decisions:
   resume) and cannot be a builtin. A coroutine `Sequence` is
   re-iterable like any Sequence value: each iteration is a fresh run
   of the body.
-* **`let name(x:y:) { body }` declares a function with its labels as
-  the bindings** (round 58a): pure sugar for `let name = { x, y in
-  body }`, which is also how it echoes — `{}` remains the one
-  function form, and the labels go straight to the variable names (no
-  `let x = $0` ceremony; that has held since round 32, this spelling
-  joins it). Empty labels `()` = variadic (below); a bonus: the name
-  is in scope when the body runs, so **named recursion needs no
-  `.todo`** — `let fact(n:) { n < 2 ? 1 : n * fact(n: n - 1) }`.
+* **One declaration notation — `let f = { x, y in body }` (round 61,
+  REVERTING round 58a's `let f(x:y:) { body }` sugar)**: "swiftalk is
+  getting too close to Swift; let's simplify." The declared names are
+  the labels and the bindings at once: `f(x: 3, y: 4)` ≡
+  `f(y: 4, x: 3)` ≡ `f(3, 4)` — omitted labels are positional
+  (`x = $0, y = $1`), mixed calls fill remaining slots in order, and
+  an **undefined label raises**. **`_` is a positional-only
+  parameter**: `{ _, x, y in }` is invoked `g(5, x: 4, y: 3)` — the
+  `_` slot takes no label (`g(_: 5)` is a syntax error), binds no
+  name (the value reaches the body as `$0` alone), and may repeat.
+  (Named recursion is back to `.todo`, round 44 — the 58a bonus died
+  with the sugar.)
 * **No declared params means variadic.** Strict arity (round 10)
   applies only to functions that *declare* parameters. A function with
   none accepts any number of arguments — they're all in `$`, and
@@ -693,6 +697,10 @@ give identity; actors give safety; pick on purpose.
 style): redefining a name in the same scope is a redefinition/error, and
 APIs that would be Swift overload families merge into one function via
 optionals, defaults, or enum/`Any` parameters.
+
+**Multi-dispatch exists in exactly one place: Type `init`s** (round
+48, bounded so by round 61 — "limit multi dispatch to Type inits").
+Methods, free functions, and everything else stay one-name-one-body.
 
 With §2.4 (functions are `let`-bound closure values, no `func`), this
 stops being a rule and becomes a theorem: a `let` binds once, so a
@@ -1777,3 +1785,20 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   the existing else machinery. A boolean clause stays strictly Bool —
   nothing is truthy. Single-boolean conditions still parse to the
   round-36 ifS, so nothing else moved. OPEN: `while let`.
+* **2026-08-31, round 61 — simplification: "swiftalk is getting too
+  close to swift."** Four strokes. (1) **Multi-dispatch is bounded to
+  Type inits** (§6): round 48's init multi-dispatch is now the ONLY
+  multi-dispatch there will be — everything else stays
+  one-name-one-body. (2) **Round 58a REVERTED**: the `let f(x:y:)
+  { body }` declaration sugar is gone, two rounds after it landed —
+  `let f = { x, y in body }` is again the one notation (and named
+  recursion is back to `.todo`; the 58a bonus died with the sugar).
+  The append-only log keeps both entries, as ever. (3) Confirmed
+  standing law (rounds 10/32): labels are the parameter names,
+  reorderable — `f(x:3, y:4)` ≡ `f(y:4, x:3)` — omitted labels are
+  positional (`x = $0, y = $1`), and **an undefined label raises**.
+  (4) NEW: **`_` is a positional-only parameter** — `{ _, x, y in }`
+  is invoked `g(5, x:4, y:3)` (or all-positional): the `_` slot
+  takes no label (`g(_: 5)` is a syntax error), binds no name (the
+  value reaches the body as `$0` alone), and may repeat
+  (`{ _, _, z in }`), while named parameters may not.

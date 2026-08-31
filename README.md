@@ -544,20 +544,27 @@ On an actor, a computed setter is the actor's own code — callable
 from outside and serialized like any method, while direct storage
 writes stay isolated.
 
-**`let name(x:y:) { body }`** is in — argument labels go straight to
-the variable names (as `{ x, y in ... }` always did; this spelling
-joins it, and gives named recursion without `.todo`) — and
-**`willSet`/`didSet`** observers, silent during init, clamp-safe:
+**The call convention, simplified** (round 61 — "swiftalk is getting
+too close to swift"): one function notation, `{ x, y in ... }` (round
+58a's `let f(x:y:)` sugar is reverted); the declared names are the
+labels — reorderable, positional when omitted; `_` declares a
+positional-only slot; undefined labels raise; multi-dispatch belongs
+to Type `init`s alone. And **`willSet`/`didSet`** observers, silent
+during init, clamp-safe:
 
 ```text
-swiftalk> let hypotenuse(x:y:) { x * x + y * y }
+swiftalk> let f = { x, y in x * x + y * y }
 { x, y in ... }
-swiftalk> hypotenuse(y: 4, x: 3)
+swiftalk> f(y: 4, x: 3)
 25
-swiftalk> let fact(n:) { n < 2 ? 1 : n * fact(n: n - 1) }
-{ n in ... }
-swiftalk> fact(n: 20)
-2432902008176640000
+swiftalk> f(3, 4)                 // omitted labels are positional
+25
+swiftalk> let g = { _, x, y in "\($0) \(x) \(y)" }
+{ _, x, y in ... }
+swiftalk> g(5, x: 4, y: 3)        // _ takes no label, binds no name
+"5 4 3"
+swiftalk> f(x: 3, z: 4)
+type error: unknown argument label 'z'
 swiftalk> var log = []
 []
 swiftalk> struct Score {

@@ -880,32 +880,9 @@ struct Parser {
         if keywords.contains(name) || name.hasPrefix("$") {
             throw SwiftalkError.syntax("'\(name)' cannot be declared")
         }
-        // `let name(x:y:) { body }` (round 58a): the labels ARE the
-        // bindings — sugar for `let name = { x, y in body }`, which is
-        // also how it echoes; `{}` stays the one function form (§2.4).
-        if case .punct("(")? = peek {
-            pos += 1
-            var parameters: [String] = []
-            while peek != .punct(")") {
-                guard case .identifier(let param)? = advance(),
-                      !keywords.contains(param), !param.hasPrefix("$") else {
-                    throw SwiftalkError.syntax("expected a parameter label in \(name)(...)")
-                }
-                guard parameters.firstIndex(of: param) == nil else {
-                    throw SwiftalkError.syntax("duplicate parameter label '\(param)'")
-                }
-                try expect(":")
-                parameters.append(param)
-            }
-            try expect(")")
-            guard case .punct("{")? = advance() else {
-                throw SwiftalkError.syntax("expected '{' after \(name)(\(parameters.map { "\($0):" }.joined()))")
-            }
-            let body = try withTrailing(true) { try $0.parseStatements(until: "}") }
-            try expect("}")
-            return .declaration(mutable: mutable, name: name, annotation: nil,
-                                initializer: .function(parameters: parameters, body: body))
-        }
+        // (Round 61 reverted round 58a's `let name(x:y:) { body }`
+        // sugar — swiftalk was getting too close to Swift. `{ x, y in
+        // body }` is once again the one and only spelling.)
         var annotation: TypeAnnotation? = nil
         if case .punct(":")? = peek {
             pos += 1
@@ -1074,6 +1051,11 @@ struct Parser {
                 repeat {
                     if case .identifier(let label)? = $0.peek, $0.peek(at: 1) == .punct(":"),
                        !keywords.contains(label) {
+                        guard label != "_" else {
+                            // round 61: `_` parameters have no label —
+                            // pass the value positionally
+                            throw SwiftalkError.syntax("'_' is not an argument label")
+                        }
                         $0.pos += 2
                         args.append((label, try $0.parseExpr()))
                     } else {
@@ -1184,7 +1166,11 @@ struct Parser {
         }
         if !parameters.isEmpty, case .identifier("in")? = peek {
             pos += 1
-            if Set(parameters).count != parameters.count {
+            // `_` is a positional-only parameter (round 61): no label,
+            // no binding — the value reaches the body as $N alone. It
+            // may repeat; named parameters may not.
+            let named = parameters.filter { $0 != "_" }
+            if Set(named).count != named.count {
                 throw SwiftalkError.syntax("duplicate parameter name")
             }
             return parameters
