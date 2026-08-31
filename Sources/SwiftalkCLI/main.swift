@@ -12,43 +12,52 @@ import Glibc
 
 let interpreter = Swiftalk.Interpreter(relaxed: true)
 let isTTY = isatty(0) != 0
+// On a terminal, LineEditor (round 64) supplies raw-mode editing,
+// arrow-key history, and ~/.swiftalk_history; pipes keep plain reads.
+let editor: LineEditor? = isTTY ? LineEditor() : nil
 
-func prompt(continued: Bool) {
-    guard isTTY else { return }
-    // The continuation prompt is two quiet spaces (round 63) — dots
-    // were noise. (Recommended indent in .swt files is 4 spaces.)
-    print(continued ? "  " : "swiftalk> ", terminator: "")
+// The continuation prompt is two quiet spaces (round 63) — dots were
+// noise. (Recommended indent in .swt files is 4 spaces.)
+let nextLine: (_ continued: Bool) -> LineEditor.ReadResult = { continued in
+    guard let editor else {
+        return readLine().map { .line($0) } ?? .eof
+    }
+    return editor.readLine(prompt: continued ? "  " : "swiftalk> ")
 }
 
 var buffer = ""
-prompt(continued: false)
-while let line = readLine() {
-    buffer += buffer.isEmpty ? line : "\n" + line
-    if buffer.trimmed.isEmpty {
+loop: while true {
+    switch nextLine(!buffer.isEmpty) {
+    case .eof:
+        break loop
+    case .interrupted:       // ^C cancels the whole pending statement
         buffer = ""
-        prompt(continued: false)
-        continue
-    }
-    if Swiftalk.needsMoreInput(buffer) {
-        prompt(continued: true)
-        continue
-    }
-    do {
-        let value = try interpreter.eval(buffer)
-        // nil echoes are suppressed (the Python way): statements — loops,
-        // if, print(...) — all evaluate to nil, and echoing it is noise.
-        if value != .nil {
-            print(value.sourceString())
+    case .line(let line):
+        editor?.remember(line)
+        buffer += buffer.isEmpty ? line : "\n" + line
+        if buffer.trimmed.isEmpty {
+            buffer = ""
+            continue
         }
-    } catch let error as Swiftalk.Error {
-        print(error.description)
-    } catch {
-        print("error: \(error)")
+        if Swiftalk.needsMoreInput(buffer) {
+            continue
+        }
+        do {
+            let value = try interpreter.eval(buffer)
+            // nil echoes are suppressed (the Python way): statements —
+            // loops, if, print(...) — all evaluate to nil; echoing it
+            // is noise.
+            if value != .nil {
+                print(value.sourceString())
+            }
+        } catch let error as Swiftalk.Error {
+            print(error.description)
+        } catch {
+            print("error: \(error)")
+        }
+        buffer = ""
     }
-    buffer = ""
-    prompt(continued: false)
 }
-if isTTY { print() }  // a tidy newline after ctrl-D
 
 extension String {
     var trimmed: String {

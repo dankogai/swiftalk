@@ -1838,3 +1838,25 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   cleanly too. Recorded alongside: the recommended indent in `.swt`
   source files is 4 spaces (the REPL's 2 is a prompt, not a style).
   README transcripts revised wholesale to match.
+* **2026-08-31, round 64 — REPL history and line editing** ("Can you
+  make SwiftalkCLI support history? Do you need something beyond
+  Swift to implement that like readline?"). Answered: **nothing
+  beyond Swift.** GNU readline is GPL and a system dependency;
+  libedit is BSD but still a dependency with a module map; raw-mode
+  termios needs only Darwin/Glibc, which the CLI has imported since
+  milestone 1 — so SwiftalkCLI grew a ~200-line pure-Swift
+  LineEditor, the linenoise approach. Features: arrow-key history
+  (up/down and ^P/^N) with a draft slot, `~/.swiftalk_history`
+  persistence (last 1000, consecutive dedup), emacs editing
+  (^A ^E ^B ^F ^K ^U ^W, Home/End/Delete sequences), ^L clear, ^C
+  cancels the whole pending multi-line statement, ^D is EOF on an
+  empty line and delete-forward otherwise, UTF-8 input per scalar.
+  Non-TTY input keeps plain reads — pipes and tests unchanged. Two
+  termios lessons paid for in the pty test harness: restoring with
+  TCSAFLUSH *discards queued input* (eating type-ahead and multi-line
+  paste at line boundaries), and TCSADRAIN *blocks until the reader
+  drains output* (hanging on an idle pty) — TCSANOW, which touches
+  neither queue, is the correct third option. Verified end-to-end by
+  driving a real pty: recall-and-edit, ^C with surviving type-ahead,
+  paste across continuations, cross-session recall from the history
+  file, clean ^D exit.

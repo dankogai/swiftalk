@@ -32,7 +32,11 @@ try interp.eval("var count = 1")
 try interp.eval("count = count + 1")         // .int(2)
 ```
 
-**Milestone 1 — REPL** is in:
+**Milestone 1 — REPL** is in — with line editing and **history**
+(round 64): arrow keys browse (persisted in `~/.swiftalk_history`),
+emacs keys edit (`^A ^E ^K ^U ^W ...`), `^C` cancels the pending
+statement, multi-line paste works. Pure Swift on termios — no
+readline, no libedit, no dependencies:
 
 ```sh
 swift run swiftalk
