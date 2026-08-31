@@ -615,8 +615,7 @@ and `guard`:
 ```text
 swiftalk> let ages = ["alice": 42]
 ["alice": 42]
-swiftalk> if let age = ages["alice"], age < 100 { print("alice is \(age)") }
-........ else { print("unknown") }
+swiftalk> if let age = ages["alice"], age < 100 { print("alice is \(age)") } else { print("unknown") }
 alice is 42
 swiftalk> let x: Int? = 41
 41
