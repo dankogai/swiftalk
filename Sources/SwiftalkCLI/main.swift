@@ -15,7 +15,9 @@ let isTTY = isatty(0) != 0
 
 func prompt(continued: Bool) {
     guard isTTY else { return }
-    print(continued ? "........ " : "swiftalk> ", terminator: "")
+    // The continuation prompt is two quiet spaces (round 63) — dots
+    // were noise. (Recommended indent in .swt files is 4 spaces.)
+    print(continued ? "  " : "swiftalk> ", terminator: "")
 }
 
 var buffer = ""

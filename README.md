@@ -46,7 +46,7 @@ swiftalk> x = x + 2
 swiftalk> x = "oops"      // ...but the type lock still holds
 type error: cannot assign String to 'x' of type Int
 swiftalk> [1, "one",      // open brackets continue onto the next line
-........ 2.0]
+  2.0]
 [1, "one", 2.0]
 ```
 
@@ -94,15 +94,15 @@ swiftalk> m
 
 ```text
 swiftalk> let fib = { n in
-........ var a = 0
-........ var b = 1
-........ for _ in 1...n {
-........ let t = a + b
-........ a = b
-........ b = t
-........ }
-........ a
-........ }
+  var a = 0
+  var b = 1
+  for _ in 1...n {
+  let t = a + b
+  a = b
+  b = t
+  }
+  a
+  }
 { n in ... }
 swiftalk> fib(90)
 2880067194370816120
@@ -127,11 +127,11 @@ source form) — which means FizzBuzz, at last:
 
 ```text
 swiftalk> for i in 1...15 {
-........ if i / 15 * 15 == i { print("FizzBuzz") }
-........ else if i / 3 * 3 == i { print("Fizz") }
-........ else if i / 5 * 5 == i { print("Buzz") }
-........ else { print(i) }
-........ }
+  if i / 15 * 15 == i { print("FizzBuzz") }
+  else if i / 3 * 3 == i { print("Fizz") }
+  else if i / 5 * 5 == i { print("Buzz") }
+  else { print(i) }
+  }
 1
 2
 Fizz
@@ -235,16 +235,16 @@ destructuring, `if case`, and runtime-enforced exhaustiveness:
 
 ```text
 swiftalk> enum Shape {
-........ case circle(r: Double)
-........ case rect(w: Double, h: Double)
-........ }
+  case circle(r: Double)
+  case rect(w: Double, h: Double)
+  }
 Shape
 swiftalk> let area = { s in
-........ switch s {
-........ case .circle(let r): return 3.14159265358979 * r * r
-........ case .rect(let w, let h): return w * h
-........ }
-........ }
+  switch s {
+  case .circle(let r): return 3.14159265358979 * r * r
+  case .rect(let w, let h): return w * h
+  }
+  }
 swiftalk> area(Shape.rect(w: 3.0, h: 4.0))
 12.0
 swiftalk> Shape.circle(r: 2.5)
@@ -263,9 +263,9 @@ swiftalk> Shape.circle(r: 3.0).circle
 swiftalk> Shape.circle(r: 3.0).rect == nil
 true
 swiftalk> struct Point {
-........ var x: Int = 0
-........ var y: Int = 0
-........ }
+  var x: Int = 0
+  var y: Int = 0
+  }
 Point
 swiftalk> var p = Point(x: 3, y: 4)
 Point(x: 3, y: 4)
@@ -281,13 +281,13 @@ closure properties (`self` bound at invocation), and initializers
 
 ```text
 swiftalk> struct P {
-........ var x: Int = 0
-........ var y: Int = 0
-........ let norm2 = { self.x * self.x + self.y * self.y }
-........ init { v in self.x = v
-........ self.y = v
-........ }
-........ }
+  var x: Int = 0
+  var y: Int = 0
+  let norm2 = { self.x * self.x + self.y * self.y }
+  init { v in self.x = v
+  self.y = v
+  }
+  }
 P
 swiftalk> P(3, 4).norm2()        // memberwise — the last dispatch candidate
 25
@@ -301,10 +301,10 @@ leading-dot members mean `self.`:
 
 ```text
 swiftalk> struct Stack {
-........ var value: Array = []
-........ let push = { item in .value.append(item) }
-........ let top = { .value.count == 0 ? nil : .value[.value.count - 1] }
-........ }
+  var value: Array = []
+  let push = { item in .value.append(item) }
+  let top = { .value.count == 0 ? nil : .value[.value.count - 1] }
+  }
 Stack
 swiftalk> var s = Stack()
 swiftalk> s.push(1)
@@ -354,15 +354,15 @@ tuples:
 
 ```text
 swiftalk> let fib = {
-........ var a = 0
-........ var b = 1
-........ while true {
-........ yield a
-........ let t = a + b
-........ a = b
-........ b = t
-........ }
-........ }
+  var a = 0
+  var b = 1
+  while true {
+  yield a
+  let t = a + b
+  a = b
+  b = t
+  }
+  }
 { ... }
 swiftalk> Sequence(fib).prefix(8)
 [0, 1, 1, 2, 3, 5, 8, 13]
@@ -419,12 +419,12 @@ assignment, for structs and extensions (builtins read-only):
 
 ```text
 swiftalk> struct Temp {
-........ var celsius = 0.0
-........ var fahrenheit {
-........ get { .celsius * 1.8 + 32.0 }
-........ set { .celsius = (newValue - 32.0) / 1.8 }
-........ }
-........ }
+  var celsius = 0.0
+  var fahrenheit {
+  get { .celsius * 1.8 + 32.0 }
+  set { .celsius = (newValue - 32.0) / 1.8 }
+  }
+  }
 Temp
 swiftalk> var t = Temp()
 Temp(celsius: 0.0)
@@ -466,13 +466,13 @@ type error: unknown argument label 'z'
 swiftalk> var log = []
 []
 swiftalk> struct Score {
-........ var points = 0 {
-........ willSet { log.append("will \(.points) -> \(newValue)") }
-........ didSet(old) { log.append("did \(old) -> \(.points)")
-........ if .points > 100 { .points = 100 }
-........ }
-........ }
-........ }
+  var points = 0 {
+  willSet { log.append("will \(.points) -> \(newValue)") }
+  didSet(old) { log.append("did \(old) -> \(.points)")
+  if .points > 100 { .points = 100 }
+  }
+  }
+  }
 Score
 swiftalk> var s = Score()
 Score(points: 0)

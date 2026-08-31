@@ -1831,3 +1831,10 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
   earned their designs and may return. Until then swiftalk is values
   + coroutines + tasks: the round-53 concurrency story (colorless
   Task/await/sleep) never depended on actors and stands whole.
+* **2026-08-31, round 63 — the REPL's continuation prompt is two
+  spaces** ("`........` is just annoying"). The dotted continuation
+  prefix is replaced by two quiet spaces — a continued line now reads
+  like an indented line, so transcripts paste back INTO the REPL more
+  cleanly too. Recorded alongside: the recommended indent in `.swt`
+  source files is 4 spaces (the REPL's 2 is a prompt, not a style).
+  README transcripts revised wholesale to match.
