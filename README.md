@@ -73,6 +73,8 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
 
 ---
 
+* **[eg/](eg/README.md)** — runnable examples: quines, lambda
+  calculus up to Z, SKI (`swift run swiftalk eg/lambda.swt`).
 * **[Status.md](Status.md)** — what is implemented, with verified
   REPL transcripts, milestone by milestone.
 * **[Design.md](Design.md)** — the design document: every decision,

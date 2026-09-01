@@ -10,6 +10,35 @@ import Glibc
 // (§2.2). The printer is .String() source form, so every echo obeys
 // the round-trip law (§3d): what you see re-enters as what it was.
 
+// Script mode (round 66): `swiftalk file.swt` evaluates the whole
+// file as ONE strict program (§2.2 file mode — no relaxed bare
+// assignment), echoes nothing, and outputs only what print() prints.
+if CommandLine.arguments.count > 1 {
+    let path = CommandLine.arguments[1]
+    let fd = open(path, O_RDONLY)
+    guard fd >= 0 else {
+        let msg = "swiftalk: cannot open '\(path)'\n"
+        _ = Array(msg.utf8).withUnsafeBufferPointer { write(2, $0.baseAddress, $0.count) }
+        exit(1)
+    }
+    var data: [UInt8] = []
+    var chunk = [UInt8](repeating: 0, count: 65536)
+    while true {
+        let n = read(fd, &chunk, chunk.count)
+        guard n > 0 else { break }
+        data.append(contentsOf: chunk[0..<n])
+    }
+    close(fd)
+    do {
+        _ = try Swiftalk.Interpreter().eval(String(decoding: data, as: UTF8.self))
+    } catch let error as Swiftalk.Error {
+        let msg = "\(path): \(error.description)\n"
+        _ = Array(msg.utf8).withUnsafeBufferPointer { write(2, $0.baseAddress, $0.count) }
+        exit(1)
+    }
+    exit(0)
+}
+
 let interpreter = Swiftalk.Interpreter(relaxed: true)
 let isTTY = isatty(0) != 0
 // On a terminal, LineEditor (round 64) supplies raw-mode editing,

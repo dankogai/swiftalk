@@ -1,0 +1,2 @@
+let d = "\nprint(\"let d = \" + d.String(.quoted) + d)"
+print("let d = " + d.String(.quoted) + d)

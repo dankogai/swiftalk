@@ -852,3 +852,21 @@ the history. (Moved out of Design.md in round 65.)
   keeps the numbered sections and pointers where the moved content
   was; the log remains append-only and chronological, one entry per
   round, exactly as before — only the address changed.
+* **2026-08-31, round 66 — the `eg/` examples: quines, lambda
+  calculus to Z, SKI** ("I want a few examples"). Four `.swt` files,
+  each verified by a new `EgTests` suite the way Status.md verifies
+  transcripts. **Two quines**: `quine.swt`, the value flavor —
+  `eval(source) == source` exactly, powered by `.String(.quoted)`
+  being canonical (§3d): write the data literal in the escaping the
+  quoter emits and the round-trip law closes the loop; and
+  `quine-print.swt`, whose output is its own source byte-for-byte,
+  trailing newline included. **`lambda.swt`**: Church booleans,
+  numerals, pairs, Kleene's PRED, and the Z combinator with an
+  anonymous factorial — the user's point made runnable: Swift cannot
+  type `x(x)`, swiftalk's ONE `Function` type (§2.4) takes the
+  classical terms verbatim. **`ski.swt`**: S, K, I, derived I (SKK),
+  booleans, B, and the iota bird deriving all three combinators from
+  one. Building the print quine exposed a gap and filled it:
+  **script mode** — `swiftalk file.swt` now evaluates the whole file
+  as one strict program (§2.2 file mode), echo-free, printing only
+  what `print()` prints; piped stdin keeps REPL echo semantics.

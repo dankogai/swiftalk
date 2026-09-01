@@ -1,0 +1,55 @@
+// Lambda calculus in swiftalk — Church encodings up to the Z
+// combinator (the strict-order Y).
+//
+// Swift cannot write this program: x(x) — a function applied to
+// itself — has no finite type there, so Y/Z need wrapper types.
+// swiftalk has exactly ONE Function type (§2.4), and the classical
+// terms transcribe directly.
+//
+// Run: swift run swiftalk eg/lambda.swt
+
+// ---- Church booleans: a boolean IS a two-way choice
+let TRUE   = { t, f in t }
+let FALSE  = { t, f in f }
+let NOT    = { b in b(FALSE, TRUE) }
+let AND    = { a, b in a(b, FALSE) }
+let toBool = { b in b(true, false) }
+
+// ---- Church numerals: n(f, x) applies f to x, n times
+let ZERO  = { f, x in x }
+let SUCC  = { n in { f, x in f(n(f, x)) } }
+let ADD   = { m, n in { f, x in m(f, n(f, x)) } }
+let MUL   = { m, n in { f, x in m({ y in n(f, y) }, x) } }
+let toInt = { n in n({ k in k + 1 }, 0) }
+
+let ONE   = SUCC(ZERO)
+let TWO   = SUCC(ONE)
+let THREE = SUCC(TWO)
+
+print(toInt(ADD(TWO, THREE)))            // 5
+print(toInt(MUL(TWO, THREE)))            // 6
+
+// ---- pairs, and PRED the hard way (Kleene's trick)
+let PAIR   = { a, b in { s in s(a, b) } }
+let FST    = { p in p({ a, b in a }) }
+let SND    = { p in p({ a, b in b }) }
+let SHIFT  = { p in PAIR(SND(p), SUCC(SND(p))) }
+let PRED   = { n in FST(n(SHIFT, PAIR(ZERO, ZERO))) }
+let ISZERO = { n in n({ _ in FALSE }, TRUE) }
+
+print(toInt(PRED(THREE)))                // 2
+print(toBool(ISZERO(ZERO)))              // true
+print(toBool(AND(TRUE, NOT(FALSE))))     // true
+
+// ---- the Z combinator:  Z = λf.(λx.f(λv.x x v))(λx.f(λv.x x v))
+// x(x) is the self-application Swift's type system refuses.
+let Z = { f in
+    { x in f({ v in x(x)(v) }) }({ x in f({ v in x(x)(v) }) })
+}
+
+// anonymous recursion: factorial that never names itself
+let fact = Z({ recur in { n in n < 2 ? 1 : n * recur(n - 1) } })
+print(fact(10))                          // 3628800
+
+// (swiftalk offers native routes too — `$()` recurses and `.todo`
+// names — but Z needs neither. Pure lambda, one Function type.)
