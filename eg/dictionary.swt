@@ -1,0 +1,47 @@
+// Dictionaries — [Key: Value], the spelling that started it all (round 0):
+// any Hashable key, nil as a value, and the sparse-array idiom.
+//
+// Run: swift run swiftalk eg/dictionary.swt
+
+// a homogeneous literal infers [String: Int] (round 59)
+var years = ["swift": 2014, "smalltalk": 1972]
+years["swiftalk"] = 2026
+print(years)                                 // source form, keys sorted
+print(years["swift"])                        // 2014
+print(years["perl6"])                        // nil — absence reads as nil
+print(years["perl6"] ?? 2015)                // ...with a default
+
+// nil is a VALUE (round 35); presence is a separate question: .has
+years["unknown"] = nil
+print(years.has("unknown"), years.has("perl6"))   // true false
+years.remove("unknown")
+print(years.has("unknown"))                  // false
+
+// keys need not be Strings — SION allows any key, and so does swiftalk
+let byNumber = [1: "one", 2: "two"]          // [Int: String]
+print(byNumber[2])                           // two
+let mixed: [Primitives: String] = [1: "int", "1": "string", 1.0: "double"]
+print(mixed.count)                           // 3 — 1, "1", and 1.0 are distinct keys
+
+// a sparse array is a Dictionary (round 59), like JS and PHP
+var sparse = [0: "zero", 1000000: "million"]
+print(sparse[1000000], sparse[5])            // million nil
+print(sparse.count)                          // 2 — no holes stored
+
+// COW: a copy is a copy
+let before = years
+years["kotlin"] = 2011
+print(before.has("kotlin"), years.has("kotlin"))   // false true
+
+// iteration yields [key, value] pairs (order unspecified — aggregate, don't list)
+var total = 0
+for pair in years { total = total + pair[1] }
+print(total)                                 // 8023
+
+// the classic dictionary job: a histogram
+var counts = [:]
+for c in "mississippi" { counts[c] = (counts[c] ?? 0) + 1 }
+print(counts)                                // ["i": 4, "m": 1, "p": 2, "s": 4]
+
+// filter sees [key, value] pairs and keeps the Dictionary; map returns an Array
+print(years.filter { $0[1] < 2000 })         // ["smalltalk": 1972]

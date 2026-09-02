@@ -1,0 +1,65 @@
+// Arrays — COW values, element-typed by inference, and what the three
+// great methods can build.
+//
+// Run: swift run swiftalk eg/array.swt
+
+// a homogeneous literal infers its element type (round 59): [Int]
+var primes = [2, 3, 5, 7, 11]
+print(primes.count)                          // 5
+print(primes[0], primes[4])                  // 2 11
+
+// a copy is a copy (§4): mutation never leaks through an alias
+let snapshot = primes
+primes.append(13)
+primes[0] = 1
+print(primes)                                // [1, 3, 5, 7, 11, 13]
+print(snapshot)                              // [2, 3, 5, 7, 11]
+
+// the inferred lock holds — this line is a type error:
+// primes.append("seventeen")                // cannot assign String to 'primes'[6] of type Int
+
+// map / filter / reduce, with trailing closures and $0/$1
+let squares = (1...10).map { $0 * $0 }
+print(squares)                               // [1, 4, 9, 16, 25, 36, 49, 64, 81, 100]
+print(squares.filter { $0 / 2 * 2 == $0 })   // the even ones
+print(squares.reduce(0) { $0 + $1 })         // 385
+
+// nested arrays: subscript paths write through, COW all the way
+var grid = [[1, 2], [3, 4]]
+grid[1][0] = 30
+print(grid)                                  // [[1, 2], [30, 4]]
+
+// + concatenates; .Array() materializes any Sequence
+print([1, 2] + [3])                          // [1, 2, 3]
+print((1...5).Array())                       // [1, 2, 3, 4, 5]
+print("héllo".Array())                       // ["h", "é", "l", "l", "o"] — graphemes
+
+// there is no reverse, contains, join, or sort builtin (yet).
+// none is needed to write one:
+let reverse  = { xs in xs.reduce([]) { [$1] + $0 } }
+let contains = { xs, x in xs.filter { $0 == x }.count > 0 }
+let join     = { xs, sep in xs.reduce("") { $0 == "" ? "\($1)" : $0 + sep + "\($1)" } }
+print(reverse([1, 2, 3]))                    // [3, 2, 1]
+print(contains(primes, 7), contains(primes, 8))   // true false
+print(join([1, 2, 3], ", "))                 // 1, 2, 3
+
+// a sort — bubble sort, since swaps through subscripts are all it needs
+let sorted = { xs in
+    var a = xs
+    var n = a.count
+    while n > 1 {
+        var i = 0
+        while i < n - 1 {
+            if a[i] > a[i + 1] {
+                let t = a[i]
+                a[i] = a[i + 1]
+                a[i + 1] = t
+            }
+            i = i + 1
+        }
+        n = n - 1
+    }
+    return a
+}
+print(sorted([5, 3, 9, 1, 7]))               // [1, 3, 5, 7, 9]
+print(sorted(["pear", "apple", "fig"]))      // ["apple", "fig", "pear"]

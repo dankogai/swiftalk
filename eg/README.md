@@ -28,3 +28,13 @@ laws are checked byte-for-byte, the outputs line-for-line.
   type, so the classical terms transcribe directly.
 * **[ski.swt](ski.swt)** — SKI combinators, plus the iota bird
   deriving all three from one.
+* **[array.swt](array.swt)** — Arrays: COW copies, inferred element
+  locks, `map`/`filter`/`reduce`, nested paths — and `reverse`,
+  `contains`, `join`, and a sort written in swiftalk, since no
+  builtin exists for them yet.
+* **[dictionary.swt](dictionary.swt)** — Dictionaries: `[Key: Value]`
+  with any Hashable key, nil as a stored value vs `.has`, the
+  sparse-array idiom, and a histogram.
+* **[sequence.swt](sequence.swt)** — Sequences, lazy by default: a
+  generator, coroutines that `yield`, deferred `map`/`filter`,
+  infinite primes pulled by `.prefix` and `for`-`in` with `break`.

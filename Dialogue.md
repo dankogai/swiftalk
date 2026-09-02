@@ -870,3 +870,21 @@ the history. (Moved out of Design.md in round 65.)
   **script mode** — `swiftalk file.swt` now evaluates the whole file
   as one strict program (§2.2 file mode), echo-free, printing only
   what `print()` prints; piped stdin keeps REPL echo semantics.
+* **2026-09-01, round 67 — more examples: the collection types**
+  ("Sequence, Array, Dictionary"). Three `.swt` files in `eg/`, each
+  pinned line-for-line in `EgTests`. `array.swt`: COW copies,
+  inferred `[Int]` locks, map/filter/reduce, nested subscript paths,
+  concatenation and `.Array()` — and, since no `reverse`/`contains`/
+  `join`/`sort` builtin exists yet, each written in swiftalk in a
+  line or a loop (bubble sort needs only subscript swaps). `dictionary.swt`:
+  `[Key: Value]` with any Hashable key (`1`, `"1"`, `1.0` are three
+  keys), nil as a stored value vs `.has`/`.remove`, the round-59
+  sparse-array idiom, COW, pair iteration (aggregated — order is
+  unspecified), a histogram. `sequence.swt`: lazy Range, a generator,
+  deferred map/filter, coroutines that yield, infinite primes by
+  trial division pulled by `.prefix` and `for`-`in`/`break`,
+  re-iterability, Strings and Dictionaries as Sequences. One
+  behavior surfaced while writing: `filter` on a Dictionary keeps
+  the Dictionary while `map` returns an Array — recorded in the
+  example. OPEN (noted by absence): builtin sort/contains/reverse/
+  join, and `&&`/`||` — the examples spell them via ternaries.

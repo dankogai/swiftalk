@@ -32,8 +32,9 @@ try interp.eval("count = count + 1")         // .int(2)
 **Script mode** is in (round 66): `swift run swiftalk file.swt`
 evaluates the whole file as one strict program — no echoes, only
 `print()` output. Examples live in [eg/](eg/README.md): two quines,
-lambda calculus up to the Z combinator, and SKI — each verified by
-the test suite.
+lambda calculus up to the Z combinator, SKI, and the collection
+types (Array, Dictionary, Sequence) — each verified by the test
+suite.
 
 **Milestone 1 — REPL** is in — with line editing and **history**
 (round 64): arrow keys browse (persisted in `~/.swiftalk_history`),

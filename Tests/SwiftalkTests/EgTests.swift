@@ -58,6 +58,74 @@ struct EgTests {
             == "5\n6\n2\ntrue\ntrue\n3628800\n")
     }
 
+    @Test("array.swt: COW, inferred locks, map/filter/reduce, and a hand-rolled sort")
+    func array() throws {
+        #expect(try output(of: try slurp("array.swt")) == """
+            5
+            2 11
+            [1, 3, 5, 7, 11, 13]
+            [2, 3, 5, 7, 11]
+            [1, 4, 9, 16, 25, 36, 49, 64, 81, 100]
+            [4, 16, 36, 64, 100]
+            385
+            [[1, 2], [30, 4]]
+            [1, 2, 3]
+            [1, 2, 3, 4, 5]
+            ["h", "é", "l", "l", "o"]
+            [3, 2, 1]
+            true false
+            1, 2, 3
+            [1, 3, 5, 7, 9]
+            ["apple", "fig", "pear"]
+
+            """)
+    }
+
+    @Test("dictionary.swt: any key, nil as a value, sparse arrays, a histogram")
+    func dictionary() throws {
+        #expect(try output(of: try slurp("dictionary.swt")) == """
+            ["smalltalk": 1972, "swift": 2014, "swiftalk": 2026]
+            2014
+            nil
+            2015
+            true false
+            false
+            two
+            3
+            million nil
+            2
+            false true
+            8023
+            ["i": 4, "m": 1, "p": 2, "s": 4]
+            ["smalltalk": 1972]
+
+            """)
+    }
+
+    @Test("sequence.swt: lazy generators and coroutines, infinite primes")
+    func sequence() throws {
+        #expect(try output(of: try slurp("sequence.swt")) == """
+            1000000000000
+            [1, 2, 3, 4, 5]
+            [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]
+            ["0", "2", "8", "34", "144"]
+            [0, 1, 2, 3, 4]
+            [2, 3, 5, 7, 11, 13, 17, 19, 23, 29]
+            2
+            3
+            5
+            7
+            11
+            13
+            17
+            19
+            [2, 3, 5] [2, 3, 5]
+            ["h.", "é.", "l.", "l.", "o."]
+            ["a"]
+
+            """)
+    }
+
     @Test("ski.swt: S, K, I — and iota deriving all three")
     func ski() throws {
         #expect(try output(of: try slurp("ski.swt"))
