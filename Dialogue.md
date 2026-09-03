@@ -1222,3 +1222,26 @@ the history. (Moved out of Design.md in round 65.)
   stack, and a test thread's is a sliver of the CLI's 8 MB. The test
   now runs the example on a 64 MB pthread (as coroutine bodies
   already do); a depth guard that throws is OPEN.
+* **2026-09-03, round 86 — Regex, a core type with a literal** ("I now
+  think Regex needs to be part of the standard type because `//` is a
+  part of the grammar. Of course we can go like Python `import re; rx
+  = re("exp")` but it is pain in the arse (Of course `Regex("string")`
+  is a valid constructor, BTW)"). Revises round 85's module leaning
+  and lands the design my round-85 assessment sketched: `/pattern/
+  flags` lexed by JavaScript's previous-token rule (division after
+  an operand, a regex elsewhere — no `#/.../#`), `\/` the one escape
+  the lexer touches, flags `imsx` as an inline `(?...)` prefix, the
+  stdlib `Regex` underneath (macOS 13 is now the deployment target —
+  the same line that blocked `String.contains` in round 83). The
+  match shape is the decision that made everything else free: no
+  captures → the String, captures → a tuple with `.0` the whole and
+  named groups labeled, so destructuring, `.year`, round 78's `case
+  let (_, u, v) = /re/:`, and `where` guards all work unchanged; two
+  consequences of existing rules are documented rather than
+  special-cased — a labeled pattern still needs the whole match in
+  it (`(_, year: y, month: m)`, arity rigid since round 75), and a
+  replacement Function sees the tuple splatted (`{ _, first, _ in }`,
+  round 73). The String API takes Swift's names and labels
+  (`firstMatch(of:)`, `replacing(_:with:)`, `split(separator:)`);
+  `case /re/:` matches whole, as Swift's `~=`. OPEN: `=~`, `$1`
+  templates, match ranges.

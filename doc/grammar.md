@@ -19,7 +19,7 @@ Shelved forms (`actor`, `class`, `super`) are not grammar today.
   else while repeat for break continue return yield async await enum
   case switch default struct extension`. Contextual (identifiers
   elsewhere): `init self get set willSet didSet newValue oldValue
-  where`.
+  where`. (`Regex` is a type name, not a keyword.)
   Not keywords, deliberately: `guard`, `func`, `mutating`, `class`,
   `actor`, `super` (§9 and round 62).
 * **Literals**
@@ -29,6 +29,13 @@ Shelved forms (`actor`, `class`, `super`) are not grammar today.
     stays member access). A `.` needs a digit on both sides.
   * String: `"..."` with `\" \\ \n \r \t \0 \u{...}` and `\(expr)`
     interpolation (nesting freely).
+  * Regex (round 86): `/pattern/flags` — `\/` is a `/` in the
+    pattern, every other backslash is kept for the engine; flags are
+    letters from `imsx`. A `/` starts a regex where an operand cannot
+    end (statement start, after `( [ { , : = ?`, an operator, or a
+    keyword) and is division after a value, a name, or a closing
+    bracket — JavaScript's rule. `//` is a comment, never an empty
+    regex.
 * **Operators & punctuation**: `+ - * /`, `== != < <= > >=`, `&& ||`,
   prefix `! -`, `...` `..<`, `??`, `= : , . ; ( ) [ ] { }`. Three
   spacing-sensitive rules:
@@ -96,7 +103,9 @@ caseAlt      = casePattern [ "where" disjunction ] ;  (* the guard belongs to th
                                                           it sees the pattern's bindings (round 81) *)
 casePattern  = "_"
              | "." IDENT                               (* the subject's case, any payload *)
-             | [ "let" | "var" ] pattern "=" "." IDENT (* case let r = .circle: the accessor; nil fails *)
+             | [ "let" | "var" ] pattern "=" ( "." IDENT | comparison )
+                                                       (* case let r = .circle: the accessor; nil fails;
+                                                          case let (_, a) = /re/: the whole match (round 86) *)
              | expression ;                            (* equality; a Range matches an Int by containment *)
 block        = "{" { statement } "}" ;
 ```
@@ -157,7 +166,7 @@ suffix       = "." IDENT [ args ]                      (* member, method *)
              | "!"                                     (* force-unwrap *)
              | "?." IDENT [ args ] ;                   (* optional chaining *)
 
-primary      = INT | DOUBLE | STRING | "true" | "false" | "nil"
+primary      = INT | DOUBLE | STRING | REGEX | "true" | "false" | "nil"
              | IDENT | "$" | "$" INT
              | "." IDENT                               (* implicit self member, or a format tag *)
              | "(" expression ")"                      (* grouping *)

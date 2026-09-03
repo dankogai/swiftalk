@@ -20,6 +20,7 @@ REPL). Sections in [Design.md](../Design.md) are cited as §n.
 | `Date` | epoch seconds as Double | [Date.md](Date.md) |
 | `Task` | a spawned computation | [Task.md](Task.md) |
 | `Tuple` | a grab bag `(v0, v1, ...)`, one loose type | [Tuple.md](Tuple.md) |
+| `Regex` | `/pattern/flags`, Swift's engine | [Regex.md](Regex.md) |
 | `Result` | built-in enum: `.success` / `.failure` | [Result.md](Result.md) |
 | `struct` | user value types | [struct.md](struct.md) |
 | `enum` | user sum types | [enum.md](enum.md) |

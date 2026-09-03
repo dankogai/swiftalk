@@ -996,6 +996,34 @@ guard** — the recursion budget is the thread's stack and nothing
 checks it, so a deep program on a small-stack thread is a SIGBUS,
 not an error (the SION test had to move to a 64 MB pthread).
 
+**Regex is a core type — DECIDED (round 86, revising 85's module
+leaning)**. The user: "I now think Regex needs to be part of the
+standard type because `//` is a part of the grammar. Of course we can
+go like Python `import re; rx = re("exp")` but it is pain in the arse
+(Of course `Regex("string")` is a valid constructor, BTW)." So:
+`/pattern/flags` is a literal, `Regex(pattern)` / `Regex(pattern,
+flags)` the constructor, `Regex` the type name (Swift's, over JS's
+`RegExp`); the engine is Swift's stdlib `Regex` (Foundation-free; the
+package now targets macOS 13 for it). A `/` starts a regex where an
+operand cannot end — JavaScript's rule, which a lexer that tracks the
+previous token applies without Swift's `#/.../#` hedge; `\/` is the
+one escape the lexer interprets. Flags `i m s x`, applied as an
+inline `(?flags)` prefix. **A match** is the matched String when
+there are no captures and a labeled tuple when there are — `.0` the
+whole, then the groups, named ones labeled, nil where absent —
+Swift's own shape, which means rounds 74/75/78 do the rest: `if let
+(_, y, m, d) = s.firstMatch(/.../)`, `.year` on a named group, `case
+let (_, u, v) = /(\w+)@(\w+)/:` (round 78's binding with a Regex
+source, whole-match as Swift's `~=`), `case /\d+/:` by whole match,
+`where m.1 != nil`. The String API is Swift's, labels accepted:
+`contains`, `firstMatch(of:)`, `wholeMatch(of:)`, `matches(of:)`,
+`replacing(_:with:)` (a String or a Function of the match — which
+splats, per round 73), `split(separator:)`; `Regex` is Equatable and
+Hashable by pattern and flags, and re-enters through its source form.
+**OPEN**: `=~`; `$1` templates; match ranges; the slicing family and
+the Array Range subscript stay LEANING; `import` is still undesigned
+(Regex no longer waits on it).
+
 ## 12. Concurrency — `async`/`await`, colorless (round 53)
 
 **DECIDED (round 53): swiftalk has `async`/`await` — and functions are

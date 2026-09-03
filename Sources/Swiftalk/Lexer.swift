@@ -31,6 +31,7 @@ enum Token: Equatable {
     case identifier(String)   // also keywords (true/false/nil/let/var/in) and $ / $0 / $1 ...
     case punct(Character)     // [ ] ( ) { } : , . + - * / = ? ;
     case op(String)           // == != < <= > >=
+    case regex(pattern: String, flags: String)   // /pattern/flags (round 86)
     case newline              // statement separator (suppressed inside [ and ()
 }
 
@@ -76,11 +77,13 @@ struct Lexer {
                     tokens.append(.newline)
                 }
             case "/":
-                // comment or the division operator
+                // comment, a regex literal, or the division operator
                 if pos + 1 < scalars.count, scalars[pos + 1] == "/" {
                     while let c = peek, c != "\n" { pos += 1 }
                 } else if pos + 1 < scalars.count, scalars[pos + 1] == "*" {
                     try skipBlockComment()
+                } else if Lexer.regexMayStart(after: tokens.last) {
+                    tokens.append(try lexRegex())
                 } else {
                     pos += 1
                     tokens.append(.punct("/"))
@@ -170,6 +173,58 @@ struct Lexer {
             }
         }
         return tokens
+    }
+
+    /// JavaScript's rule (round 86): `/` starts a regex literal where an
+    /// operand cannot end — at a statement's start, after `(` `[` `{`
+    /// `,` `:` `=` `?`, after an operator, after a keyword (`return
+    /// /re/`, `case /re/:`, `where /re/`). After a value, a name, or a
+    /// closing bracket it is division. (`//` is a comment, so the empty
+    /// regex is spelled `Regex("")`.)
+    static func regexMayStart(after last: Token?) -> Bool {
+        switch last {
+        case nil, .newline?, .op?:
+            return true
+        case .punct(let p)?:
+            return p != ")" && p != "]" && p != "}"
+        case .identifier(let name)?:
+            return (keywords.contains(name) || name == "where")
+                && name != "true" && name != "false" && name != "nil"
+        case .regex?:
+            return false
+        case .int?, .double?, .string?, .interpolated?:
+            return false
+        }
+    }
+
+    /// `/pattern/flags`: a backslash keeps the next scalar verbatim —
+    /// the engine sees the escape — except `\/`, which is a `/` in the
+    /// pattern. Flags are the letters that follow the closing `/`.
+    private mutating func lexRegex() throws -> Token {
+        pos += 1  // the opening /
+        var pattern = ""
+        while true {
+            guard let c = advance() else {
+                throw SwiftalkError.syntax("unterminated regex literal")
+            }
+            if c == "\n" { throw SwiftalkError.syntax("unterminated regex literal") }
+            if c == "/" { break }
+            if c == "\\" {
+                guard let next = advance() else {
+                    throw SwiftalkError.syntax("unterminated regex literal")
+                }
+                if next == "/" { pattern.unicodeScalars.append("/") }
+                else { pattern.unicodeScalars.append(c); pattern.unicodeScalars.append(next) }
+                continue
+            }
+            pattern.unicodeScalars.append(c)
+        }
+        var flags = ""
+        while let c = peek, ("a"..."z").contains(c) {
+            flags.unicodeScalars.append(c)
+            pos += 1
+        }
+        return .regex(pattern: pattern, flags: flags)
     }
 
     private mutating func skipBlockComment() throws {

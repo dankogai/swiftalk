@@ -53,6 +53,46 @@ extension Swiftalk {
         /// An actor instance (round 54, §12): serialized mutable state,
         /// and swiftalk's first REFERENCE type — `let b = a` aliases.
         case actor(ActorObject)
+        /// A regular expression (round 86, §11): a core type with a
+        /// literal of its own, `/pattern/flags`, and the constructor
+        /// `Regex(pattern)`. Wraps the stdlib's Regex; equality and
+        /// hashing are by pattern and flags.
+        case regex(RegexObject)
+    }
+
+    /// The compiled regex behind a `.regex` value (round 86). Flags are
+    /// a subset of `imsx`, kept sorted, and applied as an inline
+    /// `(?flags)` prefix — the stdlib's engine understands PCRE's.
+    public final class RegexObject: Hashable {
+        public let pattern: String
+        public let flags: String
+        let regex: Regex<AnyRegexOutput>
+
+        init(pattern: String, flags: String) throws {
+            for f in flags where !"imsx".contains(f) {
+                throw SwiftalkError.syntax("unknown regex flag '\(f)' — i, m, s, x are the flags")
+            }
+            let sorted = String(flags.sorted())
+            self.pattern = pattern
+            self.flags = sorted
+            do {
+                regex = try Regex(sorted.isEmpty ? pattern : "(?\(sorted))" + pattern)
+            } catch {
+                throw SwiftalkError.syntax("invalid regex /\(pattern)/: \(error)")
+            }
+        }
+        public static func == (lhs: RegexObject, rhs: RegexObject) -> Bool {
+            lhs.pattern == rhs.pattern && lhs.flags == rhs.flags
+        }
+        public func hash(into hasher: inout Hasher) {
+            hasher.combine(pattern)
+            hasher.combine(flags)
+        }
+        /// `/pattern/flags` — a `/` inside the pattern escaped as `\/`,
+        /// which the lexer turns back into `/` (the round-trip law).
+        var sourceForm: String {
+            "/" + pattern.map { $0 == "/" ? "\\/" : String($0) }.joined() + "/" + flags
+        }
     }
 
     /// A tuple's contents (round 74): values with optional labels. A
@@ -290,6 +330,7 @@ typealias StructType = Swiftalk.StructType
 typealias StructValue = Swiftalk.StructValue
 typealias TaskObject = Swiftalk.TaskObject
 typealias TupleValue = Swiftalk.TupleValue
+typealias RegexObject = Swiftalk.RegexObject
 
 extension Swiftalk.Value {
     /// An unlabeled tuple from values — the common construction.
@@ -329,6 +370,7 @@ extension Value {
         case .task: return "Task"
         case .tuple: return "Tuple"
         case .actor(let obj): return obj.type.name
+        case .regex: return "Regex"
         }
     }
 
@@ -427,6 +469,8 @@ extension Value {
             // SION's own spelling — .Date(epoch); hex-float under debug,
             // exactly as SION serializes dates.
             return ".Date(\(Value.double(epoch).sourceString(debug: debug, seen: seen)))"
+        case .regex(let r):
+            return r.sourceForm              // /pattern/flags — a literal, re-enters
         case .structValue(let sv):
             // Memberwise source form — round-trips wherever declared.
             return sv.type.name + "(" + sv.type.propertyOrder.map { prop in

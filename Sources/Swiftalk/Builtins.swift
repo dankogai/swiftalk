@@ -184,6 +184,16 @@ enum Builtins {
             case let v?:           return .tuple(try collect(v))
             }
         },
+        "Regex": type("Regex") { args in
+            // Regex(pattern) — the constructor behind the literal
+            // (round 86); Regex(pattern, flags) via convert().
+            switch args.first {
+            case .regex(let r)?:  return .regex(r)
+            case .string(let s)?: return .regex(try RegexObject(pattern: s, flags: ""))
+            case nil: throw SwiftalkError.type("Regex(pattern) — or write the literal /pattern/")
+            case let v?: throw SwiftalkError.type("cannot convert \(v.typeName) to Regex")
+            }
+        },
         "Date": type("Date") { args in
             switch args.first {
             case nil:
@@ -235,7 +245,7 @@ enum Builtins {
 
     private static let allTypeNames: Set<String> =
         ["Nil", "Bool", "Int", "Double", "String", "Array", "Dictionary",
-         "Range", "Function", "Sequence", "Data", "Date", "Task", "Tuple"]
+         "Range", "Function", "Sequence", "Data", "Date", "Task", "Tuple", "Regex"]
 
     /// Who conforms to what (§10, rounds 26/38/41): built-ins conform
     /// natively — everything is Equatable and Hashable (all values are

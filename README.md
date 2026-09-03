@@ -70,6 +70,11 @@ let hex    = 255.String(.hex)                 // "0xff"; radix: 16 for bare "ff"
 let bytes  = "café".Data()                    // infallible; UTF-8 default
 let text   = bytes.String(.utf8)              // String? — bytes may not be text
 let src    = bytes.String()                   // source form; eval(src) == bytes
+
+// Regex is a core type with a literal (round 86); a match with captures is a tuple
+let when = "2026-09-03".firstMatch(/(?<y>\d+)-(?<m>\d+)-(?<d>\d+)/)   // (whole, y:, m:, d:)
+when.y                                        // "2026"
+"a, b,,c".split(/,\s*/)                       // ["a", "b", "c"]
 ```
 
 ---

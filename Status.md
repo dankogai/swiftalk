@@ -128,6 +128,41 @@ swiftalk> switch 9 { case 1: 1 }
 type error: switch is not exhaustive — nothing matches 9
 ```
 
+**Regex** is a core type with a literal (round 86) — `/pattern/flags`,
+Swift's engine, Swift's names on String; a match with captures is a
+labeled tuple, so destructuring and `switch` bindings just work:
+
+```text
+swiftalk> /\d+/
+/\d+/
+swiftalk> /\d+/.Type
+Regex
+swiftalk> "hello 42 world 7".matches(/\d+/)
+["42", "7"]
+swiftalk> "2026-09-03".firstMatch(/(?<year>\d+)-(?<month>\d+)-(\d+)/)
+("2026-09-03", year: "2026", month: "09", "03")
+swiftalk> if let (_, y, m, d) = "2026-09-03".firstMatch(/(\d+)-(\d+)-(\d+)/) { print(y, m, d) }
+2026 09 03
+swiftalk> "ab".firstMatch(/a(x)?b/)
+("ab", nil)
+swiftalk> "a1b22c".replacing(/\d+/) { m in "<" + m + ">" }
+"a<1>b<22>c"
+swiftalk> "a, b,,c".split(/,\s*/)
+["a", "b", "c"]
+swiftalk> "Hello".contains(/hello/i)
+true
+swiftalk> let classify = { s in switch s { case /\d+/: "number" case /[a-z]+/i: "word" case let (_, u, v) = /(\w+)@(\w+)/: "mail \(u) at \(v)" default: "other" } }
+{ s in ... }
+swiftalk> [classify("42"), classify("Hi"), classify("dan@example"), classify("?!")]
+["number", "word", "mail dan at example", "other"]
+swiftalk> let x = 10
+10
+swiftalk> x / 2 / 5
+1
+swiftalk> /(/
+syntax error: invalid regex /(/: expected ')'
+```
+
 **MySION — a SION parser in swiftalk** (round 85, `eg/sion.swt`,
 write-up in [eg/sion.md](eg/sion.md)): swift-sion's README sample,
 every literal form, and the round-trip law through it — no RegExp,

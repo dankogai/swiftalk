@@ -88,7 +88,14 @@ enum Pattern {
     /// `case let r = .circle:` / `case (w, h) = .rect:` (round 78): the
     /// case accessor applied to the subject, then `if let`'s rule —
     /// nil is the only "no". `let` is optional; `var` binds mutably.
-    case binding(mutable: Bool, pattern: BindPattern, caseName: String)
+    /// Round 86: the source may also be a Regex — `case let (_, y, m)
+    /// = /(\d+)-(\d+)/:` binds the whole match of a String subject.
+    case binding(mutable: Bool, pattern: BindPattern, source: BindSource)
+}
+
+enum BindSource {
+    case member(String)      // .circle — a case of the subject
+    case expr(Expr)          // a Regex expression, matched whole against the subject
 }
 
 /// A `case` alternative (round 81): a pattern and its optional `where`
@@ -146,7 +153,7 @@ enum Stmt {
 /// `set(v)` custom name); nil `set` means read-only.
 typealias ComputedSpec = (annotation: TypeAnnotation?, get: Expr, set: Expr?)
 
-private let keywords: Set<String> = [
+let keywords: Set<String> = [
     "let", "var", "true", "false", "nil", "in",
     "if", "else", "while", "repeat", "for", "break", "continue", "return", "yield",
     "async", "await",
@@ -911,11 +918,13 @@ struct Parser {
         default:
             if let (mutable, pattern) = try parseBindingHead() {
                 try expect("=")
-                guard case .punct(".")? = peek else {
-                    throw SwiftalkError.syntax(
-                        "a case binds from one of the subject's cases: case r = .circle")
+                if case .punct(".")? = peek {
+                    return .binding(mutable: mutable, pattern: pattern,
+                                    source: .member(try parseCaseName()))
                 }
-                return .binding(mutable: mutable, pattern: pattern, caseName: try parseCaseName())
+                // a Regex (round 86): `case let (_, y, m) = /(\d+)-(\d+)/:`
+                return .binding(mutable: mutable, pattern: pattern,
+                                source: .expr(try parseComparison()))
             }
             return .expr(try parseComparison())
         }
@@ -1261,6 +1270,9 @@ struct Parser {
         case .int(let i):     return .literal(.int(i))
         case .double(let d):  return .literal(.double(d))
         case .string(let s):  return .literal(.string(s))
+        case .regex(let pattern, let flags):
+            // compiled once, at parse time — a bad pattern is a syntax error
+            return .literal(.regex(try RegexObject(pattern: pattern, flags: flags)))
         case .interpolated(let segments):
             return .interpolation(try segments.map { segment in
                 switch segment {
