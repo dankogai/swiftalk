@@ -338,22 +338,21 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
         try env.check(value, against: lock, for: name)
         try env.declare(name, Binding(mutable: mutable, lock: lock, value: value))
         return value
+    case .destructure(let mutable, let pattern, let initializer):
+        // let (a, b) = t (round 71): the right side evaluates whole,
+        // then the pattern binds — declaration rules per name.
+        let value = try evaluate(initializer, in: env)
+        try bind(pattern, value, mutable: mutable, in: env, strict: true)
+        return value
     case .assignment(let target, let expr):
         let value = try evaluate(expr, in: env)
-        if case .variable(let name) = target, relaxed, !env.has(name) {
+        if relaxed {
             // REPL mode (§2.2): bare `x = 1` implicitly declares a var —
             // type-locked from here on, like any other binding.
-            guard value != .nil else {
-                throw SwiftalkError.type(
-                    "cannot infer a type for '\(name)' from nil — annotate it, e.g. var \(name): Int? = nil")
-            }
-            try env.declare(name, Binding(
-                mutable: true,
-                lock: try inferLock(value, for: name),
-                value: value))
-            return value
+            try assignRelaxed(target, value, in: env)
+        } else {
+            try assign(target, value, in: env)
         }
-        try assign(target, value, in: env)
         return value
     case .expression(let expr):
         return try evaluate(expr, in: env)
@@ -419,16 +418,12 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             guard flag else { break }
         }
         return .nil
-    case .forS(let name, let sequence, let body):
+    case .forS(let pattern, let sequence, let body):
         let it = try iterator(of: try evaluate(sequence, in: env))
         while let element = try it.next() {
             let scope = Environment(parent: env)
-            if name != "_" {
-                try scope.declare(name, Binding(
-                    mutable: false,
-                    lock: TypeAnnotation(name: element.typeName, optional: true),
-                    value: element))
-            }
+            // `for (k, v) in dict` destructures each element (round 71)
+            try bind(pattern, element, mutable: false, in: scope, strict: false)
             guard try runLoopBody(body, in: scope, freshScope: false) else { break }
         }
         return .nil
@@ -1346,8 +1341,69 @@ private func asLValue(_ expr: Expr) -> LValue? {
     case .memberLiteral(let name):
         // Implicit self (round 49): `.value` is an lvalue on self.
         return .property(.variable("self"), name)
+    case .tuple(let elements):
+        // (a, b) = ... — every element must itself be assignable (round 71)
+        let targets = elements.compactMap(asLValue)
+        return targets.count == elements.count ? .tuple(targets) : nil
     default:
         return nil
+    }
+}
+
+/// Binds a pattern (round 71): names declare (`_` discards), tuple
+/// patterns destructure a Tuple of matching arity, recursively.
+/// `strict` locks like a declaration (round-59 inference, nil refused);
+/// loose locks like a for-in variable.
+private func bind(_ pattern: BindPattern, _ value: Value, mutable: Bool,
+                  in env: Environment, strict: Bool) throws {
+    switch pattern {
+    case .name("_"):
+        return
+    case .name(let name):
+        let lock: TypeAnnotation
+        if strict {
+            guard value != .nil else {
+                throw SwiftalkError.type(
+                    "cannot infer a type for '\(name)' from nil — bind it separately with an annotation")
+            }
+            lock = try inferLock(value, for: name)
+        } else {
+            lock = TypeAnnotation(name: value.typeName, optional: true)
+        }
+        try env.declare(name, Binding(mutable: mutable, lock: lock, value: value))
+    case .tuple(let patterns):
+        guard case .tuple(let values) = value else {
+            throw SwiftalkError.type(
+                "cannot destructure a \(value.typeName) — a tuple pattern needs a Tuple")
+        }
+        guard values.count == patterns.count else {
+            throw SwiftalkError.type(
+                "cannot destructure a \(values.count)-tuple into \(patterns.count) names")
+        }
+        for (p, v) in zip(patterns, values) {
+            try bind(p, v, mutable: mutable, in: env, strict: strict)
+        }
+    }
+}
+
+/// Assignment in relaxed (REPL) mode: an undeclared variable target
+/// implicitly declares a var; tuple targets distribute (round 71).
+private func assignRelaxed(_ target: LValue, _ value: Value, in env: Environment) throws {
+    switch target {
+    case .tuple(let targets):
+        guard case .tuple(let values) = value, values.count == targets.count else {
+            throw SwiftalkError.type(
+                "cannot assign a \(value.typeName) to \(targets.count) targets")
+        }
+        for (t, v) in zip(targets, values) { try assignRelaxed(t, v, in: env) }
+    case .variable(let name) where !env.has(name):
+        guard value != .nil else {
+            throw SwiftalkError.type(
+                "cannot infer a type for '\(name)' from nil — annotate it, e.g. var \(name): Int? = nil")
+        }
+        try env.declare(name, Binding(mutable: true, lock: try inferLock(value, for: name), value: value))
+    default:
+        try assign(target, value, in: env)
     }
 }
 
@@ -1970,6 +2026,20 @@ private enum PathStep {
 /// right; the rebuilt container lands back in the root binding, whose
 /// mutability and type lock still govern.
 private func assign(_ target: LValue, _ value: Value, in env: Environment) throws {
+    // (a, b) = (b, a) (round 71): the right side was evaluated whole
+    // before any element lands, so the swap idiom works.
+    if case .tuple(let targets) = target {
+        guard case .tuple(let values) = value else {
+            throw SwiftalkError.type(
+                "cannot assign a \(value.typeName) to \(targets.count) targets — a tuple pattern needs a Tuple")
+        }
+        guard values.count == targets.count else {
+            throw SwiftalkError.type(
+                "cannot assign a \(values.count)-tuple to \(targets.count) targets")
+        }
+        for (t, v) in zip(targets, values) { try assign(t, v, in: env) }
+        return
+    }
     var steps: [PathStep] = []
     var root = target
     flatten: while true {
@@ -1982,6 +2052,10 @@ private func assign(_ target: LValue, _ value: Value, in env: Environment) throw
             root = base
         case .variable:
             break flatten
+        case .tuple:
+            // handled above at the top level; a tuple pattern cannot sit
+            // inside a subscript/property path
+            throw SwiftalkError.type("a tuple pattern cannot be part of an assignment path")
         }
     }
     guard case .variable(let name) = root else { fatalError("unreachable") }

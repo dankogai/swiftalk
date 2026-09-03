@@ -938,3 +938,20 @@ the history. (Moved out of Design.md in round 65.)
   after a `.` never take a fraction. A tuple literal also serves as
   an expression pattern in `switch`, by equality, for free. OPEN:
   labeled tuples, destructuring `let (a, b) = t`.
+* **2026-09-01, round 71 — tuple destructuring** ("`let (a, b) =
+  t`"). Bound by position with the arity checked at runtime (a
+  3-tuple into two names is an error, as is a non-Tuple), `_`
+  discards, patterns nest (`let ((a, b), c) = ...`), and every name
+  takes its own type lock exactly as a declaration would (round-59
+  inference; a nil element must be bound separately with an
+  annotation; the pattern itself takes none — swiftalk has no tuple
+  types to annotate with). Three companions landed with it because
+  the language was visibly waiting for them: `var (a, b)`;
+  **destructuring assignment** `(a, b) = (b, a + b)` — the right
+  side evaluates whole before any element lands, so the swap idiom
+  works and targets may be paths (`(xs[1], d["k"]) = (5, 6)`) — which
+  means §2.4's round-24 fib example, `var (a, b) = (0, 1); (a, b) =
+  (b, a + b)`, finally runs verbatim; and **`for (k, v) in dict`**,
+  the natural sequel to round 70's `(key, value)` pairs. The REPL's
+  relaxed mode distributes: `(x, y) = (1, 2)` declares both. OPEN:
+  destructuring in `if let`; labeled tuples.

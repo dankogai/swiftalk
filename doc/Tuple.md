@@ -18,6 +18,9 @@ source form round-trips.
 | `for x in t`, `t.map`, `t.filter`, `t.reduce`, `t.Array()` | a Tuple conforms to Sequence |
 | `Tuple()`, `Tuple(seq)`, `seq.Tuple()` | empty; gathered from any Sequence conformer |
 | `case (1, "x"):` | a tuple literal is an expression pattern — matched by equality |
+| `let (a, b) = t`, `var (a, b) = t` | destructuring (round 71): by position, arity checked, `_` discards, nests; each name takes its own lock |
+| `(a, b) = (b, a)` | destructuring assignment — the right side evaluates whole first, so swaps work; targets may be paths |
+| `for (k, v) in d` | destructuring loop variables — over any sequence of tuples |
 
 Dictionaries hand out `(key, value)` tuples: in `for`-`in`, `map`,
 `filter`, and `reduce`.
@@ -29,4 +32,9 @@ t.1                                   // "one"
 for pair in ["a": 1] { print(pair.0, pair.1) }
 ```
 
-OPEN: labeled tuples `(x: 1, y: 2)`, destructuring `let (a, b) = t`.
+```swiftalk
+var (a, b) = (0, 1)
+for _ in 1...10 { (a, b) = (b, a + b) }   // a == 55
+```
+
+OPEN: labeled tuples `(x: 1, y: 2)`; destructuring in `if let`.

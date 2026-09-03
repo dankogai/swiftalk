@@ -36,6 +36,14 @@ indirect enum LValue {
     case variable(String)
     case index(LValue, Expr)
     case property(LValue, String)
+    case tuple([LValue])                   // (a, b) = ... — destructuring assignment (round 71)
+}
+
+/// A binding pattern (round 71): a name, `_` (discard), or a nested
+/// tuple of patterns — for `let (a, b) = t` and `for (k, v) in d`.
+indirect enum BindPattern {
+    case name(String)
+    case tuple([BindPattern])
 }
 
 /// A type annotation: `: Int` or `: Int?` (the flat optional of §3a —
@@ -82,6 +90,7 @@ enum IfCondition {
 
 enum Stmt {
     case declaration(mutable: Bool, name: String, annotation: TypeAnnotation?, initializer: Expr)
+    case destructure(mutable: Bool, pattern: BindPattern, initializer: Expr)   // let (a, b) = t
     case assignment(target: LValue, expr: Expr)
     case expression(Expr)
     case returnS(Expr?)
@@ -91,7 +100,7 @@ enum Stmt {
     indirect case ifCaseS(pattern: Pattern, subject: Expr, then: [Stmt], else: [Stmt]?)
     case whileS(condition: Expr, body: [Stmt])
     case repeatS(body: [Stmt], condition: Expr)
-    case forS(name: String, sequence: Expr, body: [Stmt])
+    case forS(pattern: BindPattern, sequence: Expr, body: [Stmt])
     case breakS
     case continueS
     case enumDecl(name: String, caseOrder: [String],
@@ -230,15 +239,13 @@ struct Parser {
             return .repeatS(body: body, condition: try withTrailing(false) { try $0.parseExpr() })
         case .identifier("for"):
             pos += 1
-            guard case .identifier(let name)? = advance(),
-                  name == "_" || (!keywords.contains(name) && !name.hasPrefix("$")) else {
-                throw SwiftalkError.syntax("expected a loop variable after 'for'")
-            }
+            // `for x in` or `for (k, v) in` (round 71): a binding pattern
+            let pattern = try parseBindPattern()
             guard case .identifier("in")? = advance() else {
                 throw SwiftalkError.syntax("expected 'in' after the loop variable")
             }
             let sequence = try withTrailing(false) { try $0.parseExpr() }
-            return .forS(name: name, sequence: sequence, body: try parseBlock())
+            return .forS(pattern: pattern, sequence: sequence, body: try parseBlock())
         case .identifier("enum"):
             return try parseEnum()
         case .identifier("struct"):
@@ -870,14 +877,55 @@ struct Parser {
         case .memberLiteral(let name):
             // Implicit self (round 49): `.x = 1` in a type body.
             return .property(.variable("self"), name)
+        case .tuple(let elements):
+            // (a, b) = ... — destructuring assignment (round 71)
+            return .tuple(try elements.map { try lvalue(from: $0) })
         default:
             throw SwiftalkError.syntax("this expression is not assignable")
         }
     }
 
+    /// A name, `_`, or `(p, p, ...)` nested — duplicates refused.
+    private mutating func parseBindPattern() throws -> BindPattern {
+        var seen = Set<String>()
+        func parse(_ p: inout Parser) throws -> BindPattern {
+            if case .punct("(")? = p.peek {
+                p.pos += 1
+                var elements: [BindPattern] = []
+                repeat {
+                    elements.append(try parse(&p))
+                } while p.consumeComma(closing: ")")
+                try p.expect(")")
+                return .tuple(elements)
+            }
+            guard case .identifier(let name)? = p.advance(),
+                  name == "_" || (!keywords.contains(name) && !name.hasPrefix("$")) else {
+                throw SwiftalkError.syntax("expected a name or '_' in the pattern")
+            }
+            if name != "_" {
+                guard seen.insert(name).inserted else {
+                    throw SwiftalkError.syntax("'\(name)' appears twice in the pattern")
+                }
+            }
+            return .name(name)
+        }
+        return try parse(&self)
+    }
+
     private mutating func parseDeclaration() throws -> Stmt {
         guard case .identifier(let keyword)? = advance() else { fatalError("unreachable") }
         let mutable = keyword == "var"
+        // `let (a, b) = t` — destructuring (round 71): a tuple pattern,
+        // no annotation (elements take their own locks).
+        if case .punct("(")? = peek {
+            let pattern = try parseBindPattern()
+            if case .punct(":")? = peek {
+                throw SwiftalkError.syntax(
+                    "a destructuring pattern takes no annotation — the names lock element by element")
+            }
+            try expect("=")
+            return .destructure(mutable: mutable, pattern: pattern, initializer: try parseExpr())
+        }
         guard case .identifier(let name)? = advance() else {
             throw SwiftalkError.syntax("expected a name after '\(keyword)'")
         }

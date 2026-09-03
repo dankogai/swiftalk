@@ -29,6 +29,33 @@ try interp.eval("var count = 1")
 try interp.eval("count = count + 1")         // .int(2)
 ```
 
+**Tuple destructuring** is in (round 71) — `let (a, b) = t`, `var`,
+`_`, nesting; destructuring assignment (the swap works: the right side
+evaluates whole first); `for (k, v) in dict`:
+
+```text
+swiftalk> var (x, y) = (0, 1)
+(0, 1)
+swiftalk> (x, y) = (y, x + y)
+(1, 1)
+swiftalk> let fib = { n in
+      var (a, b) = (0, 1)
+      for _ in 1...n { (a, b) = (b, a + b) }
+      return a
+  }
+{ n in ... }
+swiftalk> fib(90)                     // §2.4's example, verbatim at last
+2880067194370816120
+swiftalk> var p = 1
+1
+swiftalk> var q = 2
+2
+swiftalk> (p, q) = (q, p)             // the swap
+(2, 1)
+swiftalk> let (a, b) = (1, 2, 3)
+type error: cannot destructure a 3-tuple into 2 names
+```
+
 **Tuples** are in (round 70) — a grab bag: one `Tuple` type, `.0`/`.1`,
 `.count`, values through and through; Dictionaries yield `(key, value)`:
 

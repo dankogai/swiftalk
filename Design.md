@@ -50,7 +50,14 @@ tuple is a value (equality, keys, round-tripping source form) and a
 Sequence conformer. `(x,)` is a 1-tuple, `()` empty, `(x)` grouping.
 **Dictionaries yield `(key, value)` tuples** in `for`-`in`, `map`,
 `filter`, and `reduce` — replacing the `[key, value]` Array stand-in
-of round 41. OPEN: labels, destructuring.
+of round 41. **Destructuring — DECIDED (round 71)**: `let (a, b) = t`
+/ `var (a, b) = t` bind by position (arity checked at runtime, `_`
+discards, patterns nest, each name takes its own §3 lock, no
+annotation on the pattern); `(a, b) = (b, a + b)` is destructuring
+*assignment* — the right side evaluates whole before any element
+lands, so the swap idiom works and targets may be subscript/property
+paths; `for (k, v) in dict` destructures loop elements. OPEN: labels;
+destructuring in `if let`.
 
 ### 2.2 Declarations — DECIDED
 
