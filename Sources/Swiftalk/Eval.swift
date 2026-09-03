@@ -382,12 +382,21 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             guard flag else { break }
         }
         return .nil
-    case .forS(let pattern, let sequence, let body):
+    case .forS(let pattern, let sequence, let condition, let body):
         let it = try iterator(of: try evaluate(sequence, in: env))
         while let element = try it.next() {
             let scope = Environment(parent: env)
             // `for (k, v) in dict` destructures each element (round 71)
             try bind(pattern, element, mutable: false, in: scope, strict: false)
+            // `where` (round 82): the element is skipped, not the loop
+            // ended — exactly `s.filter { }`, element by element, lazily
+            if let condition {
+                guard case .bool(let keep) = try evaluate(condition, in: scope) else {
+                    throw SwiftalkError.type(
+                        "a 'where' clause must be a Bool — nothing is truthy (§3b)")
+                }
+                guard keep else { continue }
+            }
             guard try runLoopBody(body, in: scope, freshScope: false) else { break }
         }
         return .nil

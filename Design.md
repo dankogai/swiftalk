@@ -799,8 +799,17 @@ alternative (and, with no `default`, to the exhaustiveness error).
 guard belongs to the pattern it follows — Swift's rule, kept because
 each alternative binds in its own scope: `case 1 where c, 2 where c:`
 guards both, `case 1, 2 where c:` only the 2. `if`/`while` need no
-`where`: the comma list already is one. **OPEN**: `for x in s where
-c`. **`if o { }` — DECIDED
+`where`: the comma list already is one. **`for x in s where c` —
+DECIDED (round 82)**: `for x in s where c { }` is `for x in s.filter({
+... }) { }` with the loop's own names in the condition — the same
+elements in the same order (a Dictionary's order being its own, as
+ever), decided element by element as the
+iteration pulls them, so an infinite lazy Sequence filters lazily and
+`break`/`continue` are untouched (`filter` exists on every Sequence
+conformer, §10; `where` is the human spelling — "note `{}` is omitted"
+— and the only spelling with a trailing closure, since `for` headers
+refuse them). A non-Bool condition is the §3b type error; `where`
+stays contextual. **`if o { }` — DECIDED
 (round 80, revising 78's "a bare `if x { }` is a Bool test")**: a
 bare *variable* as a condition asks the question its value answers —
 a Bool is tested (false included), nil is "no", anything else is

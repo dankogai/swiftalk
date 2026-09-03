@@ -1131,3 +1131,24 @@ the history. (Moved out of Design.md in round 65.)
   guard could not see any alternative's bindings. `if`/`while` gain
   nothing — their comma list is a `where` already. `for ... where`
   is logged OPEN.
+* **2026-09-03, round 82 — `for x in s where cond`** ("IMHO we
+  already have `for x in s.filter{}` since `s` is guaranteed to have
+  `.filter`. But `where` is definitely easier for human. make sure
+  `for x in s.filter{ ... }` is equivalent to `for x in s where ...`.
+  note `{}` is omitted in the latter case"). Closes round 81's OPEN.
+  The condition is evaluated in the iteration's scope, after the
+  pattern binds and before the body runs; false skips the element
+  (`continue`, not `break`), so the loop sees exactly what
+  `s.filter({ })` would hand it, in the same order (a filtered
+  Dictionary is a new Dictionary with an order of its own, so there
+  the equivalence is "the same pairs", which is what the test states)
+  — and because it
+  is decided per pulled element, an infinite coroutine `Sequence`
+  filters lazily where an eager `.filter` could not finish. The
+  tests state the equivalence literally, on Array, Range, Dictionary
+  (`for k, v in d where v > 1` against `d.filter({ k, v in v > 1 })`),
+  and String. One footnote on the user's spelling: `for x in
+  s.filter { }` needs the closure parenthesized, `s.filter({ })`,
+  because `for` headers refuse trailing closures (Swift's rule too —
+  the closure is confusable with the body); `where` is therefore not
+  just easier but the only form that reads without parentheses.

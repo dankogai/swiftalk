@@ -24,6 +24,7 @@ Arrays are dense — a sparse array is a Dictionary.
 | `a.enumerated()` | an Array of `(index, element)` tuples (round 73) |
 | `a.Array()` | `a` |
 | `for x in a` | iteration |
+| `for x in a where c` | iteration over `a.filter({ })`, the loop's names in `c` (round 82) |
 | `a.Sequence()` | see [Sequence.md](Sequence.md) — an Array is *not* a lazy Sequence, but conforms |
 
 ```swiftalk

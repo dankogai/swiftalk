@@ -18,6 +18,7 @@ Dictionary, and Range conform to (§10).
 | `s.Array()` | everything (do not ask an infinite one) |
 | `s.reduce(init) { }` | fold (consumes the whole sequence) |
 | `for x in s` | pull one at a time; `break` stops a coroutine cleanly |
+| `for x in s where c` | `for x in s.filter({ })` with the loop's names, decided per pulled element — lazy on a lazy Sequence (round 82) |
 | `s.count` | error — a Sequence may be infinite; `.prefix` or `.Array()` it deliberately |
 | `s.Type` | `Sequence` |
 

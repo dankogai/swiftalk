@@ -85,8 +85,9 @@ condition    = expression                              (* must be a Bool *)
 
 while        = "while" conditions block ;              (* while let: fresh bindings per pass *)
 repeat       = "repeat" block "while" expression ;
-for          = "for" pattern { "," pattern } "in" expression block ;
-                                                       (* for k, v in d — parens optional *)
+for          = "for" pattern { "," pattern } "in" expression [ "where" disjunction ] block ;
+                                                       (* for k, v in d — parens optional;
+                                                          where: s.filter({ }) with the loop's names (round 82) *)
 switch       = "switch" expression "{"                (* an expression (round 79): its value is the *)
                  { "case" caseAlt { "," caseAlt } ":" { statement } }   (* chosen branch's *)
                  [ "default" ":" { statement } ]       (* last statement's value *)

@@ -128,6 +128,35 @@ swiftalk> switch 9 { case 1: 1 }
 type error: switch is not exhaustive — nothing matches 9
 ```
 
+**`for x in s where cond`** (round 82) — `s.filter({ })` with the
+loop's own names, decided element by element, so a lazy Sequence
+stays lazy and `break`/`continue` work as ever:
+
+```text
+swiftalk> var evens = []
+[]
+swiftalk> for x in 1...10 where x / 2 * 2 == x { evens.append(x) }
+swiftalk> evens
+[2, 4, 6, 8, 10]
+swiftalk> let d = ["a": 1, "b": 2, "c": 3]
+["a": 1, "b": 2, "c": 3]
+swiftalk> for k, v in d where v > 1 { print(k, v) }
+b 2
+c 3
+swiftalk> for c in "hello" where c != "l" { print(c) }
+h
+e
+o
+swiftalk> let naturals = Sequence { var n = 0; while true { n = n + 1; yield n } }
+Sequence { ... }
+swiftalk> for n in naturals where n / 3 * 3 == n { if n > 10 { break }; print(n) }
+3
+6
+9
+swiftalk> for x in [1, 2, 3] where x { }
+type error: a 'where' clause must be a Bool — nothing is truthy (§3b)
+```
+
 **`where` guards** on `switch` cases (round 81) — a Bool after the
 pattern, seeing its bindings; false moves on to the next alternative.
 `where` is contextual, and a guard belongs to the pattern it follows:

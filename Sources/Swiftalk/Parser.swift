@@ -119,7 +119,7 @@ enum Stmt {
     case whileS(condition: Expr, body: [Stmt])
     indirect case whileLetS(conditions: [IfCondition], body: [Stmt])   // while let (round 76)
     case repeatS(body: [Stmt], condition: Expr)
-    case forS(pattern: BindPattern, sequence: Expr, body: [Stmt])
+    case forS(pattern: BindPattern, sequence: Expr, condition: Expr?, body: [Stmt])   // where (round 82)
     case breakS
     case continueS
     case enumDecl(name: String, caseOrder: [String],
@@ -279,7 +279,15 @@ struct Parser {
                 throw SwiftalkError.syntax("expected 'in' after the loop variable")
             }
             let sequence = try withTrailing(false) { try $0.parseExpr() }
-            return .forS(pattern: pattern, sequence: sequence, body: try parseBlock())
+            // `for x in s where cond` (round 82) — `s.filter { }` with
+            // the loop's own names; `where` is contextual, as in switch
+            var condition: Expr? = nil
+            if case .identifier("where")? = peek {
+                pos += 1
+                condition = try withTrailing(false) { try $0.parseDisjunction() }
+            }
+            return .forS(pattern: pattern, sequence: sequence, condition: condition,
+                         body: try parseBlock())
         case .identifier("enum"):
             return try parseEnum()
         case .identifier("struct"):
