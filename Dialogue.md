@@ -1215,4 +1215,10 @@ the history. (Moved out of Design.md in round 65.)
   all), no `%`, and newlines ending statements even after a trailing
   `||`. Decided along the way: RegExp is to be a module, so `import`
   is now the prerequisite design, OPEN; the slicing family and the
-  Array Range subscript stay LEANING for the round after.
+  Array Range subscript stay LEANING for the round after. A tenth
+  finding arrived from the test suite rather than the parser: the
+  example's first run under `EgTests` died with SIGBUS — the
+  tree-walker has no recursion guard, its budget is the thread's
+  stack, and a test thread's is a sliver of the CLI's 8 MB. The test
+  now runs the example on a 64 MB pthread (as coroutine bodies
+  already do); a depth guard that throws is OPEN.
