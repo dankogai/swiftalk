@@ -328,6 +328,8 @@ Primitives:
   type lie. `Int?` is conceptually the flat union `Int`-or-`nil`;
   full model in §3a.
 * **`Bool`** — `true` / `false`. Not numbers, not truthy-anything.
+  (A bare *variable* as a condition asks the question its value
+  answers — a Bool its value, anything else "not nil"; round 80, §7.)
 * **`Int`** — **exactly 64-bit**, on every platform. NOT device
   dependent (unlike Swift, where `Int` is word-sized).
   **Overflow traps** at runtime, as in Swift — never silent wraparound.
@@ -788,10 +790,17 @@ verdict, round 78: "`.casename(let v)` should be `let v =
 assignment is a statement in swiftalk, so an `=` inside a condition
 or a `case` can only mean "bind" — `if v = opt`, `while x = d[i]`,
 `case r = .circle:`, `if (a, b) = t`; `var` is still spelled out for
-a mutable binding, explicit `let` remains fine, and the shadowing
-shorthand `if let x { }` keeps its `let` (a bare `if x { }` is a Bool
-test). `==` is untouched: `if (a, b) == t` compares. No `where`
-clauses. **`switch` is an expression — DECIDED (round 79, Swift
+a mutable binding, explicit `let` remains fine. `==` is untouched:
+`if (a, b) == t` compares. No `where` clauses. **`if o { }` — DECIDED
+(round 80, revising 78's "a bare `if x { }` is a Bool test")**: a
+bare *variable* as a condition asks the question its value answers —
+a Bool is tested (false included), nil is "no", anything else is
+"yes" — and inside the block `o` is simply itself: optionals are flat
+(§3a), so there is nothing to strip and **no shadow is made**, which
+is why `while node { node = node.next }` drains a list (the write
+reaches the variable; Swift's `while let node` shorthand would bind a
+copy). Only a bare variable gets this: `if Int(s) { }` or `if d[k] {
+}` is still the §3b type error — capture it, `if x = Int(s) { }`. **`switch` is an expression — DECIDED (round 79, Swift
 5.9's)**: its value is the chosen branch's last statement's value —
 the rule a closure body (and the REPL) already follow — so `let x =
 switch ...`, `return switch ...`, `1 + switch ...`, and the implicit
@@ -800,9 +809,13 @@ verbatim. A branch may hold several statements (Swift restricts a
 branch to one expression; swiftalk does not need to — the last-value
 rule already exists); a branch ending in a non-expression yields
 `nil`. Statement-level `switch` is simply an expression statement, so
-there is one `switch`, not two. Exhaustiveness is unchanged. **OPEN**:
-`if` as an expression (SE-0380's other half) — the ternary covers the
-Bool case today; `if let` as an expression would be the new ground.
+there is one `switch`, not two. Exhaustiveness is unchanged. **`if` is an expression too — DECIDED
+(round 80, SE-0380's other half)**, `if let` and `else if` included:
+the taken branch's last statement's value, `nil` when no branch
+runs — `let x = if o { o * 2 } else { 0 }`, `{ n in if n > 0 { 1 }
+else { -1 } }`, `1 + if c { 1 } else { 2 }`. `while` stays a
+statement (its value is nil). Statement-level `if` is an expression
+statement — one `if`, as with `switch`.
 
 **Exhaustiveness is enforced at runtime**: a `switch` over an enum that
 reaches a value no case matches (and has no `default`) is a runtime

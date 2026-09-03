@@ -35,6 +35,10 @@ indirect enum Expr {
     case switchE(subject: Expr,
                  clauses: [(patterns: [Pattern], body: [Stmt])],
                  defaultBody: [Stmt]?)
+    /// `if` is an expression too (round 80; SE-0380's other half), `if
+    /// let` included: the taken branch's last statement's value, nil
+    /// when no branch runs. `else if` nests another `ifE`.
+    case ifE(conditions: [IfCondition], then: [Stmt], else: [Stmt]?)
 }
 
 /// An assignment target: a variable, or a subscript/property path
@@ -93,6 +97,10 @@ enum Pattern {
 enum IfCondition {
     case binding(mutable: Bool, pattern: BindPattern, expr: Expr)   // if let (a, b) = t (round 72)
     case boolean(Expr)
+    /// `if o { }` on a bare variable (round 80): a Bool is tested, nil
+    /// is "no", anything else is "yes" — and inside, `o` is simply
+    /// itself: optionals are flat (§3a), there is nothing to strip.
+    case variable(String)
 }
 
 enum Stmt {
@@ -102,8 +110,6 @@ enum Stmt {
     case expression(Expr)
     case returnS(Expr?)
     case yieldS(Expr?)
-    indirect case ifS(condition: Expr, then: [Stmt], else: [Stmt]?)
-    indirect case ifLetS(conditions: [IfCondition], then: [Stmt], else: [Stmt]?)
     case whileS(condition: Expr, body: [Stmt])
     indirect case whileLetS(conditions: [IfCondition], body: [Stmt])   // while let (round 76)
     case repeatS(body: [Stmt], condition: Expr)
@@ -228,8 +234,6 @@ struct Parser {
         switch peek {
         case .identifier("let"), .identifier("var"):
             return try parseDeclaration()
-        case .identifier("if"):
-            return try parseIf()
         case .identifier("while"):
             pos += 1
             // `while let x = next(), x > 0 { }` (round 76) — the same
@@ -342,7 +346,12 @@ struct Parser {
                 }
                 conditions.append(.binding(mutable: mutable, pattern: pattern, expr: expr))
             } else {
-                conditions.append(.boolean(try withTrailing(false) { try $0.parseExpr() }))
+                let expr = try withTrailing(false) { try $0.parseExpr() }
+                if case .variable(let name) = expr, !name.hasPrefix("$") {
+                    conditions.append(.variable(name))     // if o { } — round 80
+                } else {
+                    conditions.append(.boolean(expr))
+                }
             }
             guard case .punct(",")? = peek else { break }
             pos += 1
@@ -371,20 +380,18 @@ struct Parser {
         return nil
     }
 
-    private mutating func parseIf() throws -> Stmt {
-        pos += 1  // consume "if"
+    /// `if conditions { } else if ... else { }` — an expression since
+    /// round 80, parsed from `parsePrimary` with the keyword consumed.
+    private mutating func parseIf() throws -> Expr {
         if case .identifier("case")? = peek {
             // gone in round 78 — the case accessor is an ordinary if let
             throw SwiftalkError.syntax(
                 "'if case' is not swiftalk — write if let r = s.circle (or if r = s.circle)")
         }
         let conditions = try parseConditionList()
-        let then = try parseBlock()
+        let then = try withTrailing(true) { try $0.parseBlock() }
         let elseBranch = try parseElse()
-        if conditions.count == 1, case .boolean(let condition) = conditions[0] {
-            return .ifS(condition: condition, then: then, else: elseBranch)
-        }
-        return .ifLetS(conditions: conditions, then: then, else: elseBranch)
+        return .ifE(conditions: conditions, then: then, else: elseBranch)
     }
 
     /// The optional `else`/`else if` tail; `else` may sit on the next
@@ -398,9 +405,10 @@ struct Parser {
         }
         pos += 1
         if case .identifier("if")? = peek {
-            return [try parseIf()]
+            pos += 1
+            return [.expression(try parseIf())]
         }
-        return try parseBlock()
+        return try withTrailing(true) { try $0.parseBlock() }
     }
 
     /// `enum Name { case a, b(label: Type, Type), ... }` (§7, round 45).
@@ -1254,6 +1262,8 @@ struct Parser {
             return .call(.variable("Task"), args: [(nil, closure)])
         case .identifier("switch"):
             return try parseSwitch()
+        case .identifier("if"):
+            return try parseIf()
         case .identifier(let name) where keywords.contains(name):
             throw SwiftalkError.syntax("'\(name)' is not an expression")
         case .identifier(let name) where name.hasPrefix("$") && name.count > 1:

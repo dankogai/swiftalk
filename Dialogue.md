@@ -1094,3 +1094,24 @@ the history. (Moved out of Design.md in round 65.)
   branch's), since the rule already exists for closures. `if` as an
   expression (SE-0380's other half) is logged OPEN — the ternary
   covers the Bool case; `if let` as an expression would be new.
+* **2026-09-03, round 80 — `if` is an expression, and `if o { }`**
+  ("Let's implement `if` as an expression too, `if let` included.
+  Also make `if o {o ...}` make the inner `o` stripped of optional. I
+  mean, make it equivalent to `if v = o { v ...}`. Of course it does
+  not apply to `if Failable(...)` or whatever RHS is NOT an optional
+  variable. In this case you need a capturing variable like `if x =
+  Failable{...}`"). Closes round 79's OPEN. `if` follows `switch`
+  into `Expr` — `Stmt.ifS`/`ifLetS` are gone, statement-level `if` is
+  an expression statement — with the same value rule: the taken
+  branch's last statement's value, nil when no branch runs; `else if`
+  nests. For `if o { }` the implementation is smaller than the
+  request suggests, because optionals are flat (§3a): `o` holding 7
+  IS 7, so "stripping the optional" needs no shadow binding — the
+  condition simply asks non-nil (a Bool variable is tested as a Bool,
+  false included), and inside the block `o` is the same variable.
+  That is a deliberate step past the stated equivalence with `if v =
+  o`: a shadow would be an immutable copy, and `while node { node =
+  node.next }` would not drain; without one it does. Only a bare
+  variable gets the treatment — `if Int(s) { }`, `if d[k] { }` stay
+  the §3b type error, exactly as the user specified. `while` keeps
+  the same condition list, so `while o { }` works alike.

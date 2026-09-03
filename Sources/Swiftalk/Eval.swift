@@ -356,27 +356,6 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
         return value
     case .expression(let expr):
         return try evaluate(expr, in: env)
-    case .ifS(let condition, let then, let elseBranch):
-        guard case .bool(let flag) = try evaluate(condition, in: env) else {
-            throw SwiftalkError.type("the 'if' condition must be a Bool — nothing is truthy (§3b)")
-        }
-        if flag {
-            try runBlock(then, in: env)
-        } else if let elseBranch {
-            try runBlock(elseBranch, in: env)
-        }
-        return .nil
-    case .ifLetS(let conditions, let then, let elseBranch):
-        // Round 60: bindings must land non-nil (flat optionals — the
-        // bound value IS itself, §3a), booleans must hold; left to
-        // right, short-circuit, later clauses seeing earlier bindings.
-        let scope = Environment(parent: env)
-        if try conditionsHold(conditions, in: scope) {
-            try runBlock(then, in: scope)
-        } else if let elseBranch {
-            try runBlock(elseBranch, in: env)
-        }
-        return .nil
     case .whileLetS(let conditions, let body):
         // Round 76: each iteration re-evaluates the list in a fresh
         // scope — the classic `while let x = next()` drain.
@@ -825,6 +804,16 @@ private func conditionsHold(_ conditions: [IfCondition], in scope: Environment) 
                     "an 'if'/'while' condition must be a Bool — nothing is truthy (§3b)")
             }
             guard flag else { return false }
+        case .variable(let name):
+            // `if o { }` (round 80): a Bool is tested; otherwise the
+            // question is "is it nil?" — no binding is made, since a
+            // flat optional's non-nil self IS the value (§3a), so
+            // `while node { node = node.next }` writes through.
+            switch try scope.lookup(name) {
+            case .bool(let flag): guard flag else { return false }
+            case .nil:            return false
+            default:              break
+            }
         }
     }
     return true
@@ -1031,6 +1020,26 @@ func evaluate(_ expr: Expr, in env: Environment) throws -> Value {
         return try apply(fn, args: try evaluateArgs(args, in: env))
     case .subscript(let base, let index):
         return try subscriptRead(try evaluate(base, in: env), try evaluate(index, in: env))
+    case .ifE(let conditions, let then, let elseBranch):
+        // An expression since round 80: the taken branch's last value,
+        // nil when none runs. Bindings (round 60) must land non-nil —
+        // flat optionals, the bound value IS itself (§3a) — booleans
+        // must hold; left to right, short-circuit, later clauses seeing
+        // earlier bindings. A lone Bool condition skips the scope.
+        if conditions.count == 1, case .boolean(let condition) = conditions[0] {
+            guard case .bool(let flag) = try evaluate(condition, in: env) else {
+                throw SwiftalkError.type("the 'if' condition must be a Bool — nothing is truthy (§3b)")
+            }
+            if flag { return try runBlock(then, in: env) }
+            if let elseBranch { return try runBlock(elseBranch, in: env) }
+            return .nil
+        }
+        let scope = Environment(parent: env)
+        if try conditionsHold(conditions, in: scope) {
+            return try runBlock(then, in: scope)
+        }
+        if let elseBranch { return try runBlock(elseBranch, in: env) }
+        return .nil
     default:
         return try evaluateSlow(expr, in: env)
     }
@@ -1040,6 +1049,8 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
     switch expr {
     case .switchE(let subject, let clauses, let defaultBody):
         return try evaluateSwitch(subject, clauses, defaultBody, in: env)
+    case .ifE:
+        return try evaluate(expr, in: env)     // handled on the hot path
     case .literal(let v):
         return v
     case .variable(let name):

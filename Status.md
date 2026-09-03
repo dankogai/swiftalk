@@ -128,6 +128,42 @@ swiftalk> switch 9 { case 1: 1 }
 type error: switch is not exhaustive — nothing matches 9
 ```
 
+**`if` is an expression** too (round 80), `if let` and `else if`
+included — the taken branch's last value, nil when none runs. And
+**`if o { }`** on a bare optional variable asks non-nil; inside, `o`
+is simply itself (flat optionals leave nothing to strip, and no shadow
+is made, so a drain loop writes through). Anything that is not a bare
+variable still needs a Bool — or a capture, `if x = Int(s) { }`:
+
+```text
+swiftalk> let o: Int? = 7
+7
+swiftalk> if o { o + 1 }
+8
+swiftalk> let none: Int? = nil
+swiftalk> if none { none } else { "nil" }
+"nil"
+swiftalk> let x = if o { o * 2 } else { 0 }
+14
+swiftalk> let sign = { n in if n > 0 { 1 } else if n < 0 { -1 } else { 0 } }
+{ n in ... }
+swiftalk> [sign(5), sign(-5), sign(0)]
+[1, -1, 0]
+swiftalk> struct Node { var value: Int; var next: Node? = nil }
+Node
+swiftalk> var node: Node? = Node(value: 1, next: Node(value: 2, next: nil))
+Node(value: 1, next: Node(value: 2, next: nil))
+swiftalk> var seen = []
+[]
+swiftalk> while node { seen.append(node.value); node = node.next }
+swiftalk> seen
+[1, 2]
+swiftalk> if Int("x") { 1 }
+type error: the 'if' condition must be a Bool — nothing is truthy (§3b)
+swiftalk> if x = Int("x") { x } else { -1 }
+-1
+```
+
 **`while let`** is in (round 76) — `if let`'s condition list, re-evaluated
 with fresh bindings each pass; the grammar is documented in
 [doc/grammar.md](doc/grammar.md):
@@ -823,7 +859,8 @@ swiftalk> 0x1.999999999999ap-4 == 0.1
 true
 ```
 
-**`if let`** is in — comma chains, `if var`, the Swift 5.7 shorthand.
+**`if let`** is in — comma chains, `if var`, the Swift 5.7 shorthand
+(and, since round 80, `if x { }` with no `let` at all).
 **`guard` is not**, and never will be: "it is only `if not`" — the
 keyword graveyard (§9) now holds `func`, `mutating`, `async`-as-color,
 and `guard`:

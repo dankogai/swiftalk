@@ -173,7 +173,7 @@ struct SwitchBindTests {
             default: r = "ne" }
             r
             """) == .string("eq"))
-        // a Bool-typed condition without = stays a plain if (no shadowing surprise)
-        #expect(throws: SwiftalkError.self) { try eval("let v: Int? = 7\nif v { }") }
+        // a bare optional variable asks non-nil since round 80 — see IfExprTests
+        #expect(try eval("let v: Int? = 7\nif v { v }") == .int(7))
     }
 }

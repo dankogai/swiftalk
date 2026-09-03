@@ -16,6 +16,7 @@ var x: Int? = nil   // annotate: nil alone infers nothing
 |---|---|
 | `Nil()` | `nil` |
 | `Nil(x)` | `nil` if `x` is nil; type error otherwise |
+| `if o { o + 1 }`, `while node { node = node.next }` | a bare optional variable as a condition asks "not nil?"; inside, `o` is simply itself — no shadow, writes reach the variable (round 80). Not for expressions: `if x = Int(s) { }` |
 | `nil ?? d` | `d` |
 | `nil?` | early-returns nil from the enclosing function (§3a/§8) |
 | `nil!` | type error: force-unwrapped nil |

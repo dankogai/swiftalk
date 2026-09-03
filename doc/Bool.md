@@ -1,7 +1,10 @@
 # Bool
 
 `true` and `false`. Nothing is truthy: `if`, `while`, `? :`, and
-`filter` demand a Bool and reject everything else (§3b).
+`filter` demand a Bool and reject everything else (§3b). The one
+reading that is not a Bool test: a *bare variable* as an `if`/`while`
+condition asks "not nil?" when it holds anything but a Bool — `if o {
+o + 1 }` (round 80) — and inside, `o` is itself.
 
 | Member / constructor | Result |
 |---|---|

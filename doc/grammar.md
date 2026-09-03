@@ -46,7 +46,7 @@ program      = { statement separator } ;
 separator    = NEWLINE | ";" ;
 
 statement    = declaration | destructure | assignment | expression
-             | if | while | repeat | for              (* switch is an expression *)
+             | while | repeat | for                   (* if and switch are expressions *)
              | "break" | "continue"
              | "return" [ expression ] | "yield" [ expression ]
              | enumDecl | structDecl | extensionDecl ;
@@ -72,9 +72,12 @@ element      = [ IDENT ":" ] pattern ;                 (* labeled binds by label
 ### Control flow
 
 ```
-if           = "if" conditions block [ "else" ( if | block ) ] ;
+if           = "if" conditions block [ "else" ( if | block ) ] ;   (* an expression (round 80):
+                                                          the taken branch's last value, else nil *)
 conditions   = condition { "," condition } ;
 condition    = expression                              (* must be a Bool *)
+             | IDENT                                   (* a bare variable: a Bool is tested, else
+                                                          "not nil" — if o { o + 1 } (round 80) *)
              | ( "let" | "var" ) IDENT                 (* shorthand: if let x { } *)
              | [ "let" | "var" ] pattern "=" expression ;  (* nil fails; a misfit errors;
                                                           let optional since round 78 *)
@@ -156,7 +159,7 @@ primary      = INT | DOUBLE | STRING | "true" | "false" | "nil"
              | "(" expression ")"                      (* grouping *)
              | tuple | array | dictionary
              | closure | "async" closure               (* async { } is Task { } *)
-             | switch ;                                (* let x = switch ..., return switch ... *)
+             | switch | if ;                           (* let x = switch ..., let y = if c { } else { } *)
 
 tuple        = "(" ")"
              | "(" tupleElement "," ")"                (* the 1-tuple: (x,) *)
