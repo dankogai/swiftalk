@@ -6,6 +6,55 @@ import Darwin
 import Glibc
 #endif
 
+/// The tree-walker's recursion budget is its thread's stack (round 45's
+/// war story); a test thread's is a sliver of the CLI's 8 MB main
+/// thread. A deep example — the SION parser (round 85) — runs on a
+/// thread of its own with a full stack, joined here.
+private final class BigStackJob: @unchecked Sendable {
+    let body: () throws -> String
+    var result: Result<String, Swift.Error>?
+    init(_ body: @escaping () throws -> String) { self.body = body }
+    func run() { result = Result { try body() } }
+}
+
+#if canImport(Darwin)
+private func bigStackMain(_ arg: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer? {
+    Unmanaged<BigStackJob>.fromOpaque(arg).takeRetainedValue().run()
+    return nil
+}
+#else
+private func bigStackMain(_ arg: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
+    Unmanaged<BigStackJob>.fromOpaque(arg!).takeRetainedValue().run()
+    return nil
+}
+#endif
+
+private func onBigStack(_ body: @escaping () throws -> String) throws -> String {
+    let job = BigStackJob(body)
+    var attr = pthread_attr_t()
+    pthread_attr_init(&attr)
+    pthread_attr_setstacksize(&attr, 1 << 26)          // 64 MB
+    let arg = Unmanaged.passRetained(job).toOpaque()
+    #if canImport(Darwin)
+    var thread: pthread_t? = nil
+    let rc = pthread_create(&thread, &attr, bigStackMain, arg)
+    #else
+    var thread = pthread_t()
+    let rc = pthread_create(&thread, &attr, bigStackMain, arg)
+    #endif
+    pthread_attr_destroy(&attr)
+    guard rc == 0 else {
+        Unmanaged<BigStackJob>.fromOpaque(arg).release()
+        throw SwiftalkError.type("could not start a big-stack thread (errno \(rc))")
+    }
+    #if canImport(Darwin)
+    pthread_join(thread!, nil)
+    #else
+    pthread_join(thread, nil)
+    #endif
+    return try job.result!.get()
+}
+
 /// The eg/ examples, kept honest (round 66): quine laws are checked
 /// byte-for-byte against the actual files, outputs line-for-line —
 /// the same discipline as Status.md's verified transcripts.
@@ -134,7 +183,8 @@ struct EgTests {
 
     @Test("sion.swt: MySION — a SION parser in swiftalk — parses swift-sion's README sample; the round-trip law holds through it (round 85)")
     func sion() throws {
-        #expect(try output(of: try slurp("sion.swt")) == """
+        let source = try slurp("sion.swt")
+        #expect(try onBigStack { try output(of: source) } == """
             -42 42.195 true nil true
             漢字、カタカナ、ひらがなの入ったstring😇
             [nil, true, 1, 1.0, "one", [1], ["one": 1.0]]
