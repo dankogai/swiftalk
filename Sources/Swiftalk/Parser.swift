@@ -33,7 +33,7 @@ indirect enum Expr {
     /// body already follows — so `let x = switch ...`, `return switch
     /// ...`, and `{ s in switch s { ... } }` all yield.
     case switchE(subject: Expr,
-                 clauses: [(patterns: [Pattern], body: [Stmt])],
+                 clauses: [(patterns: [CasePattern], body: [Stmt])],
                  defaultBody: [Stmt]?)
     /// `if` is an expression too (round 80; SE-0380's other half), `if
     /// let` included: the taken branch's last statement's value, nil
@@ -90,6 +90,12 @@ enum Pattern {
     /// nil is the only "no". `let` is optional; `var` binds mutably.
     case binding(mutable: Bool, pattern: BindPattern, caseName: String)
 }
+
+/// A `case` alternative (round 81): a pattern and its optional `where`
+/// guard — the guard belongs to the pattern it follows (Swift's rule,
+/// kept because each pattern binds in its own scope): `case 1 where
+/// c, 2 where c:` guards both, `case 1, 2 where c:` only the 2.
+typealias CasePattern = (pattern: Pattern, condition: Expr?)
 
 /// One clause of an `if let` condition list (round 60): a binding
 /// that must land non-nil, or a Bool that must hold — evaluated left
@@ -825,7 +831,7 @@ struct Parser {
     private mutating func parseSwitch() throws -> Expr {
         let subject = try withTrailing(false) { try $0.parseExpr() }
         try expect("{")
-        var clauses: [(patterns: [Pattern], body: [Stmt])] = []
+        var clauses: [(patterns: [CasePattern], body: [Stmt])] = []
         var defaultBody: [Stmt]? = nil
         // bodies are statement context whatever surrounds the switch
         try withTrailing(true) { p in
@@ -833,10 +839,10 @@ struct Parser {
             while p.peek != .punct("}") {
                 switch p.advance() {
                 case .identifier("case"):
-                    var patterns = [try p.parsePattern()]
+                    var patterns = [try p.parseCasePattern()]
                     while case .punct(",")? = p.peek {
                         p.pos += 1
-                        patterns.append(try p.parsePattern())
+                        patterns.append(try p.parseCasePattern())
                     }
                     try p.expect(":")
                     clauses.append((patterns, try p.parseCaseBody()))
@@ -864,6 +870,17 @@ struct Parser {
                 return false
             }
         })
+    }
+
+    /// A pattern with its optional `where` guard (round 81). `where` is
+    /// contextual — an identifier elsewhere — and the guard is parsed
+    /// below the ternary so the clause's `:` stays the clause's.
+    private mutating func parseCasePattern() throws -> CasePattern {
+        let pattern = try parsePattern()
+        guard case .identifier("where")? = peek else { return (pattern, nil) }
+        pos += 1
+        let condition = try withTrailing(false) { try $0.parseDisjunction() }
+        return (pattern, condition)
     }
 
     /// A pattern: `_`, `.name`, `[let] pattern = .name` (round 78), or

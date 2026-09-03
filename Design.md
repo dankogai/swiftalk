@@ -791,7 +791,16 @@ assignment is a statement in swiftalk, so an `=` inside a condition
 or a `case` can only mean "bind" — `if v = opt`, `while x = d[i]`,
 `case r = .circle:`, `if (a, b) = t`; `var` is still spelled out for
 a mutable binding, explicit `let` remains fine. `==` is untouched:
-`if (a, b) == t` compares. No `where` clauses. **`if o { }` — DECIDED
+`if (a, b) == t` compares. **`where` guards — DECIDED (round 81)**:
+`case let r = .circle where r > 1.0:` — a Bool expression after the
+pattern, seeing its bindings; false is a non-match, on to the next
+alternative (and, with no `default`, to the exhaustiveness error).
+`where` is contextual, not a keyword (`let where = 3` is legal). The
+guard belongs to the pattern it follows — Swift's rule, kept because
+each alternative binds in its own scope: `case 1 where c, 2 where c:`
+guards both, `case 1, 2 where c:` only the 2. `if`/`while` need no
+`where`: the comma list already is one. **OPEN**: `for x in s where
+c`. **`if o { }` — DECIDED
 (round 80, revising 78's "a bare `if x { }` is a Bool test")**: a
 bare *variable* as a condition asks the question its value answers —
 a Bool is tested (false included), nil is "no", anything else is

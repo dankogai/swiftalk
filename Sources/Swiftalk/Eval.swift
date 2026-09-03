@@ -617,17 +617,25 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
 /// `switch` (§7; an expression since round 79): the first matching
 /// clause runs, and its last statement's value is the switch's value.
 private func evaluateSwitch(_ subjectExpr: Expr,
-                            _ clauses: [(patterns: [Pattern], body: [Stmt])],
+                            _ clauses: [(patterns: [CasePattern], body: [Stmt])],
                             _ defaultBody: [Stmt]?, in env: Environment) throws -> Value {
     let subject = try evaluate(subjectExpr, in: env)
     for clause in clauses {
-        for pattern in clause.patterns {
+        for (pattern, condition) in clause.patterns {
             // each attempt gets its own scope: a `case let r =
             // .circle` that fails leaves nothing behind
             let scope = Environment(parent: env)
-            if try match(pattern, subject, in: scope) {
-                return try runBlock(clause.body, in: scope)
+            guard try match(pattern, subject, in: scope) else { continue }
+            // `where` (round 81): sees the pattern's bindings; a false
+            // guard is a non-match, on to the next alternative
+            if let condition {
+                guard case .bool(let flag) = try evaluate(condition, in: scope) else {
+                    throw SwiftalkError.type(
+                        "a 'where' guard must be a Bool — nothing is truthy (§3b)")
+                }
+                guard flag else { continue }
             }
+            return try runBlock(clause.body, in: scope)
         }
     }
     if let defaultBody {

@@ -128,6 +128,41 @@ swiftalk> switch 9 { case 1: 1 }
 type error: switch is not exhaustive — nothing matches 9
 ```
 
+**`where` guards** on `switch` cases (round 81) — a Bool after the
+pattern, seeing its bindings; false moves on to the next alternative.
+`where` is contextual, and a guard belongs to the pattern it follows:
+
+```text
+swiftalk> enum Shape {
+      case circle(r: Double)
+      case rect(w: Double, h: Double)
+  }
+Shape
+swiftalk> let describe = { s in
+      switch s {
+      case let r = .circle where r > 1.0: "big circle"
+      case .circle:                      "small circle"
+      case let (w, h) = .rect where w == h: "square \(w)"
+      case let (w, h) = .rect:           "rect \(w)x\(h)"
+      }
+  }
+{ s in ... }
+swiftalk> [describe(Shape.circle(r: 2.0)), describe(Shape.circle(r: 0.5)), describe(Shape.rect(w: 2.0, h: 2.0)), describe(Shape.rect(w: 1.0, h: 2.0))]
+["big circle", "small circle", "square 2.0", "rect 1.0x2.0"]
+swiftalk> let classify = { n in switch n { case _ where n < 0: "negative" case 0: "zero" case 1...9 where n / 2 * 2 == n: "small even" case 1...9: "small odd" default: "large" } }
+{ n in ... }
+swiftalk> [classify(-3), classify(0), classify(4), classify(7), classify(50)]
+["negative", "zero", "small even", "small odd", "large"]
+swiftalk> let flag = false
+false
+swiftalk> switch 2 { case 1, 2 where flag: "guarded" default: "not" }
+"not"
+swiftalk> switch 2 { case 2 where 1: "x" }
+type error: a 'where' guard must be a Bool — nothing is truthy (§3b)
+swiftalk> let where = 3
+3
+```
+
 **`if` is an expression** too (round 80), `if let` and `else if`
 included — the taken branch's last value, nil when none runs. And
 **`if o { }`** on a bare optional variable asks non-nil; inside, `o`

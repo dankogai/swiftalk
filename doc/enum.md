@@ -28,6 +28,7 @@ enum Shape {
 | `if let r = s.circle { }`, `if let (w, h) = s.rect { }` | **the way to test-and-bind a case** — an ordinary `if let` on the accessor; labels work too: `if let (h: h, w: w) = s.rect`; `.circle` inside a method is `self.circle`; `let` is optional (round 78): `if r = s.circle { }` |
 | `switch s { case let r = .circle: ... case let (w, h) = .rect: ... }` | the same accessor on the subject (round 78) — nil is the only "no", a misfit pattern is an error; `let` optional, `var` binds mutably; labels: `case (h: h, w: w) = .rect:`; bare `case .circle:` matches any payload; no match and no `default` is a runtime error |
 | `if case .circle(let r) = s`, `case .circle(let r):` | **gone** (round 78) — syntax errors with a hint at the forms above |
+| `case let r = .circle where r > 1.0:` | a `where` guard (round 81): a Bool seeing the bindings; false moves on; the guard belongs to the pattern it follows |
 | `let a = switch s { case let r = .circle: r * r default: 0.0 }` | **`switch` is an expression** (round 79): the chosen branch's last statement's value; so `{ s in switch s { ... } }` returns it |
 | `case 1...5:` | a Range pattern matches an Int by containment |
 | `s.m(args)` | methods, `self` bound; `switch self` inside |

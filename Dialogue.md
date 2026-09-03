@@ -1115,3 +1115,19 @@ the history. (Moved out of Design.md in round 65.)
   variable gets the treatment — `if Int(s) { }`, `if d[k] { }` stay
   the §3b type error, exactly as the user specified. `while` keeps
   the same condition list, so `while o { }` works alike.
+* **2026-09-03, round 81 — `where` guards on `switch` cases** ("Let's
+  implement `where` clauses in `switch` cases"). `case let r =
+  .circle where r > 1.0:`, `case _ where n < 0:`, `case 1...9 where n
+  / 2 * 2 == n:` — a Bool after the pattern, evaluated in the
+  alternative's own scope so it sees the bindings; false is a
+  non-match and the search continues (a guarded miss with no
+  `default` is the usual exhaustiveness error). Two decisions: `where`
+  is contextual rather than a keyword (recognized only after a case
+  pattern — `let where = 3` still works, keeping the keyword count
+  where round 60 wanted it), and the guard belongs to the pattern it
+  follows, as in Swift — `case 1, 2 where c:` guards only the 2. The
+  Swift rule is often called a wart, but here it is the honest one:
+  each alternative already binds in its own scope, so a clause-wide
+  guard could not see any alternative's bindings. `if`/`while` gain
+  nothing — their comma list is a `where` already. `for ... where`
+  is logged OPEN.

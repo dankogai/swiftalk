@@ -18,7 +18,8 @@ Shelved forms (`actor`, `class`, `super`) are not grammar today.
 * **Keywords** (never identifiers): `let var true false nil in if
   else while repeat for break continue return yield async await enum
   case switch default struct extension`. Contextual (identifiers
-  elsewhere): `init self get set willSet didSet newValue oldValue`.
+  elsewhere): `init self get set willSet didSet newValue oldValue
+  where`.
   Not keywords, deliberately: `guard`, `func`, `mutating`, `class`,
   `actor`, `super` (§9 and round 62).
 * **Literals**
@@ -87,9 +88,11 @@ repeat       = "repeat" block "while" expression ;
 for          = "for" pattern { "," pattern } "in" expression block ;
                                                        (* for k, v in d — parens optional *)
 switch       = "switch" expression "{"                (* an expression (round 79): its value is the *)
-                 { "case" casePattern { "," casePattern } ":" { statement } }   (* chosen branch's *)
+                 { "case" caseAlt { "," caseAlt } ":" { statement } }   (* chosen branch's *)
                  [ "default" ":" { statement } ]       (* last statement's value *)
                "}" ;                                   (* no match, no default: runtime error *)
+caseAlt      = casePattern [ "where" disjunction ] ;  (* the guard belongs to the pattern it follows;
+                                                          it sees the pattern's bindings (round 81) *)
 casePattern  = "_"
              | "." IDENT                               (* the subject's case, any payload *)
              | [ "let" | "var" ] pattern "=" "." IDENT (* case let r = .circle: the accessor; nil fails *)
