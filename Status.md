@@ -163,6 +163,27 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**A Regex character is a grapheme** (round 87) — `.`, `\X`, and class
+ranges work on the same clusters `count` counts; property classes
+handle text with combining marks:
+
+```text
+swiftalk> let s = "e\u{301}🇯🇵a"
+"é🇯🇵a"
+swiftalk> s.count
+3
+swiftalk> s.matches(/./)
+["é", "🇯🇵", "a"]
+swiftalk> "か\u{309A}き".matches(/[\u{3040}-\u{309F}]/)
+["き"]
+swiftalk> "か\u{309A}き".matches(/\p{Hiragana}+/)
+["か゚き"]
+swiftalk> "🇯🇵🇺🇸".matches(/\p{RegionalIndicator}/)
+["🇯🇵", "🇺🇸"]
+swiftalk> /(?u)./
+syntax error: invalid regex /(?u)./: unicode scalar semantic mode is not currently supported
+```
+
 **MySION — a SION parser in swiftalk** (round 85, `eg/sion.swt`,
 write-up in [eg/sion.md](eg/sion.md)): swift-sion's README sample,
 every literal form, and the round-trip law through it — no RegExp,

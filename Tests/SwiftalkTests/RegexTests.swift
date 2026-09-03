@@ -101,6 +101,32 @@ struct RegexTests {
         #expect(throws: SwiftalkError.self) { try eval("\"a1\".replacing(/\\d/) { 1 }") }
     }
 
+    @Test("a character is a grapheme: . and \\X take one cluster; scalar ranges match single-scalar graphemes only (round 87)")
+    func graphemes() throws {
+        let s = "let s = \"e\\u{301}🇯🇵a\"\n"                      // 5 scalars, 3 graphemes
+        #expect(try eval(s + "s.count") == .int(3))
+        #expect(try eval(s + "s.matches(/./)") == .array(["é", "🇯🇵", "a"].map(Value.string)))
+        #expect(try eval(s + "s.matches(/\\X/)") == .array(["é", "🇯🇵", "a"].map(Value.string)))
+        #expect(try eval("\"👨‍👩‍👧\".matches(/./).count") == .int(1))
+        // canonical equivalence, not scalar identity
+        #expect(try eval("\"e\\u{301}\".contains(/^é$/)") == .bool(true))
+        #expect(try eval("\"e\\u{301}\".contains(/^e$/)") == .bool(false))
+        #expect(try eval("\"e\\u{301}\".matches(/[\\u{E9}]/)") == .array([.string("é")]))
+        #expect(try eval("\"e\\u{301}\".matches(/[a-z]/)") == .array([]))
+        // a scalar range matches a grapheme only when the grapheme is one scalar in it
+        #expect(try eval("\"ひらがな and カタカナ\".matches(/[\\u{3040}-\\u{309F}]+/)") == .array([.string("ひらがな")]))
+        #expect(try eval("\"か\\u{309A}き\".matches(/[\\u{3040}-\\u{309F}]/)") == .array([.string("き")]))
+        #expect(try eval("\"🇯🇵🇺🇸\".matches(/[\\u{1F1E6}-\\u{1F1FF}]/)") == .array([]))
+        // ...the property classes match whole graphemes
+        #expect(try eval("\"か\\u{309A}き\".matches(/\\p{Hiragana}+/)") == .array([.string("か\u{309A}き")]))
+        #expect(try eval("\"🇯🇵🇺🇸\".matches(/\\p{RegionalIndicator}/)") == .array([.string("🇯🇵"), .string("🇺🇸")]))
+        #expect(try eval("\"漢字\".matches(/\\p{Han}+/)") == .array([.string("漢字")]))
+        #expect(try eval("\"か\\u{309A}\".matches(/[か\\u{309A}]/)") == .array([.string("か\u{309A}")]))
+        // no scalar mode: the stdlib rejects both inline switches
+        #expect(throws: SwiftalkError.self) { try eval("/(?u)./") }
+        #expect(throws: SwiftalkError.self) { try eval("/(?X)./") }
+    }
+
     @Test("switch: case /re/: matches the whole String; case let (_, a, b) = /re/: binds the captures")
     func switchPatterns() throws {
         #expect(try eval("""

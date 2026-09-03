@@ -1245,3 +1245,24 @@ the history. (Moved out of Design.md in round 65.)
   (`firstMatch(of:)`, `replacing(_:with:)`, `split(separator:)`);
   `case /re/:` matches whole, as Swift's `~=`. OPEN: `=~`, `$1`
   templates, match ranges.
+* **2026-09-03, round 87 — a character is a grapheme** ("Is a
+  character in Regex Unicode codepoint or grapheme? If former, does
+  our regex have `\X`?" and, after the answer, "Add that paragraph
+  and the grapheme test. Why I asked was that how we handle
+  `[\uXXXXXX-\uXXXXXX]`"). Verified against the engine, not from
+  memory: Swift's `Regex` matches extended grapheme clusters, so `.`
+  and `\X` each take one (`"e\u{301}🇯🇵a"` — five scalars — gives
+  three matches, the same three `s.Array()` gives), and comparison is
+  canonical (`/^é$/` matches the decomposed sequence). The
+  motivating case, a class range written with code-point escapes,
+  has a sharp edge: `[\u{3040}-\u{309F}]` matches a grapheme only
+  when that grapheme *is* one scalar in the range, so ka plus a
+  combining handakuten slips through and a flag never matches a
+  Regional-Indicator range — a pattern cannot take half a cluster.
+  The property classes are the answer for such text: `\p{Hiragana}`,
+  `\p{Han}`, `\p{RegionalIndicator}` match whole graphemes. There is
+  no scalar mode: the stdlib refuses the inline `(?u)` and `(?X)`
+  ("not currently supported"), and swiftalk does not expose the
+  API-level switch; a `u` flag for it is logged OPEN. Documented in
+  doc/Regex.md and pinned by a test, so a future engine change shows
+  up as a red test rather than a surprise.

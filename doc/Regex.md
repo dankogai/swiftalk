@@ -66,5 +66,35 @@ default:                             "other"
 A Regex pattern against a non-String subject is simply no match; a
 Regex *binding* needs a String subject (a type error otherwise).
 
+## A character is a grapheme
+
+The engine matches **extended grapheme clusters** — the same unit
+`s.count` and `s.Array()` use (§11) — never Unicode scalars (round
+87). Consequences, each pinned by a test:
+
+* `.` and `\X` both match one grapheme: `"e\u{301}🇯🇵a".matches(/./)`
+  is `["é", "🇯🇵", "a"]` — five scalars, three matches. (`.` honors the
+  `s` flag for newlines; `\X` always takes one cluster.)
+* Comparison is canonical: `/^é$/` matches the decomposed `e\u{301}`,
+  and `/[\u{E9}]/` does too; `/[a-z]/` does not, because that grapheme
+  is not equal to any single letter.
+* **A scalar range matches a grapheme only when the grapheme *is* a
+  single scalar in the range** (or is canonically equal to one).
+  `[\u{3040}-\u{309F}]+` matches `ひらがな`, but `か\u{309A}` (ka plus
+  combining handakuten, one grapheme) slips through it, and a flag
+  never matches `[\u{1F1E6}-\u{1F1FF}]` — a pattern cannot match half
+  a cluster. **Use the script and property classes for text with
+  combining marks**: `\p{Hiragana}`, `\p{Han}`, `\p{Latin}`,
+  `\p{RegionalIndicator}` match whole graphemes. A literal sequence
+  matches its grapheme (`/か\u{309A}/`), so does a class written with
+  it (`[か\u{309A}]`).
+* There is no scalar mode: the stdlib rejects the inline `(?u)`
+  (scalar semantics) and `(?X)` (explicit grapheme semantics) with
+  "not currently supported", and swiftalk does not expose the
+  API-level switch. If scalar matching is ever wanted, the route is a
+  `u` flag mapped to `matchingSemantics(.unicodeScalar)` — OPEN.
+  Bytes are `Data`'s business, not a Regex's.
+
 Not (yet): a `=~` operator, replacement templates (`$1`), match
-positions/ranges, `Data` matching. Regex is not a Sequence conformer.
+positions/ranges, `Data` matching, a scalar-semantics flag. Regex is
+not a Sequence conformer.

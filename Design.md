@@ -1020,9 +1020,16 @@ source, whole-match as Swift's `~=`), `case /\d+/:` by whole match,
 `replacing(_:with:)` (a String or a Function of the match — which
 splats, per round 73), `split(separator:)`; `Regex` is Equatable and
 Hashable by pattern and flags, and re-enters through its source form.
-**OPEN**: `=~`; `$1` templates; match ranges; the slicing family and
-the Array Range subscript stay LEANING; `import` is still undesigned
-(Regex no longer waits on it).
+**A character is a grapheme (round 87)**: the engine matches extended
+grapheme clusters, `count`'s unit — `.` and `\X` take one, comparison
+is canonical, and a scalar range `[\u{X}-\u{Y}]` matches a grapheme
+only when it *is* a single scalar in the range (so `か\u{309A}` needs
+`\p{Hiragana}`, and a flag never matches a Regional-Indicator range);
+the stdlib has no scalar mode today (`(?u)` refused). **OPEN**: `=~`;
+`$1` templates; match ranges; a `u` flag for scalar semantics if the
+stdlib's API switch is ever wanted; the slicing family and the Array
+Range subscript stay LEANING; `import` is still undesigned (Regex no
+longer waits on it).
 
 ## 12. Concurrency — `async`/`await`, colorless (round 53)
 
