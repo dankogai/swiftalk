@@ -175,6 +175,15 @@ enum Builtins {
             }
             return try ctx.scheduler.spawn(f, from: ctx)
         },
+        "Tuple": type("Tuple") { args in
+            // Tuple() is empty; Tuple(t) is t; Tuple(seq) gathers any
+            // Sequence conformer — the grab bag, from anything (round 70).
+            switch args.first {
+            case nil:              return .tuple([])
+            case .tuple(let t)?:   return .tuple(t)
+            case let v?:           return .tuple(try collect(v))
+            }
+        },
         "Date": type("Date") { args in
             switch args.first {
             case nil:
@@ -226,14 +235,14 @@ enum Builtins {
 
     private static let allTypeNames: Set<String> =
         ["Nil", "Bool", "Int", "Double", "String", "Array", "Dictionary",
-         "Range", "Function", "Sequence", "Data", "Date", "Task"]
+         "Range", "Function", "Sequence", "Data", "Date", "Task", "Tuple"]
 
     /// Who conforms to what (§10, rounds 26/38/41): built-ins conform
     /// natively — everything is Equatable and Hashable (all values are
     /// dictionary keys), Comparable is Int/Double/String, Sequence is
     /// the iterables (lazy Sequences included).
     static let conformance: [String: Set<String>] = [
-        "Sequence":   ["String", "Array", "Dictionary", "Range", "Sequence"],
+        "Sequence":   ["String", "Array", "Dictionary", "Range", "Sequence", "Tuple"],
         "Equatable":  allTypeNames,
         "Hashable":   allTypeNames,
         "Comparable": ["Int", "Double", "String", "Date"],

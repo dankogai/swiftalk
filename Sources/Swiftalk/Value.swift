@@ -45,6 +45,10 @@ extension Swiftalk {
         /// A spawned concurrent computation (round 53, §12): what
         /// `Task { ... }` / `async { ... }` returns and `await` joins.
         case task(TaskObject)
+        /// A tuple (round 70): a grab bag of values, `(v0, v1, ...)` —
+        /// one `Tuple` type, elements untyped, `.0`/`.1` access. Not
+        /// Swift's `(T0, T1)` — deliberately loose.
+        indirect case tuple([Value])
         /// An actor instance (round 54, §12): serialized mutable state,
         /// and swiftalk's first REFERENCE type — `let b = a` aliases.
         case actor(ActorObject)
@@ -274,6 +278,7 @@ extension Value {
         case .data: return "Data"
         case .date: return "Date"
         case .task: return "Task"
+        case .tuple: return "Tuple"
         case .actor(let obj): return obj.type.name
         }
     }
@@ -340,6 +345,10 @@ extension Value {
         case .task:
             // A live computation — a placeholder, like Functions.
             return "Task { ... }"
+        case .tuple(let t):
+            // Literal syntax — round-trips; a 1-tuple spells `(x,)`.
+            let body = t.map { $0.sourceString(debug: debug, seen: seen) }.joined(separator: ", ")
+            return "(" + body + (t.count == 1 ? ",)" : ")")
         case .actor(let obj):
             // A reference: identity can never round-trip (a re-entered
             // spelling would be a NEW actor), so a placeholder in the

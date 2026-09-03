@@ -19,6 +19,7 @@ REPL). Sections in [Design.md](../Design.md) are cited as §n.
 | `Data` | bytes, `[UInt8]` | [Data.md](Data.md) |
 | `Date` | epoch seconds as Double | [Date.md](Date.md) |
 | `Task` | a spawned computation | [Task.md](Task.md) |
+| `Tuple` | a grab bag `(v0, v1, ...)`, one loose type | [Tuple.md](Tuple.md) |
 | `Result` | built-in enum: `.success` / `.failure` | [Result.md](Result.md) |
 | `struct` | user value types | [struct.md](struct.md) |
 | `enum` | user sum types | [enum.md](enum.md) |

@@ -20,6 +20,7 @@ indirect enum Expr {
     case propagate(Expr)                                  // x? — unwrap or early-return (§3a/§8)
     case forceUnwrap(Expr)                                // x! — unwrap or trap
     case awaitE(Expr)                                     // await t — join a Task (§12)
+    case tuple([Expr])                                    // (a, b, ...) — a grab bag (round 70)
     case logicalAnd(Expr, Expr)                           // a && b — short-circuit (round 69)
     case logicalOr(Expr, Expr)                            // a || b — short-circuit
     case logicalNot(Expr)                                 // !a — prefix
@@ -997,7 +998,13 @@ struct Parser {
             switch peek {
             case .punct("."):
                 pos += 1
-                guard case .identifier(let name)? = advance() else {
+                let name: String
+                switch advance() {
+                case .identifier(let member)?:
+                    name = member
+                case .int(let index)? where index >= 0:
+                    name = String(index)          // tuple element: t.0 (round 70)
+                default:
                     throw SwiftalkError.syntax("expected member name after '.'")
                 }
                 var args: [(label: String?, expr: Expr)] = []
@@ -1156,9 +1163,23 @@ struct Parser {
             }
             return .memberLiteral(name)
         case .punct("("):
-            let inner = try withTrailing(true) { try $0.parseExpr() }
+            // `(x)` groups; `()`, `(x,)`, and `(a, b, ...)` are tuples
+            // (round 70) — the comma makes the tuple, as in Python.
+            if case .punct(")")? = peek {
+                pos += 1
+                return .tuple([])
+            }
+            let first = try withTrailing(true) { try $0.parseExpr() }
+            guard case .punct(",")? = peek else {
+                try expect(")")
+                return first
+            }
+            var elements = [first]
+            while consumeComma(closing: ")") {
+                elements.append(try withTrailing(true) { try $0.parseExpr() })
+            }
             try expect(")")
-            return inner
+            return .tuple(elements)
         case .punct("["):
             return try withTrailing(true) { try $0.parseCollection() }
         case .punct("{"):

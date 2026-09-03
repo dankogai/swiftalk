@@ -15,8 +15,8 @@ three keys), as SION allows. A homogeneous literal infers `[K: V]`
 | `d.remove(k)` | deletes the entry; returns the removed value or `nil`; needs a `var` root |
 | `d.count` | entries (nil-valued ones included) |
 | `d == e` | equality |
-| `for pair in d` | `[key, value]` pairs — order unspecified |
-| `d.map { }` | an **Array** of results (called with `[k, v]`) |
+| `for pair in d` | `(key, value)` tuples — order unspecified; `pair.0`, `pair.1` |
+| `d.map { }` | an **Array** of results (called with the `(k, v)` tuple) |
 | `d.filter { }` | a **Dictionary** of the kept pairs (Swift-compatible) |
 | `d.reduce(init) { }` | fold over pairs |
 | `d.String()` | source form with keys sorted — deterministic |
@@ -29,6 +29,6 @@ years["perl6"] ?? 2015         // 2015
 years["unknown"] = nil
 years.has("unknown")           // true — stored nil
 years.has("perl6")             // false — absent
-years.filter { $0[1] > 2020 }  // ["swiftalk": 2026]
+years.filter { $0.1 > 2020 }   // ["swiftalk": 2026]
 var sparse = [0: "zero", 1000000: "million"]   // a sparse array (round 59)
 ```

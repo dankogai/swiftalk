@@ -42,6 +42,16 @@ mechanism; dispatch is ordinary method lookup on the runtime type.
   collection literal. Braces are free to mean blocks/closures exclusively,
   which keeps trailing-closure syntax unambiguous.
 
+**Tuples — DECIDED (round 70): a grab bag.** `(v0, v1, ...)` is a
+`Tuple` — one type for every arity and mix, **not** Swift's
+`(T0, T1, ...)` typing ("not as strict as Swift's"). `.0`/`.1`
+read (and, on a `var`, write) elements; `.count` is the arity; a
+tuple is a value (equality, keys, round-tripping source form) and a
+Sequence conformer. `(x,)` is a 1-tuple, `()` empty, `(x)` grouping.
+**Dictionaries yield `(key, value)` tuples** in `for`-`in`, `map`,
+`filter`, and `reduce` — replacing the `[key, value]` Array stand-in
+of round 41. OPEN: labels, destructuring.
+
 ### 2.2 Declarations — DECIDED
 
 * `var` / `let` distinction as in Swift.

@@ -23,7 +23,7 @@ struct SequenceTests {
     func map() throws {
         #expect(try eval("[1, 2, 3].map { x in x * x }") == .array([.int(1), .int(4), .int(9)]))
         #expect(try eval("\"abc\".map { $0 }") == .array([.string("a"), .string("b"), .string("c")]))
-        #expect(try eval("[\"a\": 1].map { $0[1] }") == .array([.int(1)]))
+        #expect(try eval("[\"a\": 1].map { $0.1 }") == .array([.int(1)]))
         #expect(try eval("(1...3).map { $0 * $0 }") == .array([.int(1), .int(4), .int(9)]))
         #expect(throws: SwiftalkError.self) { try eval("42.map { $0 }") }
         #expect(throws: SwiftalkError.self) { try eval("[1].map(2)") }
@@ -33,7 +33,7 @@ struct SequenceTests {
     func filter() throws {
         #expect(try eval("(1...6).filter { $0 / 2 * 2 == $0 }") == .array([.int(2), .int(4), .int(6)]))
         #expect(try eval("\"hello world\".filter { $0 != \" \" }") == .string("helloworld"))
-        #expect(try eval("[\"a\": 1, \"b\": 2].filter { $0[1] == 1 }")
+        #expect(try eval("[\"a\": 1, \"b\": 2].filter { $0.1 == 1 }")
             == .dictionary([.string("a"): .int(1)]))
         #expect(throws: SwiftalkError.self) { try eval("[1].filter { 42 }") }   // must return Bool
     }

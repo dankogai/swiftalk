@@ -29,6 +29,32 @@ try interp.eval("var count = 1")
 try interp.eval("count = count + 1")         // .int(2)
 ```
 
+**Tuples** are in (round 70) — a grab bag: one `Tuple` type, `.0`/`.1`,
+`.count`, values through and through; Dictionaries yield `(key, value)`:
+
+```text
+swiftalk> let t = (1, "one", 2.0)
+(1, "one", 2.0)
+swiftalk> t.1
+"one"
+swiftalk> t.Type
+Tuple
+swiftalk> ((1, 2), (3, 4)).1.0      // nests — 0.1 is not a Double here
+3
+swiftalk> var u = (1, 2)
+(1, 2)
+swiftalk> u.0 = 9
+9
+swiftalk> u
+(9, 2)
+swiftalk> (7,)                      // the 1-tuple; (42) merely groups
+(7,)
+swiftalk> for pair in ["a": 1] { print(pair.0, pair.1) }
+a 1
+swiftalk> [(0, 0): "origin"][(0, 0)]
+"origin"
+```
+
 **Logical operators** are in (round 69) — `&&`, `||`, prefix `!`,
 exactly Swift's: Bool-only, short-circuit, Swift's precedence:
 

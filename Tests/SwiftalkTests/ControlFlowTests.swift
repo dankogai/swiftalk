@@ -49,7 +49,7 @@ struct ControlFlowTests {
     func forIn() throws {
         #expect(try eval("var s = 0\nfor x in [1, 2, 3] { s = s + x }\ns") == .int(6))
         #expect(try eval("var s = \"\"\nfor c in \"ab🍰\" { s = c + s }\ns") == .string("🍰ba"))
-        #expect(try eval("var s = 0\nfor pair in [\"a\": 40, \"b\": 2] { s = s + pair[1] }\ns") == .int(42))
+        #expect(try eval("var s = 0\nfor pair in [\"a\": 40, \"b\": 2] { s = s + pair.1 }\ns") == .int(42))
         #expect(try eval("var n = 0\nfor _ in [1, 2, 3] { n = n + 1 }\nn") == .int(3))
         #expect(try eval("var s = 0\nfor x in [1, 2, 3, 4] { if x == 3 { break }\ns = s + x }\ns") == .int(3))
         #expect(throws: SwiftalkError.self) { try eval("for x in 42 { }") }

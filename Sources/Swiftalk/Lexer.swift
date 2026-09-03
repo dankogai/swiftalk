@@ -160,7 +160,9 @@ struct Lexer {
             case "\"":
                 tokens.append(try lexStringToken())
             case "0"..."9":
-                tokens.append(try lexNumber())
+                // After a `.` the digits are a tuple index (round 70):
+                // `t.0.1` is two member accesses, not `t` then `0.1`.
+                tokens.append(try lexNumber(memberIndex: tokens.last == .punct(".")))
             case let c where c.properties.isAlphabetic || c == "_":
                 tokens.append(.identifier(lexIdentifier()))
             default:
@@ -311,7 +313,7 @@ struct Lexer {
         return scalar
     }
 
-    private mutating func lexNumber() throws -> Token {
+    private mutating func lexNumber(memberIndex: Bool = false) throws -> Token {
         // Radix prefixes: 0x / 0o / 0b — and 0x floats (round 59):
         // `0x1.fep7` / `0x1p-2`, closing the round-37 debug round trip.
         if peek == "0", pos + 1 < scalars.count {
@@ -341,7 +343,7 @@ struct Lexer {
             case ".":
                 // A decimal point only if a digit follows; otherwise it is
                 // member access (`42.String()`).
-                guard !isDouble, pos + 1 < scalars.count,
+                guard !memberIndex, !isDouble, pos + 1 < scalars.count,
                       ("0"..."9").contains(scalars[pos + 1]) else { break digits }
                 isDouble = true
                 text.append(".")

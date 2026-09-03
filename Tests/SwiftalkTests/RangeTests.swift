@@ -48,7 +48,7 @@ struct RangeTests {
         #expect(try eval("(1...3).Array()") == .array([.int(1), .int(2), .int(3)]))
         #expect(try eval("\"abc\".Array()") == .array([.string("a"), .string("b"), .string("c")]))
         #expect(try eval("[1, 2].Array()") == .array([.int(1), .int(2)]))
-        #expect(try eval("[\"k\": 1].Array()") == .array([.array([.string("k"), .int(1)])]))
+        #expect(try eval("[\"k\": 1].Array()") == .array([.tuple([.string("k"), .int(1)])]))   // pairs are tuples (round 70)
         #expect(throws: SwiftalkError.self) { try eval("42.Array()") }
     }
 }

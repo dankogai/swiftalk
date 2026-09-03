@@ -259,7 +259,7 @@ func typeMatches(_ value: Value, _ lockName: String) -> Bool {
 
 private let knownTypeNames: Set<String> =
     ["Nil", "Bool", "Int", "Double", "String", "Array", "Dictionary", "Function",
-     "Range", "Sequence", "Data", "Date", "Task",
+     "Range", "Sequence", "Data", "Date", "Task", "Tuple",
      // Round 59: annotation vocabulary — Any admits everything,
      // Primitives/SION admit their rosters. Not (yet) values.
      "Primitives", "SION", "Any"]
@@ -856,7 +856,8 @@ func iterator(of sequence: Value) throws -> ValueIterator {
         return ValueIterator { it.next().map { .string(String($0)) } }
     case .dictionary(let d):
         var it = d.makeIterator()
-        return ValueIterator { it.next().map { .array([$0.key, $0.value]) } }
+        // Dictionary pairs are (key, value) tuples (round 70)
+        return ValueIterator { it.next().map { .tuple([$0.key, $0.value]) } }
     case .range(let lower, let upper, let closed):
         var current = lower
         var exhausted = false
@@ -877,6 +878,9 @@ func iterator(of sequence: Value) throws -> ValueIterator {
         }
     case .sequence(let s):
         return s.makeIterator()
+    case .tuple(let t):
+        var it = t.makeIterator()
+        return ValueIterator { it.next() }
     default:
         throw SwiftalkError.type("cannot iterate a \(sequence.typeName)")
     }
@@ -1010,6 +1014,9 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
         return v
     case .variable(let name):
         return try env.lookup(name)
+    case .tuple(let elements):
+        // A grab bag (round 70): evaluate left to right, keep them all.
+        return .tuple(try elements.map { try evaluate($0, in: env) })
     case .array(let elements):
         return .array(try elements.map { try evaluate($0, in: env) })
     case .dictionary(let pairs):
@@ -1881,6 +1888,12 @@ func inferLock(_ value: Value, for name: String) throws -> TypeAnnotation {
 /// Reads a struct property (assignment paths; expression reads go
 /// through `method()`).
 private func propertyRead(_ container: Value, _ name: String) throws -> Value {
+    if case .tuple(let t) = container, let index = Int(name) {
+        guard t.indices.contains(index) else {
+            throw SwiftalkError.type("tuple index \(index) out of range (count \(t.count))")
+        }
+        return t[index]
+    }
     guard case .structValue(let sv) = container else {
         throw SwiftalkError.type("cannot assign through a property of \(container.typeName)")
     }
@@ -1897,6 +1910,14 @@ private func propertyRead(_ container: Value, _ name: String) throws -> Value {
 /// annotated properties re-check per §3, unannotated ones lock to the
 /// current value's type.
 private func propertyWrite(_ container: Value, _ name: String, _ newValue: Value) throws -> Value {
+    if case .tuple(var t) = container, let index = Int(name) {
+        // t.0 = v — a tuple is a value; the write rebuilds it (round 70)
+        guard t.indices.contains(index) else {
+            throw SwiftalkError.type("tuple index \(index) out of range (count \(t.count))")
+        }
+        t[index] = newValue
+        return .tuple(t)
+    }
     guard case .structValue(var sv) = container else {
         throw SwiftalkError.type("cannot assign through a property of \(container.typeName)")
     }
@@ -2341,6 +2362,19 @@ private func method(on receiver: Value, name: String,
         default: return .array(ev.associated)
         }
     }
+    // Tuple elements (round 70): t.0, t.1 — a call-through when the
+    // element is a Function.
+    if case .tuple(let t) = receiver, let index = Int(name) {
+        guard t.indices.contains(index) else {
+            throw SwiftalkError.type("tuple index \(index) out of range (count \(t.count))")
+        }
+        let value = t[index]
+        if !called { return value }
+        guard case .function(let fn) = value else {
+            throw SwiftalkError.type("cannot call Tuple.\(name), a \(value.typeName)")
+        }
+        return try apply(fn, args: labeledArgs)
+    }
     // Computed properties (round 57): the paren-less read user types
     // lacked — a read runs the getter; `p.f()` on one that returned a
     // Function calls through, like a stored Function.
@@ -2455,6 +2489,7 @@ private func method(on receiver: Value, name: String,
         case .range(let lower, let upper, let closed):
             return .int(try rangeCount(from: lower, to: upper, closed: closed))
         case .data(let bytes): return .int(Int64(bytes.count))
+        case .tuple(let t):    return .int(Int64(t.count))
         case .sequence:
             throw SwiftalkError.type(
                 "a Sequence may be infinite — take .prefix(n) or .Array() it deliberately")
@@ -2516,7 +2551,7 @@ private func method(on receiver: Value, name: String,
             // Swift-compatible: Dictionary.filter gives back a Dictionary.
             var d: [Value: Value] = [:]
             for pair in kept {
-                if case .array(let kv) = pair, kv.count == 2 { d[kv[0]] = kv[1] }
+                if case .tuple(let kv) = pair, kv.count == 2 { d[kv[0]] = kv[1] }
             }
             return .dictionary(d)
         default:

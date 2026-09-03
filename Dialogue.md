@@ -918,3 +918,23 @@ the history. (Moved out of Design.md in round 65.)
   A lone `&` or `|` is a syntax error — bitwise operators are
   undecided. The eg/ workarounds (`a ? b : false`) stay as written;
   they still run.
+* **2026-09-01, round 70 — tuples, as a grab bag** ("Not as strict
+  as Swift's typing as `(T0, T1...)`. Just `(v0,v1,...).0` and
+  `.count`. Make Dictionary return `(key, value)` in for-in and
+  .map"). One `Tuple` type for every arity and mix — `(1, 2).Type ==
+  ("x", true, nil).Type` — elements untyped; `.0`/`.1` read, and on
+  a `var` write (a value: the write rebuilds it); `.count`; equality
+  element-wise, usable as a Dictionary key; source form `(1, "a")`
+  round-trips, with `(x,)` for the 1-tuple so it can (`()` is empty,
+  `(x)` merely groups — the comma makes the tuple, as in Python).
+  Being a grab bag it conforms to Sequence: `for`-`in`, `map`,
+  `.Array()`, and `Tuple(seq)`/`seq.Tuple()` gather one from
+  anything. **Dictionaries now yield `(key, value)` tuples** in
+  `for`-`in`, `map`, `filter` (still returning a Dictionary), and
+  `reduce` — the round-41 `[key, value]` Array was a stand-in until
+  tuples existed; three tests and two examples moved from `pair[1]`
+  to `pair.1`. One lexer trap sprung and fixed: `t.0.1` must be two
+  member accesses, not `t` then the Double `0.1` — digits directly
+  after a `.` never take a fraction. A tuple literal also serves as
+  an expression pattern in `switch`, by equality, for free. OPEN:
+  labeled tuples, destructuring `let (a, b) = t`.
