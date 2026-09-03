@@ -8,7 +8,8 @@ source form round-trips.
 
 | Form | Meaning |
 |---|---|
-| `(a, b, ...)` | a tuple literal; `(x,)` is a 1-tuple, `()` the empty tuple, `(x)` just groups |
+| `(a, b, ...)`, `(x: 1, y: 2)` | a tuple literal, elements optionally labeled (round 74); `(x,)` and `(x: 1)` are 1-tuples, `()` the empty tuple, `(x)` just groups |
+| `t.x`, `t.x = v` | by label — labels name positions, so `.0`/`.1` still work; unknown label / duplicate label are errors |
 | `t.0`, `t.1`, … | elements; out of range is an error; `t.0.1` nests |
 | `t.0 = v` | rebuilds the tuple (a value) — needs a `var` root |
 | `t.count` | arity |
@@ -25,8 +26,12 @@ source form round-trips.
 | `if let (a, b) = t` | destructures a non-nil tuple; nil takes the else; a shape mismatch is an error |
 | `f((1, 2))` | **a tuple is a rigid Array of arguments** (round 73): a sole tuple argument IS the argument list — `$` holds its elements, `$0`/`$1` are k/v in `d.map { }`, declared parameters bind to them; to pass a tuple whole, wrap it: `f(((1, 2),))`. Builtins take Values raw |
 
-Dictionaries hand out `(key, value)` tuples: in `for`-`in`, `map`,
-`filter`, and `reduce`.
+**Labels are cosmetic**: equality, hashing, destructuring, and the
+argument splat all ignore them — `(x: 1, y: 2) == (1, 2)`. Source
+form keeps them. Dictionaries hand out `(key:, value:)` tuples and
+`enumerated()` gives `(offset:, element:)`, as Swift names them — so
+`pair.key`, `pair.value`, `e.offset`, `e.element` read, while `.0`,
+destructuring, and `{ k, v in }` all still work.
 
 ```swiftalk
 let t = (1, "one", 2.0)
@@ -40,4 +45,4 @@ var (a, b) = (0, 1)
 for _ in 1...10 { (a, b) = (b, a + b) }   // a == 55
 ```
 
-OPEN: labeled tuples `(x: 1, y: 2)`.
+OPEN: labeled destructuring patterns `let (x: a, y: b) = t`.

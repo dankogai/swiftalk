@@ -14,7 +14,7 @@ Dictionary, and Range conform to (§10).
 |---|---|
 | `s.map { }`, `s.filter { }` | **lazy** — another Sequence |
 | `s.prefix(n)` | the first n, materialized as an Array |
-| `s.enumerated()` | `(index, element)` tuples — lazy on a Sequence, an Array of tuples on Array/String/Range/Dictionary/Tuple (round 73); `for i, x in xs.enumerated()`, `.map { i, x in }` |
+| `s.enumerated()` | `(offset:, element:)` tuples — lazy on a Sequence, an Array of tuples on Array/String/Range/Dictionary/Tuple (rounds 73/74); `e.offset`/`e.element`, `for i, x in xs.enumerated()`, `.map { i, x in }` |
 | `s.Array()` | everything (do not ask an infinite one) |
 | `s.reduce(init) { }` | fold (consumes the whole sequence) |
 | `for x in s` | pull one at a time; `break` stops a coroutine cleanly |

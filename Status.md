@@ -29,6 +29,33 @@ try interp.eval("var count = 1")
 try interp.eval("count = count + 1")         // .int(2)
 ```
 
+**Labeled tuples** are in (round 74) — labels name positions and are
+otherwise cosmetic; Dictionary pairs are `(key:, value:)`, `enumerated()`
+gives `(offset:, element:)`:
+
+```text
+swiftalk> let p = (x: 1, y: 2)
+(x: 1, y: 2)
+swiftalk> p.x
+1
+swiftalk> p.1                             // positions still work
+2
+swiftalk> p == (1, 2)                     // labels are cosmetic
+true
+swiftalk> var q = p
+(x: 1, y: 2)
+swiftalk> q.y = 20
+20
+swiftalk> q
+(x: 1, y: 20)
+swiftalk> for pair in ["a": 1] { print(pair.key, pair.value) }
+a 1
+swiftalk> ["x", "y"].enumerated()
+[(offset: 0, element: "x"), (offset: 1, element: "y")]
+swiftalk> p.z
+unknown member: Tuple.z
+```
+
 **A tuple is a rigid Array of arguments, and `.enumerated()`** are in
 (round 73, correcting 72): a sole tuple argument IS the argument list
 — `$` holds its elements:
@@ -40,15 +67,15 @@ swiftalk> d.map { "\($0)=\($1)" }        // $0 is k, $1 is v
 ["k=7"]
 swiftalk> d.map { $ }                     // $ is the rigid Array
 [["k", 7]]
-swiftalk> ["a", "b"].enumerated()
-[(0, "a"), (1, "b")]
+swiftalk> ["a", "b"].enumerated()       // (offset:, element:) since round 74
+[(offset: 0, element: "a"), (offset: 1, element: "b")]
 swiftalk> for i, x in ["a", "b"].enumerated() { print(i, x) }
 0 a
 1 b
 swiftalk> let naturals = Sequence { var n = 10; while true { yield n; n = n + 1 } }
 Sequence { ... }
 swiftalk> naturals.enumerated().prefix(2)  // lazy — infinite is fine
-[(0, 10), (1, 11)]
+[(offset: 0, element: 10), (offset: 1, element: 11)]
 swiftalk> let g = { t in t.count }
 { t in ... }
 swiftalk> g((1, 2))                       // a 2-tuple is two arguments

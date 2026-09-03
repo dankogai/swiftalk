@@ -850,8 +850,10 @@ func iterator(of sequence: Value) throws -> ValueIterator {
         return ValueIterator { it.next().map { .string(String($0)) } }
     case .dictionary(let d):
         var it = d.makeIterator()
-        // Dictionary pairs are (key, value) tuples (round 70)
-        return ValueIterator { it.next().map { .tuple([$0.key, $0.value]) } }
+        // Dictionary pairs are (key:, value:) tuples (rounds 70/74)
+        return ValueIterator {
+            it.next().map { .tuple([$0.key, $0.value], labels: ["key", "value"]) }
+        }
     case .range(let lower, let upper, let closed):
         var current = lower
         var exhausted = false
@@ -926,7 +928,7 @@ extension SequenceObject {
             return ValueIterator {
                 guard let element = try it.next() else { return nil }
                 defer { index += 1 }
-                return .tuple([.int(index), element])
+                return .tuple([.int(index), element], labels: ["offset", "element"])
             }
         case .mapped(let base, let fn):
             let it = base.makeIterator()
@@ -1018,8 +1020,10 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
     case .variable(let name):
         return try env.lookup(name)
     case .tuple(let elements):
-        // A grab bag (round 70): evaluate left to right, keep them all.
-        return .tuple(try elements.map { try evaluate($0, in: env) })
+        // A grab bag (round 70): evaluate left to right, keep them all —
+        // labels along for the ride (round 74).
+        return .tuple(try elements.map { try evaluate($0.expr, in: env) },
+                      labels: elements.map(\.label))
     case .array(let elements):
         return .array(try elements.map { try evaluate($0, in: env) })
     case .dictionary(let pairs):
@@ -1351,7 +1355,7 @@ private func asLValue(_ expr: Expr) -> LValue? {
         return .property(.variable("self"), name)
     case .tuple(let elements):
         // (a, b) = ... — every element must itself be assignable (round 71)
-        let targets = elements.compactMap(asLValue)
+        let targets = elements.compactMap { asLValue($0.expr) }
         return targets.count == elements.count ? .tuple(targets) : nil
     default:
         return nil
@@ -1952,7 +1956,7 @@ func inferLock(_ value: Value, for name: String) throws -> TypeAnnotation {
 /// Reads a struct property (assignment paths; expression reads go
 /// through `method()`).
 private func propertyRead(_ container: Value, _ name: String) throws -> Value {
-    if case .tuple(let t) = container, let index = Int(name) {
+    if case .tuple(let t) = container, let index = Int(name) ?? t.index(ofLabel: name) {
         guard t.indices.contains(index) else {
             throw SwiftalkError.type("tuple index \(index) out of range (count \(t.count))")
         }
@@ -1974,8 +1978,8 @@ private func propertyRead(_ container: Value, _ name: String) throws -> Value {
 /// annotated properties re-check per §3, unannotated ones lock to the
 /// current value's type.
 private func propertyWrite(_ container: Value, _ name: String, _ newValue: Value) throws -> Value {
-    if case .tuple(var t) = container, let index = Int(name) {
-        // t.0 = v — a tuple is a value; the write rebuilds it (round 70)
+    if case .tuple(var t) = container, let index = Int(name) ?? t.index(ofLabel: name) {
+        // t.0 = v / t.x = v — a tuple is a value; the write rebuilds it
         guard t.indices.contains(index) else {
             throw SwiftalkError.type("tuple index \(index) out of range (count \(t.count))")
         }
@@ -2455,7 +2459,7 @@ private func method(on receiver: Value, name: String,
     }
     // Tuple elements (round 70): t.0, t.1 — a call-through when the
     // element is a Function.
-    if case .tuple(let t) = receiver, let index = Int(name) {
+    if case .tuple(let t) = receiver, let index = Int(name) ?? t.index(ofLabel: name) {
         guard t.indices.contains(index) else {
             throw SwiftalkError.type("tuple index \(index) out of range (count \(t.count))")
         }
@@ -2600,7 +2604,7 @@ private func method(on receiver: Value, name: String,
         var out: [Value] = []
         let it = try iterator(of: receiver)
         while let element = try it.next() {
-            out.append(.tuple([.int(Int64(out.count)), element]))
+            out.append(.tuple([.int(Int64(out.count)), element], labels: ["offset", "element"]))
         }
         return .array(out)
     case ("prefix", true):

@@ -47,11 +47,46 @@ extension Swiftalk {
         case task(TaskObject)
         /// A tuple (round 70): a grab bag of values, `(v0, v1, ...)` —
         /// one `Tuple` type, elements untyped, `.0`/`.1` access. Not
-        /// Swift's `(T0, T1)` — deliberately loose.
-        indirect case tuple([Value])
+        /// Swift's `(T0, T1)` — deliberately loose. Labels (round 74)
+        /// name positions: `(x: 1, y: 2).x`.
+        indirect case tuple(TupleValue)
         /// An actor instance (round 54, §12): serialized mutable state,
         /// and swiftalk's first REFERENCE type — `let b = a` aliases.
         case actor(ActorObject)
+    }
+
+    /// A tuple's contents (round 74): values with optional labels. A
+    /// tuple is a rigid Array of arguments, so it IS a collection of
+    /// its values; labels are cosmetic — equality and hashing ignore
+    /// them (`(x: 1, y: 2) == (1, 2)`).
+    public struct TupleValue: Hashable, RandomAccessCollection, MutableCollection {
+        var values: [Value]
+        var labels: [String?]
+
+        init(values: [Value], labels: [String?]? = nil) {
+            self.values = values
+            self.labels = labels ?? Array(repeating: nil, count: values.count)
+        }
+
+        public var startIndex: Int { values.startIndex }
+        public var endIndex: Int { values.endIndex }
+        public func index(after i: Int) -> Int { i + 1 }
+        public func index(before i: Int) -> Int { i - 1 }
+        public subscript(position: Int) -> Value {
+            get { values[position] }
+            set { values[position] = newValue }
+        }
+        /// The position a label names, if any.
+        func index(ofLabel label: String) -> Int? {
+            labels.firstIndex(of: label)
+        }
+
+        public static func == (lhs: TupleValue, rhs: TupleValue) -> Bool {
+            lhs.values == rhs.values
+        }
+        public func hash(into hasher: inout Hasher) {
+            hasher.combine(values)
+        }
     }
 
     /// A stored property's observers, runnable (round 58b): built at
@@ -254,6 +289,18 @@ typealias EnumCaseValue = Swiftalk.EnumCaseValue
 typealias StructType = Swiftalk.StructType
 typealias StructValue = Swiftalk.StructValue
 typealias TaskObject = Swiftalk.TaskObject
+typealias TupleValue = Swiftalk.TupleValue
+
+extension Swiftalk.Value {
+    /// An unlabeled tuple from values — the common construction.
+    static func tuple(_ values: [Value]) -> Value {
+        .tuple(TupleValue(values: values))
+    }
+    /// A labeled tuple (round 74).
+    static func tuple(_ values: [Value], labels: [String?]) -> Value {
+        .tuple(TupleValue(values: values, labels: labels))
+    }
+}
 typealias ActorType = Swiftalk.ActorType
 typealias ActorObject = Swiftalk.ActorObject
 typealias ComputedProperty = Swiftalk.ComputedProperty
@@ -348,9 +395,13 @@ extension Value {
             // A live computation — a placeholder, like Functions.
             return "Task { ... }"
         case .tuple(let t):
-            // Literal syntax — round-trips; a 1-tuple spells `(x,)`.
-            let body = t.map { $0.sourceString(debug: debug, seen: seen) }.joined(separator: ", ")
-            return "(" + body + (t.count == 1 ? ",)" : ")")
+            // Literal syntax — round-trips; an unlabeled 1-tuple spells
+            // `(x,)`, a labeled one `(x: 1)` (round 74).
+            let body = zip(t.labels, t.values).map { label, value in
+                (label.map { "\($0): " } ?? "") + value.sourceString(debug: debug, seen: seen)
+            }.joined(separator: ", ")
+            let lonely = t.count == 1 && t.labels[0] == nil
+            return "(" + body + (lonely ? ",)" : ")")
         case .actor(let obj):
             // A reference: identity can never round-trip (a re-entered
             // spelling would be a NEW actor), so a placeholder in the

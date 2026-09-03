@@ -995,3 +995,21 @@ the history. (Moved out of Design.md in round 65.)
   re-iterable; infinite is fine), an Array of tuples on the eager
   conformers, Array-in-Array-out as with `map`. `for i, x in
   xs.enumerated()` and `.map { i, x in }` read as expected.
+* **2026-09-01, round 74 — labeled tuples** ("`(x: 1, y: 2)` with
+  `.x` and `.y`"). Labels *name positions*: `.x` and `.0` both read
+  (and, on a var, write) the same slot; mixed `(1, y: 2)` is fine;
+  duplicate or unknown labels are errors. Following round 73's
+  "rigid Array" principle to its end, **labels are cosmetic** —
+  equality and hashing (`(x: 1, y: 2) == (1, 2)`, usable as the same
+  Dictionary key), destructuring, and the argument splat all ignore
+  them; only the source form keeps them, and it round-trips
+  (`(x: 1)` is a 1-tuple — a group has no label — so the unlabeled
+  `(x,)` spelling is needed only there). Since labels are free, the
+  builtin pairs took Swift's names: Dictionary elements are
+  `(key:, value:)` and `enumerated()` gives `(offset:, element:)`,
+  so `pair.key`/`e.element` read while `.0`, `{ k, v in }`, and
+  `for i, x in` all still work — and, labels being cosmetic, every
+  round-70–73 test passed unchanged. Implementation: a `TupleValue`
+  (values + labels) that IS a RandomAccessCollection of its values,
+  so the existing tuple sites did not move. OPEN: labeled
+  destructuring patterns `let (x: a, y: b) = t`.

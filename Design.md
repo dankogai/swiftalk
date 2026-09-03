@@ -65,9 +65,14 @@ error). **A tuple is a rigid Array of arguments (round 73, revising
 and declared parameters bind to them with arity checked against
 them (`{ t in }` given a 2-tuple is an error; wrap as `((1, 2),)` to
 pass a tuple whole). Builtins are exempt (`print((1, 2))` prints the
-tuple). **`.enumerated()`** (round 73) yields `(index, element)`
+tuple). **`.enumerated()`** (round 73) yields `(offset:, element:)`
 tuples — lazily on a Sequence value, as an Array on the eager
-conformers. OPEN: labels.
+conformers. **Labels — DECIDED (round 74)**: `(x: 1, y: 2)` with
+`.x`/`.y` (and `.0`/`.1` still) — labels *name positions*, so they
+are cosmetic: equality, hashing, destructuring, and the splat ignore
+them; source form keeps them; `(x: 1)` is a 1-tuple. Dictionary pairs
+are `(key:, value:)`, enumerated `(offset:, element:)`. OPEN: labeled
+destructuring patterns.
 
 ### 2.2 Declarations — DECIDED
 

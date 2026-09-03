@@ -20,7 +20,7 @@ indirect enum Expr {
     case propagate(Expr)                                  // x? — unwrap or early-return (§3a/§8)
     case forceUnwrap(Expr)                                // x! — unwrap or trap
     case awaitE(Expr)                                     // await t — join a Task (§12)
-    case tuple([Expr])                                    // (a, b, ...) — a grab bag (round 70)
+    case tuple([(label: String?, expr: Expr)])            // (a, b, ...) / (x: 1, y: 2) — a grab bag (rounds 70/74)
     case logicalAnd(Expr, Expr)                           // a && b — short-circuit (round 69)
     case logicalOr(Expr, Expr)                            // a || b — short-circuit
     case logicalNot(Expr)                                 // !a — prefix
@@ -901,7 +901,7 @@ struct Parser {
             return .property(.variable("self"), name)
         case .tuple(let elements):
             // (a, b) = ... — destructuring assignment (round 71)
-            return .tuple(try elements.map { try lvalue(from: $0) })
+            return .tuple(try elements.map { try lvalue(from: $0.expr) })
         default:
             throw SwiftalkError.syntax("this expression is not assignable")
         }
@@ -1248,16 +1248,32 @@ struct Parser {
                 pos += 1
                 return .tuple([])
             }
-            let first = try withTrailing(true) { try $0.parseExpr() }
-            guard case .punct(",")? = peek else {
+            // an element may carry a label (round 74): `x: expr` — which
+            // also makes `(x: 1)` a 1-tuple, since a group has no label
+            func element(_ p: inout Parser) throws -> (label: String?, expr: Expr) {
+                if case .identifier(let label)? = p.peek, p.peek(at: 1) == .punct(":"),
+                   !keywords.contains(label), !label.hasPrefix("$") {
+                    p.pos += 2
+                    return (label, try p.withTrailing(true) { try $0.parseExpr() })
+                }
+                return (nil, try p.withTrailing(true) { try $0.parseExpr() })
+            }
+            let first = try element(&self)
+            if first.label == nil, peek != .punct(",") {
                 try expect(")")
-                return first
+                return first.expr                      // (x) merely groups
             }
             var elements = [first]
             while consumeComma(closing: ")") {
-                elements.append(try withTrailing(true) { try $0.parseExpr() })
+                elements.append(try element(&self))
             }
             try expect(")")
+            var seen = Set<String>()
+            for label in elements.compactMap(\.label) {
+                guard seen.insert(label).inserted else {
+                    throw SwiftalkError.syntax("duplicate tuple label '\(label)'")
+                }
+            }
             return .tuple(elements)
         case .punct("["):
             return try withTrailing(true) { try $0.parseCollection() }
