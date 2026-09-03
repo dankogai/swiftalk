@@ -528,6 +528,13 @@ string.Data()       // String → Data   (infallible: text always has bytes)
   type name vs. Swift-lowercase `.int`; the `nil` case vs. the
   keyword).
 
+**Logical operators — DECIDED (round 69)**: `&&`, `||`, and prefix
+`!`, exactly Swift's — Bool operands only (nothing is truthy),
+short-circuit on the right, precedence `!` > comparison > `&&` >
+`||` > ternary, with `??` above comparison. Prefix `!` and postfix
+`!` (force unwrap) coexist; position tells them apart. A lone `&` or
+`|` is a syntax error — bitwise operators are undecided.
+
 ## 3a. Optionals & nil — DECIDED
 
 **The full Optional suite survives — on a flat model.** `nil` is *not*

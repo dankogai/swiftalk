@@ -29,6 +29,28 @@ try interp.eval("var count = 1")
 try interp.eval("count = count + 1")         // .int(2)
 ```
 
+**Logical operators** are in (round 69) — `&&`, `||`, prefix `!`,
+exactly Swift's: Bool-only, short-circuit, Swift's precedence:
+
+```text
+swiftalk> true && false || true
+true
+swiftalk> !true == false            // (!true) == false
+true
+swiftalk> var hit = false
+false
+swiftalk> let probe = { hit = true; return true }
+{ ... }
+swiftalk> false && probe()          // short-circuit: probe never runs
+false
+swiftalk> hit
+false
+swiftalk> 1 && true                 // nothing is truthy
+type error: '&&' takes Bools — nothing is truthy (§3b)
+swiftalk> 1 & 2
+syntax error: unexpected '&' — did you mean '&&'?
+```
+
 **The type reference** is in (round 68): [doc/](doc/README.md), one
 page per type, every member, verified against the evaluator.
 

@@ -20,6 +20,9 @@ indirect enum Expr {
     case propagate(Expr)                                  // x? — unwrap or early-return (§3a/§8)
     case forceUnwrap(Expr)                                // x! — unwrap or trap
     case awaitE(Expr)                                     // await t — join a Task (§12)
+    case logicalAnd(Expr, Expr)                           // a && b — short-circuit (round 69)
+    case logicalOr(Expr, Expr)                            // a || b — short-circuit
+    case logicalNot(Expr)                                 // !a — prefix
     case superRef                                         // super — receiver position only (round 56)
     case coalesce(Expr, Expr)                             // a ?? b — default on nil/failure
     case optionalMember(Expr, name: String,               // a?.b / a?.b(args) — nil skips
@@ -896,7 +899,7 @@ struct Parser {
     // MARK: expressions (ternary > comparison > additive > multiplicative > unary > postfix)
 
     private mutating func parseExpr() throws -> Expr {
-        let condition = try parseComparison()
+        let condition = try parseDisjunction()
         guard case .punct("?")? = peek else { return condition }
         pos += 1
         let thenBranch = try parseExpr()
@@ -905,10 +908,32 @@ struct Parser {
         return .ternary(condition, thenBranch, elseBranch)
     }
 
+    /// `a || b` — left-associative, short-circuit; binds looser than
+    /// `&&`, tighter than the ternary (Swift's precedence, round 69).
+    private mutating func parseDisjunction() throws -> Expr {
+        var lhs = try parseConjunction()
+        while case .op("||")? = peek {
+            pos += 1
+            lhs = .logicalOr(lhs, try parseConjunction())
+        }
+        return lhs
+    }
+
+    /// `a && b` — left-associative, short-circuit; binds tighter than
+    /// `||`, looser than comparison.
+    private mutating func parseConjunction() throws -> Expr {
+        var lhs = try parseComparison()
+        while case .op("&&")? = peek {
+            pos += 1
+            lhs = .logicalAnd(lhs, try parseComparison())
+        }
+        return lhs
+    }
+
     private mutating func parseComparison() throws -> Expr {
         let lhs = try parseCoalescing()
         guard case .op(let op)? = peek,
-              !["...", "..<", "??", "?", "!", "?."].contains(op) else { return lhs }
+              !["...", "..<", "??", "?", "!", "?.", "&&", "||"].contains(op) else { return lhs }
         pos += 1
         return .comparison(op, lhs, try parseCoalescing())
     }
@@ -950,6 +975,12 @@ struct Parser {
         if case .punct("-")? = peek {
             pos += 1
             return .unaryMinus(try parseUnary())
+        }
+        if case .op("!")? = peek {
+            // Prefix `!` — logical not (round 69). Postfix `!` (force
+            // unwrap) lives in parsePostfix; position tells them apart.
+            pos += 1
+            return .logicalNot(try parseUnary())
         }
         if case .identifier("await")? = peek {
             // Prefix, binding at unary level — the JS way, so

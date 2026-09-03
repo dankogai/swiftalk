@@ -1168,6 +1168,31 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
                 "'await' inside a Sequence coroutine body is not (yet) supported")
         }
         return try ctx.scheduler.awaitTask(task, from: ctx)
+    case .logicalAnd(let lhs, let rhs):
+        // Round 69: Swift's semantics — Bool operands only (nothing is
+        // truthy, §3b), and the right side runs only when needed.
+        guard case .bool(let a) = try evaluate(lhs, in: env) else {
+            throw SwiftalkError.type("'&&' takes Bools — nothing is truthy (§3b)")
+        }
+        guard a else { return .bool(false) }
+        guard case .bool(let b) = try evaluate(rhs, in: env) else {
+            throw SwiftalkError.type("'&&' takes Bools — nothing is truthy (§3b)")
+        }
+        return .bool(b)
+    case .logicalOr(let lhs, let rhs):
+        guard case .bool(let a) = try evaluate(lhs, in: env) else {
+            throw SwiftalkError.type("'||' takes Bools — nothing is truthy (§3b)")
+        }
+        if a { return .bool(true) }
+        guard case .bool(let b) = try evaluate(rhs, in: env) else {
+            throw SwiftalkError.type("'||' takes Bools — nothing is truthy (§3b)")
+        }
+        return .bool(b)
+    case .logicalNot(let inner):
+        guard case .bool(let a) = try evaluate(inner, in: env) else {
+            throw SwiftalkError.type("prefix '!' takes a Bool — nothing is truthy (§3b)")
+        }
+        return .bool(!a)
     case .propagate(let inner):
         // Postfix ? (§3a/§8, unified): unwrap .success; early-return
         // .failure or nil from the enclosing function; anything else is

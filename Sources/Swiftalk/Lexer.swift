@@ -113,6 +113,15 @@ struct Lexer {
                 } else {
                     tokens.append(.punct("?"))
                 }
+            case "&", "|":
+                // `&&` / `||` (round 69). A lone `&` or `|` is nothing yet
+                // — bitwise operators are undecided.
+                pos += 1
+                guard peek == c else {
+                    throw SwiftalkError.syntax("unexpected '\(c)' — did you mean '\(c)\(c)'?")
+                }
+                pos += 1
+                tokens.append(.op(String(c) + String(c)))
             case "=", "!", "<", ">":
                 pos += 1
                 if peek == "=" {

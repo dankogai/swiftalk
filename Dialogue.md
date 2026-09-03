@@ -905,3 +905,16 @@ the history. (Moved out of Design.md in round 65.)
   removed value, Range patterns in `switch`). Absences are recorded
   as OPEN where a reader would look for them: no `&&`/`||`/`!`, no
   sort/contains/reverse/join, no String subscripts, no Data writes.
+* **2026-09-01, round 69 — logical operators** ("Add logical
+  operators to Bool. Same as Swift."). `&&`, `||`, prefix `!` — Bool
+  operands only (nothing is truthy, §3b; `1 && true` is a type
+  error), short-circuit on the right, and Swift's precedence: `!`
+  tightest, then comparison, `&&`, `||`, the ternary loosest, with
+  `??` above comparison as before. Prefix `!` and the round-51
+  postfix `!` coexist by position. Two parser facts earned their
+  keep: `parseComparison` treats any unknown operator as a
+  comparison, so `&&`/`||` had to be excluded there explicitly; and
+  the ternary now sits above a new disjunction → conjunction chain.
+  A lone `&` or `|` is a syntax error — bitwise operators are
+  undecided. The eg/ workarounds (`a ? b : false`) stay as written;
+  they still run.

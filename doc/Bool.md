@@ -11,6 +11,9 @@
 | `Bool(x)` for other types | type error |
 | `b == c`, `b != c` | equality |
 | `c ? a : b` | ternary (the `?` must be spaced; unspaced `?` is postfix propagate) |
+| `a && b` | logical and — short-circuit, Bool operands only (round 69) |
+| `a \|\| b` | logical or — short-circuit, Bool operands only |
+| `!a` | logical not (prefix; postfix `!` is force-unwrap) |
 
 ```swiftalk
 1 < 2               // true
@@ -18,5 +21,13 @@ Bool("yes")         // nil
 true ? "y" : "n"    // "y"
 ```
 
-There is no `&&`, `||`, or prefix `!` yet (OPEN) — `a ? b : false`,
-`a ? true : b`, and `a ? false : true` spell them.
+Precedence is Swift's: `!` tightest, then comparison, `&&`, `||`, the
+ternary loosest; `??` binds tighter than comparison. `1 && true` is a
+type error. A lone `&` or `|` is a syntax error — bitwise operators
+are undecided.
+
+```swiftalk
+false && probe()          // probe never runs
+d["k"] != nil && d["k"]! > 0
+!true == false            // true — (!true) == false
+```

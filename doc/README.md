@@ -64,9 +64,11 @@ accepted in type annotations — `let xs: [Primitives] = [1, "one"]`,
 | `+ - * /` | ✓ (traps on overflow, `/0`) | ✓ | `+` only | `+` only | | | |
 | `< <= > >=` | ✓ | ✓ | ✓ | | ✓ | | |
 | `== !=` | | | | | | | ✓ same type, or vs nil |
+| `&& \|\| !` | | | | | | ✓ short-circuit | |
 | `? :` | | | | | | condition | |
 | `??` `x?` `x!` `x?.m` | | | | | | | ✓ (nil / Result) |
 
 Mixed arithmetic (`1 + 1.5`) is a type error — convert explicitly.
-There is no `&&`, `||`, or prefix `!` yet (OPEN): spell them with
-`? :`.
+Precedence, high to low: prefix `! -` · `* /` · `+ -` · `... ..<` ·
+`??` · comparison · `&&` · `||` · `? :`. A lone `&` or `|` is a
+syntax error — bitwise operators are undecided.
