@@ -29,6 +29,9 @@ try interp.eval("var count = 1")
 try interp.eval("count = count + 1")         // .int(2)
 ```
 
+**The type reference** is in (round 68): [doc/](doc/README.md), one
+page per type, every member, verified against the evaluator.
+
 **Script mode** is in (round 66): `swift run swiftalk file.swt`
 evaluates the whole file as one strict program — no echoes, only
 `print()` output. Examples live in [eg/](eg/README.md): two quines,

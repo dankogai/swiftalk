@@ -73,6 +73,8 @@ let src    = bytes.String()                   // source form; eval(src) == bytes
 
 ---
 
+* **[doc/](doc/README.md)** — the type reference: every member of
+  every type, one page per type.
 * **[eg/](eg/README.md)** — runnable examples: quines, lambda
   calculus up to Z, SKI (`swift run swiftalk eg/lambda.swt`).
 * **[Status.md](Status.md)** — what is implemented, with verified

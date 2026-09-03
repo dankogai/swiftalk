@@ -888,3 +888,20 @@ the history. (Moved out of Design.md in round 65.)
   the Dictionary while `map` returns an Array — recorded in the
   example. OPEN (noted by absence): builtin sort/contains/reverse/
   join, and `&&`/`||` — the examples spell them via ternaries.
+* **2026-09-01, round 68 — the type reference: `doc/<Type>.md`**
+  ("document all methods for each types"). Seventeen pages under
+  `doc/`: one per builtin type (Nil, Bool, Int, Double, String, Array,
+  Dictionary, Range, Function, Sequence, Data, Date, Task, Result)
+  plus `struct.md` and `enum.md` for the user-type kinds, and an
+  index (`doc/README.md`) carrying what every value shares — `.Type`,
+  `.description`/`.debugDescription`, `.String()` and `.String(.quoted)`,
+  equality — the round-47 conversion law, extensions, the
+  annotation-only names, and an operator-by-type table. Every entry
+  was derived from the evaluator's dispatch tables rather than from
+  memory, and the non-obvious claims were verified in the REPL before
+  writing (`Bool("yes")` → nil, `Int(3.9)` → 3, `1 == 1.0` a type
+  error, `radix:` Int-only, `String.filter` → String and
+  `Dictionary.filter` → Dictionary, `d.remove(k)` returning the
+  removed value, Range patterns in `switch`). Absences are recorded
+  as OPEN where a reader would look for them: no `&&`/`||`/`!`, no
+  sort/contains/reverse/join, no String subscripts, no Data writes.
