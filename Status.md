@@ -29,6 +29,28 @@ try interp.eval("var count = 1")
 try interp.eval("count = count + 1")         // .int(2)
 ```
 
+**`if let r = s.circle`** is the way (round 77) — the case accessor is
+an ordinary `if let`; several payloads come back as a tuple labeled as
+the case declares (`if case` is retained but discouraged):
+
+```text
+swiftalk> enum Shape {
+      case circle(r: Double)
+      case rect(w: Double, h: Double)
+  }
+Shape
+swiftalk> let s = Shape.rect(w: 3.0, h: 4.0)
+Shape.rect(w: 3.0, h: 4.0)
+swiftalk> s.rect
+(w: 3.0, h: 4.0)
+swiftalk> if let r = s.circle { print("circle", r) } else { print("not a circle") }
+not a circle
+swiftalk> if let (w, h) = s.rect { print(w * h) }
+12.0
+swiftalk> if let (h: h, w: w) = s.rect { print(w, h) }
+3.0 4.0
+```
+
 **`while let`** is in (round 76) — `if let`'s condition list, re-evaluated
 with fresh bindings each pass; the grammar is documented in
 [doc/grammar.md](doc/grammar.md):

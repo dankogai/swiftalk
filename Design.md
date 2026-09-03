@@ -772,7 +772,10 @@ Clarifications (not overloading):
 ## 7. Enums & pattern matching — DECIDED (core)
 
 **Full Swift enums**: associated values, `switch` with `case let`
-destructuring, `if case`, `guard case`.
+destructuring, `if case`, `guard case`. (Round 77: `if case` is
+retained but discouraged — the case accessor is the way: `if let r =
+s.circle`, and for several payloads `if let (w, h) = s.rect`, the
+accessor returning a tuple labeled as the case declares.)
 
 **Exhaustiveness is enforced at runtime**: a `switch` over an enum that
 reaches a value no case matches (and has no `default`) is a runtime

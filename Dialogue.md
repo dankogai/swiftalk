@@ -1041,3 +1041,19 @@ the history. (Moved out of Design.md in round 65.)
   and the expression precedence ladder from ternary down to postfix —
   derived from the parser rather than from memory, with the keyword
   graveyard and shelved forms noted as non-grammar.
+* **2026-09-01, round 77 — `if let r = s.circle`, and multi-payload
+  accessors return tuples** ("`if case .circle(let r)` is ugly (IMHO
+  one of the ugliest design of Swift). It should be `if let r =
+  .circle`... if the enum case has more than one associated values,
+  it should return a tuple like `if let (x,y) = .coordinates`"). The
+  single-payload half was already swiftalk since round 46 — the case
+  accessor `s.circle` is payload-or-nil, so `if let r = s.circle`
+  just works, and `.circle` inside a method is `self.circle`. The
+  multi-payload half is the change: the accessor now returns a
+  **tuple labeled as the case declares** (`Shape.rect(w: 3.0, h:
+  4.0).rect` → `(w: 3.0, h: 4.0)`), revising round 46's Array — so
+  `if let (w, h) = s.rect` destructures by position, `if let (h: h,
+  w: w) = s.rect` by label, `.rect.h` reads directly, and `while let`
+  drains. Unlabeled payloads make an unlabeled tuple. `if case` is
+  retained (switch still needs its patterns) but marked discouraged
+  in the docs; removing it outright is OPEN pending the user's word.

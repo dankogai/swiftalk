@@ -2477,7 +2477,12 @@ private func method(on receiver: Value, name: String,
         switch ev.associated.count {
         case 0:  return receiver
         case 1:  return ev.associated[0]
-        default: return .array(ev.associated)
+        default:
+            // several payloads come as a TUPLE (round 77, revising 46's
+            // Array), labeled with the case's own labels — so
+            // `if let (w, h) = s.rect` and `if let (h: h, w: w) = s.rect`
+            let labels = (ev.type.cases[ev.caseName] ?? []).map(\.label)
+            return .tuple(ev.associated, labels: labels)
         }
     }
     // Tuple elements (round 70): t.0, t.1 — a call-through when the

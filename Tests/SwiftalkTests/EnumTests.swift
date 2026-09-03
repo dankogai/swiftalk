@@ -169,8 +169,13 @@ struct CaseAccessorTests {
 
     @Test("several payloads come as an Array")
     func multiple() throws {
-        #expect(try eval("\(shape)\nShape.rect(w: 3.0, h: 4.0).rect") == .array([.double(3.0), .double(4.0)]))
-        #expect(try eval("\(shape)\nShape.rect(w: 3.0, h: 4.0).rect[1]") == .double(4.0))
+        // several payloads: a tuple, labeled as the case declares (round 77)
+        #expect(try eval("\(shape)\nShape.rect(w: 3.0, h: 4.0).rect")
+            == .tuple([.double(3.0), .double(4.0)], labels: ["w", "h"]))
+        #expect(try eval("\(shape)\nShape.rect(w: 3.0, h: 4.0).rect.h") == .double(4.0))
+        #expect(try eval("\(shape)\nShape.rect(w: 3.0, h: 4.0).rect.1") == .double(4.0))
+        #expect(try eval("\(shape)\nShape.rect(w: 3.0, h: 4.0).rect.String()")
+            == .string("(w: 3.0, h: 4.0)"))
         #expect(try eval("\(shape)\nShape.point.rect") == .nil)
     }
 
