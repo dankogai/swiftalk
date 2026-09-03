@@ -100,6 +100,7 @@ enum Stmt {
     indirect case ifLetS(conditions: [IfCondition], then: [Stmt], else: [Stmt]?)
     indirect case ifCaseS(pattern: Pattern, subject: Expr, then: [Stmt], else: [Stmt]?)
     case whileS(condition: Expr, body: [Stmt])
+    indirect case whileLetS(conditions: [IfCondition], body: [Stmt])   // while let (round 76)
     case repeatS(body: [Stmt], condition: Expr)
     case forS(pattern: BindPattern, sequence: Expr, body: [Stmt])
     case breakS
@@ -229,8 +230,15 @@ struct Parser {
             return try parseIf()
         case .identifier("while"):
             pos += 1
-            let condition = try withTrailing(false) { try $0.parseExpr() }
-            return .whileS(condition: condition, body: try parseBlock())
+            // `while let x = next(), x > 0 { }` (round 76) — the same
+            // condition list as `if`, re-evaluated with fresh bindings
+            // each iteration
+            let conditions = try parseConditionList()
+            let body = try parseBlock()
+            if conditions.count == 1, case .boolean(let condition) = conditions[0] {
+                return .whileS(condition: condition, body: body)
+            }
+            return .whileLetS(conditions: conditions, body: body)
         case .identifier("repeat"):
             pos += 1
             let body = try parseBlock()
@@ -317,20 +325,9 @@ struct Parser {
 
     /// `if condition { … }` or `if case pattern = expr { … }`, with
     /// `else`/`else if` — Swift-style.
-    private mutating func parseIf() throws -> Stmt {
-        pos += 1  // consume "if"
-        if case .identifier("case")? = peek {
-            pos += 1
-            let pattern = try parsePattern()
-            try expect("=")
-            let subject = try withTrailing(false) { try $0.parseExpr() }
-            let then = try parseBlock()
-            let elseBranch = try parseElse()
-            return .ifCaseS(pattern: pattern, subject: subject, then: then, else: elseBranch)
-        }
-        // A comma-separated condition list (round 60): booleans and
-        // `let`/`var` bindings mix — `if x > 0, let y = f(x), y < 9`.
-        // (`guard` is deliberately absent: it is only `if not` — §9.)
+    /// A comma-separated condition list (rounds 60/72/76): booleans and
+    /// is only `if not` — §9.)
+    private mutating func parseConditionList() throws -> [IfCondition] {
         var conditions: [IfCondition] = []
         while true {
             if peek == .identifier("let") || peek == .identifier("var") {
@@ -363,6 +360,21 @@ struct Parser {
             guard case .punct(",")? = peek else { break }
             pos += 1
         }
+        return conditions
+    }
+
+    private mutating func parseIf() throws -> Stmt {
+        pos += 1  // consume "if"
+        if case .identifier("case")? = peek {
+            pos += 1
+            let pattern = try parsePattern()
+            try expect("=")
+            let subject = try withTrailing(false) { try $0.parseExpr() }
+            let then = try parseBlock()
+            let elseBranch = try parseElse()
+            return .ifCaseS(pattern: pattern, subject: subject, then: then, else: elseBranch)
+        }
+        let conditions = try parseConditionList()
         let then = try parseBlock()
         let elseBranch = try parseElse()
         if conditions.count == 1, case .boolean(let condition) = conditions[0] {

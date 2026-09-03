@@ -24,6 +24,8 @@ REPL). Sections in [Design.md](../Design.md) are cited as §n.
 | `struct` | user value types | [struct.md](struct.md) |
 | `enum` | user sum types | [enum.md](enum.md) |
 
+See [grammar.md](grammar.md) for the syntax as parsed.
+
 ## Members every value has
 
 | Member | Meaning |

@@ -371,33 +371,19 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
         // bound value IS itself, §3a), booleans must hold; left to
         // right, short-circuit, later clauses seeing earlier bindings.
         let scope = Environment(parent: env)
-        var pass = true
-        loop: for condition in conditions {
-            switch condition {
-            case .binding(let mutable, let pattern, let expr):
-                // nil is the only "no"; a tuple pattern that does not
-                // fit a non-nil value is an error, not an else (round 72)
-                let value = try evaluate(expr, in: scope)
-                guard value != .nil else {
-                    pass = false
-                    break loop
-                }
-                try bind(pattern, value, mutable: mutable, in: scope, strict: false)
-            case .boolean(let expr):
-                guard case .bool(let flag) = try evaluate(expr, in: scope) else {
-                    throw SwiftalkError.type(
-                        "an 'if' condition must be a Bool — nothing is truthy (§3b)")
-                }
-                guard flag else {
-                    pass = false
-                    break loop
-                }
-            }
-        }
-        if pass {
+        if try conditionsHold(conditions, in: scope) {
             try runBlock(then, in: scope)
         } else if let elseBranch {
             try runBlock(elseBranch, in: env)
+        }
+        return .nil
+    case .whileLetS(let conditions, let body):
+        // Round 76: each iteration re-evaluates the list in a fresh
+        // scope — the classic `while let x = next()` drain.
+        while true {
+            let scope = Environment(parent: env)
+            guard try conditionsHold(conditions, in: scope) else { break }
+            guard try runLoopBody(body, in: scope, freshScope: false) else { break }
         }
         return .nil
     case .whileS(let condition, let body):
@@ -805,6 +791,29 @@ private func runBlock(_ body: [Stmt], in env: Environment,
     for statement in body {
         _ = try execute(statement, in: scope)
     }
+}
+
+/// Evaluates an `if`/`while` condition list in `scope` (rounds 60/76):
+/// bindings must land non-nil, booleans must hold — left to right,
+/// short-circuit, later clauses seeing earlier bindings.
+private func conditionsHold(_ conditions: [IfCondition], in scope: Environment) throws -> Bool {
+    for condition in conditions {
+        switch condition {
+        case .binding(let mutable, let pattern, let expr):
+            // nil is the only "no"; a tuple pattern that does not fit a
+            // non-nil value is an error, not a false (round 72)
+            let value = try evaluate(expr, in: scope)
+            guard value != .nil else { return false }
+            try bind(pattern, value, mutable: mutable, in: scope, strict: false)
+        case .boolean(let expr):
+            guard case .bool(let flag) = try evaluate(expr, in: scope) else {
+                throw SwiftalkError.type(
+                    "an 'if'/'while' condition must be a Bool — nothing is truthy (§3b)")
+            }
+            guard flag else { return false }
+        }
+    }
+    return true
 }
 
 /// Runs one loop iteration; returns false when the loop should stop

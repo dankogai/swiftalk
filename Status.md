@@ -29,6 +29,29 @@ try interp.eval("var count = 1")
 try interp.eval("count = count + 1")         // .int(2)
 ```
 
+**`while let`** is in (round 76) — `if let`'s condition list, re-evaluated
+with fresh bindings each pass; the grammar is documented in
+[doc/grammar.md](doc/grammar.md):
+
+```text
+swiftalk> let d = [0: "a", 1: "b", 2: "c"]
+[0: "a", 1: "b", 2: "c"]
+swiftalk> var i = 0
+0
+swiftalk> var out = ""
+""
+swiftalk> while let x = d[i] { out = out + x; i = i + 1 }
+swiftalk> out
+"abc"
+swiftalk> i = 0
+0
+swiftalk> var sum = 0
+0
+swiftalk> while let x = d[i], x != "c" { sum = sum + 1; i = i + 1 }
+swiftalk> sum
+2
+```
+
 **Labeled destructuring** is in (round 75) — a labeled pattern element
 binds by label, so patterns reorder freely; everywhere patterns live:
 

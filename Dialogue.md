@@ -1026,3 +1026,18 @@ the history. (Moved out of Design.md in round 65.)
   x: a) = t`), and the REPL's relaxed distribution. The last tuple
   OPEN closes: the grab bag is complete — literals, positions,
   labels, splat, destructuring, and `enumerated()`, in six rounds.
+* **2026-09-01, round 76 — `while let`, and `doc/grammar.md`**.
+  `while let x = next(), x < 9 { }` loops while its condition list
+  holds, with fresh bindings each iteration — the classic drain loop
+  (`while let x = d[i]`). It shares `if let`'s grammar exactly: comma
+  chains, `while var`, positional and labeled patterns, `break`/
+  `continue`; a lone boolean still parses to the plain `while`. The
+  implementation refactored condition parsing (`parseConditionList`)
+  and evaluation (`conditionsHold`) into helpers shared by `if` and
+  `while`, so the two can never drift. And **`doc/grammar.md`**: the
+  language as the parser accepts it — lexical rules (the three
+  spacing-sensitive operators `?`, `!`, `.`; the hex-float `p` rule;
+  newline suppression), statements, control flow, type declarations,
+  and the expression precedence ladder from ternary down to postfix —
+  derived from the parser rather than from memory, with the keyword
+  graveyard and shelved forms noted as non-grammar.
