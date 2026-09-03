@@ -1356,9 +1356,28 @@ private func asLValue(_ expr: Expr) -> LValue? {
     case .tuple(let elements):
         // (a, b) = ... — every element must itself be assignable (round 71)
         let targets = elements.compactMap { asLValue($0.expr) }
-        return targets.count == elements.count ? .tuple(targets) : nil
+        guard targets.count == elements.count else { return nil }
+        return .tuple(zip(elements, targets).map { ($0.label, $1) })
     default:
         return nil
+    }
+}
+
+/// The elements a tuple pattern (or target list) selects, in pattern
+/// order (round 75): a labeled element takes the tuple's element of
+/// that label, an unlabeled one its own position; arity stays rigid.
+private func select(_ tuple: TupleValue, by labels: [String?],
+                    what: String) throws -> [Value] {
+    guard tuple.count == labels.count else {
+        throw SwiftalkError.type(
+            "cannot destructure a \(tuple.count)-tuple into \(labels.count) \(what)")
+    }
+    return try labels.enumerated().map { position, label in
+        guard let label else { return tuple[position] }
+        guard let index = tuple.index(ofLabel: label) else {
+            throw SwiftalkError.type("the tuple has no element labeled '\(label)'")
+        }
+        return tuple[index]
     }
 }
 
@@ -1383,17 +1402,14 @@ private func bind(_ pattern: BindPattern, _ value: Value, mutable: Bool,
             lock = TypeAnnotation(name: value.typeName, optional: true)
         }
         try env.declare(name, Binding(mutable: mutable, lock: lock, value: value))
-    case .tuple(let patterns):
-        guard case .tuple(let values) = value else {
+    case .tuple(let elements):
+        guard case .tuple(let tuple) = value else {
             throw SwiftalkError.type(
                 "cannot destructure a \(value.typeName) — a tuple pattern needs a Tuple")
         }
-        guard values.count == patterns.count else {
-            throw SwiftalkError.type(
-                "cannot destructure a \(values.count)-tuple into \(patterns.count) names")
-        }
-        for (p, v) in zip(patterns, values) {
-            try bind(p, v, mutable: mutable, in: env, strict: strict)
+        let values = try select(tuple, by: elements.map(\.label), what: "names")
+        for (element, v) in zip(elements, values) {
+            try bind(element.pattern, v, mutable: mutable, in: env, strict: strict)
         }
     }
 }
@@ -1403,11 +1419,12 @@ private func bind(_ pattern: BindPattern, _ value: Value, mutable: Bool,
 private func assignRelaxed(_ target: LValue, _ value: Value, in env: Environment) throws {
     switch target {
     case .tuple(let targets):
-        guard case .tuple(let values) = value, values.count == targets.count else {
+        guard case .tuple(let tuple) = value else {
             throw SwiftalkError.type(
                 "cannot assign a \(value.typeName) to \(targets.count) targets")
         }
-        for (t, v) in zip(targets, values) { try assignRelaxed(t, v, in: env) }
+        let values = try select(tuple, by: targets.map(\.label), what: "targets")
+        for (t, v) in zip(targets, values) { try assignRelaxed(t.target, v, in: env) }
     case .variable(let name) where !env.has(name):
         guard value != .nil else {
             throw SwiftalkError.type(
@@ -2041,15 +2058,12 @@ private func assign(_ target: LValue, _ value: Value, in env: Environment) throw
     // (a, b) = (b, a) (round 71): the right side was evaluated whole
     // before any element lands, so the swap idiom works.
     if case .tuple(let targets) = target {
-        guard case .tuple(let values) = value else {
+        guard case .tuple(let tuple) = value else {
             throw SwiftalkError.type(
                 "cannot assign a \(value.typeName) to \(targets.count) targets — a tuple pattern needs a Tuple")
         }
-        guard values.count == targets.count else {
-            throw SwiftalkError.type(
-                "cannot assign a \(values.count)-tuple to \(targets.count) targets")
-        }
-        for (t, v) in zip(targets, values) { try assign(t, v, in: env) }
+        let values = try select(tuple, by: targets.map(\.label), what: "targets")
+        for (t, v) in zip(targets, values) { try assign(t.target, v, in: env) }
         return
     }
     var steps: [PathStep] = []

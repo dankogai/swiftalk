@@ -1013,3 +1013,16 @@ the history. (Moved out of Design.md in round 65.)
   (values + labels) that IS a RandomAccessCollection of its values,
   so the existing tuple sites did not move. OPEN: labeled
   destructuring patterns `let (x: a, y: b) = t`.
+* **2026-09-01, round 75 — labeled destructuring** ("`let (x: a,
+  y: b) = t`"). A labeled pattern element binds **by label**, so
+  patterns reorder freely — `let (y: b, x: a) = (x: 1, y: 2)` — while
+  an unlabeled element binds by its own position, mixing allowed
+  (`let (a, y: b) = (1, y: 2)`); arity stays rigid (a 2-tuple into
+  one labeled name is an error, as is a missing or duplicate label);
+  `_` discards, patterns nest with labels at every level. One
+  selection rule serves every place a pattern lives — `let`/`var`,
+  `if let`, `for` (`for (value: v, key: _) in d`, `for (element: x,
+  offset: i) in xs.enumerated()`), destructuring assignment (`(y: b,
+  x: a) = t`), and the REPL's relaxed distribution. The last tuple
+  OPEN closes: the grab bag is complete — literals, positions,
+  labels, splat, destructuring, and `enumerated()`, in six rounds.

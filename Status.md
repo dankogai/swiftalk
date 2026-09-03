@@ -29,6 +29,30 @@ try interp.eval("var count = 1")
 try interp.eval("count = count + 1")         // .int(2)
 ```
 
+**Labeled destructuring** is in (round 75) — a labeled pattern element
+binds by label, so patterns reorder freely; everywhere patterns live:
+
+```text
+swiftalk> let t = (x: 1, y: 2)
+(x: 1, y: 2)
+swiftalk> let (y: b, x: a) = t           // by label, any order
+(x: 1, y: 2)
+swiftalk> [a, b]
+[1, 2]
+swiftalk> for (value: v, key: k) in ["a": 40] { print(k, v) }
+a 40
+swiftalk> var p = 0
+0
+swiftalk> var q = 0
+0
+swiftalk> (y: q, x: p) = t               // assignment by label
+(x: 1, y: 2)
+swiftalk> [p, q]
+[1, 2]
+swiftalk> let (x: c, z: d) = t
+type error: the tuple has no element labeled 'z'
+```
+
 **Labeled tuples** are in (round 74) — labels name positions and are
 otherwise cosmetic; Dictionary pairs are `(key:, value:)`, `enumerated()`
 gives `(offset:, element:)`:

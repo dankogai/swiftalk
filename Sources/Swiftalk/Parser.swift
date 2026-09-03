@@ -36,14 +36,15 @@ indirect enum LValue {
     case variable(String)
     case index(LValue, Expr)
     case property(LValue, String)
-    case tuple([LValue])                   // (a, b) = ... — destructuring assignment (round 71)
+    case tuple([(label: String?, target: LValue)])   // (a, b) = ... / (x: a, y: b) = ... (rounds 71/75)
 }
 
 /// A binding pattern (round 71): a name, `_` (discard), or a nested
 /// tuple of patterns — for `let (a, b) = t` and `for (k, v) in d`.
+/// A labeled element (round 75) binds by label: `let (x: a, y: b) = t`.
 indirect enum BindPattern {
     case name(String)
-    case tuple([BindPattern])
+    case tuple([(label: String?, pattern: BindPattern)])
 }
 
 /// A type annotation: `: Int` or `: Int?` (the flat optional of §3a —
@@ -247,7 +248,7 @@ struct Parser {
                 pos += 1
                 patterns.append(try parseBindPattern())
             }
-            let pattern: BindPattern = patterns.count == 1 ? patterns[0] : .tuple(patterns)
+            let pattern: BindPattern = patterns.count == 1 ? patterns[0] : .tuple(patterns.map { (nil, $0) })
             var loopNames = Set<String>()
             for name in Parser.names(in: pattern) {
                 guard loopNames.insert(name).inserted else {
@@ -900,8 +901,8 @@ struct Parser {
             // Implicit self (round 49): `.x = 1` in a type body.
             return .property(.variable("self"), name)
         case .tuple(let elements):
-            // (a, b) = ... — destructuring assignment (round 71)
-            return .tuple(try elements.map { try lvalue(from: $0.expr) })
+            // (a, b) = ... / (x: a, y: b) = ... — destructuring assignment
+            return .tuple(try elements.map { ($0.label, try lvalue(from: $0.expr)) })
         default:
             throw SwiftalkError.syntax("this expression is not assignable")
         }
@@ -912,7 +913,7 @@ struct Parser {
         switch pattern {
         case .name("_"):        return []
         case .name(let n):      return [n]
-        case .tuple(let ps):    return ps.flatMap(names)
+        case .tuple(let ps):    return ps.flatMap { names(in: $0.pattern) }
         }
     }
 
@@ -922,9 +923,19 @@ struct Parser {
         func parse(_ p: inout Parser) throws -> BindPattern {
             if case .punct("(")? = p.peek {
                 p.pos += 1
-                var elements: [BindPattern] = []
+                var elements: [(label: String?, pattern: BindPattern)] = []
+                var labels = Set<String>()
                 repeat {
-                    elements.append(try parse(&p))
+                    var label: String? = nil
+                    if case .identifier(let l)? = p.peek, p.peek(at: 1) == .punct(":"),
+                       !keywords.contains(l) {
+                        p.pos += 2
+                        guard labels.insert(l).inserted else {
+                            throw SwiftalkError.syntax("label '\(l)' appears twice in the pattern")
+                        }
+                        label = l
+                    }
+                    elements.append((label, try parse(&p)))
                 } while p.consumeComma(closing: ")")
                 try p.expect(")")
                 return .tuple(elements)

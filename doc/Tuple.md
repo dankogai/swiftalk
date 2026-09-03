@@ -21,6 +21,7 @@ source form round-trips.
 | `Tuple()`, `Tuple(seq)`, `seq.Tuple()` | empty; gathered from any Sequence conformer |
 | `case (1, "x"):` | a tuple literal is an expression pattern — matched by equality |
 | `let (a, b) = t`, `var (a, b) = t` | destructuring (round 71): by position, arity checked, `_` discards, nests; each name takes its own lock |
+| `let (x: a, y: b) = t` | labeled destructuring (round 75): a labeled element binds **by label** (order free), an unlabeled one by position; a missing label is an error — in `let`/`var`, `if let`, `for`, and assignment |
 | `(a, b) = (b, a)` | destructuring assignment — the right side evaluates whole first, so swaps work; targets may be paths |
 | `for (k, v) in d`, `for k, v in d` | destructuring loop variables — parentheses optional (round 72) |
 | `if let (a, b) = t` | destructures a non-nil tuple; nil takes the else; a shape mismatch is an error |
@@ -45,4 +46,7 @@ var (a, b) = (0, 1)
 for _ in 1...10 { (a, b) = (b, a + b) }   // a == 55
 ```
 
-OPEN: labeled destructuring patterns `let (x: a, y: b) = t`.
+```swiftalk
+for (value: v, key: k) in years { ... }     // by label, any order
+let (element: x, offset: i) = xs.enumerated()[0]
+```

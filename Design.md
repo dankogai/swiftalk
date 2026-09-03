@@ -71,8 +71,11 @@ conformers. **Labels — DECIDED (round 74)**: `(x: 1, y: 2)` with
 `.x`/`.y` (and `.0`/`.1` still) — labels *name positions*, so they
 are cosmetic: equality, hashing, destructuring, and the splat ignore
 them; source form keeps them; `(x: 1)` is a 1-tuple. Dictionary pairs
-are `(key:, value:)`, enumerated `(offset:, element:)`. OPEN: labeled
-destructuring patterns.
+are `(key:, value:)`, enumerated `(offset:, element:)`. **Labeled
+destructuring — DECIDED (round 75)**: `let (x: a, y: b) = t` binds by
+label (patterns reorder freely), an unlabeled element by position,
+arity rigid, a missing label an error — in `let`/`var`, `if let`,
+`for`, and destructuring assignment alike.
 
 ### 2.2 Declarations — DECIDED
 
