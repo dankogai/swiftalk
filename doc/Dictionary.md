@@ -21,6 +21,7 @@ three keys), as SION allows. A homogeneous literal infers `[K: V]`
 | `d.reduce(init) { }` | fold over pairs |
 | `d.sorted { $0.key < $1.key }` | an Array of `(key:, value:)` pairs; bare `sorted()` is a type error — tuples are not Comparable (round 83) |
 | `d.contains((k, v))`, `d.contains { k, v in }` | a pair by equality / a predicate (round 83) |
+| `d.reversed()` | the `(key:, value:)` pairs as an Array, in the reverse of the Dictionary's own order (round 84) |
 | `d.String()` | source form with keys sorted — deterministic |
 
 ```swiftalk

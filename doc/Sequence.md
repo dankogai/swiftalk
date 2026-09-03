@@ -19,6 +19,8 @@ Dictionary, and Range conform to (§10).
 | `s.reduce(init) { }` | fold (consumes the whole sequence) |
 | `s.sorted()`, `s.sorted { a, b in }` | an Array, drained — finite only; bare needs Comparable elements (round 83) |
 | `s.contains(x)`, `s.contains { }` | equality / predicate; short-circuits — an infinite Sequence answers on the first hit (round 83) |
+| `s.reversed()` | an Array, drained — finite only (round 84) |
+| `s.joined()`, `s.joined(sep)` | Strings → a String, Arrays → a flat Array; `separator:` accepted (round 84) |
 | `for x in s` | pull one at a time; `break` stops a coroutine cleanly |
 | `for x in s where c` | `for x in s.filter({ })` with the loop's names, decided per pulled element — lazy on a lazy Sequence (round 82) |
 | `s.count` | error — a Sequence may be infinite; `.prefix` or `.Array()` it deliberately |

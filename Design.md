@@ -944,8 +944,16 @@ asks by equality — everything is Equatable, tuples included, so
 Swift's does (`"hello".contains("ell")`); the search short-circuits,
 so an infinite Sequence answers on the first hit. Swift's labels
 `by:` and `where:` are accepted and dropped — the only builtins
-besides `conforms(to:)` that take a label. Still OPEN among the
-Array/String builtins: `reverse`, `join`, String subscripts.
+besides `conforms(to:)` that take a label. **`reversed` and `joined`
+— DECIDED (round 84)**: `reversed()` is always an Array (as
+`sorted()`: graphemes, pairs, a drained finite Sequence);
+`joined()` / `joined(separator:)` concatenates Strings into a String
+or flattens Arrays into an Array — the separator, or without one the
+first element, says which, and every element must agree (a mix is a
+type error; "map it to a String first"); empty joins to `""`, or `[]`
+under an Array separator; a String's own graphemes join too, so
+`"abc".joined("-")` is `"a-b-c"`. `separator:` joins the accepted
+labels. Still OPEN: String subscripts.
 
 ## 11. Strings — DECIDED (core)
 

@@ -1173,3 +1173,18 @@ the history. (Moved out of Design.md in round 65.)
   nil : $0 - 1 }` never advances its `$` state and is infinite; the
   generator form mutates `$`, the coroutine form `Sequence { yield
   ... }` is the easy way to a short finite sequence.
+* **2026-09-03, round 84 — `reversed` and `joined`** ("Let's add
+  `reversed` and `joined` to Sequence"). The pair completes the
+  round-83 set on the same builtin path. `reversed()` follows
+  `sorted()`'s shape exactly — always an Array, a lazy Sequence
+  drained. `joined()` is Swift's two overloads under one name:
+  Strings concatenate into a String, Arrays flatten into an Array,
+  and since swiftalk has no static element type to pick the
+  overload, the separator (or, absent one, the first element)
+  decides and every element must agree — a mix is a type error that
+  says what to do ("map it to a String first"); an empty sequence
+  joins to `""`, or to `[]` when an Array separator says so. A
+  String's own elements are graphemes, so `"abc".joined("-")` is
+  `"a-b-c"` and `s.reversed().joined()` is the reverse-a-string
+  idiom, which is what `reversed()` returning an Array buys. Swift's
+  `separator:` label is accepted and dropped like `by:`/`where:`.

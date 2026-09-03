@@ -14,6 +14,7 @@ materializes unless asked; `(1...1000000000000).count` is O(1).
 | `r.map` / `.filter` / `.reduce` | eager, yielding Arrays / a value |
 | `r.prefix(n)` | the first n as an Array |
 | `r.sorted { $0 > $1 }`, `r.contains(7)` | an Array / membership (round 83) |
+| `r.reversed()` | an Array, descending (round 84) |
 | `r.Array()` | all elements as an Array |
 | `r == s` | equality of bounds and kind |
 | `case a...b:` | in a `switch`, a Range pattern matches an Int by containment |

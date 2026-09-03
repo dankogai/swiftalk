@@ -2617,11 +2617,13 @@ private func method(on receiver: Value, name: String,
     if called, Builtins.types[name] != nil || Builtins.protocols[name] != nil {
         return try convert(name, subject: receiver, extra: labeledArgs)
     }
-    // Swift's own labels on the round-83 pair are accepted and dropped
-    // — sorted(by:), contains(where:) — the bare spelling works too.
+    // Swift's own labels on the round-83/84 members are accepted and
+    // dropped — sorted(by:), contains(where:), joined(separator:) —
+    // the bare spelling works too.
     let swiftLabel: String? = switch (name, called) {
     case ("sorted", true):   "by"
     case ("contains", true): "where"
+    case ("joined", true):   "separator"
     default:                 nil
     }
     let args = try plainValues(
@@ -2820,6 +2822,70 @@ private func method(on receiver: Value, name: String,
             if element == args[0] { return .bool(true) }
         }
         return .bool(false)
+    case ("reversed", true):
+        // Swift's reversed() (round 84): always an Array — a String's
+        // graphemes, a Dictionary's pairs, a lazy Sequence drained
+        // (finite only, like .sorted()).
+        guard args.isEmpty else {
+            throw SwiftalkError.type(".reversed() takes no arguments")
+        }
+        return .array(try collect(receiver).reversed())
+    case ("joined", true):
+        // Swift's joined() / joined(separator:) (round 84): Strings
+        // concatenate into a String, Arrays flatten into an Array —
+        // the separator (or, without one, the first element) says
+        // which; every element must agree. Empty joins to "" (or []
+        // under an Array separator).
+        guard args.count <= 1 else {
+            throw SwiftalkError.type(".joined takes at most one argument: the separator")
+        }
+        let elements = try collect(receiver)
+        let separator = args.first
+        let stringMode: Bool
+        switch separator ?? elements.first {
+        case nil, .string?:  stringMode = true
+        case .array?:        stringMode = false
+        case let v?:
+            throw SwiftalkError.type(
+                ".joined joins Strings or Arrays — not \(v.typeName)")
+        }
+        if stringMode {
+            var sep = ""
+            if let separator {
+                guard case .string(let s) = separator else {
+                    throw SwiftalkError.type(
+                        ".joined of Strings takes a String separator, not a \(separator.typeName)")
+                }
+                sep = s
+            }
+            var parts: [String] = []
+            for element in elements {
+                guard case .string(let s) = element else {
+                    throw SwiftalkError.type(
+                        ".joined of Strings met a \(element.typeName) — map it to a String first")
+                }
+                parts.append(s)
+            }
+            return .string(parts.joined(separator: sep))
+        }
+        var sep: [Value] = []
+        if let separator {
+            guard case .array(let a) = separator else {
+                throw SwiftalkError.type(
+                    ".joined of Arrays takes an Array separator, not a \(separator.typeName)")
+            }
+            sep = a
+        }
+        var out: [Value] = []
+        for (i, element) in elements.enumerated() {
+            guard case .array(let a) = element else {
+                throw SwiftalkError.type(
+                    ".joined of Arrays met a \(element.typeName)")
+            }
+            if i > 0 { out.append(contentsOf: sep) }
+            out.append(contentsOf: a)
+        }
+        return .array(out)
     case ("has", true):
         // Presence, distinct from value (round 35): d.has(k) is true for
         // a key holding nil, false for a missing key — the question

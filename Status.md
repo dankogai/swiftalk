@@ -128,6 +128,31 @@ swiftalk> switch 9 { case 1: 1 }
 type error: switch is not exhaustive — nothing matches 9
 ```
 
+**`reversed` and `joined`** (round 84) — `reversed()` is always an
+Array; `joined()` concatenates Strings or flattens Arrays, separator
+optional:
+
+```text
+swiftalk> [1, 2, 3].reversed()
+[3, 2, 1]
+swiftalk> "héllo".reversed()
+["o", "l", "l", "é", "h"]
+swiftalk> "héllo".reversed().joined()
+"olléh"
+swiftalk> ["a", "b", "c"].joined(", ")
+"a, b, c"
+swiftalk> ["a", "b", "c"].joined(separator: "-")
+"a-b-c"
+swiftalk> [[1, 2], [3], []].joined()
+[1, 2, 3]
+swiftalk> [[1, 2], [3]].joined([0])
+[1, 2, 0, 3]
+swiftalk> (1...3).map { "\($0)" }.joined("+")
+"1+2+3"
+swiftalk> ["a", 1].joined()
+type error: .joined of Strings met a Int — map it to a String first
+```
+
 **`sorted` and `contains`** on every Sequence conformer (round 83) —
 Swift's spellings, with Swift's `by:`/`where:` labels accepted:
 

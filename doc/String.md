@@ -24,6 +24,8 @@ view (§11). `"..."` literals with `\(interpolation)`, escapes `\" \\
 | `s.prefix(n)` | the first n graphemes, as an Array |
 | `s.sorted()` | the graphemes, sorted, as an Array (round 83) |
 | `s.contains("ell")`, `s.contains { }` | substring (as Swift's; `""` is found) / grapheme predicate (round 83) |
+| `s.reversed()` | the graphemes, reversed, as an Array — `s.reversed().joined()` reverses a String (round 84) |
+| `s.joined("-")` | the graphemes interleaved: `"abc".joined("-")` is `"a-b-c"` (round 84) |
 | `s[i]` | undecided (§11) — an error for now |
 
 ```swiftalk
