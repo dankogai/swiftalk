@@ -14,7 +14,7 @@ indirect enum Expr {
     case selfCall(args: [(label: String?, expr: Expr)])   // $(...) — recurse (§2.4)
     case method(Expr, name: String, args: [(label: String?, expr: Expr)], called: Bool)
     case `subscript`(Expr, Expr)                          // a[i], d[k]; $0 ≡ $[0]
-    case range(String, Expr, Expr)                        // a...b / a..<b (§: eager [Int] for now)
+    case range(String, Expr, Expr?)                       // a...b / a..<b; a... unbounded (round 88)
     case interpolation([Expr])                            // "a\(x)b" — parts concatenate
     case memberLiteral(String)                            // .quoted, .hex — format members (§3d)
     case propagate(Expr)                                  // x? — unwrap or early-return (§3a/§8)
@@ -1101,6 +1101,20 @@ struct Parser {
         let lhs = try parseAdditive()
         guard case .op(let op)? = peek, op == "..." || op == "..<" else { return lhs }
         pos += 1
+        // `a...` with nothing that could be a bound after it is the
+        // unbounded range (round 88): `for i in 0... {`, `(0...)`,
+        // `[0...]`, `0...` at a line's end.
+        let boundless: Bool = switch peek {
+        case nil, .newline?: true
+        case .punct(let p)?: ")]},:;{".contains(p)
+        default: false
+        }
+        if boundless {
+            guard op == "..." else {
+                throw SwiftalkError.syntax("a..< needs an upper bound — a... is the unbounded range")
+            }
+            return .range(op, lhs, nil)
+        }
         return .range(op, lhs, try parseAdditive())
     }
 

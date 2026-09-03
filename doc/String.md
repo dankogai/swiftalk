@@ -25,6 +25,7 @@ view (§11). `"..."` literals with `\(interpolation)`, escapes `\" \\
 | `s.sorted()` | the graphemes, sorted, as an Array (round 83) |
 | `s.contains("ell")`, `s.contains { }` | substring (as Swift's; `""` is found) / grapheme predicate (round 83) |
 | `s.reversed()` | the graphemes, reversed, as an Array — `s.reversed().joined()` reverses a String (round 84) |
+| `s.takeWhile { }`, `s.dropWhile { }` | a String, as `filter` gives: `"hello world".takeWhile { $0 != " " }` is `"hello"` (round 88) |
 | `s.joined("-")` | the graphemes interleaved: `"abc".joined("-")` is `"a-b-c"` (round 84) |
 | `s.contains(/re/)`, `s.firstMatch(/re/)`, `s.wholeMatch(/re/)`, `s.matches(/re/)` | Regex search (round 86) — see [Regex.md](Regex.md) for the match shape |
 | `s.replacing(/re/, "x")`, `s.replacing(/re/) { }`, `s.replacing("a", "b")` | replace every match / substring (round 86) |

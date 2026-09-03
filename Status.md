@@ -163,6 +163,37 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`0...` and `takeWhile`/`dropWhile`** (round 88) — the unbounded range
+is an infinite lazy Sequence conformer; the two new members are lazy
+on it and on Sequence values, eager elsewhere:
+
+```text
+swiftalk> (0...).prefix(5)
+[0, 1, 2, 3, 4]
+swiftalk> for i in 10... { if i > 12 { break }; print(i) }
+10
+11
+12
+swiftalk> (0...).map { $0 * $0 }.prefix(4)
+[0, 1, 4, 9]
+swiftalk> (0...).takeWhile { $0 < 4 }.Array()
+[0, 1, 2, 3]
+swiftalk> (0...).dropWhile { $0 < 4 }.prefix(3)
+[4, 5, 6]
+swiftalk> (0...).count
+type error: an unbounded Range is infinite — .prefix(n) or .takeWhile it deliberately
+swiftalk> [1, 2, 3, 4, 1].takeWhile { $0 < 3 }
+[1, 2]
+swiftalk> "hello world".takeWhile { $0 != " " }
+"hello"
+swiftalk> let fib = Sequence { var a = 0; var b = 1; while true { yield a; (a, b) = (b, a + b) } }
+Sequence { ... }
+swiftalk> fib.takeWhile { $0 < 50 }.Array()
+[0, 1, 1, 2, 3, 5, 8, 13, 21, 34]
+swiftalk> switch 42 { case 40...: "big" default: "small" }
+"big"
+```
+
 **A Regex character is a grapheme** (round 87) — `.`, `\X`, and class
 ranges work on the same clusters `count` counts; property classes
 handle text with combining marks:

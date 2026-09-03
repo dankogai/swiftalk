@@ -152,7 +152,8 @@ disjunction  = conjunction { "||" conjunction } ;                   (* short-cir
 conjunction  = comparison { "&&" comparison } ;
 comparison   = coalescing [ ( "==" | "!=" | "<" | "<=" | ">" | ">=" ) coalescing ] ;   (* not chained *)
 coalescing   = range [ "??" coalescing ] ;                          (* right-assoc, lazy right *)
-range        = additive [ ( "..." | "..<" ) additive ] ;
+range        = additive [ "..." [ additive ] | "..<" additive ] ;   (* a... unbounded (round 88): the bound is
+                                                                   absent when ) ] } , : ; { or a newline follows *)
 additive     = multiplicative { ( "+" | "-" ) multiplicative } ;
 multiplicative = unary { ( "*" | "/" ) unary } ;
 unary        = "-" unary | "!" unary | "await" unary | postfix ;

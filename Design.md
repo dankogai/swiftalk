@@ -953,7 +953,25 @@ first element, says which, and every element must agree (a mix is a
 type error; "map it to a String first"); empty joins to `""`, or `[]`
 under an Array separator; a String's own graphemes join too, so
 `"abc".joined("-")` is `"a-b-c"`. `separator:` joins the accepted
-labels. Still OPEN: String subscripts.
+labels. **`a...` and `takeWhile`/`dropWhile` — DECIDED (round 88)**:
+`0...` is the unbounded range, Swift's `PartialRangeFrom` as a
+first-class value — infinite and lazy, printed as written, a
+Sequence conformer whose `map`/`filter`/`enumerated`/`takeWhile`/
+`dropWhile` defer (the same laziness a `Sequence` value has) and
+whose eager terminals (`count`, `reduce`, `sorted`, `reversed`,
+`joined`, `Array()`) refuse it with the same message a Sequence's
+`.count` gives; `for i in 0...` with `break`, `(0...).prefix(n)`,
+`(1...)[i]`, `case 40...:` all work; the element after `Int.max` is
+an overflow error, not a wrap; `a..<` has no unbounded form. The
+parser reads `a...` as unbounded when nothing that could be a bound
+follows (`) ] } , : ; {` or a line end). `takeWhile { }` /
+`dropWhile { }` take the leading elements while a predicate holds /
+everything from its first miss, the predicate never asked again
+after it — lazy on a Sequence value and on `a...`, eager and shaped
+like `filter` (String → String, Dictionary → Dictionary) elsewhere.
+The names are the user's, deliberately not Swift's `prefix(while:)`
+/ `drop(while:)` — one of the recorded divergences. Still OPEN:
+String subscripts.
 
 ## 11. Strings — DECIDED (core)
 

@@ -668,7 +668,7 @@ private func match(_ pattern: Pattern, _ subject: Value,
         if v == subject { return true }
         // A Range pattern matches an Int by containment (Swift's ~=).
         if case .range(let lower, let upper, let closed) = v, case .int(let i) = subject {
-            if lower <= i && (closed ? i <= upper : i < upper) { return true }
+            if lower <= i && (upper.map { closed ? i <= $0 : i < $0 } ?? true) { return true }
         }
         // A Regex pattern matches a String WHOLE (Swift's ~=, round 86).
         if case .regex(let r) = v, case .string(let s) = subject {
@@ -930,6 +930,9 @@ func iterator(of sequence: Value) throws -> ValueIterator {
     case .range(let lower, let upper, let closed):
         var current = lower
         var exhausted = false
+        guard let upper else {
+            return countingIterator(from: lower)          // a... (round 88)
+        }
         return ValueIterator {
             if exhausted { return nil }
             if closed {
@@ -955,9 +958,67 @@ func iterator(of sequence: Value) throws -> ValueIterator {
     }
 }
 
+/// `a...` pulled one at a time; the top of Int64 is the end, by
+/// overflow error rather than a silent wrap.
+private func countingIterator(from lower: Int64) -> ValueIterator {
+    var current: Int64? = lower           // nil once Int.max has been handed out
+    return ValueIterator {
+        guard let v = current else { throw SwiftalkError.overflow("this Range ran past Int.max") }
+        let (next, overflow) = v.addingReportingOverflow(1)
+        current = overflow ? nil : next
+        return .int(v)
+    }
+}
+
+/// The unbounded range refuses the eager terminals (round 88): the
+/// same answer a Sequence's `.count` gives.
+private func requireFinite(_ value: Value, for member: String) throws {
+    if case .range(_, nil, _) = value {
+        throw SwiftalkError.type(
+            "an unbounded Range is infinite — .prefix(n) or .takeWhile it before .\(member)")
+    }
+}
+
+/// The lazy base behind a receiver, when its `map`/`filter`/... should
+/// defer: a Sequence value, or the unbounded range (round 88).
+private func lazyBase(_ receiver: Value) -> SequenceObject? {
+    switch receiver {
+    case .sequence(let s):          return s
+    case .range(let lower, nil, _): return SequenceObject(kind: .counting(from: lower))
+    default:                        return nil
+    }
+}
+
+/// An eager result shaped like its receiver, as `filter` does: a
+/// String's graphemes back to a String, a Dictionary's pairs back to
+/// a Dictionary, anything else an Array.
+private func reshape(_ kept: [Value], like receiver: Value) -> Value {
+    switch receiver {
+    case .string:
+        return .string(kept.map { if case .string(let s) = $0 { s } else { "" } }.joined())
+    case .dictionary:
+        var d: [Value: Value] = [:]
+        for pair in kept {
+            if case .tuple(let kv) = pair, kv.count == 2 { d[kv[0]] = kv[1] }
+        }
+        return .dictionary(d)
+    default:
+        return .array(kept)
+    }
+}
+
+/// A predicate's verdict, or the type error every predicate member shares.
+private func holds(_ fn: FunctionObject, _ element: Value, for member: String) throws -> Bool {
+    guard case .bool(let flag) = try apply(fn, args: [(nil, element)]) else {
+        throw SwiftalkError.type("the .\(member) Function must return a Bool")
+    }
+    return flag
+}
+
 /// Materializes any Sequence conformer eagerly (the caller's rope for
 /// infinite ones).
 func collect(_ sequence: Value) throws -> [Value] {
+    try requireFinite(sequence, for: "Array()")
     var out: [Value] = []
     let it = try iterator(of: sequence)
     while let element = try it.next() {
@@ -1016,6 +1077,36 @@ extension SequenceObject {
                         throw SwiftalkError.type("the .filter Function must return a Bool")
                     }
                     if keep { return element }
+                }
+                return nil
+            }
+        case .counting(let lower):
+            return countingIterator(from: lower)
+        case .takenWhile(let base, let fn):
+            // elements while the predicate holds; the first miss ends
+            // it, and nothing past it is ever pulled
+            let it = base.makeIterator()
+            var done = false
+            return ValueIterator {
+                if done { return nil }
+                guard let element = try it.next(), try holds(fn, element, for: "takeWhile") else {
+                    done = true
+                    return nil
+                }
+                return element
+            }
+        case .droppedWhile(let base, let fn):
+            // skip while the predicate holds; from the first miss on,
+            // everything — the predicate is never asked again
+            let it = base.makeIterator()
+            var dropping = true
+            return ValueIterator {
+                while let element = try it.next() {
+                    if dropping {
+                        if try holds(fn, element, for: "dropWhile") { continue }
+                        dropping = false
+                    }
+                    return element
                 }
                 return nil
             }
@@ -1243,8 +1334,12 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
     case .range(let op, let lhs, let rhs):
         // Range<I> (round 38): a lazy first-class value. Int bounds only
         // (BigInt someday, Double never). Like Swift, a > b traps.
-        guard case .int(let a) = try evaluate(lhs, in: env),
-              case .int(let b) = try evaluate(rhs, in: env) else {
+        // `a...` (round 88) has no upper bound: infinite, lazy.
+        guard case .int(let a) = try evaluate(lhs, in: env) else {
+            throw SwiftalkError.type("Range bounds must be Ints")
+        }
+        guard let rhs else { return .range(from: a, to: nil, closed: true) }
+        guard case .int(let b) = try evaluate(rhs, in: env) else {
             throw SwiftalkError.type("Range bounds must be Ints")
         }
         guard a <= b else {
@@ -1385,15 +1480,23 @@ private func subscriptRead(_ container: Value, _ index: Value) throws -> Value {
     case .dictionary(let d):
         return d[index] ?? .nil
     case .range(let lower, let upper, let closed):
-        // Offset subscript: r[i] is the i-th element, bounds-checked.
+        // Offset subscript: r[i] is the i-th element, bounds-checked;
+        // `a...` (round 88) has a lower bound only.
         guard case .int(let i) = index else {
             throw SwiftalkError.type("Range index must be an Int, not \(index.typeName)")
         }
-        let count = try rangeCount(from: lower, to: upper, closed: closed)
-        guard (0..<count).contains(i) else {
-            throw SwiftalkError.type("index \(i) out of range (count \(count))")
+        guard i >= 0 else {
+            throw SwiftalkError.type("Range index \(i) is out of range")
         }
-        return .int(lower + i)
+        if let upper {
+            let count = try rangeCount(from: lower, to: upper, closed: closed)
+            guard i < count else {
+                throw SwiftalkError.type("Range index \(i) is out of range (count \(count))")
+            }
+        }
+        let (v, overflow) = lower.addingReportingOverflow(i)
+        guard !overflow else { throw SwiftalkError.overflow("this Range element does not fit in an Int") }
+        return .int(v)
     case .data(let bytes):
         guard case .int(let i) = index else {
             throw SwiftalkError.type("Data index must be an Int, not \(index.typeName)")
@@ -2708,6 +2811,10 @@ private func method(on receiver: Value, name: String,
         case .string(let s):     return .int(Int64(s.count))   // graphemes (§11)
         case .dictionary(let d): return .int(Int64(d.count))
         case .range(let lower, let upper, let closed):
+            guard let upper else {
+                throw SwiftalkError.type(
+                    "an unbounded Range is infinite — .prefix(n) or .takeWhile it deliberately")
+            }
             return .int(try rangeCount(from: lower, to: upper, closed: closed))
         case .data(let bytes): return .int(Int64(bytes.count))
         case .tuple(let t):    return .int(Int64(t.count))
@@ -2724,7 +2831,7 @@ private func method(on receiver: Value, name: String,
         guard args.isEmpty else {
             throw SwiftalkError.type(".enumerated() takes no arguments")
         }
-        if case .sequence(let base) = receiver {
+        if let base = lazyBase(receiver) {
             return .sequence(SequenceObject(kind: .enumerated(base)))
         }
         var out: [Value] = []
@@ -2755,7 +2862,7 @@ private func method(on receiver: Value, name: String,
             throw SwiftalkError.type(".map takes a single Function")
         }
         // Lazy by default on Sequence values (round 41): map defers.
-        if case .sequence(let base) = receiver {
+        if let base = lazyBase(receiver) {
             return .sequence(SequenceObject(kind: .mapped(base, fn)))
         }
         var out: [Value] = []
@@ -2769,7 +2876,7 @@ private func method(on receiver: Value, name: String,
             throw SwiftalkError.type(".filter takes a single Function")
         }
         // Lazy by default on Sequence values (round 41): filter defers.
-        if case .sequence(let base) = receiver {
+        if let base = lazyBase(receiver) {
             return .sequence(SequenceObject(kind: .filtered(base, fn)))
         }
         var kept: [Value] = []
@@ -2798,6 +2905,7 @@ private func method(on receiver: Value, name: String,
         guard args.count == 2, case .function(let fn) = args[1] else {
             throw SwiftalkError.type(".reduce takes an initial value and a Function")
         }
+        try requireFinite(receiver, for: "reduce")
         var accumulator = args[0]
         let it = try iterator(of: receiver)
         while let element = try it.next() {
@@ -2990,6 +3098,29 @@ private func method(on receiver: Value, name: String,
         case .string(let sep): return .array(s.split(separator: sep).map { .string(String($0)) })
         default: throw SwiftalkError.type(".split takes a separator: a Regex or a String")
         }
+    case ("takeWhile", true), ("dropWhile", true):
+        // Round 88: lazy on a Sequence value and on `a...`; eager and
+        // shaped like filter's result on the rest.
+        guard args.count == 1, case .function(let fn) = args[0] else {
+            throw SwiftalkError.type(".\(name) takes a single Function x -> Bool")
+        }
+        if let base = lazyBase(receiver) {
+            return .sequence(SequenceObject(
+                kind: name == "takeWhile" ? .takenWhile(base, fn) : .droppedWhile(base, fn)))
+        }
+        var kept: [Value] = []
+        let it = try iterator(of: receiver)
+        var dropping = name == "dropWhile"
+        while let element = try it.next() {
+            if name == "takeWhile" {
+                guard try holds(fn, element, for: name) else { break }
+            } else if dropping {
+                if try holds(fn, element, for: name) { continue }
+                dropping = false
+            }
+            kept.append(element)
+        }
+        return reshape(kept, like: receiver)
     case ("has", true):
         // Presence, distinct from value (round 35): d.has(k) is true for
         // a key holding nil, false for a missing key — the question

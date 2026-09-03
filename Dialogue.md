@@ -1266,3 +1266,22 @@ the history. (Moved out of Design.md in round 65.)
   API-level switch; a `u` flag for it is logged OPEN. Documented in
   doc/Regex.md and pinned by a test, so a future engine change shows
   up as a red test rather than a surprise.
+
+* **2026-09-03, round 88 — `0...`, and `takeWhile`/`dropWhile`** ("add
+  an infinite range like `0...`" / "add `.takeWhile { cond }` and
+  `dropWhile{ cond }` to `Sequence`"). The range value's upper bound
+  became optional (nine sites), and the unbounded range joined the
+  lazy world through one helper: wherever a `Sequence` value's
+  `map`/`filter`/`enumerated` defer, `0...` now defers too, so
+  `(0...).map { $0 * $0 }.prefix(4)` and `fib`-style pipelines read
+  the same; the eager terminals refuse it the way `Sequence.count`
+  always has. The parser decides "unbounded" by what follows the
+  `...` — a closing bracket, a comma, a colon, a `{`, or a line end —
+  which is what lets `for i in 0... {` read the `{` as the body.
+  `takeWhile`/`dropWhile` are lazy kinds beside `mapped`/`filtered`,
+  with the eager path reshaped like `filter`'s. Two details pinned
+  by tests: the predicate is never asked again after its first miss
+  (an observable promise once side effects exist), and the element
+  after `Int.max` is an overflow error after `Int.max` itself has
+  been handed out. The names follow the user's request rather than
+  Swift's `prefix(while:)`/`drop(while:)` — recorded as a divergence.

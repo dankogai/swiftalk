@@ -24,6 +24,7 @@ Arrays are dense — a sparse array is a Dictionary.
 | `a.sorted()`, `a.sorted { a, b in }`, `a.sorted(by:)` | a new Array; bare needs Comparable elements (Int, Double, String, Date) — mixed is `<`'s type error (round 83) |
 | `a.contains(x)`, `a.contains { }`, `a.contains(where:)` | equality (everything is Equatable) / predicate (round 83) |
 | `a.reversed()` | a new Array (round 84) |
+| `a.takeWhile { }`, `a.dropWhile { }` | the leading elements while the predicate holds / from its first miss on (round 88) |
 | `a.joined()`, `a.joined(", ")`, `a.joined(separator:)` | Strings concatenate into a String; Arrays flatten into an Array (`[[1], [2]].joined([0])`); a mix is a type error (round 84) |
 | `a.enumerated()` | an Array of `(index, element)` tuples (round 73) |
 | `a.Array()` | `a` |
