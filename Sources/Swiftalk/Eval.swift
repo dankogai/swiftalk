@@ -790,6 +790,19 @@ struct ReturnSignal: Swift.Error {
     let value: Value
 }
 
+/// Grapheme-wise substring search (round 83) — the stdlib's
+/// `String.contains(_: String)` wants macOS 13; this wants nothing.
+/// An empty needle is found, as Swift's answers.
+private func containsSubstring(_ haystack: String, _ needle: String) -> Bool {
+    let h = Array(haystack), n = Array(needle)
+    guard !n.isEmpty else { return true }
+    guard n.count <= h.count else { return false }
+    for start in 0...(h.count - n.count) where h[start] == n[0] {
+        if Array(h[start..<(start + n.count)]) == n { return true }
+    }
+    return false
+}
+
 /// Runs a block in a fresh child scope (block-local let/var, §2.2-style
 /// lexical scoping); the value is the last statement's — what a
 /// `switch` branch yields (round 79).
@@ -2604,7 +2617,17 @@ private func method(on receiver: Value, name: String,
     if called, Builtins.types[name] != nil || Builtins.protocols[name] != nil {
         return try convert(name, subject: receiver, extra: labeledArgs)
     }
-    let args = try plainValues(labeledArgs, for: ".\(name)")
+    // Swift's own labels on the round-83 pair are accepted and dropped
+    // — sorted(by:), contains(where:) — the bare spelling works too.
+    let swiftLabel: String? = switch (name, called) {
+    case ("sorted", true):   "by"
+    case ("contains", true): "where"
+    default:                 nil
+    }
+    let args = try plainValues(
+        swiftLabel == nil ? labeledArgs
+                          : labeledArgs.map { $0.label == swiftLabel ? (nil, $0.value) : $0 },
+        for: ".\(name)")
     switch (name, called) {
     case ("Type", false):
         // x.Type (round 40; né x.type) — the constructor Function, à la
@@ -2738,6 +2761,65 @@ private func method(on receiver: Value, name: String,
             accumulator = try apply(fn, args: [(nil, accumulator), (nil, element)])
         }
         return accumulator
+    case ("sorted", true):
+        // Swift's sorted() / sorted(by:) (round 83): always an Array —
+        // a String's graphemes, a Dictionary's (key:, value:) pairs, a
+        // lazy Sequence drained (so it must be finite, like .Array()).
+        // Bare: the elements must be Comparable among themselves (§10:
+        // Int, Double, String, Date) — `<` decides, and its type error
+        // is the answer for anything else. With a Function: Swift's
+        // areInIncreasingOrder, (a, b) -> Bool.
+        let elements = try collect(receiver)
+        switch args.count {
+        case 0:
+            return .array(try elements.sorted { a, b in
+                guard case .bool(let ascending) = try compare("<", a, b) else { return false }
+                return ascending
+            })
+        case 1:
+            guard case .function(let fn) = args[0] else {
+                throw SwiftalkError.type(".sorted takes no argument, or one Function (a, b) -> Bool")
+            }
+            return .array(try elements.sorted { a, b in
+                guard case .bool(let ascending) = try apply(fn, args: [(nil, a), (nil, b)]) else {
+                    throw SwiftalkError.type("the .sorted Function must return a Bool")
+                }
+                return ascending
+            })
+        default:
+            throw SwiftalkError.type(".sorted takes no argument, or one Function (a, b) -> Bool")
+        }
+    case ("contains", true):
+        // Swift's contains(_:) / contains(where:) (round 83). A Function
+        // argument is the predicate; any other value is looked for by
+        // equality (everything is Equatable, §10 — tuples included, so
+        // d.contains((k, v)) asks about a pair). A String looks for a
+        // substring, as Swift's does. Short-circuits, so an infinite
+        // Sequence answers as soon as it finds one.
+        guard args.count == 1 else {
+            throw SwiftalkError.type(".contains takes one argument: a value, or a Function x -> Bool")
+        }
+        if case .function(let fn) = args[0] {
+            let it = try iterator(of: receiver)
+            while let element = try it.next() {
+                guard case .bool(let hit) = try apply(fn, args: [(nil, element)]) else {
+                    throw SwiftalkError.type("the .contains Function must return a Bool")
+                }
+                if hit { return .bool(true) }
+            }
+            return .bool(false)
+        }
+        if case .string(let s) = receiver {
+            guard case .string(let needle) = args[0] else {
+                throw SwiftalkError.type("String.contains looks for a String, not a \(args[0].typeName)")
+            }
+            return .bool(containsSubstring(s, needle))
+        }
+        let it = try iterator(of: receiver)
+        while let element = try it.next() {
+            if element == args[0] { return .bool(true) }
+        }
+        return .bool(false)
     case ("has", true):
         // Presence, distinct from value (round 35): d.has(k) is true for
         // a key holding nil, false for a missing key — the question

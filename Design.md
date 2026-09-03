@@ -930,6 +930,23 @@ stability, Objective-C interop.
   implementation cost proves too high, the fallback is "built-ins
   parameterized + types as ordinary values" (pass a `Type` argument).
 
+**`sorted` and `contains` — DECIDED (round 83)**, on every Sequence
+conformer. `s.sorted()` is always an Array (a String's graphemes, a
+Dictionary's `(key:, value:)` pairs, a lazy Sequence drained — so it
+must be finite, like `.Array()`); bare, the elements must be
+Comparable among themselves (Int, Double, String, Date — `<` decides,
+and its type error is the answer for a mixed or non-Comparable
+Array, which is why a Dictionary needs the closure); `sorted { a, b
+in }` / `sorted(by:)` takes Swift's areInIncreasingOrder. `contains(x)`
+asks by equality — everything is Equatable, tuples included, so
+`d.contains((k, v))` asks about a pair; `contains { }` /
+`contains(where:)` by predicate; a String looks for a substring, as
+Swift's does (`"hello".contains("ell")`); the search short-circuits,
+so an infinite Sequence answers on the first hit. Swift's labels
+`by:` and `where:` are accepted and dropped — the only builtins
+besides `conforms(to:)` that take a label. Still OPEN among the
+Array/String builtins: `reverse`, `join`, String subscripts.
+
 ## 11. Strings — DECIDED (core)
 
 **Swift-faithful graphemes.** `Character` is an extended grapheme

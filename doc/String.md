@@ -22,6 +22,8 @@ view (§11). `"..."` literals with `\(interpolation)`, escapes `\" \\
 | `s.reduce(init) { }` | fold over graphemes |
 | `s.Array()` | `["h", "é", ...]` |
 | `s.prefix(n)` | the first n graphemes, as an Array |
+| `s.sorted()` | the graphemes, sorted, as an Array (round 83) |
+| `s.contains("ell")`, `s.contains { }` | substring (as Swift's; `""` is found) / grapheme predicate (round 83) |
 | `s[i]` | undecided (§11) — an error for now |
 
 ```swiftalk

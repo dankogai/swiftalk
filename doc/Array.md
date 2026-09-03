@@ -21,6 +21,8 @@ Arrays are dense — a sparse array is a Dictionary.
 | `a.filter { }` | an Array of the kept |
 | `a.reduce(init) { acc, x in }` | fold |
 | `a.prefix(n)` | the first n |
+| `a.sorted()`, `a.sorted { a, b in }`, `a.sorted(by:)` | a new Array; bare needs Comparable elements (Int, Double, String, Date) — mixed is `<`'s type error (round 83) |
+| `a.contains(x)`, `a.contains { }`, `a.contains(where:)` | equality (everything is Equatable) / predicate (round 83) |
 | `a.enumerated()` | an Array of `(index, element)` tuples (round 73) |
 | `a.Array()` | `a` |
 | `for x in a` | iteration |

@@ -17,6 +17,8 @@ Dictionary, and Range conform to (§10).
 | `s.enumerated()` | `(offset:, element:)` tuples — lazy on a Sequence, an Array of tuples on Array/String/Range/Dictionary/Tuple (rounds 73/74); `e.offset`/`e.element`, `for i, x in xs.enumerated()`, `.map { i, x in }` |
 | `s.Array()` | everything (do not ask an infinite one) |
 | `s.reduce(init) { }` | fold (consumes the whole sequence) |
+| `s.sorted()`, `s.sorted { a, b in }` | an Array, drained — finite only; bare needs Comparable elements (round 83) |
+| `s.contains(x)`, `s.contains { }` | equality / predicate; short-circuits — an infinite Sequence answers on the first hit (round 83) |
 | `for x in s` | pull one at a time; `break` stops a coroutine cleanly |
 | `for x in s where c` | `for x in s.filter({ })` with the loop's names, decided per pulled element — lazy on a lazy Sequence (round 82) |
 | `s.count` | error — a Sequence may be infinite; `.prefix` or `.Array()` it deliberately |

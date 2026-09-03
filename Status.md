@@ -128,6 +128,36 @@ swiftalk> switch 9 { case 1: 1 }
 type error: switch is not exhaustive — nothing matches 9
 ```
 
+**`sorted` and `contains`** on every Sequence conformer (round 83) —
+Swift's spellings, with Swift's `by:`/`where:` labels accepted:
+
+```text
+swiftalk> [3, 1, 2].sorted()
+[1, 2, 3]
+swiftalk> [3, 1, 2].sorted { $0 > $1 }
+[3, 2, 1]
+swiftalk> "hello".sorted()
+["e", "h", "l", "l", "o"]
+swiftalk> let d = ["b": 2, "a": 1]
+["a": 1, "b": 2]
+swiftalk> d.sorted { $0.key < $1.key }
+[(key: "a", value: 1), (key: "b", value: 2)]
+swiftalk> d.sorted()
+type error: '<' is not defined between Tuple and Tuple
+swiftalk> [3, 1, 2].contains(2)
+true
+swiftalk> [3, 1, 2].contains(where: { $0 > 5 })
+false
+swiftalk> "hello".contains("ell")
+true
+swiftalk> d.contains(("a", 1))
+true
+swiftalk> let naturals = Sequence { var n = 0; while true { n = n + 1; yield n } }
+Sequence { ... }
+swiftalk> naturals.contains { $0 * $0 > 50 }
+true
+```
+
 **`for x in s where cond`** (round 82) — `s.filter({ })` with the
 loop's own names, decided element by element, so a lazy Sequence
 stays lazy and `break`/`continue` work as ever:

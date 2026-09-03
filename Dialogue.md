@@ -1152,3 +1152,24 @@ the history. (Moved out of Design.md in round 65.)
   because `for` headers refuse trailing closures (Swift's rule too —
   the closure is confusable with the body); `where` is therefore not
   just easier but the only form that reads without parentheses.
+* **2026-09-03, round 83 — `sorted` and `contains`** ("Let's add
+  `sorted` and `contains` to Sequence"). Both land on every Sequence
+  conformer through the one builtin-member switch, Swift's way where
+  Swift has a way: `sorted()` is always an Array and needs Comparable
+  elements — swiftalk's `<` is the judge, so a mixed Array or a
+  Dictionary (tuples compare only for equality) is the same type
+  error `<` would give, and `sorted { a, b in }` / `sorted(by:)` is
+  the fix; `contains(x)` is equality (so `d.contains((k, v))` works,
+  tuples being Equatable), `contains { }` / `contains(where:)` a
+  predicate, and `String.contains` a substring search, done
+  grapheme-wise by hand because the stdlib's wants macOS 13. Two
+  details worth the log: `contains` short-circuits, so an infinite
+  coroutine Sequence answers on the first hit (`naturals.contains
+  { $0 * $0 > 50 }`), while `sorted` must drain and so must be finite;
+  and Swift's labels `by:`/`where:` are accepted and dropped — the
+  first builtins besides `conforms(to:)` to take a label at all,
+  chosen so that Swift muscle memory keeps working. A test-writing
+  slip is recorded for the next reader: `Sequence([3]) { $0 == 1 ?
+  nil : $0 - 1 }` never advances its `$` state and is infinite; the
+  generator form mutates `$`, the coroutine form `Sequence { yield
+  ... }` is the easy way to a short finite sequence.
