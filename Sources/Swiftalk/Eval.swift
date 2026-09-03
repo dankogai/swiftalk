@@ -919,6 +919,15 @@ extension SequenceObject {
             // away (e.g. after `.prefix` of an infinite sequence).
             let handle = CoroutineHandle(CoroutineRunner(body: body))
             return ValueIterator { try handle.next() }
+        case .enumerated(let base):
+            // A fresh counter per iteration — re-iterable, like the rest.
+            let it = base.makeIterator()
+            var index: Int64 = 0
+            return ValueIterator {
+                guard let element = try it.next() else { return nil }
+                defer { index += 1 }
+                return .tuple([.int(index), element])
+            }
         case .mapped(let base, let fn):
             let it = base.makeIterator()
             return ValueIterator {
@@ -2140,6 +2149,15 @@ func apply(_ fn: FunctionObject, args: [(label: String?, value: Value)]) throws 
         }
         return try convert(typeName, subject: subject, extra: extra)
     }
+    // Tuple splat (round 73, revising 72): a sole Tuple argument IS the
+    // argument list — "a rigid Array" — so `$` holds its elements, `$0`
+    // is k and `$1` is v in `d.map { }`, declared parameters or not.
+    // Builtins are exempt: they take Values raw (print((1, 2))).
+    var args = args
+    if fn.builtin == nil, args.count == 1, args[0].label == nil,
+       case .tuple(let elements) = args[0].value {
+        args = elements.map { (label: nil, value: $0) }
+    }
     var ordered: [Value]
     if fn.parameters.isEmpty {
         if let label = args.compactMap(\.label).first {
@@ -2148,15 +2166,6 @@ func apply(_ fn: FunctionObject, args: [(label: String?, value: Value)]) throws 
         }
         ordered = args.map(\.value)
     } else {
-        var args = args
-        // Tuple splat (round 72): a single N-tuple argument to an
-        // N-parameter function spreads into its parameters — so
-        // `d.map { k, v in ... }` receives the (key, value) pair as two.
-        // Only ever turns an arity error into a call; never ambiguous.
-        if fn.parameters.count > 1, args.count == 1, args[0].label == nil,
-           case .tuple(let elements) = args[0].value, elements.count == fn.parameters.count {
-            args = elements.map { (label: nil, value: $0) }
-        }
         guard args.count == fn.parameters.count else {
             throw SwiftalkError.type(
                 "expected \(fn.parameters.count) argument(s), got \(args.count)")
@@ -2578,6 +2587,22 @@ private func method(on receiver: Value, name: String,
         default:
             throw SwiftalkError.unknownMember("\(receiver.typeName).count")
         }
+    case ("enumerated", true):
+        // (index, element) pairs (round 73): lazy on a Sequence value,
+        // an Array of tuples on the eager conformers — Array in, Array
+        // out, as with map.
+        guard args.isEmpty else {
+            throw SwiftalkError.type(".enumerated() takes no arguments")
+        }
+        if case .sequence(let base) = receiver {
+            return .sequence(SequenceObject(kind: .enumerated(base)))
+        }
+        var out: [Value] = []
+        let it = try iterator(of: receiver)
+        while let element = try it.next() {
+            out.append(.tuple([.int(Int64(out.count)), element]))
+        }
+        return .array(out)
     case ("prefix", true):
         // The lazy world's terminal (round 41): materialize the first n.
         guard args.count == 1, case .int(let n) = args[0], n >= 0 else {

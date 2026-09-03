@@ -59,11 +59,15 @@ lands, so the swap idiom works and targets may be subscript/property
 paths; `for (k, v) in dict` destructures loop elements — and, since
 round 72, so does `for k, v in dict` (parentheses optional) and
 `if let (a, b) = t` (nil is the only "no"; a shape mismatch is an
-error). **Tuple splat (round 72)**: a single N-tuple argument to an
-N-parameter function spreads into its parameters — `d.map { k, v in
-}` receives the `(key, value)` pair as two; `{ $0 }` still gets the
-tuple whole; a splat only ever turns an arity error into a call, so
-it is never ambiguous. OPEN: labels.
+error). **A tuple is a rigid Array of arguments (round 73, revising
+72's narrower splat)**: a sole Tuple argument IS the argument list —
+`$` holds its elements, so in `d.map { }` `$0` is k and `$1` is v,
+and declared parameters bind to them with arity checked against
+them (`{ t in }` given a 2-tuple is an error; wrap as `((1, 2),)` to
+pass a tuple whole). Builtins are exempt (`print((1, 2))` prints the
+tuple). **`.enumerated()`** (round 73) yields `(index, element)`
+tuples — lazily on a Sequence value, as an Array on the eager
+conformers. OPEN: labels.
 
 ### 2.2 Declarations — DECIDED
 
@@ -87,10 +91,11 @@ move(1, 2)         // fine — labels are optional (positional)
 * Exception: **a closure as the last argument stays last** — the
   trailing-closure slot is pinned, so trailing-closure syntax stays
   unambiguous.
-* **Tuple splat** (round 72): a single N-tuple argument to a function
-  declaring N parameters spreads into them (`f((1, 2))` for
-  `{ x, y in }`); Swift once had this (SE-0029 removed it), swiftalk
-  keeps it because a Tuple is a grab bag, not a type.
+* **A tuple is a rigid Array of arguments** (round 73, revising round
+  72's splat): a sole Tuple argument IS the argument list — `$` = its
+  elements, whether or not parameters are declared. Swift once had a
+  narrower form (SE-0029 removed it); swiftalk's is broader and
+  simpler because a Tuple is a grab bag, not a type.
 * (Contrast: in Swift, labels are part of the function's *name* —
   `insert(_:at:)` — and order is fixed. swiftalk labels are closer to
   Python/OCaml keyword arguments.)

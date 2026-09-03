@@ -974,3 +974,24 @@ the history. (Moved out of Design.md in round 65.)
   ever turns an arity error into a call — never ambiguous. eg/
   dictionary.swt now reads `for k, v in years` and `filter { k, v in
   ... }`, outputs unchanged. OPEN: labeled tuples.
+* **2026-09-01, round 73 — CORRECTION to round 72, and
+  `.enumerated()`** ("You are getting `d.map{ }` wrong. `$` accepts
+  the tuple. `$0` is k and `$1` is v. Consider the tuple as rigid
+  Array."). Round 72 splat only into *declared* parameters and left
+  `{ $0 }` holding the whole tuple — wrong. The principle now: **a
+  tuple is a rigid Array of arguments** — a sole Tuple argument IS
+  the argument list, so `$` holds its elements for every swiftalk
+  function, declared parameters or not: `d.map { "\($0)=\($1)" }`,
+  `d.map { $.count }` → 2, `[(1, 2)].map { $0 + $1 }`. Two
+  consequences accepted and recorded: a one-parameter function
+  given a 2-tuple is now an arity error (wrap it: `f(((1, 2),))`),
+  and `map { $0 }` over pairs yields firsts — rebuild with `($0,
+  $1)` or `$.Tuple()`; `reduce`'s two arguments never splat. Builtins
+  are exempt — they take Values raw, so `print((1, 2))` prints the
+  tuple. Round 72's tests and docs were revised to the corrected
+  rule (the log keeps both entries, as ever). And **`.enumerated()`**
+  on any Sequence conformer: `(index, element)` tuples — lazy on a
+  Sequence value (a fresh counter per iteration, so it stays
+  re-iterable; infinite is fine), an Array of tuples on the eager
+  conformers, Array-in-Array-out as with `map`. `for i, x in
+  xs.enumerated()` and `.map { i, x in }` read as expected.

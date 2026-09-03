@@ -21,6 +21,7 @@ Arrays are dense — a sparse array is a Dictionary.
 | `a.filter { }` | an Array of the kept |
 | `a.reduce(init) { acc, x in }` | fold |
 | `a.prefix(n)` | the first n |
+| `a.enumerated()` | an Array of `(index, element)` tuples (round 73) |
 | `a.Array()` | `a` |
 | `for x in a` | iteration |
 | `a.Sequence()` | see [Sequence.md](Sequence.md) — an Array is *not* a lazy Sequence, but conforms |

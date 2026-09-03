@@ -174,6 +174,8 @@ extension Swiftalk {
             case coroutine(body: FunctionObject)
             case mapped(SequenceObject, FunctionObject)
             case filtered(SequenceObject, FunctionObject)
+            /// `.enumerated()` (round 73): (index, element) tuples, lazily.
+            case enumerated(SequenceObject)
         }
         let kind: Kind
 

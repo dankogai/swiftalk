@@ -29,6 +29,34 @@ try interp.eval("var count = 1")
 try interp.eval("count = count + 1")         // .int(2)
 ```
 
+**A tuple is a rigid Array of arguments, and `.enumerated()`** are in
+(round 73, correcting 72): a sole tuple argument IS the argument list
+— `$` holds its elements:
+
+```text
+swiftalk> let d = ["k": 7]
+["k": 7]
+swiftalk> d.map { "\($0)=\($1)" }        // $0 is k, $1 is v
+["k=7"]
+swiftalk> d.map { $ }                     // $ is the rigid Array
+[["k", 7]]
+swiftalk> ["a", "b"].enumerated()
+[(0, "a"), (1, "b")]
+swiftalk> for i, x in ["a", "b"].enumerated() { print(i, x) }
+0 a
+1 b
+swiftalk> let naturals = Sequence { var n = 10; while true { yield n; n = n + 1 } }
+Sequence { ... }
+swiftalk> naturals.enumerated().prefix(2)  // lazy — infinite is fine
+[(0, 10), (1, 11)]
+swiftalk> let g = { t in t.count }
+{ t in ... }
+swiftalk> g((1, 2))                       // a 2-tuple is two arguments
+type error: expected 1 argument(s), got 2
+swiftalk> g(((1, 2),))                    // a 1-tuple passes it whole
+2
+```
+
 **`if let` destructuring, `for k, v in`, and tuple splat** are in
 (round 72) — a single N-tuple argument spreads into N parameters, so
 Dictionary closures read naturally:

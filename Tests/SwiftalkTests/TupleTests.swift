@@ -58,14 +58,15 @@ struct TupleTests {
         #expect(try eval("Tuple.conforms(to: Sequence)") == .bool(true))
     }
 
-    @Test("Dictionary pairs are (key, value) tuples: for-in, map, filter, reduce")
+    @Test("Dictionary pairs are (key, value) tuples — and a tuple is a rigid Array of arguments (round 73)")
     func dictionaryPairs() throws {
         #expect(try eval("var s = 0\nfor pair in [\"a\": 40, \"b\": 2] { s = s + pair.1 }\ns") == .int(42))
-        #expect(try eval("[\"a\": 1].map { $0.0 }") == .array([.string("a")]))
-        #expect(try eval("[\"a\": 1].map { $0 }") == .array([.tuple([.string("a"), .int(1)])]))
-        #expect(try eval("[\"a\": 1, \"b\": 2].filter { $0.1 == 2 }") == .dictionary([.string("b"): .int(2)]))
-        #expect(try eval("[\"a\": 1, \"b\": 2].reduce(0) { $0 + $1.1 }") == .int(3))
-        #expect(try eval("[\"a\": 1].map { $0.Type == Tuple }") == .array([.bool(true)]))
+        #expect(try eval("[\"a\": 1].map { $0 }") == .array([.string("a")]))          // $0 is the key
+        #expect(try eval("[\"a\": 1].map { $1 }") == .array([.int(1)]))               // $1 the value
+        #expect(try eval("[\"a\": 1].map { ($0, $1) }") == .array([.tuple([.string("a"), .int(1)])]))
+        #expect(try eval("[\"a\": 1, \"b\": 2].filter { $1 == 2 }") == .dictionary([.string("b"): .int(2)]))
+        #expect(try eval("[\"a\": 1, \"b\": 2].reduce(0) { $0 + $1.1 }") == .int(3))  // two args: no splat
+        #expect(try eval("[\"a\": 1].map { $.Tuple().Type == Tuple }") == .array([.bool(true)]))
     }
 
     @Test("a tuple literal is an expression pattern: switch matches by equality")

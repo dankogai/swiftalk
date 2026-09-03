@@ -45,4 +45,4 @@ print(primes.prefix(3), primes.prefix(3))    // [2, 3, 5] [2, 3, 5]
 
 // everything iterable is a Sequence: Strings by grapheme, Dictionaries by pair
 print("héllo".map { $0 + "." })              // ["h.", "é.", "l.", "l.", "o."]
-print(["a": 1].map { $0.0 })                 // ["a"]
+print(["a": 1].map { $0 })                   // ["a"] — the pair is $: $0 is the key

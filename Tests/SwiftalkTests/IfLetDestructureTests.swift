@@ -47,8 +47,9 @@ struct IfLetDestructureTests {
             == .dictionary([.string("b"): .int(2)]))
         // reduce passes (accumulator, pair): the pair stays a tuple
         #expect(try eval("[\"a\": 1, \"b\": 2].reduce(0) { acc, kv in acc + kv.1 }") == .int(3))
-        // a param-less closure gets the tuple itself as $0 — no splat
-        #expect(try eval("[\"a\": 1].map { $0.Type == Tuple }") == .array([.bool(true)]))
+        // round 73: `$` holds the tuple's elements — $0 is k, $1 is v
+        #expect(try eval("[\"a\": 1].map { \"\\($0)=\\($1)\" }") == .array([.string("a=1")]))
+        #expect(try eval("[\"a\": 1].map { $.count }") == .array([.int(2)]))
     }
 
     @Test("the general rule: one N-tuple argument spreads into N parameters")
@@ -58,8 +59,12 @@ struct IfLetDestructureTests {
         #expect(try eval("[(1, 2), (3, 4)].map { a, b in a * b }") == .array([.int(2), .int(12)]))
         // arity still rules: a 3-tuple into two parameters is an error
         #expect(throws: SwiftalkError.self) { try eval("let f = { x, y in x }\nf((1, 2, 3))") }
-        // a one-parameter function takes the tuple whole
-        #expect(try eval("let g = { t in t.count }\ng((1, 2))") == .int(2))
+        // a tuple IS the argument list: a one-parameter function given a
+        // 2-tuple is an arity error; wrap it in a 1-tuple to pass it whole
+        #expect(throws: SwiftalkError.self) { try eval("let g = { t in t.count }\ng((1, 2))") }
+        #expect(try eval("let g = { t in t.count }\ng(((1, 2),))") == .int(2))
+        // builtins take Values raw — print sees the tuple
+        #expect(try eval("(1, 2).String()") == .string("(1, 2)"))
         // $ sees the spread arguments
         #expect(try eval("let f = { x, y in $.count }\nf((1, 2))") == .int(2))
     }

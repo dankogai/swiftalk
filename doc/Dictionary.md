@@ -16,7 +16,7 @@ three keys), as SION allows. A homogeneous literal infers `[K: V]`
 | `d.count` | entries (nil-valued ones included) |
 | `d == e` | equality |
 | `for pair in d`, `for k, v in d` | `(key, value)` tuples — order unspecified; destructure or use `pair.0`/`pair.1` |
-| `d.map { k, v in }` | an **Array** of results — a two-parameter closure receives the pair as two (splat); `{ $0 }` gets the tuple |
+| `d.map { k, v in }`, `d.map { "\($0)=\($1)" }` | an **Array** of results — the `(key, value)` pair is the argument list: `k`/`v`, or `$0`/`$1` (`$` is `[k, v]`) |
 | `d.filter { }` | a **Dictionary** of the kept pairs (Swift-compatible) |
 | `d.reduce(init) { }` | fold over pairs |
 | `d.String()` | source form with keys sorted — deterministic |
