@@ -128,6 +128,30 @@ swiftalk> switch 9 { case 1: 1 }
 type error: switch is not exhaustive — nothing matches 9
 ```
 
+**MySION — a SION parser in swiftalk** (round 85, `eg/sion.swt`,
+write-up in [eg/sion.md](eg/sion.md)): swift-sion's README sample,
+every literal form, and the round-trip law through it — no RegExp,
+no String subscripts. Verified by `EgTests`, output line for line:
+
+```sh
+swift run swiftalk eg/sion.swt
+```
+
+```text
+-42 42.195 true nil true
+漢字、カタカナ、ひらがなの入ったstring😇
+[nil, true, 1, 1.0, "one", [1], ["one": 1.0]]
+["array": [], "bool": false, "dictionary": [:], "double": 0.0, "int": 0, "nil": nil, "string": ""]
+.Date(0.0) Date
+42 Data
+Unlike JSON and Property Lists, / Yes, SION / does accept / non-String keys. / like / Map of ECMAScript.
+...
+true .Date(1234567890.5)
+true Data([99, 97, 102, 195, 169])
+expected ',' or ']' at 5
+...
+```
+
 **`reversed` and `joined`** (round 84) — `reversed()` is always an
 Array; `joined()` concatenates Strings or flattens Arrays, separator
 optional:

@@ -969,6 +969,30 @@ O(1) indexing.
 * **OPEN**: whether to relax Swift's index-type dance
   (integer subscripts at O(n)?), regex literals.
 
+**String subscripts, slicing, and RegExp — LEANING (round 85)**. The
+user's question: "Both JavaScript and Swift screwed hard on
+subscripting String. Should we consider adding RegExp?" — and then,
+before deciding, "I want to know how far we can go WITHOUT RegExp.
+It is powerful but heavy on footprint. I am considering making it a
+module (oh, we haven't even talked about `import`)". The experiment
+is `eg/sion.swt` + `eg/sion.md`: a complete SION parser in swiftalk,
+no RegExp, no String subscripts — it went all the way on graphemes
+via `.Array()`, labeled tuples, and `Result` + `?`. Positions:
+**no integer subscripts on String** (that is the mistake both
+languages made — UTF-16 units in JS, `String.Index` pain in Swift);
+`s.Array()` is the honest random-access form and `.joined()` the way
+back. LEANING next: the index-free slicing family on every Sequence
+conformer (`suffix`, `dropFirst`, `dropLast`, `split`) plus a Range
+subscript on Array; then RegExp **as a module**, which makes
+`import` the prerequisite design — **OPEN**: modules and `import`
+(shape, what a module is, whether builtins like Regex live in one).
+Findings from the experiment, each OPEN: `%`; `"""` literals;
+newline continuation after a trailing binary operator; a strict
+`let` refusing `nil` (and `let` destructuring refusing a nil
+element); implicit-self `.name` shadowing format tags inside a type
+body; error messages without line numbers; Data's source form
+`Data([...])` vs SION's `.Data("base64")`.
+
 ## 12. Concurrency — `async`/`await`, colorless (round 53)
 
 **DECIDED (round 53): swiftalk has `async`/`await` — and functions are

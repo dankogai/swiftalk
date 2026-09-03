@@ -35,6 +35,12 @@ laws are checked byte-for-byte, the outputs line-for-line.
 * **[dictionary.swt](dictionary.swt)** — Dictionaries: `[Key: Value]`
   with any Hashable key, nil as a stored value vs `.has`, the
   sparse-array idiom, and a histogram.
+* **[sion.swt](sion.swt)** — **MySION**, a SION parser written in
+  swiftalk (round 85): swift-sion's README sample, every literal
+  form, `.Date`/`.Data` with a hand-rolled base64, `\u{...}` built
+  from UTF-8 bytes, comments — and the round-trip law verified
+  through it. No RegExp, no String subscripts. The write-up, with
+  what carried it and what got in the way, is [sion.md](sion.md).
 * **[sequence.swt](sequence.swt)** — Sequences, lazy by default: a
   generator, coroutines that `yield`, deferred `map`/`filter`,
   infinite primes pulled by `.prefix` and `for`-`in` with `break`.

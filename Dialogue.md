@@ -1188,3 +1188,31 @@ the history. (Moved out of Design.md in round 65.)
   `"a-b-c"` and `s.reversed().joined()` is the reverse-a-string
   idiom, which is what `reversed()` returning an Array buys. Swift's
   `separator:` label is accepted and dropped like `by:`/`where:`.
+
+* **2026-09-03, round 85 — MySION: a SION parser in swiftalk, to see
+  how far the language goes without RegExp** (the user, after my
+  round-84 note "the builtin OPEN list is now down to String
+  subscripts": "wait. We don't even have `.slice` and `substring`
+  yet. Both JavaScript and Swift screwed hard on subscripting
+  String. Should we consider adding RegExp?" — my assessment: no
+  integer subscripts on String, an index-free slicing family, and
+  Regex as the real answer; then the user: "Before 'Let's implement
+  the slicing family first, then Regex.', I want to know how far we
+  can go WITHOUT RegExp. It is powerful but heavy on footprint. I am
+  considering making it a module (oh, we haven't even talked about
+  `import`). So let's start implementing SION parser... Result in
+  `eg/sion.md`. Since SION will be built-in, use `MySION` as the
+  namespace"). The parser (`eg/sion.swt`, verified by `EgTests`)
+  handles every SION form, swift-sion's README sample verbatim, and
+  the round-trip law through it for all value types — a pure
+  recursive descent on `text.Array()` graphemes, each step returning
+  a `(value:, next:)` tuple, failures as `Result` propagated by `?`.
+  No RegExp was missed: a parser is what regexes are bad at. The
+  write-up in `eg/sion.md` lists what got in the way, nine findings
+  logged OPEN in Design §11 — the first three worth rounds of their
+  own: a strict `let` refuses `nil` (`let v: Any = Int(text)` is the
+  workaround, and `let (v, j) = r?` cannot bind a nil element at
+  all), no `%`, and newlines ending statements even after a trailing
+  `||`. Decided along the way: RegExp is to be a module, so `import`
+  is now the prerequisite design, OPEN; the slicing family and the
+  Array Range subscript stay LEANING for the round after.

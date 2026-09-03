@@ -1,0 +1,309 @@
+// MySION — a SION parser written in swiftalk (round 85).
+//
+// SION (github.com/dankogai/swift-sion) is JSON in Swift's literal
+// syntax: nil, Bool, Int (0x/0o/0b, _), Double (1e3, hex floats),
+// String with Swift escapes, .Date(epoch), .Data("base64"), [Array],
+// [Key: Value] with ANY key, [:] empty; // and /* */ comments.
+//
+// The point of the exercise: how far does swiftalk go with no RegExp
+// and no String subscripts? The answer is "all the way": graphemes
+// via .Array(), a pure recursive descent where every step takes a
+// position and returns a (value:, next:) tuple, and failures as
+// Results propagated with `?` (§8). Since SION is to become a
+// built-in type, this lives under its own name: MySION.
+
+struct MySION {
+    var chars: [String] = []                      // graphemes
+    init { text in .chars = text.Array() }
+
+    let at = { i in i < .chars.count ? .chars[i] : "" }
+    let fail = { i, what in Result.failure("\(what) at \(i)") }
+
+    // does the text at i start with word?
+    let matches = { i, word in
+        var k = 0
+        for c in word {
+            if .at(i + k) != c { return false }
+            k = k + 1
+        }
+        return true
+    }
+
+    // whitespace, // comments, /* comments */
+    let skip = { i in
+        var j = i
+        while true {
+            let c = .at(j)
+            if c == " " || c == "\n" || c == "\t" || c == "\r" {
+                j = j + 1
+            } else if c == "/" && .at(j + 1) == "/" {
+                while .at(j) != "" && .at(j) != "\n" { j = j + 1 }
+            } else if c == "/" && .at(j + 1) == "*" {
+                j = j + 2
+                while .at(j) != "" && !(.at(j) == "*" && .at(j + 1) == "/") { j = j + 1 }
+                j = j + 2
+            } else {
+                return j
+            }
+        }
+    }
+
+    // the whole document: one value, nothing after it
+    // (a nil value cannot be `let (value: v, ...)`-destructured — the
+    // strict let refuses to infer from nil — so the tuple is read by
+    // field wherever nil is a legitimate value)
+    let parse = {
+        let r = .value(.skip(0))?
+        let end = .skip(r.next)
+        if end < .chars.count { return .fail(end, "unexpected '\(.at(end))'") }
+        return Result.success(r.value)
+    }
+
+    // one value at i → Result.success((value:, next:)) or a failure
+    let value = { i in
+        let c = .at(i)
+        if c == "[" { return .container(i) }
+        if c == "\"" { return .string(i) }
+        if c == "." { return .dotForm(i) }
+        if c == "n" || c == "t" || c == "f" { return .keyword(i) }
+        if c == "D" && .matches(i, "Data(") { return .dataCall(i) }
+        if c == "-" || c == "+" || ("0" <= c && c <= "9") { return .number(i) }
+        if c == "" { return .fail(i, "unexpected end of input") }
+        return .fail(i, "unexpected '\(c)'")
+    }
+
+    let keyword = { i in
+        for (word, v) in [("nil", nil), ("true", true), ("false", false)] {
+            if .matches(i, word) { return Result.success((value: v, next: i + word.count)) }
+        }
+        return .fail(i, "unexpected '\(.at(i))'")
+    }
+
+    // Int or Double, scanned by shape and converted by the builtins:
+    // Int() takes 0x/0o/0b and _, Double() takes 1e3 and hex floats
+    let number = { i in
+        var j = i
+        var text = ""
+        if .at(j) == "-" || .at(j) == "+" { text = .at(j); j = j + 1 }
+        let hex = .at(j) == "0" && (.at(j + 1) == "x" || .at(j + 1) == "X")
+        var prev = ""
+        while true {
+            let c = .at(j)
+            let digit = "0" <= c && c <= "9"
+            let letter = (("a" <= c && c <= "f") || ("A" <= c && c <= "F") ||
+                          c == "x" || c == "X" || c == "o" || c == "O" || c == "p" || c == "P")
+            let expSign = ((c == "+" || c == "-") &&
+                           (prev == "p" || prev == "P" || (!hex && (prev == "e" || prev == "E"))))
+            if !(digit || letter || c == "." || c == "_" || expSign) { break }
+            text = text + c
+            prev = c
+            j = j + 1
+        }
+        let isDouble = text.contains(".") || text.contains(hex ? "p" : "e") || text.contains(hex ? "P" : "E")
+        let v: Any = isDouble ? Double(text) : Int(text)   // Any: a strict let refuses nil
+        if v == nil { return .fail(i, "bad number '\(text)'") }
+        return Result.success((value: v, next: j))
+    }
+
+    // "..." with Swift's escapes; \u{...} is built by hand — a code
+    // point to its UTF-8 bytes, then Data(bytes).String(.utf8)
+    let string = { i in
+        var j = i + 1
+        var out = ""
+        while true {
+            let c = .at(j)
+            if c == "" { return .fail(j, "unterminated string") }
+            if c == "\"" { return Result.success((value: out, next: j + 1)) }
+            if c != "\\" { out = out + c; j = j + 1; continue }
+            let e = .at(j + 1)
+            if e == "n" { out = out + "\n"; j = j + 2 }
+            else if e == "t" { out = out + "\t"; j = j + 2 }
+            else if e == "r" { out = out + "\r"; j = j + 2 }
+            else if e == "0" { out = out + "\0"; j = j + 2 }
+            else if e == "\\" || e == "\"" || e == "'" { out = out + e; j = j + 2 }
+            else if e == "u" && .at(j + 2) == "{" {
+                var k = j + 3
+                var hex = ""
+                while .at(k) != "}" && .at(k) != "" { hex = hex + .at(k); k = k + 1 }
+                let scalar: Any = .fromCodePoint(Int("0x" + hex))
+                if scalar == nil { return .fail(j, "bad escape \\u{\(hex)}") }
+                out = out + scalar
+                j = k + 1
+            }
+            else { return .fail(j, "unknown escape \\\(e)") }
+        }
+    }
+
+    // (named fromCodePoint, not utf8: inside a type body .utf8 would
+    // be the implicit-self member, shadowing the .String(.utf8) tag)
+    // no %, no bit operators: v - v / n * n is v mod n
+    let fromCodePoint = { code in
+        if code == nil { return nil }
+        let mod = { v, n in v - v / n * n }
+        var bytes: [Int] = []
+        if code < 0x80 { bytes = [code] }
+        else if code < 0x800 { bytes = [0xC0 + code / 64, 0x80 + mod(code, 64)] }
+        else if code < 0x10000 {
+            bytes = [0xE0 + code / 4096, 0x80 + mod(code / 64, 64), 0x80 + mod(code, 64)]
+        } else {
+            bytes = [0xF0 + code / 262144, 0x80 + mod(code / 4096, 64),
+                     0x80 + mod(code / 64, 64), 0x80 + mod(code, 64)]
+        }
+        return Data(bytes).String(.utf8)
+    }
+
+    // SION's .Date(epoch) and .Data("base64")
+    let dotForm = { i in
+        if .matches(i, ".Date(") {
+            let (value: t, next: j) = .number(i + 6)?
+            if .at(j) != ")" { return .fail(j, "expected ')'") }
+            return Result.success((value: Date(t), next: j + 1))
+        }
+        if .matches(i, ".Data(") {
+            let (value: b64, next: j) = .string(i + 6)?
+            if .at(j) != ")" { return .fail(j, "expected ')'") }
+            let bytes: Any = .base64(b64)
+            if bytes == nil { return .fail(i + 6, "bad base64") }
+            return Result.success((value: Data(bytes), next: j + 1))
+        }
+        return .fail(i, "unexpected '.'")
+    }
+
+    // swiftalk's own Data source form, Data([99, 97]) — so the
+    // round-trip law can include Data (§3d)
+    let dataCall = { i in
+        let (value: bytes, next: j) = .container(i + 5)?
+        if .at(j) != ")" { return .fail(j, "expected ')'") }
+        let d: Any = Data(bytes)
+        if d == nil { return .fail(i, "Data wants bytes") }
+        return Result.success((value: d, next: j + 1))
+    }
+
+    let base64 = { text in
+        let alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/".Array()
+        var index = [:]
+        for (i, c) in alphabet.enumerated() { index[c] = i }
+        let cs = text.Array()
+        var bytes: [Int] = []
+        var i = 0
+        while i + 3 < cs.count {
+            var n = 0
+            var pad = 0
+            for k in 0...3 {
+                let c = cs[i + k]
+                if c == "=" { pad = pad + 1; n = n * 64; continue }
+                let v: Any = index[c]
+                if v == nil { return nil }
+                n = n * 64 + v
+            }
+            bytes.append(n / 65536)
+            if pad < 2 { bytes.append(n / 256 - n / 65536 * 256) }
+            if pad < 1 { bytes.append(n - n / 256 * 256) }
+            i = i + 4
+        }
+        if i != cs.count { return nil }
+        return bytes
+    }
+
+    // [ ... ] — empty, [:], an Array, or a Dictionary, decided by
+    // what follows the first element; trailing commas allowed
+    let container = { i in
+        var j = .skip(i + 1)
+        if .at(j) == ":" {
+            j = .skip(j + 1)
+            if .at(j) != "]" { return .fail(j, "expected ']'") }
+            return Result.success((value: [:], next: j + 1))
+        }
+        if .at(j) == "]" { return Result.success((value: [], next: j + 1)) }
+        let first = .value(j)?
+        j = .skip(first.next)
+        if .at(j) == ":" {
+            var dict: [Any: Any] = [:]
+            var key: Any = first.value
+            j = j + 1
+            while true {
+                let r = .value(.skip(j))?
+                dict[key] = r.value
+                j = .skip(r.next)
+                if .at(j) == "]" { return Result.success((value: dict, next: j + 1)) }
+                if .at(j) != "," { return .fail(j, "expected ',' or ']'") }
+                j = .skip(j + 1)
+                if .at(j) == "]" { return Result.success((value: dict, next: j + 1)) }
+                let k = .value(j)?
+                key = k.value
+                j = .skip(k.next)
+                if .at(j) != ":" { return .fail(j, "expected ':'") }
+                j = j + 1
+            }
+        }
+        var items: [Any] = [first.value]
+        while true {
+            if .at(j) == "]" { return Result.success((value: items, next: j + 1)) }
+            if .at(j) != "," { return .fail(j, "expected ',' or ']'") }
+            j = .skip(j + 1)
+            if .at(j) == "]" { return Result.success((value: items, next: j + 1)) }
+            let r = .value(j)?
+            items.append(r.value)
+            j = .skip(r.next)
+        }
+    }
+}
+
+// --- the README sample of swift-sion, verbatim (no """ yet: joined) ---
+let sample = [
+    "[",
+    "    \"nil\":      nil,",
+    "    \"bool\":     true,",
+    "    \"int\":      -42,",
+    "    \"double\":   42.195,",
+    "    \"string\":   \"漢字、カタカナ、ひらがなの入ったstring😇\",",
+    "    \"array\":    [nil, true, 1, 1.0, \"one\", [1], [\"one\":1.0]],",
+    "    \"dictionary\":   [",
+    "        \"nil\":      nil,",
+    "        \"bool\":     false,",
+    "        \"int\":      0,",
+    "        \"double\":   0.0,",
+    "        \"string\":   \"\",",
+    "        \"array\":    [],",
+    "        \"dictionary\": [:]",
+    "    ],",
+    "    \"url\":\"https://github.com/dankogai/\",",
+    "    \"date\":.Date(0x0p+0),",
+    "    \"data\":.Data(\"R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7\"),",
+    "    nil:        \"Unlike JSON and Property Lists,\",",
+    "    true:       \"Yes, SION\",",
+    "    1:          \"does accept\",",
+    "    1.0:        \"non-String keys.\",",
+    "    []:         \"like\",",
+    "    [:]:        \"Map of ECMAScript.\"",
+    "]",
+].joined("\n")
+
+let doc: [Any: Any] = MySION(sample).parse()!     // mixed keys need the annotation (§3)
+print(doc["int"], doc["double"], doc["bool"], doc["nil"], doc.has("nil"))
+print(doc["string"])
+print(doc["array"])
+print(doc["dictionary"])
+print(doc["date"], doc["date"].Type)
+print(doc["data"].count, doc["data"].Type)
+print(doc[nil], "/", doc[true], "/", doc[1], "/", doc[1.0], "/", doc[[]], "/", doc[[:]])
+
+// --- numbers, escapes, comments ---
+print(MySION("[0xff, 0o17, 0b101, 1_000, -7, 1e3, 0x1p-2, 6.02e+23]").parse()!)
+print(MySION("\"tab\\tnew\\nline \\u{1F600} \\\"quoted\\\"\"").parse()!)
+print(MySION("[1, /* two */ 2, // three\n 3,]").parse()!)
+
+// --- the round-trip law, eval(x.String(.quoted)) == x (§3d, round 42),
+// --- through a parser written in swiftalk
+let values: [Any] = [nil, true, -42, 42.195, 1e100, "漢字😇\n", [1, [2, [3]]],
+                     ["k": [nil, 1.5]], [nil: [:], 1.0: [], "😇": true],
+                     Date(1234567890.5), "café".Data()]
+for v in values {
+    let back: Any = MySION(v.String(.quoted)).parse()!
+    print(back == v, v.String(.quoted))
+}
+
+// --- failures are Results, with a position ---
+for bad in ["[1, 2", "[1 2]", "\"open", "[\"k\" 1]", ".Data(\"@@@@\")", "[1] x", "tru"] {
+    print(MySION(bad).parse().failure)
+}

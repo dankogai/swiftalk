@@ -131,4 +131,40 @@ struct EgTests {
         #expect(try output(of: try slurp("ski.swt"))
             == "42\n42\nyes\nno\n42\n42\n1\n42\n")
     }
+
+    @Test("sion.swt: MySION — a SION parser in swiftalk — parses swift-sion's README sample; the round-trip law holds through it (round 85)")
+    func sion() throws {
+        #expect(try output(of: try slurp("sion.swt")) == """
+            -42 42.195 true nil true
+            漢字、カタカナ、ひらがなの入ったstring😇
+            [nil, true, 1, 1.0, "one", [1], ["one": 1.0]]
+            ["array": [], "bool": false, "dictionary": [:], "double": 0.0, "int": 0, "nil": nil, "string": ""]
+            .Date(0.0) Date
+            42 Data
+            Unlike JSON and Property Lists, / Yes, SION / does accept / non-String keys. / like / Map of ECMAScript.
+            [255, 15, 5, 1000, -7, 1000.0, 0.25, 6.02e+23]
+            tab\tnew
+            line 😀 "quoted"
+            [1, 2, 3]
+            true nil
+            true true
+            true -42
+            true 42.195
+            true 1e+100
+            true "漢字😇\\n"
+            true [1, [2, [3]]]
+            true ["k": [nil, 1.5]]
+            true ["😇": true, 1.0: [], nil: [:]]
+            true .Date(1234567890.5)
+            true Data([99, 97, 102, 195, 169])
+            expected ',' or ']' at 5
+            expected ',' or ']' at 3
+            unterminated string at 5
+            expected ',' or ']' at 5
+            bad base64 at 6
+            unexpected 'x' at 4
+            unexpected 't' at 0
+
+            """)
+    }
 }
