@@ -20,7 +20,9 @@ source form round-trips.
 | `case (1, "x"):` | a tuple literal is an expression pattern — matched by equality |
 | `let (a, b) = t`, `var (a, b) = t` | destructuring (round 71): by position, arity checked, `_` discards, nests; each name takes its own lock |
 | `(a, b) = (b, a)` | destructuring assignment — the right side evaluates whole first, so swaps work; targets may be paths |
-| `for (k, v) in d` | destructuring loop variables — over any sequence of tuples |
+| `for (k, v) in d`, `for k, v in d` | destructuring loop variables — parentheses optional (round 72) |
+| `if let (a, b) = t` | destructures a non-nil tuple; nil takes the else; a shape mismatch is an error |
+| `f((1, 2))` for `{ x, y in }` | **splat**: a single N-tuple argument spreads into N parameters — `d.map { k, v in }` |
 
 Dictionaries hand out `(key, value)` tuples: in `for`-`in`, `map`,
 `filter`, and `reduce`.
@@ -37,4 +39,4 @@ var (a, b) = (0, 1)
 for _ in 1...10 { (a, b) = (b, a + b) }   // a == 55
 ```
 
-OPEN: labeled tuples `(x: 1, y: 2)`; destructuring in `if let`.
+OPEN: labeled tuples `(x: 1, y: 2)`.

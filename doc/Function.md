@@ -13,6 +13,7 @@ checked at call time.
 | `{ _, x in }` | `_` is positional-only: no label, no binding, `$0` only (round 61) |
 | `f(x: 1, y: 2)`, `f(y: 2, x: 1)`, `f(1, 2)` | all the same call; an undefined label is an error |
 | `f(a) { ... }` | trailing closure — the pinned last argument |
+| `f((1, 2))` for `{ x, y in }` | tuple splat (round 72): one N-tuple argument spreads into N parameters; a 1-parameter function takes the tuple whole |
 | `$(args)` | recursion — calls the innermost enclosing function |
 | `let f: Function = .todo` | deferred init: exactly one later assignment (named/mutual recursion) |
 | `f.Type` | `Function` |

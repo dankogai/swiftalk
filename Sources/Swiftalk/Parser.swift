@@ -84,7 +84,7 @@ enum CaseBinding {
 /// that must land non-nil, or a Bool that must hold — evaluated left
 /// to right, short-circuiting, later clauses seeing earlier bindings.
 enum IfCondition {
-    case binding(mutable: Bool, name: String, expr: Expr)
+    case binding(mutable: Bool, pattern: BindPattern, expr: Expr)   // if let (a, b) = t (round 72)
     case boolean(Expr)
 }
 
@@ -240,7 +240,20 @@ struct Parser {
         case .identifier("for"):
             pos += 1
             // `for x in` or `for (k, v) in` (round 71): a binding pattern
-            let pattern = try parseBindPattern()
+            var patterns = [try parseBindPattern()]
+            // `for k, v in d` — bare comma-separated names destructure
+            // each element, parentheses optional (round 72)
+            while case .punct(",")? = peek {
+                pos += 1
+                patterns.append(try parseBindPattern())
+            }
+            let pattern: BindPattern = patterns.count == 1 ? patterns[0] : .tuple(patterns)
+            var loopNames = Set<String>()
+            for name in Parser.names(in: pattern) {
+                guard loopNames.insert(name).inserted else {
+                    throw SwiftalkError.syntax("'\(name)' appears twice in the loop pattern")
+                }
+            }
             guard case .identifier("in")? = advance() else {
                 throw SwiftalkError.syntax("expected 'in' after the loop variable")
             }
@@ -322,18 +335,27 @@ struct Parser {
             if peek == .identifier("let") || peek == .identifier("var") {
                 let mutable = peek == .identifier("var")
                 pos += 1
-                guard case .identifier(let name)? = advance(),
-                      !keywords.contains(name), !name.hasPrefix("$") else {
-                    throw SwiftalkError.syntax("expected a name after 'if let'")
-                }
-                let expr: Expr
-                if case .punct("=")? = peek {
-                    pos += 1
-                    expr = try withTrailing(false) { try $0.parseExpr() }
+                // `if let (a, b) = t` destructures (round 72); the
+                // shorthand `if let x { }` needs a name to shadow.
+                if case .punct("(")? = peek {
+                    let pattern = try parseBindPattern()
+                    try expect("=")
+                    let expr = try withTrailing(false) { try $0.parseExpr() }
+                    conditions.append(.binding(mutable: mutable, pattern: pattern, expr: expr))
                 } else {
-                    expr = .variable(name)     // shorthand: if let x { }
+                    guard case .identifier(let name)? = advance(),
+                          !keywords.contains(name), !name.hasPrefix("$") else {
+                        throw SwiftalkError.syntax("expected a name after 'if let'")
+                    }
+                    let expr: Expr
+                    if case .punct("=")? = peek {
+                        pos += 1
+                        expr = try withTrailing(false) { try $0.parseExpr() }
+                    } else {
+                        expr = .variable(name)     // shorthand: if let x { }
+                    }
+                    conditions.append(.binding(mutable: mutable, pattern: .name(name), expr: expr))
                 }
-                conditions.append(.binding(mutable: mutable, name: name, expr: expr))
             } else {
                 conditions.append(.boolean(try withTrailing(false) { try $0.parseExpr() }))
             }
@@ -882,6 +904,15 @@ struct Parser {
             return .tuple(try elements.map { try lvalue(from: $0) })
         default:
             throw SwiftalkError.syntax("this expression is not assignable")
+        }
+    }
+
+    /// The names a pattern binds (`_` excluded).
+    private static func names(in pattern: BindPattern) -> [String] {
+        switch pattern {
+        case .name("_"):        return []
+        case .name(let n):      return [n]
+        case .tuple(let ps):    return ps.flatMap(names)
         }
     }
 

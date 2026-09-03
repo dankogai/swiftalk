@@ -374,16 +374,15 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
         var pass = true
         loop: for condition in conditions {
             switch condition {
-            case .binding(let mutable, let name, let expr):
+            case .binding(let mutable, let pattern, let expr):
+                // nil is the only "no"; a tuple pattern that does not
+                // fit a non-nil value is an error, not an else (round 72)
                 let value = try evaluate(expr, in: scope)
                 guard value != .nil else {
                     pass = false
                     break loop
                 }
-                try scope.declare(name, Binding(
-                    mutable: mutable,
-                    lock: TypeAnnotation(name: value.typeName, optional: false),
-                    value: value))
+                try bind(pattern, value, mutable: mutable, in: scope, strict: false)
             case .boolean(let expr):
                 guard case .bool(let flag) = try evaluate(expr, in: scope) else {
                     throw SwiftalkError.type(
@@ -2149,6 +2148,15 @@ func apply(_ fn: FunctionObject, args: [(label: String?, value: Value)]) throws 
         }
         ordered = args.map(\.value)
     } else {
+        var args = args
+        // Tuple splat (round 72): a single N-tuple argument to an
+        // N-parameter function spreads into its parameters — so
+        // `d.map { k, v in ... }` receives the (key, value) pair as two.
+        // Only ever turns an arity error into a call; never ambiguous.
+        if fn.parameters.count > 1, args.count == 1, args[0].label == nil,
+           case .tuple(let elements) = args[0].value, elements.count == fn.parameters.count {
+            args = elements.map { (label: nil, value: $0) }
+        }
         guard args.count == fn.parameters.count else {
             throw SwiftalkError.type(
                 "expected \(fn.parameters.count) argument(s), got \(args.count)")

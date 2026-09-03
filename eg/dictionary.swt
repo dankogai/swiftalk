@@ -33,9 +33,10 @@ let before = years
 years["kotlin"] = 2011
 print(before.has("kotlin"), years.has("kotlin"))   // false true
 
-// iteration yields (key, value) tuples (order unspecified — aggregate, don't list)
+// iteration yields (key, value) tuples — `for k, v in` destructures them
+// (order unspecified — aggregate, don't list)
 var total = 0
-for pair in years { total = total + pair.1 }
+for k, v in years { total = total + v }
 print(total)                                 // 8023
 
 // the classic dictionary job: a histogram
@@ -43,5 +44,6 @@ var counts = [:]
 for c in "mississippi" { counts[c] = (counts[c] ?? 0) + 1 }
 print(counts)                                // ["i": 4, "m": 1, "p": 2, "s": 4]
 
-// filter sees (key, value) tuples and keeps the Dictionary; map returns an Array
-print(years.filter { $0.1 < 2000 })         // ["smalltalk": 1972]
+// filter sees (key, value) tuples and keeps the Dictionary; map returns an Array.
+// a two-parameter closure receives the pair as two: { k, v in ... }
+print(years.filter { k, v in v < 2000 })     // ["smalltalk": 1972]

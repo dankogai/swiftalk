@@ -955,3 +955,22 @@ the history. (Moved out of Design.md in round 65.)
   the natural sequel to round 70's `(key, value)` pairs. The REPL's
   relaxed mode distributes: `(x, y) = (1, 2)` declares both. OPEN:
   destructuring in `if let`; labeled tuples.
+* **2026-09-01, round 72 — `if let` destructuring, `for k, v in`,
+  and tuple splat** ("destructuring in `if let`. And (k,v)
+  destructure for Dictionary so `for k,v in d` and `d.map{ k, v in
+  ...}` works as expected"). `if let (a, b) = t` binds a non-nil
+  tuple (with `if var`, in comma chains); nil is the only "no" — a
+  shape mismatch against a non-nil value is an error, not an else
+  (Swift's rule). `for k, v in d` is `for (k, v) in d` with the
+  parentheses optional (duplicate names refused). The Dictionary
+  closure case wanted a *general* mechanism, not a special case:
+  **tuple splat** — a single N-tuple argument to an N-parameter
+  function spreads into its parameters, so `d.map { k, v in }`,
+  `d.filter { k, v in }`, `[(1, 2)].map { a, b in }`, and `f((1, 2))`
+  all just work, `$` sees the spread, `{ $0 }` still gets the tuple
+  whole, and `reduce`'s `(acc, pair)` is untouched. Swift once had
+  this (SE-0029 removed it for type-system reasons); swiftalk keeps
+  it because a Tuple is a grab bag, not a type, and a splat only
+  ever turns an arity error into a call — never ambiguous. eg/
+  dictionary.swt now reads `for k, v in years` and `filter { k, v in
+  ... }`, outputs unchanged. OPEN: labeled tuples.

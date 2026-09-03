@@ -29,6 +29,29 @@ try interp.eval("var count = 1")
 try interp.eval("count = count + 1")         // .int(2)
 ```
 
+**`if let` destructuring, `for k, v in`, and tuple splat** are in
+(round 72) — a single N-tuple argument spreads into N parameters, so
+Dictionary closures read naturally:
+
+```text
+swiftalk> for k, v in ["x": 9] { print(k, v) }
+x 9
+swiftalk> ["a": 1].map { k, v in "\(k)=\(v)" }
+["a=1"]
+swiftalk> ["a": 1, "b": 2].filter { k, v in v > 1 }
+["b": 2]
+swiftalk> let pairs = ["p": (1, 2)]
+["p": (1, 2)]
+swiftalk> if let (a, b) = pairs["p"] { print(a + b) } else { print("none") }
+3
+swiftalk> if let (a, b) = pairs["q"] { print(a + b) } else { print("none") }
+none
+swiftalk> let f = { x, y in x + y }
+{ x, y in ... }
+swiftalk> f((40, 2))                  // the splat: one 2-tuple, two parameters
+42
+```
+
 **Tuple destructuring** is in (round 71) — `let (a, b) = t`, `var`,
 `_`, nesting; destructuring assignment (the swap works: the right side
 evaluates whole first); `for (k, v) in dict`:
