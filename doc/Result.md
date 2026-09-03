@@ -14,7 +14,7 @@ case accessors, equality, source form.
 | `r?` | postfix: unwraps success, **early-returns the failure** (or nil) from the enclosing function |
 | `r!` | unwraps success; traps on failure |
 | `r ?? d` | the success payload, or `d` on failure/nil (lazy right side) |
-| `switch r { case .success(let v): ... case .failure(let e): ... }` | exhaustive |
+| `switch r { case let v = .success: ... case let e = .failure: ... }` | exhaustive; `if let e = r.failure { }` for one side |
 | `r.Type == Result`, `r == s` | as any enum |
 
 ```swiftalk

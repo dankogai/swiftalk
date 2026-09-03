@@ -47,8 +47,8 @@ enum Shape {
 }
 let area = { s in
     switch s {
-    case .circle(let r):    3.14159265358979 * r * r
-    case .rect(let w, let h): w * h
+    case let r = .circle:    3.14159265358979 * r * r
+    case let (w, h) = .rect: w * h
     }   // a future third case reaching here without a match: runtime error
 }
 

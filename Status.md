@@ -31,7 +31,7 @@ try interp.eval("count = count + 1")         // .int(2)
 
 **`if let r = s.circle`** is the way (round 77) — the case accessor is
 an ordinary `if let`; several payloads come back as a tuple labeled as
-the case declares (`if case` is retained but discouraged):
+the case declares (`if case` is gone since round 78):
 
 ```text
 swiftalk> enum Shape {
@@ -49,6 +49,48 @@ swiftalk> if let (w, h) = s.rect { print(w * h) }
 12.0
 swiftalk> if let (h: h, w: w) = s.rect { print(w, h) }
 3.0 4.0
+```
+
+**`case let r = .circle:`** (round 78) — a `switch` binds a case the
+way `if let` does: the case accessor on the subject, nil the only
+"no". And **`let` is optional** in every binding condition — an `=`
+in a condition can only mean "bind", since assignment is a statement.
+Swift's `if case` and `.circle(let r)` are gone, with hints:
+
+```text
+swiftalk> enum Shape {
+      case circle(r: Double)
+      case rect(w: Double, h: Double)
+  }
+Shape
+swiftalk> let area = { s in
+      switch s {
+      case let r = .circle:    return 3.14159265358979 * r * r
+      case let (w, h) = .rect: return w * h
+      }
+  }
+{ s in ... }
+swiftalk> area(Shape.rect(w: 3.0, h: 4.0))
+12.0
+swiftalk> let s = Shape.circle(r: 2.0)
+Shape.circle(r: 2.0)
+swiftalk> if r = s.circle { print("circle", r) }
+circle 2.0
+swiftalk> if (w, h) = s.rect { print(w * h) } else { print("not a rect") }
+not a rect
+swiftalk> switch s { case r = .circle: print("r =", r) case .rect: print("rect") }
+r = 2.0
+swiftalk> let d = [0: "a", 1: "b"]
+[0: "a", 1: "b"]
+swiftalk> var i = 0
+0
+swiftalk> while c = d[i] { print(c); i = i + 1 }
+a
+b
+swiftalk> switch s { case .circle(let r): print(r) }
+syntax error: case .circle(let x) is not swiftalk — write case let x = .circle (or case x = .circle)
+swiftalk> if case .circle(let r) = s { }
+syntax error: 'if case' is not swiftalk — write if let r = s.circle (or if r = s.circle)
 ```
 
 **`while let`** is in (round 76) — `if let`'s condition list, re-evaluated
@@ -463,8 +505,8 @@ swiftalk> fact = { 0 }
 type error: cannot assign to let constant 'fact'
 ```
 
-**Enums** are in — associated values, `switch` with `case let`
-destructuring, `if case`, and runtime-enforced exhaustiveness:
+**Enums** are in — associated values, `switch` binding cases with
+`case let r = .circle` (round 78), and runtime-enforced exhaustiveness:
 
 ```text
 swiftalk> enum Shape {
@@ -474,10 +516,11 @@ swiftalk> enum Shape {
 Shape
 swiftalk> let area = { s in
   switch s {
-  case .circle(let r): return 3.14159265358979 * r * r
-  case .rect(let w, let h): return w * h
+  case let r = .circle:    return 3.14159265358979 * r * r
+  case let (w, h) = .rect: return w * h
   }
   }
+{ s in ... }
 swiftalk> area(Shape.rect(w: 3.0, h: 4.0))
 12.0
 swiftalk> Shape.circle(r: 2.5)

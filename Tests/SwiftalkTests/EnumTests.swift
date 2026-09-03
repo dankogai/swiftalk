@@ -1,7 +1,7 @@
 import Testing
 @testable import Swiftalk
 
-@Suite("enums: declaration, construction, switch, if case (§7, round 45)")
+@Suite("enums: declaration, construction, switch (§7, round 45; case let r = .circle since round 78)")
 struct EnumTests {
     private let shape = """
         enum Shape {
@@ -62,8 +62,8 @@ struct EnumTests {
             \(shape)
             let area = { s in
                 switch s {
-                case .circle(let r): return 3.14159265358979 * r * r
-                case .rect(let w, let h): return w * h
+                case let r = .circle: return 3.14159265358979 * r * r
+                case let (w, h) = .rect: return w * h
                 case .point: return 0.0
                 }
             }
@@ -74,13 +74,13 @@ struct EnumTests {
     @Test("runtime exhaustiveness: no match and no default is an error (§7)")
     func exhaustiveness() throws {
         #expect(throws: SwiftalkError.self) {
-            try eval("\(shape)\nswitch Shape.point { case .circle(let r): r }")
+            try eval("\(shape)\nswitch Shape.point { case let r = .circle: r }")
         }
         #expect(try eval("""
             \(shape)
             var r = 0
             switch Shape.point {
-            case .circle(let x): r = 1
+            case let x = .circle: r = 1
             default: r = 2
             }
             r
@@ -117,22 +117,28 @@ struct EnumTests {
         #expect(throws: SwiftalkError.self) { try eval("switch 9 { case 1: 1 }") }
     }
 
-    @Test("if case with bindings; annotation-directed .case initializers")
+    @Test("annotation-directed .case initializers; Swift's if case / .case(let x) are gone (round 78)")
     func ifCase() throws {
         #expect(try eval("""
             \(shape)
             let s: Shape = .circle(r: 5.0)
             var r = 0.0
-            if case .circle(let radius) = s { r = radius } else { r = -1.0 }
+            if let radius = s.circle { r = radius } else { r = -1.0 }
             r
             """) == .double(5.0))
         #expect(try eval("""
             \(shape)
             let s: Shape = .point
             var r = 0.0
-            if case .circle(let radius) = s { r = radius } else { r = -1.0 }
+            if radius = s.circle { r = radius } else { r = -1.0 }
             r
             """) == .double(-1.0))
+        #expect(throws: SwiftalkError.self) {
+            try eval("\(shape)\nif case .circle(let r) = Shape.point { }")
+        }
+        #expect(throws: SwiftalkError.self) {
+            try eval("\(shape)\nswitch Shape.point { case .circle(let r): r }")
+        }
     }
 
     @Test("boxing, not flat: an enum value's typeName is its enum (§3c contrast)")
@@ -142,7 +148,7 @@ struct EnumTests {
         #expect(try eval("""
             enum Wrap { case just(Int) }
             var n = 0
-            if case .just(let x) = Wrap.just(42) { n = x }
+            if x = Wrap.just(42).just { n = x }
             n
             """) == .int(42))
         #expect(throws: SwiftalkError.self) { try eval("enum W { case a }\nW.a + 1") }

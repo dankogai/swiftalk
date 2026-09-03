@@ -72,12 +72,12 @@ element      = [ IDENT ":" ] pattern ;                 (* labeled binds by label
 ### Control flow
 
 ```
-if           = "if" conditions block [ "else" ( if | block ) ]
-             | "if" "case" casePattern "=" expression block [ "else" ( if | block ) ] ;
+if           = "if" conditions block [ "else" ( if | block ) ] ;
 conditions   = condition { "," condition } ;
 condition    = expression                              (* must be a Bool *)
-             | ( "let" | "var" ) IDENT [ "=" expression ]   (* shorthand: if let x { } *)
-             | ( "let" | "var" ) pattern "=" expression ;   (* nil fails; a misfit errors *)
+             | ( "let" | "var" ) IDENT                 (* shorthand: if let x { } *)
+             | [ "let" | "var" ] pattern "=" expression ;  (* nil fails; a misfit errors;
+                                                          let optional since round 78 *)
 
 while        = "while" conditions block ;              (* while let: fresh bindings per pass *)
 repeat       = "repeat" block "while" expression ;
@@ -88,10 +88,17 @@ switch       = "switch" expression "{"
                  [ "default" ":" { statement } ]
                "}" ;                                   (* no match, no default: runtime error *)
 casePattern  = "_"
-             | expression                              (* equality; a Range matches an Int by containment *)
-             | "." IDENT [ "(" ( "let" IDENT | "_" ) { "," ( "let" IDENT | "_" ) } ")" ] ;
+             | "." IDENT                               (* the subject's case, any payload *)
+             | [ "let" | "var" ] pattern "=" "." IDENT (* case let r = .circle: the accessor; nil fails *)
+             | expression ;                            (* equality; a Range matches an Int by containment *)
 block        = "{" { statement } "}" ;
 ```
+
+A condition or case that starts with a pattern followed by `=` is a
+binding; anything else is an expression (`if x == y`, `case (a, b):`).
+Assignment is a statement, so the `=` is unambiguous. Swift's `if
+case` and `.name(let x)` are syntax errors that name the replacement
+(round 78).
 
 Trailing closures are disabled inside `if`/`while`/`for`/`switch`
 headers (`if c { }` must read `{` as the block) — parenthesize a

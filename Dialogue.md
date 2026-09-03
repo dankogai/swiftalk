@@ -1057,3 +1057,25 @@ the history. (Moved out of Design.md in round 65.)
   drains. Unlabeled payloads make an unlabeled tuple. `if case` is
   retained (switch still needs its patterns) but marked discouraged
   in the docs; removing it outright is OPEN pending the user's word.
+* **2026-09-03, round 78 — `case let r = .circle:`, and `let` optional
+  in bindings** (the user, on §14's `area`: "`.casename(let v)` should
+  be `let v = .casename`... Maybe we should even consider making `let`
+  in `if let`, `while let` optional. `if v = optional` does `if let v
+  = optional`"). Revises round 77's "retained but discouraged": with
+  the user's word given, Swift's `case .circle(let r):` and `if case`
+  are **removed** — each is now a syntax error with a hint at the
+  replacement — and a `switch` clause binds the way `if let` does:
+  `case let r = .circle:` / `case let (w, h) = .rect:` apply the
+  round-46 case accessor to the subject, nil being the only "no";
+  labeled patterns (`case (h: h, w: w) = .rect:`) ride round 77's
+  labeled tuples; bare `case .circle:` still matches any payload.
+  Each attempt binds into its own scope, so a failed case leaves
+  nothing behind. Asked whether `let` should go optional only in
+  `case` or everywhere, the user chose everywhere: assignment is a
+  statement, so an `=` in a condition can only mean "bind" — `if v =
+  opt`, `while c = d[i]`, `if (a, b) = t`, `case r = .circle:`; `var`
+  stays explicit for a mutable binding, `if let x { }` keeps its
+  `let`, and `==` is untouched. The parser recognizes a binding by
+  trying a pattern and looking for `=` (one helper shared by `if`,
+  `while`, and `case`). Logged OPEN: `switch` as an expression (§14's
+  `area` example omits `return`, as Swift 5.9 would allow).

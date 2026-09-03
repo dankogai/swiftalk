@@ -15,8 +15,8 @@ struct ResultTests {
         #expect(try eval("""
             var out = ""
             switch Result.failure("e") {
-            case .success(let v): out = "ok"
-            case .failure(let e): out = e
+            case let v = .success: out = "ok"
+            case let e = .failure: out = e
             }
             out
             """) == .string("e"))

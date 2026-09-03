@@ -636,8 +636,11 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
         let subject = try evaluate(subjectExpr, in: env)
         for clause in clauses {
             for pattern in clause.patterns {
-                if let bindings = try match(pattern, subject, in: env) {
-                    try runBlock(clause.body, in: env, bindings: bindings)
+                // each attempt gets its own scope: a `case let r =
+                // .circle` that fails leaves nothing behind
+                let scope = Environment(parent: env)
+                if try match(pattern, subject, in: scope) {
+                    try runBlock(clause.body, in: scope)
                     return .nil
                 }
             }
@@ -650,46 +653,56 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
         // with no default, is an error — never a silent skip.
         throw SwiftalkError.type(
             "switch is not exhaustive — nothing matches \(subject.sourceString())")
-    case .ifCaseS(let pattern, let subjectExpr, let then, let elseBranch):
-        let subject = try evaluate(subjectExpr, in: env)
-        if let bindings = try match(pattern, subject, in: env) {
-            try runBlock(then, in: env, bindings: bindings)
-        } else if let elseBranch {
-            try runBlock(elseBranch, in: env)
-        }
-        return .nil
     }
 }
 
-/// Matches a pattern against a value: nil for no match, else the
-/// bindings a `case let` destructuring produced.
+/// Matches a `switch` pattern against the subject, binding what a
+/// `case let r = .circle` (round 78) extracts into `scope`.
 private func match(_ pattern: Pattern, _ subject: Value,
-                   in env: Environment) throws -> [(String, Value)]? {
+                   in scope: Environment) throws -> Bool {
     switch pattern {
     case .wildcard:
-        return []
+        return true
     case .expr(let e):
-        let v = try evaluate(e, in: env)
-        if v == subject { return [] }
+        let v = try evaluate(e, in: scope)
+        if v == subject { return true }
         // A Range pattern matches an Int by containment (Swift's ~=).
         if case .range(let lower, let upper, let closed) = v, case .int(let i) = subject {
-            if lower <= i && (closed ? i <= upper : i < upper) { return [] }
+            if lower <= i && (closed ? i <= upper : i < upper) { return true }
         }
-        return nil
-    case .enumCase(let name, let bindings):
-        guard case .enumCase(let ev) = subject, ev.caseName == name else { return nil }
-        guard let bindings else { return [] }         // bare .name matches any payload
-        guard bindings.count == ev.associated.count else {
+        return false
+    case .enumCase(let name):
+        // bare .name matches any payload
+        guard case .enumCase(let ev) = subject, ev.caseName == name else { return false }
+        return true
+    case .binding(let mutable, let pattern, let caseName):
+        // the case accessor (round 46) on the subject, then `if let`'s
+        // rule: nil is the only "no"; a pattern that does not fit a
+        // non-nil payload is an error, not a mismatch
+        guard case .enumCase(let ev) = subject, ev.type.cases[caseName] != nil else {
             throw SwiftalkError.type(
-                "pattern .\(name) destructures \(bindings.count) value(s); the case has \(ev.associated.count)")
+                "case .\(caseName): \(subject.typeName) has no such case")
         }
-        var bound: [(String, Value)] = []
-        for (binding, value) in zip(bindings, ev.associated) {
-            if case .bind(let bindingName) = binding {
-                bound.append((bindingName, value))
-            }
-        }
-        return bound
+        let value = caseAccessor(ev, caseName, receiver: subject)
+        guard value != .nil else { return false }
+        try bind(pattern, value, mutable: mutable, in: scope, strict: false)
+        return true
+    }
+}
+
+/// The case accessor (round 46): `value.casename` is the associated
+/// value(s) when the value IS that case, nil otherwise. One payload
+/// comes bare, several as a tuple labeled as the case declares (round
+/// 77), none returns the case value itself (so `s.point != nil` asks
+/// "is it .point?"). Shared by member access and `case let r = .circle`.
+private func caseAccessor(_ ev: EnumCaseValue, _ name: String, receiver: Value) -> Value {
+    guard ev.caseName == name else { return .nil }
+    switch ev.associated.count {
+    case 0:  return receiver
+    case 1:  return ev.associated[0]
+    default:
+        let labels = (ev.type.cases[ev.caseName] ?? []).map(\.label)
+        return .tuple(ev.associated, labels: labels)
     }
 }
 
@@ -778,16 +791,9 @@ struct ReturnSignal: Swift.Error {
 }
 
 /// Runs a block in a fresh child scope (block-local let/var, §2.2-style
-/// lexical scoping); `bindings` are pattern-match spoils (`case let`).
-private func runBlock(_ body: [Stmt], in env: Environment,
-                      bindings: [(String, Value)] = []) throws {
+/// lexical scoping).
+private func runBlock(_ body: [Stmt], in env: Environment) throws {
     let scope = Environment(parent: env)
-    for (name, value) in bindings {
-        try scope.declare(name, Binding(
-            mutable: false,
-            lock: TypeAnnotation(name: value.typeName, optional: true),
-            value: value))
-    }
     for statement in body {
         _ = try execute(statement, in: scope)
     }
@@ -2467,23 +2473,11 @@ private func method(on receiver: Value, name: String,
        et.cases[name] != nil {
         return try constructEnumCase(et, name, args: labeledArgs, called: called)
     }
-    // Case accessors (round 46) — the endless `if case .name(let v)`
-    // ceremony, dissolved: value.casename extracts the associated
-    // value(s) when the value IS that case, nil otherwise. One payload
-    // comes bare, several come as an Array, none returns the case
-    // value itself (so `s.point != nil` asks "is it .point?").
+    // Case accessors (round 46) — Swift's `if case .name(let v)`
+    // ceremony, dissolved: `if let v = s.name` (and, in a switch,
+    // `case let v = .name`, round 78).
     if case .enumCase(let ev) = receiver, !called, ev.type.cases[name] != nil {
-        guard ev.caseName == name else { return .nil }
-        switch ev.associated.count {
-        case 0:  return receiver
-        case 1:  return ev.associated[0]
-        default:
-            // several payloads come as a TUPLE (round 77, revising 46's
-            // Array), labeled with the case's own labels — so
-            // `if let (w, h) = s.rect` and `if let (h: h, w: w) = s.rect`
-            let labels = (ev.type.cases[ev.caseName] ?? []).map(\.label)
-            return .tuple(ev.associated, labels: labels)
-        }
+        return caseAccessor(ev, name, receiver: receiver)
     }
     // Tuple elements (round 70): t.0, t.1 — a call-through when the
     // element is a Function.

@@ -489,9 +489,9 @@ string.Data()       // String → Data   (infallible: text always has bytes)
   let mixed: [Primitives] = [1, "one", 2.0]
   for x in mixed {
       switch x {
-      case .Int(let i):    print("integer \(i)")
-      case .String(let s): print("string \(s)")
-      case .Double(let d): print("double \(d)")
+      case let i = .Int:    print("integer \(i)")
+      case let s = .String: print("string \(s)")
+      case let d = .Double: print("double \(d)")
       // ... a closed set — the switch can be exhaustive
       }
   }
@@ -507,7 +507,7 @@ string.Data()       // String → Data   (infallible: text always has bytes)
   mixed[0].type                 // Int — the lift is invisible at runtime
   ```
 
-  `switch`'s `case .Int(let i)` *classifies* rather than unwraps —
+  `switch`'s `case let i = .Int` *classifies* rather than unwraps —
   `i` binds the value itself. swiftalk's two built-in unions are thus
   the same animal: `T?` is the union of `T` with `Nil`; `Primitives`
   is the union of the SION types. (User-defined enums with associated
@@ -771,11 +771,29 @@ Clarifications (not overloading):
 
 ## 7. Enums & pattern matching — DECIDED (core)
 
-**Full Swift enums**: associated values, `switch` with `case let`
-destructuring, `if case`, `guard case`. (Round 77: `if case` is
-retained but discouraged — the case accessor is the way: `if let r =
-s.circle`, and for several payloads `if let (w, h) = s.rect`, the
-accessor returning a tuple labeled as the case declares.)
+**Full Swift enums**: associated values, `switch` with runtime-enforced
+exhaustiveness, and **case accessors** (round 46) in place of Swift's
+`.circle(let r)` patterns. **Binding a case — DECIDED (round 78,
+completing 77)**: the accessor is the one mechanism everywhere —
+`if let r = s.circle`, `while let (w, h) = next().rect`, and in a
+`switch`, `case let r = .circle:` / `case let (w, h) = .rect:`, where
+`.circle` is the subject's case. Nil is the only "no"; a pattern that
+does not fit a non-nil payload is an error. Several payloads come as a
+tuple labeled as the case declares, so labeled patterns work (`case
+(h: h, w: w) = .rect:`); bare `case .circle:` matches any payload;
+`case var p = .point:` binds mutably. Swift's `if case` and
+`.circle(let r)` are **gone** — syntax errors with a hint (the user's
+verdict, round 78: "`.casename(let v)` should be `let v =
+.casename`"). **`let` is optional in a binding — DECIDED (round 78)**:
+assignment is a statement in swiftalk, so an `=` inside a condition
+or a `case` can only mean "bind" — `if v = opt`, `while x = d[i]`,
+`case r = .circle:`, `if (a, b) = t`; `var` is still spelled out for
+a mutable binding, explicit `let` remains fine, and the shadowing
+shorthand `if let x { }` keeps its `let` (a bare `if x { }` is a Bool
+test). `==` is untouched: `if (a, b) == t` compares. No `where`
+clauses. **OPEN**: `switch` as an expression (Swift 5.9's) — §14's
+`area` example already reads as if swiftalk had it; today a `case`
+body returns explicitly.
 
 **Exhaustiveness is enforced at runtime**: a `switch` over an enum that
 reaches a value no case matches (and has no `default`) is a runtime
@@ -797,7 +815,7 @@ values, and the call stack never unwinds invisibly.
   from an Optional, and postfix `!` force-unwraps either kind, trapping
   on `nil`/`.failure`.
 * No `throw`, no `do`/`catch` keywords; handling a failure is pattern
-  matching on the `Result` (`switch`, `if case .failure(let e)`).
+  matching on the `Result` (`switch`, `if let e = r.failure`).
 * **OPEN**: what genuinely unrecoverable failures do (index out of
   range, type-lock violation from §3, non-exhaustive switch from §7) —
   presumably trap/abort like Swift's `fatalError`, not a catchable value.
@@ -822,6 +840,11 @@ Keywords swiftalk has PROVEN unnecessary, each killed in dialogue:
   words, wanting as few keywords as possible. `if let ... { } else
   { return ... }` covers the pattern; `guard` never became a keyword,
   and `let guard = 1` is legal swiftalk (the test suite proves it).
+* **`if case` and `case .name(let x)`** (round 78, after 77's "one of
+  the ugliest designs of Swift"): the case accessor is a plain
+  optional, so binding a case is `if let r = s.circle` and, in a
+  switch, `case let r = .circle:`. Both Swift forms are syntax errors
+  that point at the replacement.
 
 Also non-goals: manual memory control, `unsafe` anything, ABI
 stability, Objective-C interop.

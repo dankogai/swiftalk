@@ -73,12 +73,11 @@ struct TypeAnnotation: Equatable {
 enum Pattern {
     case wildcard                          // _
     case expr(Expr)                        // equality (and Range contains)
-    case enumCase(name: String, bindings: [CaseBinding]?)  // .name / .name(let x, _)
-}
-
-enum CaseBinding {
-    case bind(String)                      // let x
-    case wildcard                          // _
+    case enumCase(String)                  // .name — any payload
+    /// `case let r = .circle:` / `case (w, h) = .rect:` (round 78): the
+    /// case accessor applied to the subject, then `if let`'s rule —
+    /// nil is the only "no". `let` is optional; `var` binds mutably.
+    case binding(mutable: Bool, pattern: BindPattern, caseName: String)
 }
 
 /// One clause of an `if let` condition list (round 60): a binding
@@ -98,7 +97,6 @@ enum Stmt {
     case yieldS(Expr?)
     indirect case ifS(condition: Expr, then: [Stmt], else: [Stmt]?)
     indirect case ifLetS(conditions: [IfCondition], then: [Stmt], else: [Stmt]?)
-    indirect case ifCaseS(pattern: Pattern, subject: Expr, then: [Stmt], else: [Stmt]?)
     case whileS(condition: Expr, body: [Stmt])
     indirect case whileLetS(conditions: [IfCondition], body: [Stmt])   // while let (round 76)
     case repeatS(body: [Stmt], condition: Expr)
@@ -330,30 +328,17 @@ struct Parser {
     private mutating func parseConditionList() throws -> [IfCondition] {
         var conditions: [IfCondition] = []
         while true {
-            if peek == .identifier("let") || peek == .identifier("var") {
-                let mutable = peek == .identifier("var")
-                pos += 1
-                // `if let (a, b) = t` destructures (round 72); the
-                // shorthand `if let x { }` needs a name to shadow.
-                if case .punct("(")? = peek {
-                    let pattern = try parseBindPattern()
-                    try expect("=")
-                    let expr = try withTrailing(false) { try $0.parseExpr() }
-                    conditions.append(.binding(mutable: mutable, pattern: pattern, expr: expr))
+            if let (mutable, pattern) = try parseBindingHead() {
+                let expr: Expr
+                if case .punct("=")? = peek {
+                    pos += 1
+                    expr = try withTrailing(false) { try $0.parseExpr() }
+                } else if case .name(let name) = pattern, name != "_" {
+                    expr = .variable(name)     // shorthand: if let x { }
                 } else {
-                    guard case .identifier(let name)? = advance(),
-                          !keywords.contains(name), !name.hasPrefix("$") else {
-                        throw SwiftalkError.syntax("expected a name after 'if let'")
-                    }
-                    let expr: Expr
-                    if case .punct("=")? = peek {
-                        pos += 1
-                        expr = try withTrailing(false) { try $0.parseExpr() }
-                    } else {
-                        expr = .variable(name)     // shorthand: if let x { }
-                    }
-                    conditions.append(.binding(mutable: mutable, pattern: .name(name), expr: expr))
+                    throw SwiftalkError.syntax("expected '=' after the pattern")
                 }
+                conditions.append(.binding(mutable: mutable, pattern: pattern, expr: expr))
             } else {
                 conditions.append(.boolean(try withTrailing(false) { try $0.parseExpr() }))
             }
@@ -363,16 +348,33 @@ struct Parser {
         return conditions
     }
 
+    /// The head of a binding — `let p`, `var p`, or (round 78: `let`
+    /// is optional) a bare pattern followed by `=`. Assignment is a
+    /// statement in swiftalk, so an `=` inside a condition or a `case`
+    /// can only mean "bind": `if v = opt`, `while x = d[i]`, `case r =
+    /// .circle`. Nil, with `pos` untouched, when what follows is an
+    /// expression (`if x == y`, `case (a, b):`); the caller handles
+    /// the `=` (or `if let x { }`'s absence of one).
+    private mutating func parseBindingHead() throws -> (mutable: Bool, pattern: BindPattern)? {
+        if peek == .identifier("let") || peek == .identifier("var") {
+            let mutable = peek == .identifier("var")
+            pos += 1
+            return (mutable, try parseBindPattern())
+        }
+        let start = pos
+        if let pattern = try? parseBindPattern(), case .punct("=")? = peek {
+            return (false, pattern)
+        }
+        pos = start
+        return nil
+    }
+
     private mutating func parseIf() throws -> Stmt {
         pos += 1  // consume "if"
         if case .identifier("case")? = peek {
-            pos += 1
-            let pattern = try parsePattern()
-            try expect("=")
-            let subject = try withTrailing(false) { try $0.parseExpr() }
-            let then = try parseBlock()
-            let elseBranch = try parseElse()
-            return .ifCaseS(pattern: pattern, subject: subject, then: then, else: elseBranch)
+            // gone in round 78 — the case accessor is an ordinary if let
+            throw SwiftalkError.syntax(
+                "'if case' is not swiftalk — write if let r = s.circle (or if r = s.circle)")
         }
         let conditions = try parseConditionList()
         let then = try parseBlock()
@@ -849,46 +851,43 @@ struct Parser {
         })
     }
 
-    /// A pattern: `_`, `.name`, `.name(let x, _)`, or an expression
-    /// (equality; a Range expression matches by containment). Parsed at
-    /// comparison level — ternary would fight the clause's `:`.
+    /// A pattern: `_`, `.name`, `[let] pattern = .name` (round 78), or
+    /// an expression (equality; a Range expression matches by
+    /// containment). Parsed at comparison level — ternary would fight
+    /// the clause's `:`.
     private mutating func parsePattern() throws -> Pattern {
         switch peek {
         case .identifier("_"):
             pos += 1
             return .wildcard
         case .punct("."):
-            pos += 1
-            guard case .identifier(let name)? = advance(), !keywords.contains(name) else {
-                throw SwiftalkError.syntax("expected a case name after '.'")
+            let name = try parseCaseName()
+            if case .punct("(")? = peek {
+                // Swift's `.circle(let r)` — gone in round 78
+                throw SwiftalkError.syntax(
+                    "case .\(name)(let x) is not swiftalk — write case let x = .\(name) (or case x = .\(name))")
             }
-            guard case .punct("(")? = peek else {
-                return .enumCase(name: name, bindings: nil)
-            }
-            pos += 1
-            var bindings: [CaseBinding] = []
-            if peek != .punct(")") {
-                repeat {
-                    switch advance() {
-                    case .identifier("let"):
-                        guard case .identifier(let binding)? = advance(),
-                              !keywords.contains(binding), !binding.hasPrefix("$") else {
-                            throw SwiftalkError.syntax("expected a name after 'let'")
-                        }
-                        bindings.append(.bind(binding))
-                    case .identifier("_"):
-                        bindings.append(.wildcard)
-                    default:
-                        throw SwiftalkError.syntax(
-                            "a case pattern binds with 'let x' or ignores with '_'")
-                    }
-                } while consumeComma(closing: ")")
-            }
-            try expect(")")
-            return .enumCase(name: name, bindings: bindings)
+            return .enumCase(name)
         default:
+            if let (mutable, pattern) = try parseBindingHead() {
+                try expect("=")
+                guard case .punct(".")? = peek else {
+                    throw SwiftalkError.syntax(
+                        "a case binds from one of the subject's cases: case r = .circle")
+                }
+                return .binding(mutable: mutable, pattern: pattern, caseName: try parseCaseName())
+            }
             return .expr(try parseComparison())
         }
+    }
+
+    /// `.name` in a case pattern — the case of the switch subject.
+    private mutating func parseCaseName() throws -> String {
+        try expect(".")
+        guard case .identifier(let name)? = advance(), !keywords.contains(name) else {
+            throw SwiftalkError.syntax("expected a case name after '.'")
+        }
+        return name
     }
 
     /// `{ statements }` in statement context — a block, not a closure.

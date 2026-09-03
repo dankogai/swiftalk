@@ -87,7 +87,7 @@ struct MethodTests {
                 case point
                 let area = {
                     switch self {
-                    case .circle(let r): return 3.14159265358979 * r * r
+                    case let r = .circle: return 3.14159265358979 * r * r
                     case .point: return 0.0
                     }
                 }
