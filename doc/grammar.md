@@ -46,7 +46,7 @@ program      = { statement separator } ;
 separator    = NEWLINE | ";" ;
 
 statement    = declaration | destructure | assignment | expression
-             | if | while | repeat | for | switch
+             | if | while | repeat | for              (* switch is an expression *)
              | "break" | "continue"
              | "return" [ expression ] | "yield" [ expression ]
              | enumDecl | structDecl | extensionDecl ;
@@ -83,9 +83,9 @@ while        = "while" conditions block ;              (* while let: fresh bindi
 repeat       = "repeat" block "while" expression ;
 for          = "for" pattern { "," pattern } "in" expression block ;
                                                        (* for k, v in d — parens optional *)
-switch       = "switch" expression "{"
-                 { "case" casePattern { "," casePattern } ":" { statement } }
-                 [ "default" ":" { statement } ]
+switch       = "switch" expression "{"                (* an expression (round 79): its value is the *)
+                 { "case" casePattern { "," casePattern } ":" { statement } }   (* chosen branch's *)
+                 [ "default" ":" { statement } ]       (* last statement's value *)
                "}" ;                                   (* no match, no default: runtime error *)
 casePattern  = "_"
              | "." IDENT                               (* the subject's case, any payload *)
@@ -155,7 +155,8 @@ primary      = INT | DOUBLE | STRING | "true" | "false" | "nil"
              | "." IDENT                               (* implicit self member, or a format tag *)
              | "(" expression ")"                      (* grouping *)
              | tuple | array | dictionary
-             | closure | "async" closure ;             (* async { } is Task { } *)
+             | closure | "async" closure               (* async { } is Task { } *)
+             | switch ;                                (* let x = switch ..., return switch ... *)
 
 tuple        = "(" ")"
              | "(" tupleElement "," ")"                (* the 1-tuple: (x,) *)

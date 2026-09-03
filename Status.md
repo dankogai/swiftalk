@@ -93,6 +93,41 @@ swiftalk> if case .circle(let r) = s { }
 syntax error: 'if case' is not swiftalk — write if let r = s.circle (or if r = s.circle)
 ```
 
+**`switch` is an expression** (round 79, Swift 5.9's) — its value is
+the chosen branch's last statement's value, the rule a closure body
+already follows, so §14's `area` runs verbatim, without `return`:
+
+```text
+swiftalk> enum Shape {
+      case circle(r: Double)
+      case rect(w: Double, h: Double)
+  }
+Shape
+swiftalk> let area = { s in
+      switch s {
+      case let r = .circle:    3.14159265358979 * r * r
+      case let (w, h) = .rect: w * h
+      }
+  }
+{ s in ... }
+swiftalk> area(Shape.rect(w: 3.0, h: 4.0))
+12.0
+swiftalk> let name = switch 2 { case 1: "one" case 2: "two" default: "many" }
+"two"
+swiftalk> let sign = { n in return switch n { case 0: 0 case 1...100: 1 default: -1 } }
+{ n in ... }
+swiftalk> [sign(0), sign(7), sign(-7)]
+[0, 1, -1]
+swiftalk> 1 + switch true { case true: 1 case false: 2 }
+2
+swiftalk> switch 1 { case 1: let x = 10; x * 2 }
+20
+swiftalk> [1, 2, 3].map { switch $0 { case 2: "two" default: "other" } }
+["other", "two", "other"]
+swiftalk> switch 9 { case 1: 1 }
+type error: switch is not exhaustive — nothing matches 9
+```
+
 **`while let`** is in (round 76) — `if let`'s condition list, re-evaluated
 with fresh bindings each pass; the grammar is documented in
 [doc/grammar.md](doc/grammar.md):

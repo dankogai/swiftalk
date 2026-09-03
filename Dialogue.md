@@ -1079,3 +1079,18 @@ the history. (Moved out of Design.md in round 65.)
   trying a pattern and looking for `=` (one helper shared by `if`,
   `while`, and `case`). Logged OPEN: `switch` as an expression (§14's
   `area` example omits `return`, as Swift 5.9 would allow).
+* **2026-09-03, round 79 — `switch` is an expression** ("Let's
+  implement `switch` as an expression, like Swift 5.9"). Closes the
+  OPEN item round 78 logged against §14's `area` example. The design
+  fell out of what was already there: a closure body's value is its
+  last statement's value, so a `switch` whose value is the chosen
+  branch's last statement's value makes `{ s in switch s { ... } }`
+  return without `return`, and `let x = switch ...`, `return switch
+  ...`, `1 + switch ...`, and `map { switch $0 { ... } }` follow
+  once `switch` parses as a primary expression. `Stmt.switchS` is
+  gone — statement-level `switch` is an expression statement, one
+  construct not two. swiftalk is looser than Swift 5.9 in one way:
+  a branch may hold several statements (the last one's value is the
+  branch's), since the rule already exists for closures. `if` as an
+  expression (SE-0380's other half) is logged OPEN — the ternary
+  covers the Bool case; `if let` as an expression would be new.

@@ -28,6 +28,13 @@ indirect enum Expr {
     case coalesce(Expr, Expr)                             // a ?? b — default on nil/failure
     case optionalMember(Expr, name: String,               // a?.b / a?.b(args) — nil skips
                         args: [(label: String?, expr: Expr)], called: Bool)
+    /// `switch` is an expression (round 79, Swift 5.9's): its value is
+    /// the chosen branch's last statement's value — the rule a closure
+    /// body already follows — so `let x = switch ...`, `return switch
+    /// ...`, and `{ s in switch s { ... } }` all yield.
+    case switchE(subject: Expr,
+                 clauses: [(patterns: [Pattern], body: [Stmt])],
+                 defaultBody: [Stmt]?)
 }
 
 /// An assignment target: a variable, or a subscript/property path
@@ -120,9 +127,6 @@ enum Stmt {
                    computed: [String: ComputedSpec])
     case extensionDecl(typeName: String, methods: [String: Expr],
                        computed: [String: ComputedSpec])
-    case switchS(subject: Expr,
-                 clauses: [(patterns: [Pattern], body: [Stmt])],
-                 defaultBody: [Stmt]?)
 }
 
 /// A computed property as parsed (round 57): `get` and `set` are
@@ -277,8 +281,6 @@ struct Parser {
         // case .identifier("class"): return try parseStruct(kind: "class")
         case .identifier("extension"):
             return try parseExtension()
-        case .identifier("switch"):
-            return try parseSwitch()
         case .identifier("return"):
             pos += 1
             switch peek {
@@ -808,36 +810,41 @@ struct Parser {
         return .extensionDecl(typeName: typeName, methods: methods, computed: computed)
     }
 
-    /// `switch expr { case pattern, ...: stmts ... default: stmts }` (§7).
-    private mutating func parseSwitch() throws -> Stmt {
-        pos += 1  // consume "switch"
+    /// `switch expr { case pattern, ...: stmts ... default: stmts }` (§7)
+    /// — an expression since round 79, parsed from `parsePrimary` with
+    /// the keyword already consumed. Statement-level `switch` is just
+    /// an expression statement.
+    private mutating func parseSwitch() throws -> Expr {
         let subject = try withTrailing(false) { try $0.parseExpr() }
         try expect("{")
         var clauses: [(patterns: [Pattern], body: [Stmt])] = []
         var defaultBody: [Stmt]? = nil
-        skipSeparators()
-        while peek != .punct("}") {
-            switch advance() {
-            case .identifier("case"):
-                var patterns = [try parsePattern()]
-                while case .punct(",")? = peek {
-                    pos += 1
-                    patterns.append(try parsePattern())
+        // bodies are statement context whatever surrounds the switch
+        try withTrailing(true) { p in
+            p.skipSeparators()
+            while p.peek != .punct("}") {
+                switch p.advance() {
+                case .identifier("case"):
+                    var patterns = [try p.parsePattern()]
+                    while case .punct(",")? = p.peek {
+                        p.pos += 1
+                        patterns.append(try p.parsePattern())
+                    }
+                    try p.expect(":")
+                    clauses.append((patterns, try p.parseCaseBody()))
+                case .identifier("default"):
+                    guard defaultBody == nil else {
+                        throw SwiftalkError.syntax("duplicate 'default'")
+                    }
+                    try p.expect(":")
+                    defaultBody = try p.parseCaseBody()
+                default:
+                    throw SwiftalkError.syntax("expected 'case' or 'default' in a switch body")
                 }
-                try expect(":")
-                clauses.append((patterns, try parseCaseBody()))
-            case .identifier("default"):
-                guard defaultBody == nil else {
-                    throw SwiftalkError.syntax("duplicate 'default'")
-                }
-                try expect(":")
-                defaultBody = try parseCaseBody()
-            default:
-                throw SwiftalkError.syntax("expected 'case' or 'default' in a switch body")
             }
         }
         try expect("}")
-        return .switchS(subject: subject, clauses: clauses, defaultBody: defaultBody)
+        return .switchE(subject: subject, clauses: clauses, defaultBody: defaultBody)
     }
 
     private mutating func parseCaseBody() throws -> [Stmt] {
@@ -1245,6 +1252,8 @@ struct Parser {
             }
             let closure = try withTrailing(true) { try $0.parseFunction() }
             return .call(.variable("Task"), args: [(nil, closure)])
+        case .identifier("switch"):
+            return try parseSwitch()
         case .identifier(let name) where keywords.contains(name):
             throw SwiftalkError.syntax("'\(name)' is not an expression")
         case .identifier(let name) where name.hasPrefix("$") && name.count > 1:

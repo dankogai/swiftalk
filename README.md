@@ -40,7 +40,8 @@ sum(1, 2, 3, 4)                               // 10; $.count was 4
 let fac = { n in n < 2 ? 1 : n * $(n - 1) }   // $() = recurse (§2.4)
 fac(20)                                       // 2432902008176640000
 
-// enums with associated values, runtime-exhaustive switch (§7)
+// enums with associated values, runtime-exhaustive switch (§7);
+// switch is an expression — its branch's value is the closure's (round 79)
 enum Shape {
     case circle(r: Double)
     case rect(w: Double, h: Double)

@@ -791,9 +791,18 @@ or a `case` can only mean "bind" — `if v = opt`, `while x = d[i]`,
 a mutable binding, explicit `let` remains fine, and the shadowing
 shorthand `if let x { }` keeps its `let` (a bare `if x { }` is a Bool
 test). `==` is untouched: `if (a, b) == t` compares. No `where`
-clauses. **OPEN**: `switch` as an expression (Swift 5.9's) — §14's
-`area` example already reads as if swiftalk had it; today a `case`
-body returns explicitly.
+clauses. **`switch` is an expression — DECIDED (round 79, Swift
+5.9's)**: its value is the chosen branch's last statement's value —
+the rule a closure body (and the REPL) already follow — so `let x =
+switch ...`, `return switch ...`, `1 + switch ...`, and the implicit
+return in `{ s in switch s { ... } }` all yield; §14's `area` runs
+verbatim. A branch may hold several statements (Swift restricts a
+branch to one expression; swiftalk does not need to — the last-value
+rule already exists); a branch ending in a non-expression yields
+`nil`. Statement-level `switch` is simply an expression statement, so
+there is one `switch`, not two. Exhaustiveness is unchanged. **OPEN**:
+`if` as an expression (SE-0380's other half) — the ternary covers the
+Bool case today; `if let` as an expression would be the new ground.
 
 **Exhaustiveness is enforced at runtime**: a `switch` over an enum that
 reaches a value no case matches (and has no `default`) is a runtime

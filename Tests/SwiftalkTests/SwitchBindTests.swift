@@ -158,7 +158,7 @@ struct SwitchBindTests {
         #expect(try eval("let (a, b) = (1, 2)\nvar r = 0\nif (a, b) == (1, 2) { r = 1 }\nr") == .int(1))
         #expect(try eval("let a = 1\nvar r = 0\nif (a + 1) == 2 { r = 1 }\nr") == .int(1))
         // switch: `case x:` with x in scope is equality, `case (a, b):` a tuple to compare
-        #expect(try eval("let x = 3\nswitch 3 { case x: \"eq\"\ndefault: \"ne\" }") == .nil)
+        #expect(try eval("let x = 3\nswitch 3 { case x: \"eq\"\ndefault: \"ne\" }") == .string("eq"))
         #expect(try eval("""
             let x = 3
             var r = ""

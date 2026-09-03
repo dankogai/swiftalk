@@ -632,28 +632,32 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             throw SwiftalkError.type("'\(typeName)' is not a type")
         }
         return .nil
-    case .switchS(let subjectExpr, let clauses, let defaultBody):
-        let subject = try evaluate(subjectExpr, in: env)
-        for clause in clauses {
-            for pattern in clause.patterns {
-                // each attempt gets its own scope: a `case let r =
-                // .circle` that fails leaves nothing behind
-                let scope = Environment(parent: env)
-                if try match(pattern, subject, in: scope) {
-                    try runBlock(clause.body, in: scope)
-                    return .nil
-                }
+    }
+}
+
+/// `switch` (§7; an expression since round 79): the first matching
+/// clause runs, and its last statement's value is the switch's value.
+private func evaluateSwitch(_ subjectExpr: Expr,
+                            _ clauses: [(patterns: [Pattern], body: [Stmt])],
+                            _ defaultBody: [Stmt]?, in env: Environment) throws -> Value {
+    let subject = try evaluate(subjectExpr, in: env)
+    for clause in clauses {
+        for pattern in clause.patterns {
+            // each attempt gets its own scope: a `case let r =
+            // .circle` that fails leaves nothing behind
+            let scope = Environment(parent: env)
+            if try match(pattern, subject, in: scope) {
+                return try runBlock(clause.body, in: scope)
             }
         }
-        if let defaultBody {
-            try runBlock(defaultBody, in: env)
-            return .nil
-        }
-        // Runtime exhaustiveness (§7): reaching a value no case matches,
-        // with no default, is an error — never a silent skip.
-        throw SwiftalkError.type(
-            "switch is not exhaustive — nothing matches \(subject.sourceString())")
     }
+    if let defaultBody {
+        return try runBlock(defaultBody, in: env)
+    }
+    // Runtime exhaustiveness (§7): reaching a value no case matches,
+    // with no default, is an error — never a silent skip.
+    throw SwiftalkError.type(
+        "switch is not exhaustive — nothing matches \(subject.sourceString())")
 }
 
 /// Matches a `switch` pattern against the subject, binding what a
@@ -791,12 +795,16 @@ struct ReturnSignal: Swift.Error {
 }
 
 /// Runs a block in a fresh child scope (block-local let/var, §2.2-style
-/// lexical scoping).
-private func runBlock(_ body: [Stmt], in env: Environment) throws {
+/// lexical scoping); the value is the last statement's — what a
+/// `switch` branch yields (round 79).
+@discardableResult
+private func runBlock(_ body: [Stmt], in env: Environment) throws -> Value {
     let scope = Environment(parent: env)
+    var last = Value.nil
     for statement in body {
-        _ = try execute(statement, in: scope)
+        last = try execute(statement, in: scope)
     }
+    return last
 }
 
 /// Evaluates an `if`/`while` condition list in `scope` (rounds 60/76):
@@ -1030,6 +1038,8 @@ func evaluate(_ expr: Expr, in env: Environment) throws -> Value {
 
 private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
     switch expr {
+    case .switchE(let subject, let clauses, let defaultBody):
+        return try evaluateSwitch(subject, clauses, defaultBody, in: env)
     case .literal(let v):
         return v
     case .variable(let name):
