@@ -991,7 +991,10 @@ newline continuation after a trailing binary operator; a strict
 `let` refusing `nil` (and `let` destructuring refusing a nil
 element); implicit-self `.name` shadowing format tags inside a type
 body; error messages without line numbers; Data's source form
-`Data([...])` vs SION's `.Data("base64")`.
+`Data([...])` vs SION's `.Data("base64")`; and **no recursion
+guard** — the recursion budget is the thread's stack and nothing
+checks it, so a deep program on a small-stack thread is a SIGBUS,
+not an error (the SION test had to move to a 64 MB pthread).
 
 ## 12. Concurrency — `async`/`await`, colorless (round 53)
 

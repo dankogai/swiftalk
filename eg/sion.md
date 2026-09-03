@@ -147,6 +147,14 @@ Each of these is a finding, with the workaround the example uses.
    settled (base64 output is already OPEN in doc/Data.md).
 9. Minor: no `uppercased()`/`lowercased()`; `.count` on a Sequence
    is deliberately an error, so lengths come from `.Array().count`.
+10. **No recursion guard.** The tree-walker's recursion budget is its
+    thread's stack (round 45), and nothing checks it: this parser
+    runs fine from the CLI's 8 MB main thread, but the test suite's
+    first run of it died with SIGBUS on a default test thread. The
+    test now runs it on a 64 MB pthread, as coroutines already do
+    for their bodies. A depth counter that throws "recursion too
+    deep" would turn a crash into an error; an embedder running
+    swiftalk on a pool thread will hit this before anyone else.
 
 ## Verdict
 
