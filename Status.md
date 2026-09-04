@@ -163,6 +163,32 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`nil` infers `Any`** (round 101) — a strict `let`/`var` binds from
+`nil`; a `nil` among typed elements makes the element lock optional:
+
+```text
+swiftalk> let v = Int("forty-two")
+swiftalk> v == nil
+true
+swiftalk> var x = nil
+swiftalk> x = 1
+1
+swiftalk> x = "now a String"
+"now a String"
+swiftalk> x
+"now a String"
+swiftalk> let a = [1, nil]
+[1, nil]
+swiftalk> a.append(nil)
+type error: cannot assign to let constant 'a'
+swiftalk> a.append("s")
+type error: cannot assign to let constant 'a'
+swiftalk> let (p, q) = (nil, 2)
+(nil, 2)
+swiftalk> q
+2
+```
+
 **`import` and `export`** — modules (round 100): a `.swt` file, loaded
 once, its exports as a namespace tuple or by name; from a path beside
 the importer (the cwd, in the REPL) or a URL:

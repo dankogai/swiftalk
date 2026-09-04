@@ -378,10 +378,6 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             // Inference locks to the initializer's runtime type. Bare
             // `var x = nil` has nothing to infer and is rejected (§3a);
             // collections must be homogeneous to infer (round 59).
-            guard value != .nil else {
-                throw SwiftalkError.type(
-                    "cannot infer a type for '\(name)' from nil — annotate it, e.g. \(mutable ? "var" : "let") \(name): Int? = nil")
-            }
             lock = try inferLock(value, for: name)
         }
         try env.check(value, against: lock, for: name)
@@ -1756,10 +1752,6 @@ private func bind(_ pattern: BindPattern, _ value: Value, mutable: Bool,
     case .name(let name):
         let lock: TypeAnnotation
         if strict {
-            guard value != .nil else {
-                throw SwiftalkError.type(
-                    "cannot infer a type for '\(name)' from nil — bind it separately with an annotation")
-            }
             lock = try inferLock(value, for: name)
         } else {
             lock = TypeAnnotation(name: value.typeName, optional: true)
@@ -1789,10 +1781,6 @@ private func assignRelaxed(_ target: LValue, _ value: Value, in env: Environment
         let values = try select(tuple, by: targets.map(\.label), what: "targets")
         for (t, v) in zip(targets, values) { try assignRelaxed(t.target, v, in: env) }
     case .variable(let name) where !env.has(name):
-        guard value != .nil else {
-            throw SwiftalkError.type(
-                "cannot infer a type for '\(name)' from nil — annotate it, e.g. var \(name): Int? = nil")
-        }
         try env.declare(name, Binding(mutable: true, lock: try inferLock(value, for: name), value: value))
     default:
         try assign(target, value, in: env)
@@ -2288,14 +2276,16 @@ func checkValue(_ value: Value, against lock: TypeAnnotation, context: String) t
 /// Dictionary, like JS and PHP — round 59's own words).
 func inferLock(_ value: Value, for name: String) throws -> TypeAnnotation {
     switch value {
+    case .nil:
+        // Round 101: nil says nothing about the type, so the lock is Any —
+        // `let v = Int(text)` binds, `var x = nil` takes anything later.
+        return TypeAnnotation(name: "Any", optional: true)
     case .array(let a):
         guard !a.isEmpty else { return TypeAnnotation(name: "Array", optional: false) }
         var element: TypeAnnotation? = nil
+        var sawNil = false
         for v in a {
-            guard v != .nil else {
-                throw SwiftalkError.type(
-                    "cannot infer an element type for '\(name)' from a nil element — annotate it, e.g. [Int?]")
-            }
+            guard v != .nil else { sawNil = true; continue }   // a nil element makes the lock optional
             let t = try inferLock(v, for: name)
             if let element, element != t {
                 throw SwiftalkError.type(
@@ -2303,31 +2293,36 @@ func inferLock(_ value: Value, for name: String) throws -> TypeAnnotation {
             }
             element = t
         }
-        return TypeAnnotation(name: "Array", optional: false, parameters: [element!])
+        guard let element else { return TypeAnnotation(name: "Array", optional: false, parameters: [TypeAnnotation(name: "Any", optional: true)]) }
+        let elementLock = sawNil ? TypeAnnotation(name: element.name, optional: true, parameters: element.parameters) : element
+        return TypeAnnotation(name: "Array", optional: false, parameters: [elementLock])
     case .dictionary(let d):
         guard !d.isEmpty else { return TypeAnnotation(name: "Dictionary", optional: false) }
         var key: TypeAnnotation? = nil
         var val: TypeAnnotation? = nil
+        var sawNilKey = false
         for (k, v) in d {
-            let kt = try inferLock(k, for: name)
-            if let key, key != kt {
-                throw SwiftalkError.type(
-                    "cannot infer one key type for '\(name)' (\(key.display) vs \(kt.display)) — annotate it, e.g. [Primitives: Any]")
+            if k == .nil { sawNilKey = true } else {
+                let kt = try inferLock(k, for: name)
+                if let key, key != kt {
+                    throw SwiftalkError.type(
+                        "cannot infer one key type for '\(name)' (\(key.display) vs \(kt.display)) — annotate it, e.g. [Primitives: Any]")
+                }
+                key = kt
             }
-            key = kt
             guard v != .nil else { continue }        // round 35: nil shapes nothing
             let vt = try inferLock(v, for: name)
             if let val, val != vt {
                 throw SwiftalkError.type(
-                    "cannot infer one value type for '\(name)' (\(val.display) vs \(vt.display)) — annotate it, e.g. [\(key!.display): Any]")
+                    "cannot infer one value type for '\(name)' (\(val.display) vs \(vt.display)) — annotate it, e.g. [\(key?.display ?? "Any"): Any]")
             }
             val = vt
         }
-        guard let key, let val else {
-            throw SwiftalkError.type(
-                "cannot infer a value type for '\(name)' — every value is nil; annotate it, e.g. [\(key?.display ?? "Int"): Int?]")
-        }
-        return TypeAnnotation(name: "Dictionary", optional: false, parameters: [key, val])
+        var keyLock = key ?? TypeAnnotation(name: "Any", optional: true)
+        if sawNilKey, let key { keyLock = TypeAnnotation(name: key.name, optional: true, parameters: key.parameters) }
+        // every value nil (round 101): Any — a Dictionary's values are optional anyway
+        let valLock = val ?? TypeAnnotation(name: "Any", optional: true)
+        return TypeAnnotation(name: "Dictionary", optional: false, parameters: [keyLock, valLock])
     default:
         return TypeAnnotation(name: value.typeName, optional: false)
     }

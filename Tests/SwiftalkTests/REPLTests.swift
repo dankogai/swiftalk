@@ -9,7 +9,7 @@ struct REPLTests {
         #expect(try repl.eval("x = 1") == .int(1))
         #expect(try repl.eval("x = x + 1") == .int(2))
         #expect(throws: SwiftalkError.self) { try repl.eval("x = \"1\"") }   // lock holds
-        #expect(throws: SwiftalkError.self) { try repl.eval("y = nil") }     // nothing to infer
+        #expect(try repl.eval("y = nil\ny = \"s\"\ny") == .string("s"))   // nil infers Any since round 101
         #expect(throws: SwiftalkError.self) { try repl.eval("let x = 9") }   // still no redeclaration
         // file mode stays strict
         #expect(throws: SwiftalkError.self) { try Interpreter().eval("x = 1") }

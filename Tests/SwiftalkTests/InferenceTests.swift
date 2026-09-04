@@ -13,8 +13,9 @@ struct InferenceTests {
         // as an EXPRESSION a mixed literal still evaluates — only
         // binding without an annotation is the error
         #expect(try eval(#"[1, "one", 2.0].count"#) == .int(3))
-        // nil elements infer nothing; [Int?] holds them
-        #expect(throws: SwiftalkError.self) { try eval("let a = [1, nil]") }
+        // a nil element makes the element lock optional since round 101: [Int?]
+        #expect(try eval("var a = [1, nil]\na.append(nil)\na.count") == .int(3))
+        #expect(throws: SwiftalkError.self) { try eval("var a = [1, nil]\na.append(\"s\")") }
         #expect(try eval("let a: [Int?] = [1, nil]\na.count") == .int(2))
     }
 

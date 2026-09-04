@@ -44,7 +44,7 @@ struct BindingTests {
         #expect(try eval("var x: Int? = 2\nx.Type == Int") == .bool(true))   // flat — never Optional<Int>
         #expect(try eval("var x: Int? = nil\nx.Type == Nil") == .bool(true))
         #expect(throws: SwiftalkError.self) { try eval("var x: Int? = \"s\"") }
-        #expect(throws: SwiftalkError.self) { try eval("var x = nil") }
+        #expect(try eval("var x = nil\nx = 1\nx = \"s\"\nx") == .string("s"))   // nil infers Any since round 101
     }
 
     @Test("an Interpreter's environment persists across eval calls (the REPL's engine)")

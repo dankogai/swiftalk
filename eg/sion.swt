@@ -49,9 +49,9 @@ struct MySION {
     }
 
     // the whole document: one value, nothing after it
-    // (a nil value cannot be `let (value: v, ...)`-destructured — the
-    // strict let refuses to infer from nil — so the tuple is read by
-    // field wherever nil is a legitimate value)
+    // (the tuple is read by field: a strict let infers a lock for what
+    // it binds, and a document with mixed keys wants an annotation —
+    // round 59's rule; nil alone binds since round 101)
     let parse = {
         let r = .value(.skip(0))?
         let end = .skip(r.next)
@@ -100,7 +100,7 @@ struct MySION {
             j = j + 1
         }
         let isDouble = text.contains(".") || text.contains(hex ? "p" : "e") || text.contains(hex ? "P" : "E")
-        let v: Any = isDouble ? Double(text) : Int(text)   // Any: a strict let refuses nil
+        let v = isDouble ? Double(text) : Int(text)        // nil binds too (round 101)
         if v == nil { return .fail(i, "bad number '\(text)'") }
         return Result.success((value: v, next: j))
     }
@@ -125,7 +125,7 @@ struct MySION {
                 var k = j + 3
                 var hex = ""
                 while .at(k) != "}" && .at(k) != "" { hex = hex + .at(k); k = k + 1 }
-                let scalar: Any = .fromCodePoint(Int("0x" + hex))
+                let scalar = .fromCodePoint(Int("0x" + hex))
                 if scalar == nil { return .fail(j, "bad escape \\u{\(hex)}") }
                 out = out + scalar
                 j = k + 1
@@ -162,7 +162,7 @@ struct MySION {
         if .matches(i, ".Data(") {
             let (value: b64, next: j) = .string(i + 6)?
             if .at(j) != ")" { return .fail(j, "expected ')'") }
-            let bytes: Any = .base64(b64)
+            let bytes = .base64(b64)
             if bytes == nil { return .fail(i + 6, "bad base64") }
             return Result.success((value: Data(bytes), next: j + 1))
         }
@@ -174,7 +174,7 @@ struct MySION {
     let dataCall = { i in
         let (value: bytes, next: j) = .container(i + 5)?
         if .at(j) != ")" { return .fail(j, "expected ')'") }
-        let d: Any = Data(bytes)
+        let d = Data(bytes)
         if d == nil { return .fail(i, "Data wants bytes") }
         return Result.success((value: d, next: j + 1))
     }
@@ -192,7 +192,7 @@ struct MySION {
             for k in 0...3 {
                 let c = cs[i + k]
                 if c == "=" { pad = pad + 1; n = n * 64; continue }
-                let v: Any = index[c]
+                let v = index[c]
                 if v == nil { return nil }
                 n = n * 64 + v
             }

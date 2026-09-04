@@ -1478,3 +1478,20 @@ the history. (Moved out of Design.md in round 65.)
   OPEN), module-private state rides in exported closures, loading is
   cached per Interpreter, and a cycle is an error. Two keywords
   joined the set, `import` and `export`; `from` is contextual.
+* **2026-09-04, round 101 — a strict `let` accepting `nil`, with an
+  `Any` lock** ("Let's implement a strict `let` accepting `nil` with
+  an `Any` lock. You've insisted that for a little while"). Guilty:
+  since round 85 every round that met a failable conversion or a
+  SION document had to write `let v: Any = ...`. The rule is one
+  line in `inferLock` — `nil` infers `Any` — plus the removal of the
+  three places that refused it (a declaration, a destructuring bind,
+  the REPL's implicit var). Inside containers the analogous rule is
+  gentler and more informative: a `nil` beside typed elements makes
+  that element lock optional (`[1, nil]` is `[Int?]`, and still
+  refuses a String), only a container of nothing but `nil` is
+  `[Any]`. Not touched, deliberately: round 59's homogeneous-or-
+  annotate rule for mixed literals, the user's own decision — a
+  mixed-key SION document still wants `let doc: SION = ...` — which
+  is also why the MySION example keeps reading its result tuple by
+  field (the sample's keys are mixed) while losing its five `: Any`
+  workarounds; its output is unchanged.

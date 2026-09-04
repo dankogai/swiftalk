@@ -20,7 +20,7 @@ struct DestructuringTests {
         #expect(throws: SwiftalkError.self) { try eval("let (a, b) = (1, 2, 3)") }
         #expect(throws: SwiftalkError.self) { try eval("let (a, b) = [1, 2]") }
         #expect(throws: SwiftalkError.self) { try eval("let (a, b) = 42") }
-        #expect(throws: SwiftalkError.self) { try eval("let (a, b) = (1, nil)") }
+        #expect(try eval("let (a, b) = (1, nil)\nb") == .nil)      // a nil element binds since round 101 (Any)
         #expect(throws: SwiftalkError.self) { try eval("let (a, a) = (1, 2)") }
         #expect(throws: SwiftalkError.self) { try eval("let (a, b): Tuple = (1, 2)") }
     }

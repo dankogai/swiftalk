@@ -612,6 +612,23 @@ subset, civil dates, and bplist are hand-written in `Formats.swift`.
 binds a mixed document without an annotation (the strict `let` of
 round 59 refuses mixed keys and values — the next round's subject).
 
+**`nil` infers `Any` — DECIDED (round 101)**. Round 59's inference
+refused to bind a strict `let`/`var` from `nil` ("cannot infer a type
+from nil — annotate it"), which bit every failable conversion — `let
+v = Int(text)` could not even be tested for nil — and every SION
+document with a `nil` in it (round 85's first finding, met again in
+round 97). Now `nil` says nothing about the type, so the lock is
+`Any`: `let v = Int(text)` binds and `v == nil` asks; `var x = nil`
+takes anything later, as an `Any` does. Inside a container a `nil`
+beside typed elements makes that element lock optional — `[1, nil]`
+is `[Int?]`, still refusing a String — and a container of nothing
+but `nil` is `[Any]`; a Dictionary's values were optional already
+(round 35). A tuple element that is `nil` destructures. What stays:
+round 59's homogeneous-or-annotate rule for *mixed* literals —
+`[1, "a"]` and a mixed-key Dictionary still want `[Primitives]`,
+`SION`, or `Any` spelled out, the user's decision then, not
+revisited here.
+
 ## 3a. Optionals & nil — DECIDED
 
 **The full Optional suite survives — on a flat model.** `nil` is *not*

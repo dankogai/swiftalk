@@ -114,11 +114,12 @@ Each of these is a finding, with the workaround the example uses.
    "cannot infer a type for 'v' from nil" when the conversion fails,
    *before* the code can test it. Workaround: `let v: Any = ...`.
    Same for `let (value: v, next: j) = r?` when the parsed value is
-   `nil` (a legitimate SION value): the tuple is read by field
-   instead, `r.value` / `r.next`. Loose bindings (`for`, `if`) accept
-   nil; the strict `let` is the odd one out. **Worth a round**: `let`
-   destructuring could take the loose lock when an element is nil,
-   or `Any` could be the default lock for a nil initializer.
+   `nil` (a legitimate SION value): the tuple was read by field
+   instead, `r.value` / `r.next`. *(Landed in round 101: `nil` infers
+   an `Any` lock, so `let v = Int(text)` binds and a nil tuple element
+   destructures — the example lost its `: Any` workarounds. The field
+   reads stay for a different reason: the sample's keys are mixed,
+   and round 59's homogeneous-or-annotate rule stands.)*
 2. **No `%`.** `v - v / n * n` throughout the base64 and UTF-8
    arithmetic. *(Landed in round 93; the example keeps the idiom as
    a record of the finding.)* No bit operators either (already OPEN). `%` is cheap
