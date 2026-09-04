@@ -163,6 +163,48 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`+= -= *= /= %=`** (round 102) — read, combine, write, through the
+same path as `=`; the operator's own answers throughout:
+
+```text
+swiftalk> var n = 10
+10
+swiftalk> n += 5
+15
+swiftalk> n -= 3
+12
+swiftalk> n *= 2
+24
+swiftalk> n /= 5
+4
+swiftalk> n %= 3
+1
+swiftalk> var s = "ab"
+"ab"
+swiftalk> s += "c"
+"abc"
+swiftalk> var a = [1, 2]
+[1, 2]
+swiftalk> a += [3]
+[1, 2, 3]
+swiftalk> a[0] += 10
+11
+swiftalk> a
+[11, 2, 3]
+swiftalk> var d = ["k": 1]
+["k": 1]
+swiftalk> d["k"] *= 7
+7
+swiftalk> d
+["k": 7]
+swiftalk> let k = 1
+1
+swiftalk> k += 1
+type error: cannot assign to let constant 'k'
+swiftalk> n += "x"
+type error: '+' is not defined between Int and String
+```
+
 **`nil` infers `Any`** (round 101) — a strict `let`/`var` binds from
 `nil`; a `nil` among typed elements makes the element lock optional:
 

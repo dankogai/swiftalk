@@ -389,6 +389,12 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
         let value = try evaluate(initializer, in: env)
         try bind(pattern, value, mutable: mutable, in: env, strict: true)
         return value
+    case .compoundAssignment(let target, let op, let expr):
+        // Round 102: read-combine-write through the same path machinery
+        // as assignment — subscripts are evaluated once; the result is
+        // the value written, as an assignment's is.
+        let rhs = try evaluate(expr, in: env)
+        return try assign(target, rhs, in: env, combine: op)
     case .assignment(let target, let expr):
         let value = try evaluate(expr, in: env)
         if relaxed {
@@ -2412,17 +2418,22 @@ private enum PathStep {
 /// read-modify-write on COW values: steps evaluate once, left to
 /// right; the rebuilt container lands back in the root binding, whose
 /// mutability and type lock still govern.
-private func assign(_ target: LValue, _ value: Value, in env: Environment) throws {
+@discardableResult
+private func assign(_ target: LValue, _ value: Value, in env: Environment,
+                    combine op: Character? = nil) throws -> Value {
     // (a, b) = (b, a) (round 71): the right side was evaluated whole
     // before any element lands, so the swap idiom works.
     if case .tuple(let targets) = target {
+        guard op == nil else {
+            throw SwiftalkError.type("compound assignment takes one target, not a tuple pattern")
+        }
         guard case .tuple(let tuple) = value else {
             throw SwiftalkError.type(
                 "cannot assign a \(value.typeName) to \(targets.count) targets — a tuple pattern needs a Tuple")
         }
         let values = try select(tuple, by: targets.map(\.label), what: "targets")
         for (t, v) in zip(targets, values) { try assign(t.target, v, in: env) }
-        return
+        return value
     }
     var steps: [PathStep] = []
     var root = target
@@ -2443,10 +2454,17 @@ private func assign(_ target: LValue, _ value: Value, in env: Environment) throw
         }
     }
     guard case .variable(let name) = root else { fatalError("unreachable") }
-    if steps.isEmpty {
-        try env.assign(name, value)
-        return
+    // the value that lands: the right side, or old ∘ right for `op=`
+    func landing(_ old: () throws -> Value) throws -> Value {
+        guard let op else { return value }
+        return try binary(op, try old(), value)
     }
+    if steps.isEmpty {
+        let final = try landing { try env.lookup(name) }
+        try env.assign(name, final)
+        return final
+    }
+    var written = value
     func read(_ container: Value, _ step: PathStep) throws -> Value {
         switch step {
         case .index(let i):        return try subscriptRead(container, i)
@@ -2469,7 +2487,8 @@ private func assign(_ target: LValue, _ value: Value, in env: Environment) throw
                 throw SwiftalkError.type("\(obj.type.name) has no subscripts")
             }
             if depth == steps.count - 1 {
-                try actorWrite(obj, p, value, in: env)
+                written = try landing { try actorRead(obj, p) }
+                try actorWrite(obj, p, written, in: env)
             } else {
                 let inner = try actorRead(obj, p)
                 let (newInner, done) = try rebuild(inner, depth + 1)
@@ -2478,7 +2497,8 @@ private func assign(_ target: LValue, _ value: Value, in env: Environment) throw
             return (container, true)
         }
         if depth == steps.count - 1 {
-            return (try write(container, steps[depth], value), false)
+            written = try landing { try read(container, steps[depth]) }
+            return (try write(container, steps[depth], written), false)
         }
         let inner = try read(container, steps[depth])
         let (newInner, done) = try rebuild(inner, depth + 1)
@@ -2489,6 +2509,7 @@ private func assign(_ target: LValue, _ value: Value, in env: Environment) throw
     if !inPlace {
         try env.assign(name, rebuilt)
     }
+    return written
 }
 
 private func evaluateArgs(

@@ -93,6 +93,9 @@ struct Lexer {
                     try skipBlockComment()
                 } else if Lexer.regexMayStart(after: tokens.last) {
                     tokens.append(try lexRegex())
+                } else if pos + 1 < scalars.count, scalars[pos + 1] == "=" {
+                    pos += 2
+                    tokens.append(.op("/="))                     // round 102
                 } else {
                     pos += 1
                     tokens.append(.punct("/"))
@@ -106,8 +109,14 @@ struct Lexer {
                 pos += 1
                 tokens.append(.punct(Character(c)))
             case ":", ",", "+", "-", "*", "%", ";":
-                pos += 1
-                tokens.append(.punct(Character(c)))
+                // += -= *= %= (round 102): compound assignment
+                if "+-*%".contains(Character(c)), pos + 1 < scalars.count, scalars[pos + 1] == "=" {
+                    pos += 2
+                    tokens.append(.op(String(c) + "="))
+                } else {
+                    pos += 1
+                    tokens.append(.punct(Character(c)))
+                }
             case "?":
                 // Disambiguation (round 51): `??` coalesces; unspaced
                 // `?.` chains; unspaced `?` is the postfix propagator;
@@ -204,7 +213,8 @@ struct Lexer {
         case .punct(let p)?:
             return "+-*/%=".contains(p)
         case .op(let o)?:
-            return ["==", "!=", "<", "<=", ">", ">=", "&&", "||", "??"].contains(o)
+            return ["==", "!=", "<", "<=", ">", ">=", "&&", "||", "??",
+                    "+=", "-=", "*=", "/=", "%="].contains(o)
         default:
             return false
         }

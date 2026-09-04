@@ -629,6 +629,17 @@ round 59's homogeneous-or-annotate rule for *mixed* literals —
 `SION`, or `Any` spelled out, the user's decision then, not
 revisited here.
 
+**Compound assignment — DECIDED (round 102)**: `+= -= *= /= %=`,
+Swift's, on whatever the operator takes — Ints and Doubles, `+=` on
+Strings and Arrays. `x op= y` reads, combines with the same `binary`
+the operator uses (so the type lock, zero-division, and overflow
+answers are the operator's), and writes through the same path
+machinery as `=`: `a[f()] += 1` evaluates `f()` once, `p.x *= 2`
+rebuilds the struct copy-on-write, a `let` refuses, the REPL does
+not implicitly declare through `op=`. Its value is the value
+written, as an assignment's is. A tuple pattern is not a target.
+Not added: `??=`, `&&=`, `||=` — Swift has none of them either.
+
 ## 3a. Optionals & nil — DECIDED
 
 **The full Optional suite survives — on a flat model.** `nil` is *not*

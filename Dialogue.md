@@ -1495,3 +1495,15 @@ the history. (Moved out of Design.md in round 65.)
   is also why the MySION example keeps reading its result tuple by
   field (the sample's keys are mixed) while losing its five `: Any`
   workarounds; its output is unchanged.
+* **2026-09-04, round 102 — `+=`, `-=`, `*=`, `/=`, `%=`** ("implement
+  +=, -=, *=, /=, %= ..."). A statement of its own rather than a
+  desugaring, for one reason: `a[f()] += 1` must evaluate `f()` once.
+  The assignment path already flattens a target's subscripts to
+  values before writing, so a compound assignment is that path with
+  a read-and-combine at the last step — `binary(op, old, rhs)` — and
+  every answer the operator gives (type lock, `/ 0`, overflow, `%`
+  on a Double) comes along unchanged. The lexer folds `+` `=` into
+  one token, and `/=` slots beside the regex rule (after an operand
+  `/` is division, so `x /= 2` never starts a literal). Trailing
+  `op=` continues a line like any binary operator. Not added: `??=`
+  and the logical ones, which Swift lacks too.

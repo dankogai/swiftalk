@@ -120,6 +120,9 @@ enum Stmt {
     case declaration(mutable: Bool, name: String, annotation: TypeAnnotation?, initializer: Expr)
     case destructure(mutable: Bool, pattern: BindPattern, initializer: Expr)   // let (a, b) = t
     case assignment(target: LValue, expr: Expr)
+    /// `x += 1`, `a[i] -= n`, `p.x *= 2`, `/=`, `%=` (round 102): the
+    /// target is evaluated once, read, combined, written.
+    case compoundAssignment(target: LValue, op: Character, expr: Expr)
     case expression(Expr)
     case returnS(Expr?)
     case yieldS(Expr?)
@@ -386,6 +389,10 @@ struct Parser {
             return .continueS
         default:
             let expr = try parseExpr()
+            if case .op(let o)? = peek, o.count == 2, o.hasSuffix("="), let op = o.first, "+-*/%".contains(op) {
+                pos += 1
+                return .compoundAssignment(target: try lvalue(from: expr), op: op, expr: try parseExpr())
+            }
             guard case .punct("=")? = peek else {
                 return .expression(expr)
             }
@@ -1166,8 +1173,10 @@ struct Parser {
 
     private mutating func parseComparison() throws -> Expr {
         let lhs = try parseCoalescing()
+        // the six comparisons, by name — not "any other .op" (round 102:
+        // += and friends are .op tokens too, and are statements)
         guard case .op(let op)? = peek,
-              !["...", "..<", "??", "?", "!", "?.", "&&", "||"].contains(op) else { return lhs }
+              ["==", "!=", "<", "<=", ">", ">="].contains(op) else { return lhs }
         pos += 1
         return .comparison(op, lhs, try parseCoalescing())
     }
