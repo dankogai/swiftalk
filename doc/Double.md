@@ -13,6 +13,7 @@ mix in arithmetic without a conversion.
 | `Double(t)` for a Date | the epoch seconds |
 | `Double(x)` otherwise | type error |
 | `d + e`, `d - e`, `d * e`, `d / e` | IEEE arithmetic (`/ 0.0` gives inf, no trap) |
+| `d % e` | type error — as in Swift, no floating remainder operator (round 93) |
 | `d < e` etc., `==` | Comparable, Equatable |
 | `d.String()` | the shortest round-tripping decimal: `0.30000000000000004` |
 | `d.String(.hex)` | hex float, `"0x1.fep7"` — re-enters as a literal |

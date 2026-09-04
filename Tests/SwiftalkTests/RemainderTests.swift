@@ -19,8 +19,11 @@ struct RemainderTests {
     @Test("% 0 is a zero-division, Int.min % -1 an overflow; Ints only")
     func errors() throws {
         #expect(throws: SwiftalkError.self) { try eval("7 % 0") }
-        #expect(throws: SwiftalkError.self) { try eval("-9223372036854775808 % -1") }
-        #expect(throws: SwiftalkError.self) { try eval("7.5 % 2") }
+        // Int.min built by arithmetic — the literal -9223372036854775808 fails at the lexer first
+        #expect(throws: SwiftalkError.self) { try eval("let m = -9223372036854775807 - 1\nm % -1") }
+        #expect(try eval("let m = -9223372036854775807 - 1\nm % 2") == .int(0))
+        #expect(throws: SwiftalkError.self) { try eval("7.5 % 2.0") }     // the Double arm
+        #expect(throws: SwiftalkError.self) { try eval("7.5 % 2") }       // mixed, as ever
         #expect(throws: SwiftalkError.self) { try eval("7 % 2.0") }
         #expect(throws: SwiftalkError.self) { try eval("\"a\" % 2") }
         #expect(throws: SwiftalkError.self) { try eval("[1] % 2") }
