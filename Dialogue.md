@@ -1443,3 +1443,18 @@ the history. (Moved out of Design.md in round 65.)
   Tests, docs, the examples, error hints, and two Status transcripts
   were swept off the old names — in Python, after macOS `sed` had
   quietly given up on every file with an em dash in it.
+* **2026-09-04, round 99 — destructuring without the parentheses**
+  ("when a tuple distructures, make `()` optional. eg. `for k, v in
+  dict` to mean `for (k,v) in dict`"). The example already held —
+  round 72 made `for k, v in d` work — so the round went to the sites
+  that still demanded parentheses and could drop them without a
+  comma meaning two things: `let a, b = t` and `var a, b = t` (a
+  comma after the first name makes the whole a tuple pattern,
+  nesting and `_` as before), and `case let w, h = .rect:` in a
+  switch, where the explicit `let` is what separates a list of names
+  from a list of alternatives. Left as they are, each for a reason
+  recorded in Design §2.1: `if`/`while`, where the comma is the
+  condition list and `if let a, b = t` already means two conditions;
+  assignment, where `a, b = b, a` would need bare tuple expressions
+  on the right (OPEN); and labeled patterns, where `let x: a` reads
+  as an annotation.

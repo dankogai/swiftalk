@@ -163,6 +163,37 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`let a, b = t`** — destructuring without the parentheses (round 99),
+where a comma can mean nothing else: `let`/`var`, `for`, closure
+parameters, and a switch's `case let`:
+
+```text
+swiftalk> let a, b = (1, 2)
+(1, 2)
+swiftalk> a + b
+3
+swiftalk> var x, (y, z) = (10, (20, 30))
+(10, (20, 30))
+swiftalk> x = x + y + z
+60
+swiftalk> let _, second = ("skip", "take")
+("skip", "take")
+swiftalk> second
+"take"
+swiftalk> let d = ["k": 42]
+["k": 42]
+swiftalk> for k, v in d { print(k, v) }
+k 42
+swiftalk> d.map { k, v in "\(k)=\(v)" }
+["k=42"]
+swiftalk> enum Shape { case rect(w: Double, h: Double) }
+Shape
+swiftalk> switch Shape.rect(w: 3.0, h: 4.0) { case let w, h = .rect: w * h }
+12.0
+swiftalk> let p, q = 5
+type error: cannot destructure a Int — a tuple pattern needs a Tuple
+```
+
 **`prefix { }` and `dropFirst { }`** (round 98) — round 88's `takeWhile`/
 `dropWhile` folded into `prefix`/`dropFirst`, the argument's type
 deciding (an Int counts, a Function decides); Swift's `while:` accepted:

@@ -59,7 +59,14 @@ lands, so the swap idiom works and targets may be subscript/property
 paths; `for (k, v) in dict` destructures loop elements — and, since
 round 72, so does `for k, v in dict` (parentheses optional) and
 `if let (a, b) = t` (nil is the only "no"; a shape mismatch is an
-error). **A tuple is a rigid Array of arguments (round 73, revising
+error). **The parentheses are optional where a comma can mean nothing
+else — DECIDED (round 99)**: `let a, b = t` / `var a, b = t` (as `for
+k, v in d` since round 72, and `{ k, v in }` always) and, in a switch,
+`case let w, h = .rect:` — the `let` is what makes the comma a list.
+Not in `if`/`while`, whose comma is the condition list (`if let a, b =
+t` stays two conditions), not in assignment (`a, b = b, a` would need
+bare tuple expressions — OPEN), and not with labels (`let x: a, y: b`
+would read as annotations; label patterns keep their parentheses). **A tuple is a rigid Array of arguments (round 73, revising
 72's narrower splat)**: a sole Tuple argument IS the argument list —
 `$` holds its elements, so in `d.map { }` `$0` is k and `$1` is v,
 and declared parameters bind to them with arity checked against

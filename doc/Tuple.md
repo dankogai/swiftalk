@@ -20,11 +20,12 @@ source form round-trips.
 | `seq.enumerated()` | `(index, element)` tuples — see [Sequence.md](Sequence.md) |
 | `Tuple()`, `Tuple(seq)`, `seq.Tuple()` | empty; gathered from any Sequence conformer |
 | `case (1, "x"):` | a tuple literal is an expression pattern — matched by equality |
-| `let (a, b) = t`, `var (a, b) = t` | destructuring (round 71): by position, arity checked, `_` discards, nests; each name takes its own lock |
+| `let (a, b) = t`, `var (a, b) = t`, `let a, b = t` | destructuring (round 71): by position, arity checked, `_` discards, nests; each name takes its own lock; the parentheses are optional (round 99) — labels need them |
 | `let (x: a, y: b) = t` | labeled destructuring (round 75): a labeled element binds **by label** (order free), an unlabeled one by position; a missing label is an error — in `let`/`var`, `if let`, `for`, and assignment |
 | `(a, b) = (b, a)` | destructuring assignment — the right side evaluates whole first, so swaps work; targets may be paths |
 | `for (k, v) in d`, `for k, v in d` | destructuring loop variables — parentheses optional (round 72) |
-| `if let (a, b) = t` | destructures a non-nil tuple; nil takes the else; a shape mismatch is an error |
+| `if let (a, b) = t` | destructures a non-nil tuple; nil takes the else; a shape mismatch is an error. The parentheses stay here: in `if`/`while` a comma separates conditions (`if let a, b = t` is two of them) |
+| `case let w, h = .rect:` | a `switch` binding without parentheses (round 99) — the `let` is what makes the comma a list, not alternatives |
 | `f((1, 2))` | **a tuple is a rigid Array of arguments** (round 73): a sole tuple argument IS the argument list — `$` holds its elements, `$0`/`$1` are k/v in `d.map { }`, declared parameters bind to them; to pass a tuple whole, wrap it: `f(((1, 2),))`. Builtins take Values raw |
 
 **Labels are cosmetic**: equality, hashing, destructuring, and the

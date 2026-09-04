@@ -78,7 +78,8 @@ statement    = declaration | destructure | assignment | expression
              | enumDecl | structDecl | extensionDecl ;
 
 declaration  = ( "let" | "var" ) IDENT [ ":" type ] "=" expression ;
-destructure  = ( "let" | "var" ) pattern "=" expression ;
+destructure  = ( "let" | "var" ) pattern { "," pattern } "=" expression ;
+                                                       (* let (a, b) = t, or let a, b = t (round 99) *)
 assignment   = lvalue "=" expression ;
 lvalue       = IDENT
              | lvalue "[" expression "]"
@@ -121,7 +122,9 @@ caseAlt      = casePattern [ "where" disjunction ] ;  (* the guard belongs to th
                                                           it sees the pattern's bindings (round 81) *)
 casePattern  = "_"
              | "." IDENT                               (* the subject's case, any payload *)
-             | [ "let" | "var" ] pattern "=" ( "." IDENT | comparison )
+             | [ "let" | "var" ] pattern { "," pattern } "=" ( "." IDENT | comparison )
+                                                       (* the comma list needs the let: a bare comma
+                                                          separates alternatives (round 99) *)
                                                        (* case let r = .circle: the accessor; nil fails;
                                                           case let (_, a) = /re/: the whole match (round 86) *)
              | expression ;                            (* equality; a Range matches an Int by containment *)

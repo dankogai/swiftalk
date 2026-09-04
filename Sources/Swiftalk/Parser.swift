@@ -916,7 +916,18 @@ struct Parser {
             }
             return .enumCase(name)
         default:
-            if let (mutable, pattern) = try parseBindingHead() {
+            let explicit = peek == .identifier("let") || peek == .identifier("var")
+            if var (mutable, pattern) = try parseBindingHead() {
+                // `case let w, h = .rect:` (round 99) — the comma list
+                // needs the `let`, since a bare comma separates alternatives
+                if explicit, case .punct(",")? = peek {
+                    var elements: [(label: String?, pattern: BindPattern)] = [(nil, pattern)]
+                    while case .punct(",")? = peek {
+                        pos += 1
+                        elements.append((nil, try parseBindPattern()))
+                    }
+                    pattern = .tuple(elements)
+                }
                 try expect("=")
                 if case .punct(".")? = peek {
                     return .binding(mutable: mutable, pattern: pattern,
@@ -1033,6 +1044,22 @@ struct Parser {
         }
         if keywords.contains(name) || name.hasPrefix("$") {
             throw SwiftalkError.syntax("'\(name)' cannot be declared")
+        }
+        // `let a, b = t` — destructuring without the parentheses (round
+        // 99): a comma after the first name makes the whole a tuple
+        // pattern, `let (a, b) = t`; elements may nest, `_` discards.
+        if case .punct(",")? = peek {
+            var elements: [(label: String?, pattern: BindPattern)] = [(nil, .name(name))]
+            while case .punct(",")? = peek {
+                pos += 1
+                elements.append((nil, try parseBindPattern()))
+            }
+            if case .punct(":")? = peek {
+                throw SwiftalkError.syntax(
+                    "a destructuring pattern takes no annotation — the names lock element by element")
+            }
+            try expect("=")
+            return .destructure(mutable: mutable, pattern: .tuple(elements), initializer: try parseExpr())
         }
         // (Round 61 reverted round 58a's `let name(x:y:) { body }`
         // sugar — swiftalk was getting too close to Swift. `{ x, y in
