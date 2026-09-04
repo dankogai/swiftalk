@@ -163,6 +163,33 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`a[1..<3]`** — Range subscripts on Arrays (round 90): a new Array of
+those positions, Swift's bounds rule, read-only:
+
+```text
+swiftalk> let a = [10, 20, 30, 40, 50]
+[10, 20, 30, 40, 50]
+swiftalk> a[1..<3]
+[20, 30]
+swiftalk> a[1...2]
+[20, 30]
+swiftalk> a[3...]
+[40, 50]
+swiftalk> a[5...]
+[]
+swiftalk> a[1...][0]
+20
+swiftalk> a[1...5]
+type error: range 1...5 is out of range (count 5)
+swiftalk> var b = a[1...2]
+[20, 30]
+swiftalk> b.append(0)
+swiftalk> a
+[10, 20, 30, 40, 50]
+swiftalk> a[0..<1] = [9]
+type error: Array index must be an Int, not Range
+```
+
 **The slicing family** (round 89) — `suffix`, `dropFirst`, `dropLast`,
 `split` on every Sequence conformer, shaped like the receiver
 (`prefix` now too):
