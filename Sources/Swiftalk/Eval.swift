@@ -9,7 +9,19 @@ extension Swiftalk {
     /// A swiftalk interpreter with a persistent global environment:
     /// bindings made in one `eval` call are visible to the next.
     public final class Interpreter {
-        private var environment = Environment()
+        /// The builtins live in a scope of their own (round 100): the
+        /// program's globals are a child of it — and so is every
+        /// module's, which is how a module sees Int and print but not
+        /// the importer's variables.
+        private let builtins = Environment()
+        private var environment: Environment
+        private let modules: ModuleSystem
+        /// The main program's file, when it has one (the CLI's script
+        /// mode): `import` specs resolve beside it. nil: the cwd.
+        public var scriptPath: String? = nil
+        /// How a resolved module spec becomes source. nil: files are
+        /// read directly and URLs are refused; the CLI supplies curl.
+        public var moduleLoader: ((String) throws -> String)? = nil
         private let relaxed: Bool
         private let outputBox = OutputBox()
         /// The cooperative scheduler (§12, round 53): tasks spawned in
@@ -28,7 +40,15 @@ extension Swiftalk {
         /// from then on. File mode (the default) rejects it.
         public init(relaxed: Bool = false) {
             self.relaxed = relaxed
+            environment = Environment(parent: builtins)
+            environment.isFileScope = true
+            modules = ModuleSystem(builtins: builtins)
             installBuiltins()
+        }
+
+        /// The POSIX file read `import` uses — for an embedder's own loader.
+        public static func readModule(at path: String) throws -> String {
+            try ModuleSystem.readFile(path)
         }
 
         deinit {
@@ -74,21 +94,21 @@ extension Swiftalk {
             // names Int, String, ..., Sequence, ... bind the singleton
             // objects that `.type` returns — identity comparison works.
             for (name, object) in Builtins.types.merging(Builtins.protocols, uniquingKeysWith: { a, _ in a }) {
-                try! environment.declare(name, Binding(
+                try! builtins.declare(name, Binding(
                     mutable: false,
                     lock: TypeAnnotation(name: "Function", optional: false),
                     value: .function(object)))
             }
             // Result (round 51, §8): a built-in enum, globally bound.
-            try! environment.declare("Result", Binding(
+            try! builtins.declare("Result", Binding(
                 mutable: false,
                 lock: TypeAnnotation(name: "Function", optional: false),
                 value: .function(Builtins.resultType.constructor!)))
         }
 
         private func declareBuiltin(_ name: String, _ body: @escaping ([Value]) throws -> Value) {
-            let fn = FunctionObject(parameters: [], body: [], closure: environment, builtin: body)
-            try! environment.declare(name, Binding(
+            let fn = FunctionObject(parameters: [], body: [], closure: builtins, builtin: body)
+            try! builtins.declare(name, Binding(
                 mutable: false,
                 lock: TypeAnnotation(name: "Function", optional: false),
                 value: .function(fn)))
@@ -105,6 +125,11 @@ extension Swiftalk {
             // duration, which is all "colorless" costs.
             let previous = Scheduler.activate(scheduler.main)
             defer { Scheduler.restore(previous) }
+            // Modules (round 100): resolve beside the script, or the cwd
+            modules.loader = moduleLoader
+            modules.baseStack = [scriptPath.map(ModuleSystem.directory(of:)) ?? "."]
+            let previousModules = ModuleContext.activate(modules)
+            defer { ModuleContext.activate(previousModules) }
             var last = Value.nil
             do {
                 for statement in program {
@@ -182,6 +207,11 @@ struct Binding {
 final class Environment {
     private var bindings: [String: Binding] = [:]
     private let parent: Environment?
+    /// A file's top level (a program's or a module's) — where `import`
+    /// and `export` belong (round 100).
+    var isFileScope = false
+    /// The names this file exports, in order.
+    var exports: [String] = []
 
     init(parent: Environment? = nil) {
         self.parent = parent
@@ -190,6 +220,12 @@ final class Environment {
     func declare(_ name: String, _ binding: Binding) throws {
         guard bindings[name] == nil else {
             throw SwiftalkError.type("redeclaration of '\(name)'")
+        }
+        // A file's top level — a program's or a module's — does not
+        // shadow the builtins (the standing rule, kept through round
+        // 100's move of the builtins into a scope of their own).
+        if isFileScope, let parent, parent.bindings[name] != nil {
+            throw SwiftalkError.type("redeclaration of '\(name)' — a builtin")
         }
         bindings[name] = binding
     }
@@ -393,6 +429,42 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
                 throw SwiftalkError.type("the 'repeat' condition must be a Bool — nothing is truthy (§3b)")
             }
             guard flag else { break }
+        }
+        return .nil
+    case .importS(let namespace, let names, let spec):
+        // Modules (round 100): load once per Interpreter, then bind —
+        // the namespace as a labeled tuple of the exports, the named
+        // ones directly; all `let`s.
+        guard env.isFileScope else {
+            throw SwiftalkError.type("import belongs at a file's top level")
+        }
+        guard let modules = ModuleContext.current else {
+            throw SwiftalkError.type("import needs a running Interpreter")
+        }
+        let module = try modules.load(spec)
+        if let namespace {
+            try env.declare(namespace, Binding(
+                mutable: false, lock: TypeAnnotation(name: "Tuple", optional: false),
+                value: .tuple(module.values, labels: module.names)))
+        }
+        for name in names {
+            guard let index = module.names.firstIndex(of: name) else {
+                throw SwiftalkError.type("module '\(spec)' exports no '\(name)'"
+                    + (module.names.isEmpty ? "" : " — it exports \(module.names.joined(separator: ", "))"))
+            }
+            let value = module.values[index]
+            try env.declare(name, Binding(
+                mutable: false, lock: TypeAnnotation(name: value.typeName, optional: true), value: value))
+        }
+        return .nil
+    case .exportS(let names, let declaration):
+        guard env.isFileScope else {
+            throw SwiftalkError.type("export belongs at a file's top level")
+        }
+        if let declaration { _ = try execute(declaration, in: env) }
+        for name in names {
+            _ = try env.lookup(name)               // must exist
+            if !env.exports.contains(name) { env.exports.append(name) }
         }
         return .nil
     case .forS(let pattern, let sequence, let condition, let body):

@@ -146,6 +146,10 @@ enum Stmt {
                    computed: [String: ComputedSpec])
     case extensionDecl(typeName: String, methods: [String: Expr],
                        computed: [String: ComputedSpec])
+    /// `import M from "./mod.swt"` / `import (a, b) from "..."` (round 100)
+    case importS(namespace: String?, names: [String], spec: String)
+    /// `export let x = ...` (any declaration) / `export (a, b)` (round 100)
+    indirect case exportS(names: [String], declaration: Stmt?)
 }
 
 /// A computed property as parsed (round 57): `get` and `set` are
@@ -158,6 +162,7 @@ let keywords: Set<String> = [
     "if", "else", "while", "repeat", "for", "break", "continue", "return", "yield",
     "async", "await",
     "enum", "case", "switch", "default", "struct", "extension",
+    "import", "export",                      // modules (round 100); `from` is contextual
     // "actor", "class", "super" — SHELVED (round 62): the reference
     // types are off the surface; the machinery stays in-tree, dormant.
     // Three fewer keywords: `let class = 1` is legal, like `guard`.
@@ -247,6 +252,57 @@ struct Parser {
         switch peek {
         case .identifier("let"), .identifier("var"):
             return try parseDeclaration()
+        case .identifier("import"):
+            pos += 1
+            var namespace: String? = nil
+            var names: [String] = []
+            if case .punct("(")? = peek {
+                pos += 1
+                repeat {
+                    guard case .identifier(let n)? = advance(), !keywords.contains(n), !n.hasPrefix("$") else {
+                        throw SwiftalkError.syntax("import (a, b) from \"...\" — names in parentheses")
+                    }
+                    names.append(n)
+                } while consumeComma(closing: ")")
+                try expect(")")
+            } else {
+                guard case .identifier(let n)? = advance(), !keywords.contains(n), !n.hasPrefix("$") else {
+                    throw SwiftalkError.syntax("import M from \"./mod.swt\", or import (a, b) from \"./mod.swt\"")
+                }
+                namespace = n
+            }
+            guard case .identifier("from")? = advance() else {
+                throw SwiftalkError.syntax("import needs 'from': import M from \"./mod.swt\"")
+            }
+            guard case .string(let spec)? = advance() else {
+                throw SwiftalkError.syntax("import ... from takes a String — a path or a URL")
+            }
+            return .importS(namespace: namespace, names: names, spec: spec)
+        case .identifier("export"):
+            pos += 1
+            if case .punct("(")? = peek {
+                pos += 1
+                var names: [String] = []
+                repeat {
+                    guard case .identifier(let n)? = advance(), !keywords.contains(n), !n.hasPrefix("$") else {
+                        throw SwiftalkError.syntax("export (a, b) — names in parentheses")
+                    }
+                    names.append(n)
+                } while consumeComma(closing: ")")
+                try expect(")")
+                return .exportS(names: names, declaration: nil)
+            }
+            let declaration = try parseStatement()
+            let names: [String]
+            switch declaration {
+            case .declaration(_, let name, _, _):       names = [name]
+            case .destructure(_, let pattern, _):       names = Parser.names(in: pattern)
+            case .structDecl(let name, _, _, _, _, _):  names = [name]
+            case .enumDecl(let name, _, _, _):          names = [name]
+            default:
+                throw SwiftalkError.syntax("export takes a let/var/struct/enum declaration, or export (a, b)")
+            }
+            return .exportS(names: names, declaration: declaration)
         case .identifier("while"):
             pos += 1
             // `while let x = next(), x > 0 { }` (round 76) — the same

@@ -1,0 +1,18 @@
+// A module (round 100): a .swt file evaluated once per program, in a
+// scope of its own — it sees the builtins, never the importer's
+// variables — and only what it exports is importable.
+
+export struct Point {
+    var x: Double
+    var y: Double
+    let scaled = { k in Point(x: .x * k, y: .y * k) }
+}
+
+var calls = 0                          // module-private state...
+export let area = { w, h in            // ...kept alive by the closures that export
+    calls = calls + 1
+    return w * h
+}
+export let count = { calls }
+export let unit = 1.0
+let secret = "not exported"            // invisible to importers

@@ -27,9 +27,10 @@ Shelved forms (`actor`, `class`, `super`) are not grammar today.
   alphanumerics/`_`. `$` and `$0`, `$1`, … are identifiers of their own.
 * **Keywords** (never identifiers): `let var true false nil in if
   else while repeat for break continue return yield async await enum
-  case switch default struct extension`. Contextual (identifiers
-  elsewhere): `init self get set willSet didSet newValue oldValue
-  where`. (`Regex` is a type name, not a keyword.)
+  case switch default struct extension import export`. Contextual
+  (identifiers elsewhere): `init self get set willSet didSet newValue
+  oldValue where from`. (`Regex` and `SION` are type names, not
+  keywords.)
   Not keywords, deliberately: `guard`, `func`, `mutating`, `class`,
   `actor`, `super` (§9 and round 62).
 * **Literals**
@@ -75,7 +76,12 @@ statement    = declaration | destructure | assignment | expression
              | while | repeat | for                   (* if and switch are expressions *)
              | "break" | "continue"
              | "return" [ expression ] | "yield" [ expression ]
-             | enumDecl | structDecl | extensionDecl ;
+             | enumDecl | structDecl | extensionDecl
+             | import | export ;                       (* a file's top level only *)
+
+import       = "import" ( IDENT | "(" IDENT { "," IDENT } ")" ) "from" STRING ;   (* round 100 *)
+export       = "export" ( declaration | destructure | structDecl | enumDecl )
+             | "export" "(" IDENT { "," IDENT } ")" ;
 
 declaration  = ( "let" | "var" ) IDENT [ ":" type ] "=" expression ;
 destructure  = ( "let" | "var" ) pattern { "," pattern } "=" expression ;

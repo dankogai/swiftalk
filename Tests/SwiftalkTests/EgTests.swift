@@ -81,8 +81,9 @@ struct EgTests {
         return String(decoding: data, as: UTF8.self)
     }
 
-    private func output(of source: String) throws -> String {
+    private func output(of source: String, scriptPath: String? = nil) throws -> String {
         let interp = Swiftalk.Interpreter()
+        interp.scriptPath = scriptPath
         var captured = ""
         interp.output = { captured += $0 }
         _ = try interp.eval(source)
@@ -234,6 +235,18 @@ struct EgTests {
             true
             .Data(\"Y2Fmw6k=\") café true nil
             {\"1\":\"one\"}
+
+            """)
+    }
+
+    @Test("import.swt + geometry.swt: modules — one instance, a namespace tuple, named imports (round 100)")
+    func modules() throws {
+        let root = #filePath.split(separator: "/", omittingEmptySubsequences: false).dropLast(3).joined(separator: "/")
+        #expect(try output(of: try slurp("import.swt"), scriptPath: "\(root)/eg/import.swt") == """
+            12.0 1.0
+            Point(x: 3.0, y: 6.0)
+            10.0 2 2
+            (Point: Point, area: { w, h in ... }, count: { ... }, unit: 1.0)
 
             """)
     }

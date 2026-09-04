@@ -76,6 +76,11 @@ let doc: SION = SION("[\"n\": 42, \"when\": .Date(0x0p+0)]")   // any SION text,
 doc.String(.json)                             // {"n":42,"when":0.0}
 SION(propertyList: doc.String(.propertyList)) == doc   // true; .Data(.propertyList) is bplist00
 
+// modules (round 100): a .swt file, evaluated once; only exports cross
+import Geometry from "./geometry.swt"         // every export, as Geometry.name
+import (area) from "./geometry.swt"           // the named ones, directly — the same instance
+Geometry.area(3.0, 4.0) == area(3.0, 4.0)     // true
+
 // Regex is a core type with a literal (round 86); a match with captures is a tuple
 let when = "2026-09-03".firstMatch(/(?<y>\d+)-(?<m>\d+)-(?<d>\d+)/)   // (whole, y:, m:, d:)
 when.y                                        // "2026"

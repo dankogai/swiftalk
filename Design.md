@@ -1269,6 +1269,41 @@ page now (round 65).
 
 ---
 
+## 15. Modules — DECIDED (round 100)
+
+The user's spec, before the strict-`let`-with-`Any` round: "It will be
+more like JS than Swift because we want to load `.swt`. `from` is
+necessary. `where` is usually a path but urls like `https://` are
+okay so long as CORS allows. `import M from "./mod.swt"` imports all
+symbols under the `M` namespace. `import (foo, bar) from ...` imports
+`foo` and `bar` into the top level. Note it is not `import {foo,
+bar}`. only `export`ed symbols are importable."
+
+* **A module is a file**, evaluated once per Interpreter, strict, in a
+  scope whose parent is the builtins — it sees `print` and `Int`,
+  never the importer's globals (the builtins moved to a scope of
+  their own for this). Loading is cached by resolved path, so every
+  importer shares one instance; a circular import is an error.
+* **The namespace is a labeled tuple of the exports** — no new type.
+  `M.x` reads, `M.f(1)` calls through (round 70's rule), `M.Point(x:
+  1.0)` constructs. Exports are values copied at import, imported
+  names are `let`s; module-private state lives in the closures that
+  export it. Live bindings, re-export, and `M.Point` in an annotation
+  are OPEN.
+* **`export`** prefixes a declaration (`let`, `var`, `struct`, `enum`,
+  a destructuring `let`) or names existing ones, `export (a, b)`.
+  `import`/`export` belong at a file's top level. `from` is contextual;
+  `import` and `export` are keywords (two more, for a feature that
+  cannot be spelled without them).
+* **Resolution** is beside the importing file — the CLI's script, or
+  the module doing the importing — with `./` and `../` folded; the
+  REPL resolves from the cwd; absolute paths and URLs as they are.
+  **URLs**: the core stays Foundation-free, so it reads files through
+  POSIX and *refuses* URLs unless the embedder supplies
+  `Interpreter.moduleLoader`; the CLI supplies one that spawns `curl
+  -fsSL` (posix_spawn, no Foundation). "So long as CORS allows" is
+  the browser's concern, not the CLI's.
+
 ## Dialogue log
 
 Moved to [Dialogue.md](Dialogue.md) (round 65) — append-only and

@@ -163,6 +163,25 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`import` and `export`** — modules (round 100): a `.swt` file, loaded
+once, its exports as a namespace tuple or by name; from a path beside
+the importer (the cwd, in the REPL) or a URL:
+
+```text
+swiftalk> import G from "eg/geometry.swt"
+swiftalk> G.area(2.0, 3.0)
+6.0
+swiftalk> G
+(Point: Point, area: { w, h in ... }, count: { ... }, unit: 1.0)
+swiftalk> import (unit, count) from "./eg/geometry.swt"
+swiftalk> [unit, count()]
+[1.0, 1]
+swiftalk> G.Point(x: 1.0, y: 2.0).scaled(2.0)
+Point(x: 2.0, y: 4.0)
+swiftalk> import (secret) from "eg/geometry.swt"
+type error: module 'eg/geometry.swt' exports no 'secret' — it exports Point, area, count, unit
+```
+
 **`let a, b = t`** — destructuring without the parentheses (round 99),
 where a comma can mean nothing else: `let`/`var`, `for`, closure
 parameters, and a switch's `case let`:

@@ -22,6 +22,7 @@ REPL). Sections in [Design.md](../Design.md) are cited as §n.
 | `Tuple` | a grab bag `(v0, v1, ...)`, one loose type | [Tuple.md](Tuple.md) |
 | `Regex` | `/pattern/flags`, Swift's engine | [Regex.md](Regex.md) |
 | `SION` | the data format, built in: SION, JSON, property lists | [SION.md](SION.md) |
+| modules | `import` / `export`, `.swt` files by path or URL | [module.md](module.md) |
 | `Result` | built-in enum: `.success` / `.failure` | [Result.md](Result.md) |
 | `struct` | user value types | [struct.md](struct.md) |
 | `enum` | user sum types | [enum.md](enum.md) |

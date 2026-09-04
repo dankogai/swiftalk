@@ -1458,3 +1458,23 @@ the history. (Moved out of Design.md in round 65.)
   assignment, where `a, b = b, a` would need bare tuple expressions
   on the right (OPEN); and labeled patterns, where `let x: a` reads
   as an annotation.
+* **2026-09-04, round 100 — `import` and `export`** ("Let get to
+  `import`. It will be more like JS than Swift because we want to
+  load `.swt`. `from` is necessary... `import M from "./mod.swt"`
+  imports all symbols under the `M` namespace. `import (foo, bar)
+  from ...` imports `foo` and `bar` into the top level. Note it is
+  not `import {foo, bar}`. only `export`ed symbols are importable").
+  Three decisions filled in the rest. The namespace is a labeled
+  tuple of the exports — round 70's call-through makes `M.f(1)` work
+  and no Module type was needed. A module runs in a scope whose
+  parent is the builtins, which meant moving the builtins out of the
+  program's global scope into one of their own — a module now sees
+  `print` but not the importer's variables, as an ES module would.
+  And URLs: the core is Foundation-free, so it reads files through
+  POSIX and refuses URLs unless an embedder supplies a loader; the
+  CLI's loader spawns `curl -fsSL` through posix_spawn, and a first
+  import over HTTPS from this repository's own raw URL worked at the
+  keyboard. Exports are copied values in `let`s (live bindings are
+  OPEN), module-private state rides in exported closures, loading is
+  cached per Interpreter, and a cycle is an error. Two keywords
+  joined the set, `import` and `export`; `from` is contextual.

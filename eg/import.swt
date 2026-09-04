@@ -1,0 +1,12 @@
+// import (round 100): `import M from "..."` binds every export under M —
+// a labeled tuple, so M.name reads and M.f(args) calls through —
+// and `import (a, b) from "..."` binds the named exports directly.
+// A module loads once: both forms below share one geometry instance.
+
+import Geometry from "./geometry.swt"
+print(Geometry.area(3.0, 4.0), Geometry.unit)
+print(Geometry.Point(x: 1.0, y: 2.0).scaled(3.0))
+
+import (area, count) from "./geometry.swt"
+print(area(2.0, 5.0), count(), Geometry.count())     // one instance: the count is shared
+print(Geometry)
