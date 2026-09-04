@@ -123,7 +123,7 @@ Each of these is a finding, with the workaround the example uses.
 2. **No `%`.** `v - v / n * n` throughout the base64 and UTF-8
    arithmetic. *(Landed in round 93. Round 105 then gave bitwise
    operations as methods, and the example's base64 and UTF-8 code
-   now reads `n.shifted(by: -16)`, `c.and(63)`, `0x80.or(...)`.)* No bit operators either (already OPEN). `%` is cheap
+   now reads `n.shifted(by: -16)`, `c.bitAnd(63)`, `0x80.bitOr(...)`.)* No bit operators either (already OPEN). `%` is cheap
    and Swift has it.
 3. **Newlines end statements everywhere except inside `[ ]` and
    `( )`** — a long `||` chain had to be parenthesized to continue on

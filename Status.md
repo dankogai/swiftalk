@@ -163,9 +163,31 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`bitAnd`, `bitOr`, `bitXor`, `bitNot`** (round 107) — the Int names
+are bit-prefixed; `and`/`or`/`xor`/`not` belong to Bool alone:
+
+```text
+swiftalk> 5.bitAnd(3)
+1
+swiftalk> 5.bitOr(3)
+7
+swiftalk> 5.bitXor(3)
+6
+swiftalk> 5.bitNot()
+-6
+swiftalk> true.and(false)
+false
+swiftalk> true.xor(false)
+true
+swiftalk> 5.and(3)
+unknown member: Int.and() — bitwise is .bitAnd()
+swiftalk> true.bitAnd(false)
+unknown member: Bool.bitAnd()
+```
+
 **`^^`, and `not`/`and`/`or`/`xor` on Bools** (round 106) — logical
-xor with a level between `&&` and `||`; the four names dispatch on
-the receiver, bitwise on an Int, logical on a Bool:
+xor with a level between `&&` and `||`; the four logical names are a
+Bool's, the bitwise ones an Int's `bit`-prefixed set (round 107):
 
 ```text
 swiftalk> true ^^ false
@@ -188,24 +210,24 @@ swiftalk> b
 false
 swiftalk> true && false ^^ true || false
 true
-swiftalk> 5.xor(3)
+swiftalk> 5.bitXor(3)
 6
 swiftalk> 1 ^ 2
 syntax error: '^' is not an operator — '^^' is xor on Bools, '.xor()' on Ints
 ```
 
-**Bitwise, as methods** (round 105) — `and`, `or`, `xor`, `not`,
+**Bitwise, as methods** (round 105; bit-prefixed since round 107) — `bitAnd`, `bitOr`, `bitXor`, `bitNot`,
 `shifted(by:)` (negative shifts right), `bit`, the `[Bool]` view, and
 `Bool(Int)`; no operator symbols spent:
 
 ```text
-swiftalk> 0b1100.and(0b1010)
+swiftalk> 0b1100.bitAnd(0b1010)
 8
-swiftalk> 0b1100.or(0b1010)
+swiftalk> 0b1100.bitOr(0b1010)
 14
-swiftalk> 0b1100.xor(0b1010)
+swiftalk> 0b1100.bitXor(0b1010)
 6
-swiftalk> 5.not()
+swiftalk> 5.bitNot()
 -6
 swiftalk> 1.shifted(by: 10)
 1024
@@ -225,7 +247,7 @@ swiftalk> Bool(0)
 false
 swiftalk> Bool(-3)
 true
-swiftalk> 0xC0.or(0x1F600.shifted(by: -18))
+swiftalk> 0xC0.bitOr(0x1F600.shifted(by: -18))
 192
 ```
 

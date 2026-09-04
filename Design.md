@@ -655,8 +655,10 @@ open-ended.
 **Bitwise operations are methods — DECIDED (round 105)**. The user:
 "They are rarer than ever especially in modern languages yet needed
 sometime. I am a little reluctant to implement operators for that
-since symbols are so precious." Kotlin's answer, then: `a.and(b)`,
-`a.or(b)`, `a.xor(b)`, `a.not()`, `a.shifted(by: n)` — one name, a
+since symbols are so precious." Kotlin's answer, then: `a.bitAnd(b)`,
+`a.bitOr(b)`, `a.bitXor(b)`, `a.bitNot()` (round 107 gave them the
+`bit` prefix; round 105 had spelled them bare), `a.shifted(by: n)` —
+one name, a
 positive `n` shifting left and a negative one right (the user's
 refinement; Swift's smart shift underneath, so an overshift is 0 or
 -1, never a trap), `a.bit(i)`, and the `[Bool]` the user first
@@ -669,10 +671,12 @@ checksums, base64) want a word, not 64 allocations. `Bool(Int)` is
 untouched: nothing is truthy in a condition. A recorded divergence
 from Swift and JavaScript both; `& | ^ ~ << >>` stay free — `|` in
 particular for a type union, `Int | String`, should annotations ever
-want one. **Round 106**: the same four names on a *Bool* are the
+want one. **Round 106**: the four bare names on a *Bool* are the
 logical operations — `b.not()`, `b.and(c)`, `b.or(c)`, `b.xor(c)` for
-`!`, `&&`, `||`, and the new **`^^`** — one name, the receiver's type
-deciding, as every builtin does. The methods are eager (a method
+`!`, `&&`, `||`, and the new **`^^`**. **Round 107** then gave the
+Int set the `bit` prefix — `bitNot`, `bitAnd`, `bitOr`, `bitXor` —
+so each name has one meaning and one receiver, and an Int asked for
+`.and()` is told about `.bitAnd()`. The methods are eager (a method
 evaluates its argument; `&&`/`||` short-circuit), a difference worth
 one sentence in the docs and no more. `^^` is logical xor, Bools
 only, both sides evaluated, with a precedence level of its own

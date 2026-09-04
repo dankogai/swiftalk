@@ -1556,3 +1556,11 @@ the history. (Moved out of Design.md in round 65.)
   short-circuit. `^^=` follows from round 104's rule. The lexer now
   meets `^` and says what to write instead; the symbol itself is
   still unspent.
+* **2026-09-04, round 107 — `bitNot`, `bitAnd`, `bitOr`, `bitXor`**
+  ("rename `a.not(b)` to `a.bitNot(b)`. same goes to `.and`, `.or`,
+  `xor`"). Round 106 had let one name mean two things by receiver;
+  the user prefers one name, one meaning: the Int set is
+  `bit`-prefixed, the Bool set keeps the bare words. An Int asked for
+  `.and()` now gets an error that names `.bitAnd()`. `shifted`, `bit`,
+  and `bits` were never ambiguous and keep their names. The example,
+  the tests, the docs, and two Status transcripts were swept.

@@ -3474,24 +3474,25 @@ private func method(on receiver: Value, name: String,
         }
         if !current.isEmpty { pieces.append(current) }
         return .array(pieces.map { reshape($0, like: receiver) })
-    // ---- bitwise, as methods (round 105): the symbols stay free ----
-    // ---- on a Bool (round 106) the same names are logical: and, or,
-    // xor, not — eager, as any method is (a method evaluates its
-    // argument; && and || do not always)
-    case ("and", true), ("or", true), ("xor", true), ("shifted", true):
-        if case .bool(let a) = receiver {
-            guard name != "shifted" else {
-                throw SwiftalkError.unknownMember("Bool.shifted()")
-            }
-            guard args.count == 1, case .bool(let b) = args[0] else {
-                throw SwiftalkError.type("Bool.\(name) takes one Bool — nothing is truthy (§3b)")
-            }
-            switch name {
-            case "and": return .bool(a && b)
-            case "or":  return .bool(a || b)
-            default:    return .bool(a != b)
-            }
+    // ---- logical, as methods on a Bool (round 106): and, or, xor, not
+    // — eager, as any method is (a method evaluates its argument; &&
+    // and || do not always) ----
+    case ("and", true), ("or", true), ("xor", true):
+        guard case .bool(let a) = receiver else {
+            throw SwiftalkError.unknownMember(
+                "\(receiver.typeName).\(name)()" + (receiver.typeName == "Int" ? " — bitwise is .bit\(name.capitalizedFirst)()" : ""))
         }
+        guard args.count == 1, case .bool(let b) = args[0] else {
+            throw SwiftalkError.type("Bool.\(name) takes one Bool — nothing is truthy (§3b)")
+        }
+        switch name {
+        case "and": return .bool(a && b)
+        case "or":  return .bool(a || b)
+        default:    return .bool(a != b)
+        }
+    // ---- bitwise, as methods on an Int (round 105; bit-prefixed since
+    // round 107): the symbols stay free ----
+    case ("bitAnd", true), ("bitOr", true), ("bitXor", true), ("shifted", true):
         guard case .int(let a) = receiver else {
             throw SwiftalkError.unknownMember("\(receiver.typeName).\(name)()")
         }
@@ -3499,9 +3500,9 @@ private func method(on receiver: Value, name: String,
             throw SwiftalkError.type(".\(name) takes one Int")
         }
         switch name {
-        case "and":     return .int(a & b)
-        case "or":      return .int(a | b)
-        case "xor":     return .int(a ^ b)
+        case "bitAnd":  return .int(a & b)
+        case "bitOr":   return .int(a | b)
+        case "bitXor":  return .int(a ^ b)
         default:
             // shifted(by:): left for a positive count, right (arithmetic,
             // sign-filling) for a negative one — Swift's smart shift, which
@@ -3510,9 +3511,15 @@ private func method(on receiver: Value, name: String,
         }
     case ("not", true):
         guard args.isEmpty else { throw SwiftalkError.type(".not() takes no arguments") }
-        if case .bool(let b) = receiver { return .bool(!b) }
+        guard case .bool(let b) = receiver else {
+            throw SwiftalkError.unknownMember(
+                "\(receiver.typeName).not()" + (receiver.typeName == "Int" ? " — bitwise is .bitNot()" : ""))
+        }
+        return .bool(!b)
+    case ("bitNot", true):
+        guard args.isEmpty else { throw SwiftalkError.type(".bitNot() takes no arguments") }
         guard case .int(let a) = receiver else {
-            throw SwiftalkError.unknownMember("\(receiver.typeName).not()")
+            throw SwiftalkError.unknownMember("\(receiver.typeName).bitNot()")
         }
         return .int(~a)
     case ("bit", true):
@@ -3552,4 +3559,8 @@ private func method(on receiver: Value, name: String,
     default:
         throw SwiftalkError.unknownMember("\(receiver.typeName).\(name)\(called ? "()" : "")")
     }
+}
+
+private extension String {
+    var capitalizedFirst: String { prefix(1).uppercased() + dropFirst() }
 }

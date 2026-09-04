@@ -15,7 +15,7 @@ separators.
 | `i + j`, `i - j`, `i * j` | traps on overflow |
 | `i / j` | integer division; `/ 0` is an error |
 | `i % j` | the remainder, the dividend's sign; `% 0` is an error (round 93) |
-| `a.and(b)`, `a.or(b)`, `a.xor(b)`, `a.not()` | bitwise `& \| ^ ~` as methods (round 105) — the symbols stay free |
+| `a.bitAnd(b)`, `a.bitOr(b)`, `a.bitXor(b)`, `a.bitNot()` | bitwise `& \| ^ ~` as methods (round 105; bit-prefixed since round 107 — `and`/`or`/`xor`/`not` are Bool's) — the symbols stay free |
 | `a.shifted(by: n)` | `<<` for a positive `n`, `>>` (arithmetic, sign-filling) for a negative one; an overshift gives 0 or -1, as Swift's smart shift does |
 | `a.bit(i)` | the `i`th bit as a Bool, `i` in 0..<64 |
 | `a.bits` | the `[Bool]` view — 64 elements, bit 0 first |

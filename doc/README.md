@@ -75,7 +75,8 @@ also a type since round 97 — `SION(text)` reads a document, see
 | `??=` | `x ??= y` writes `y` only when `x` is nil (or a Result failure); `y` unevaluated otherwise (round 103) — any type | | | | | | |
 | `&&= ||=` | Bool targets and Bools only; short-circuit like the operators (round 104) — the `op=` family is now every binary operator that can spell one | | | | | | |
 | `^^`, `^^=` | logical xor, Bools only, both sides evaluated; between `&&` and `||` (round 106) | | | | | | |
-| `.not()`, `.and()`, `.or()`, `.xor()` | logical on a Bool (eager), bitwise on an Int (rounds 105/106) — one name, the receiver decides | ✓ | | | | | |
+| `.not()`, `.and()`, `.or()`, `.xor()` | logical, on a Bool, eager (round 106) | | | | | | |
+| `.bitNot()`, `.bitAnd()`, `.bitOr()`, `.bitXor()`, `.shifted(by:)` | bitwise, on an Int (rounds 105/107) | ✓ | | | | | |
 | `< <= > >=` | ✓ | ✓ | ✓ | | ✓ | | |
 | `== !=` | | | | | | | ✓ same type, or vs nil |
 | `&& \|\| !` | | | | | | ✓ short-circuit | |

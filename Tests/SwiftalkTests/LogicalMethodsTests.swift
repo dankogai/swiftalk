@@ -20,15 +20,15 @@ struct LogicalMethodsTests {
         #expect(throws: SwiftalkError.self) { try eval("1 ^ 2") }
     }
 
-    @Test("not/and/or/xor: logical on a Bool, bitwise on an Int — one name, the receiver decides; the methods are eager")
+    @Test("not/and/or/xor: logical on a Bool; the bitwise names are bit-prefixed (round 107); the methods are eager")
     func methods() throws {
         #expect(try eval("true.not()") == .bool(false))
         #expect(try eval("true.and(false)") == .bool(false))
         #expect(try eval("false.or(true)") == .bool(true))
         #expect(try eval("true.xor(false)") == .bool(true))
         #expect(try eval("true.xor(true)") == .bool(false))
-        #expect(try eval("5.xor(3)") == .int(6))
-        #expect(try eval("5.not()") == .int(-6))
+        #expect(try eval("5.bitXor(3)") == .int(6))
+        #expect(try eval("5.bitNot()") == .int(-6))
         #expect(try eval("var calls = 0\nlet f = { calls += 1; return true }\nlet r = false.and(f())\n[r, calls]") == .array([.bool(false), .int(1)]))
         #expect(try eval("var calls = 0\nlet f = { calls += 1; return true }\nlet r = false && f()\n[r, calls]") == .array([.bool(false), .int(0)]))
         #expect(throws: SwiftalkError.self) { try eval("true.and(1)") }

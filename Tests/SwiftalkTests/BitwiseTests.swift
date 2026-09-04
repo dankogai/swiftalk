@@ -1,16 +1,16 @@
 import Testing
 @testable import Swiftalk
 
-@Suite("bitwise, as methods: and/or/xor/not, shifted(by:), bit, bits, Int(bits:), Bool(Int) (round 105)")
+@Suite("bitwise, as methods: bitAnd/bitOr/bitXor/bitNot (bit-prefixed since round 107), shifted(by:), bit, bits, Int(bits:), Bool(Int) (round 105)")
 struct BitwiseTests {
-    @Test("and, or, xor, not — Swift's semantics on 64-bit Ints")
+    @Test("bitAnd, bitOr, bitXor, bitNot — Swift's semantics on 64-bit Ints")
     func logic() throws {
-        #expect(try eval("0b1100.and(0b1010)") == .int(0b1000))
-        #expect(try eval("0b1100.or(0b1010)") == .int(0b1110))
-        #expect(try eval("0b1100.xor(0b1010)") == .int(0b0110))
-        #expect(try eval("5.not()") == .int(-6))
-        #expect(try eval("(-1).and(255)") == .int(255))
-        #expect(try eval("0xff.or(0x100)") == .int(0x1ff))
+        #expect(try eval("0b1100.bitAnd(0b1010)") == .int(0b1000))
+        #expect(try eval("0b1100.bitOr(0b1010)") == .int(0b1110))
+        #expect(try eval("0b1100.bitXor(0b1010)") == .int(0b0110))
+        #expect(try eval("5.bitNot()") == .int(-6))
+        #expect(try eval("(-1).bitAnd(255)") == .int(255))
+        #expect(try eval("0xff.bitOr(0x100)") == .int(0x1ff))
     }
 
     @Test("shifted(by:): positive left, negative right (arithmetic); overshifts give 0 or -1, never a trap")
@@ -22,8 +22,8 @@ struct BitwiseTests {
         #expect(try eval("1.shifted(by: 64)") == .int(0))
         #expect(try eval("(-1).shifted(by: -70)") == .int(-1))
         #expect(try eval("1.shifted(by: 63)") == .int(Int64.min))          // discards high bits, as << does
-        #expect(try eval("0xE0.or(0x1F600.shifted(by: -12))") == .int(0xFF))      // a UTF-8 lead byte, from the example
-        #expect(try eval("0x80.or(0x1F600.shifted(by: -6).and(63))") == .int(0x98))
+        #expect(try eval("0xE0.bitOr(0x1F600.shifted(by: -12))") == .int(0xFF))      // a UTF-8 lead byte, from the example
+        #expect(try eval("0x80.bitOr(0x1F600.shifted(by: -6).bitAnd(63))") == .int(0x98))
     }
 
     @Test("bit(i), the [Bool] view, and Int(bits:) round-trip; the Swift bit counts")
@@ -51,9 +51,17 @@ struct BitwiseTests {
         #expect(try eval("3.Bool()") == .bool(true))                       // the round-47 law
         #expect(throws: SwiftalkError.self) { try eval("if 3 { }") }         // §3b stands
         #expect(throws: SwiftalkError.self) { try eval("Bool(1.5)") }
-        #expect(throws: SwiftalkError.self) { try eval("5.and(1.5)") }
-        #expect(throws: SwiftalkError.self) { try eval("\"x\".and(1)") }
+        #expect(throws: SwiftalkError.self) { try eval("5.bitAnd(1.5)") }
+        #expect(throws: SwiftalkError.self) { try eval("\"x\".bitAnd(1)") }
         #expect(throws: SwiftalkError.self) { try eval("5.not(1)") }
         #expect(throws: SwiftalkError.self) { try eval("5.shifted()") }
+    }
+
+    @Test("the logical names are a Bool's; an Int asked for .and() is told about .bitAnd() (round 107)")
+    func naming() throws {
+        #expect(throws: SwiftalkError.self) { try eval("5.and(3)") }
+        #expect(throws: SwiftalkError.self) { try eval("5.not()") }
+        #expect(throws: SwiftalkError.self) { try eval("true.bitAnd(false)") }
+        #expect(throws: SwiftalkError.self) { try eval("true.bitNot()") }
     }
 }
