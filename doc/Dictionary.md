@@ -25,7 +25,7 @@ three keys), as SION allows. A homogeneous literal infers `[K: V]`
 | `d.prefix(n)`, `d.suffix(n)`, `d.dropFirst(n)`, `d.dropLast(n)` | Dictionaries, in the Dictionary's own order (round 89) |
 | `d.String()` | source form with keys sorted — deterministic |
 
-```swiftalk
+```swift
 var years = ["swift": 2014]
 years["swiftalk"] = 2026
 years["perl6"]                 // nil

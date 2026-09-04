@@ -20,7 +20,7 @@ mix in arithmetic without a conversion.
 | `d.Int()` | truncation toward zero; `nil` if unrepresentable |
 | `d.debugDescription` | hex float |
 
-```swiftalk
+```swift
 (0.1 + 0.2).String()     // "0.30000000000000004"
 Double("0x1.fep7")       // 255.0
 0x1.999999999999ap-4 == 0.1   // true — debugPrint output round-trips

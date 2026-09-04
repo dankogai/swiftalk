@@ -39,7 +39,7 @@ groups in order, labeled by name where the group has one, `nil` where
 a group did not participate — Swift's own output shape, in swiftalk's
 labeled tuples (rounds 74/75).
 
-```swiftalk
+```swift
 "hello 42".firstMatch(/\d+/)                                   // "42"
 "2026-09-03".firstMatch(/(\d+)-(\d+)-(\d+)/)                   // ("2026-09-03", "2026", "09", "03")
 "2026-09-03".firstMatch(/(?<year>\d+)-(?<month>\d+)/).year     // "2026"
@@ -53,7 +53,7 @@ for m in "x=1, y=22".matches(/(\w)=(\d+)/) { print(m.1, m.2) }
 
 ## In `switch`
 
-```swiftalk
+```swift
 switch s {
 case /\d+/:                          "number"        // the WHOLE String must match (Swift's ~=)
 case /[a-z]+/i:                      "word"

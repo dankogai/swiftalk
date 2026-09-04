@@ -23,7 +23,7 @@ is `.Data("base64")`, and `Data(s)` decodes base64.
 | `v.Data(.propertyList)` | any SION value as a binary property list — see [SION.md](SION.md) |
 | `d == e` | byte equality; usable as a Dictionary key |
 
-```swiftalk
+```swift
 "café".Data(.utf8)                     // .Data("Y2Fmw6k=")
 Data("Y2Fmw6k=").String(.utf8)         // "café"
 Data("hello")                          // nil — not base64

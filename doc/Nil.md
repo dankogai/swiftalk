@@ -5,7 +5,7 @@ The type of `nil` — one value, its own type. `nil` is swiftalk's
 "object"` (§3b). Optionals are flat (§3a): `Int?` is Int-or-nil, no
 box, so `nil` in an `Int?` slot **is** `nil`.
 
-```swiftalk
+```swift
 nil.Type            // Nil
 nil == nil          // true
 nil == 1            // false — the one cross-type equality allowed

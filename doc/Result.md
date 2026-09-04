@@ -17,7 +17,7 @@ case accessors, equality, source form.
 | `switch r { case let v = .success: ... case let e = .failure: ... }` | exhaustive; `if let e = r.failure { }` for one side |
 | `r.Type == Result`, `r == s` | as any enum |
 
-```swiftalk
+```swift
 let halve = { n in n / 2 * 2 == n ? Result.success(n / 2) : Result.failure("odd: \(n)") }
 let quarter = { n in Result.success(halve(halve(n)?)?) }
 quarter(8)          // Result.success(2)

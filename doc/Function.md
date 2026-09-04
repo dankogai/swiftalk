@@ -24,7 +24,7 @@ checked at call time.
 | `f.Task()` | spawns it — see [Task.md](Task.md) |
 | `f.String()` | a placeholder: `"{ x, y in ... }"` (source text is OPEN) |
 
-```swiftalk
+```swift
 let fac = { n in n < 2 ? 1 : n * $(n - 1) }
 fac(20)                         // 2432902008176640000
 let sum = { $.reduce(0) { $0 + $1 } }

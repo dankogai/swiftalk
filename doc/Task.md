@@ -21,7 +21,7 @@ that can never complete is detected and thrown as a deadlock error.
 Tasks persist across a persistent interpreter's evals and are
 cancelled at teardown. The wrapped body declares no parameters.
 
-```swiftalk
+```swift
 let t1 = async { sleep(0.02); 1 }
 let t2 = async { sleep(0.01); 2 }
 [await t1, await t2]          // [1, 2]

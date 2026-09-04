@@ -36,7 +36,7 @@ Arrays are dense — a sparse array is a Dictionary.
 | `for x in a where c` | iteration over `a.filter({ })`, the loop's names in `c` (round 82) |
 | `a.Sequence()` | see [Sequence.md](Sequence.md) — an Array is *not* a lazy Sequence, but conforms |
 
-```swiftalk
+```swift
 var primes = [2, 3, 5]
 let snapshot = primes
 primes.append(7)

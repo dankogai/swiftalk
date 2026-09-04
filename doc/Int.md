@@ -21,7 +21,7 @@ separators.
 | `i.Double()` | `Double(i)` |
 | `i.debugDescription` | hex: `0xff` |
 
-```swiftalk
+```swift
 9223372036854775807 + 1   // overflow: traps
 Int("0xff")               // 255
 255.String(.hex).Int()!   // 255 — prefixed forms round-trip

@@ -28,7 +28,7 @@ not `nil`: `nil` is itself a legal SION value, so it cannot mean
 dropping it silently — `[nil].String(.propertyList)` is an error, not
 an empty list.
 
-```swiftalk
+```swift
 let doc: SION = SION("""
     ["name": "swiftalk", "when": .Date(0x0p+0), "bytes": .Data("AQID"),
      nil: "any key", 1.0: "goes"]     // comments too

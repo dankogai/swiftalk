@@ -54,7 +54,7 @@ unexpected 't' at 0
 
 ## How it is built
 
-```swiftalk
+```swift
 struct MySION {
     var chars: [String] = []                      // graphemes
     init { text in .chars = text.Array() }

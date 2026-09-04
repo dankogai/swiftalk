@@ -43,7 +43,7 @@ lines); raw `#"..."#` / `#"""..."""#` (backslashes and `"` verbatim,
 | `s.split(/re/)`, `s.split(", ")` | the pieces, empty ones omitted (round 86) |
 | `s[i]` | undecided (§11) — an error for now |
 
-```swiftalk
+```swift
 "héllo".count                       // 5
 "héllo".filter { $0 != "l" }        // "héo"
 "héllo".reduce("") { $1 + $0 }      // "olléh"

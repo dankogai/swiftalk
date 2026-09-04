@@ -18,7 +18,7 @@ o + 1 }` (round 80) — and inside, `o` is itself.
 | `a \|\| b` | logical or — short-circuit, Bool operands only |
 | `!a` | logical not (prefix; postfix `!` is force-unwrap) |
 
-```swiftalk
+```swift
 1 < 2               // true
 Bool("yes")         // nil
 true ? "y" : "n"    // "y"
@@ -29,7 +29,7 @@ ternary loosest; `??` binds tighter than comparison. `1 && true` is a
 type error. A lone `&` or `|` is a syntax error — bitwise operators
 are undecided.
 
-```swiftalk
+```swift
 false && probe()          // probe never runs
 d["k"] != nil && d["k"]! > 0
 !true == false            // true — (!true) == false

@@ -10,7 +10,7 @@ recorded in [Design.md](Design.md).
 
 A taste of the language as decided so far (§§1–11):
 
-```swiftalk
+```swift
 // bindings: type-locked at first assignment (§3), Int is 64-bit (§3b)
 let fact20 = (1...20).reduce(1) { $0 * $1 }   // 2432902008176640000: still fits
 var n = 42

@@ -272,7 +272,7 @@ type error: property lists have no nil
 Swift's whitespace rule — infix with whitespace after it, a prefix
 without); a file's worth, since the REPL evaluates line by line:
 
-```swiftalk
+```swift
 let total = 1
     + 2
     + 3                 // 6

@@ -16,7 +16,7 @@ type call: it re-enters.
 | `t.String()` | `".Date(1234567890.5)"` |
 | `t.debugDescription` | hex-float epoch, as SION writes it — re-enters since round 59 |
 
-```swiftalk
+```swift
 Date(0.0) < Date()          // true
 Date(255.5).String()        // ".Date(255.5)"
 .Date(42.0) == Date(42)     // true

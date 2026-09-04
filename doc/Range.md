@@ -22,7 +22,7 @@ materializes unless asked; `(1...1000000000000).count` is O(1).
 | `r == s` | equality of bounds and kind |
 | `case a...b:` | in a `switch`, a Range pattern matches an Int by containment |
 
-```swiftalk
+```swift
 (1...5).Array()          // [1, 2, 3, 4, 5]
 (5..<10)[0]              // 5
 (1...20).reduce(1) { $0 * $1 }   // 2432902008176640000

@@ -49,7 +49,7 @@ never converts**.
 
 ## Extending any type (§10)
 
-```swiftalk
+```swift
 extension Int { let doubled = { self * 2 } }      // a method
 extension Int { var squared { self * self } }      // a read-only computed property
 21.doubled()   // 42

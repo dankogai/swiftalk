@@ -3,7 +3,7 @@
 User-defined value types (§4): **COW values**, memberwise-constructed,
 with methods as closure properties. Declaration grammar:
 
-```swiftalk
+```swift
 struct Point {
     var x: Int = 0                     // stored: annotation and/or default
     let tag = "pt"                     // let: immutable after init

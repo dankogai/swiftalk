@@ -32,7 +32,7 @@ mechanism; dispatch is ordinary method lookup on the runtime type.
 
 * Dictionary literals are `[Key: Value]`, **not** `{Key: Value}`:
 
-  ```swiftalk
+  ```swift
   let langs = ["swift": 2014, "smalltalk": 1972, "javascript": 1995]
   let empty = [:]
   ```
@@ -96,7 +96,7 @@ arity rigid, a missing label an error — in `let`/`var`, `if let`,
 A deliberate divergence from Swift: **argument labels are optional
 keyword arguments, and labeled arguments may be reordered.**
 
-```swiftalk
+```swift
 let move = { x, y in ... }      // functions are closure literals (§2.4)
 move(x: 1, y: 2)   // fine
 move(y: 2, x: 1)   // also fine — labels shuffle
@@ -123,7 +123,7 @@ Swift eliminated `{}` dictionaries so `{}` could mean closures.
 swiftalk goes a step further: **there is no `func`. A function is a
 closure literal, bound like any other value.**
 
-```swiftalk
+```swift
 let add = { x, y in x + y }
 add(2, 3)                       // 5
 ```
@@ -135,7 +135,7 @@ add(2, 3)                       // 5
 * **Arity is `$.count`** — the number of arguments actually passed,
   available at runtime. Variadic functions come for free:
 
-  ```swiftalk
+  ```swift
   let sum = { $.reduce(0) { $0 + $1 } }
   sum(1, 2, 3)                  // 6; inside, $.count == 3
   ```
@@ -152,7 +152,7 @@ Further decisions:
   late `arguments.callee`, R's `Recall`), so even an unnamed function
   can recurse:
 
-  ```swiftalk
+  ```swift
   let fac = { n in n < 2 ? 1 : n * $(n - 1) }
   ```
 
@@ -168,7 +168,7 @@ Further decisions:
   zero-parameter function (Swift's `() -> Int`, morally); it is `42`
   when and only when it is evaluated:
 
-  ```swiftalk
+  ```swift
   { 42 }.Type       // Function
   { 42 }().Type     // Int
   ```
@@ -189,7 +189,7 @@ Further decisions:
   yielding suspends it, to be resumed where it left off — the Lua
   model, matching the Lua-sized ambition (§5).
 
-  ```swiftalk
+  ```swift
   let fib = {
       var (a, b) = (0, 1)
       while true { yield a; (a, b) = (b, a + b) }
@@ -249,7 +249,7 @@ Further decisions:
   later assignment — deferred initialization, Swift's
   declare-then-assign `let` reborn as a value:
 
-  ```swiftalk
+  ```swift
   let fact: Function = .todo
   fact = { n in n < 2 ? n : n * fact(n - 1) }   // by name, not $()
   fact = { 0 }                                  // error: fact is frozen
@@ -298,7 +298,7 @@ and most especially JavaScript):
 
 * A variable's type is fixed when it is first bound:
 
-  ```swiftalk
+  ```swift
   var x = 1      // x is an Int, forever
   x = 2          // fine
   x = "1"        // runtime error: cannot assign String to Int variable
@@ -400,7 +400,7 @@ no Int8/UInt zoo, presumably — `Data` covers the bytes use case;
 called with parentheses, and **accepting arguments to fiddle with
 formats**:
 
-```swiftalk
+```swift
 data.String(.utf8)  // Data → String?  (failable: bytes may not be valid text)
 data.String()       // Data → String   (infallible: source form, round-trips)
 string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bare Data(s) is base64, round 97)
@@ -414,7 +414,7 @@ string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bar
 * Arguments select formats/options per conversion — and **the enum
   form and the `radix:` form are deliberately not the same**:
 
-  ```swiftalk
+  ```swift
   255.String(.hex)        // "0xff"       — prefixed, literal-ready
   255.String(.oct)        // "0o377"
   255.String(.bin)        // "0b11111111"
@@ -424,7 +424,7 @@ string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bar
   `.hex`/`.oct`/`.bin` emit what the lexer accepts back, and
   **prefixed strings round-trip — as a language invariant**:
 
-  ```swiftalk
+  ```swift
   x.String(.hex).Int()! == x      // holds for every Int x
   ```
 
@@ -442,7 +442,7 @@ string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bar
   escapes.
 * **The round-trip law** (round 23, restated by round 42):
 
-  ```swiftalk
+  ```swift
   eval(x.String(.quoted)) == x    // for every value x, every type
   eval(x.String()) == x           // for every non-String x
   (0.1 + 0.2).String()            // "0.30000000000000004" — not "0.3"
@@ -469,7 +469,7 @@ string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bar
   closing round 39's OPEN): `x.TypeName(tag: ...)` is normally
   identical to `TypeName(x, tag: ...)`, format arguments included —
 
-  ```swiftalk
+  ```swift
   dbl.String(radix: 16) == String(dbl, radix: 16)   // always
   "42".Int()            == Int("42")
   [0, 1].Sequence { next } == Sequence([0, 1]) { next }
@@ -495,7 +495,7 @@ string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bar
   types", it is a `Primitives`, a closed sum you can `switch` over
   exhaustively (§7) — not the anything-goes escape hatch.
 
-  ```swiftalk
+  ```swift
   let mixed: [Primitives] = [1, "one", 2.0]
   for x in mixed {
       switch x {
@@ -512,7 +512,7 @@ string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bar
   There is no box: a value in a `Primitives` slot *is* itself, and
   **`x.Type` reports `Int`, not `Primitives`**:
 
-  ```swiftalk
+  ```swift
   let mixed = [1, "one", 2.0]   // [Primitives]
   mixed[0].type                 // Int — the lift is invisible at runtime
   ```
@@ -552,7 +552,7 @@ string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bar
   literal is an **error at binding** — `let bad = [0.0, 1, 2, 3]`
   does not infer; you must say what you mean:
 
-  ```swiftalk
+  ```swift
   let ok: [Primitives] = [0.0, 1, 2, 3]   // the closed SION-ish sum
   let s: SION = [1, "one", Data([255])]   // full SION roster, Data/Date included
   var a: Any = [0.0, 1, {}]               // the escape hatch, spelled out
@@ -624,7 +624,7 @@ tradition. But unlike Swift, **`T?` is not a wrapper**:
   `Optional<T>` box, no `.some`/`.none`. A `2` sitting in an `Int?`
   slot is a plain `Int`:
 
-  ```swiftalk
+  ```swift
   var maybe: Int? = nil
   maybe = 2
   maybe.Type        // Int — not Optional<Int>
@@ -951,7 +951,7 @@ stability, Objective-C interop.
 * **`.conforms(to:)`** — a method on types, the runtime conformance
   test, playing roughly the role of JS's `instanceof`:
 
-  ```swiftalk
+  ```swift
   Array.conforms(to: Sequence)          // true
   "abc".type.conforms(to: Sequence)     // true — via the type
   ```

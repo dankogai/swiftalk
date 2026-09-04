@@ -22,7 +22,7 @@ closures that export it: a non-exported `var` mutated by an exported
 Function persists across calls, and every importer shares the one
 instance.
 
-```swiftalk
+```swift
 // geometry.swt
 export struct Point { var x: Double; var y: Double }
 var calls = 0                              // private

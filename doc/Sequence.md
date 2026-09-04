@@ -34,7 +34,7 @@ initial state / a fresh run of the coroutine body. `yield` is
 dynamic: a helper function called from the body may yield on its
 behalf. `yield` outside a wrapped function is an error.
 
-```swiftalk
+```swift
 let fib = Sequence([0, 1]) { $ = [$1, $0 + $1]; return $0 }
 fib.prefix(8)                                  // [0, 1, 1, 2, 3, 5, 8, 13]
 let naturals = Sequence { var n = 0; while true { yield n; n = n + 1 } }

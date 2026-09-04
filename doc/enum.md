@@ -5,7 +5,7 @@ User-defined sum types (§7) with associated values, **case accessors**
 `case let r = .circle:`, and **runtime-enforced exhaustiveness**. Cases are *boxing* enums — unlike the flat built-in
 unions `T?` and `Primitives`.
 
-```swiftalk
+```swift
 enum Shape {
     case circle(r: Double)
     case rect(w: Double, h: Double)
@@ -36,7 +36,7 @@ enum Shape {
 | `s.String()` | `"Shape.circle(r: 2.5)"` — round-trips wherever Shape is declared |
 | `extension Shape { let m = { } }` | adds methods |
 
-```swiftalk
+```swift
 Shape.circle(r: 3.0).circle     // 3.0
 Shape.circle(r: 3.0).rect       // nil
 Shape.rect(w: 3.0, h: 4.0).rect // (w: 3.0, h: 4.0)

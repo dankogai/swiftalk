@@ -35,19 +35,19 @@ form keeps them. Dictionaries hand out `(key:, value:)` tuples and
 `pair.key`, `pair.value`, `e.offset`, `e.element` read, while `.0`,
 destructuring, and `{ k, v in }` all still work.
 
-```swiftalk
+```swift
 let t = (1, "one", 2.0)
 t.1                                   // "one"
 ((1, 2), (3, 4)).1.0                  // 3
 for pair in ["a": 1] { print(pair.0, pair.1) }
 ```
 
-```swiftalk
+```swift
 var (a, b) = (0, 1)
 for _ in 1...10 { (a, b) = (b, a + b) }   // a == 55
 ```
 
-```swiftalk
+```swift
 for (value: v, key: k) in years { ... }     // by label, any order
 let (element: x, offset: i) = xs.enumerated()[0]
 ```
