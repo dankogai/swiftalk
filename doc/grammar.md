@@ -9,8 +9,13 @@ Shelved forms (`actor`, `class`, `super`) are not grammar today.
 
 * **Comments**: `// ...` to end of line; `/* ... */`, nesting.
 * **Separators**: a newline or `;` ends a statement. Newlines are
-  *suppressed* inside `[ ]` and `( )` (literals and calls span lines);
-  inside `{ }` they matter — a body is a statement list. The REPL
+  *suppressed* inside `[ ]` and `( )` (literals and calls span lines),
+  and after a trailing binary operator — `+ - * / % =`, a comparison,
+  `&& || ??` — which continues the expression on the next line
+  (round 95); not after postfix `!`/`?`, and not after `...`, since
+  `0...` at a line's end is the unbounded range. A *leading* operator
+  does not continue the previous line. Inside `{ }` newlines
+  matter — a body is a statement list. The REPL
   evaluates a statement as soon as its line completes, so `else` and
   a second trailing closure must share the line there.
 * **Identifiers**: a Unicode-alphabetic character or `_`, then

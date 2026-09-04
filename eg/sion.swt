@@ -90,10 +90,10 @@ struct MySION {
         while true {
             let c = .at(j)
             let digit = "0" <= c && c <= "9"
-            let letter = (("a" <= c && c <= "f") || ("A" <= c && c <= "F") ||
-                          c == "x" || c == "X" || c == "o" || c == "O" || c == "p" || c == "P")
-            let expSign = ((c == "+" || c == "-") &&
-                           (prev == "p" || prev == "P" || (!hex && (prev == "e" || prev == "E"))))
+            let letter = ("a" <= c && c <= "f") || ("A" <= c && c <= "F") ||
+                         c == "x" || c == "X" || c == "o" || c == "O" || c == "p" || c == "P"
+            let expSign = (c == "+" || c == "-") &&
+                          (prev == "p" || prev == "P" || (!hex && (prev == "e" || prev == "E")))
             if !(digit || letter || c == "." || c == "_" || expSign) { break }
             text = text + c
             prev = c

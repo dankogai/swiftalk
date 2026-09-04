@@ -1371,3 +1371,17 @@ the history. (Moved out of Design.md in round 65.)
   so `needsMoreInput` never saw it; now it does. `eg/sion.swt`'s
   README sample is a `"""` literal, verbatim, with the test output
   unchanged.
+* **2026-09-04, round 95 — continuation after a trailing binary
+  operator** ("Let's implement the newline continuation after a
+  trailing binary operator"). Round 85's third finding, closed in the
+  lexer: the newline after `+ - * / % =`, a comparison, or `&& ||
+  ??` is not a statement separator. Two exclusions decided along the
+  way: postfix `!` and `?` (a line ending in `o!` is complete), and
+  `...`/`..<` — round 88 made `0...` at a line's end the unbounded
+  range, and continuing there would have fused `let r = 0...` with
+  the next line. The REPL's incomplete-input check learned the same
+  rule, so `1 +` waits for `2`. A leading operator (`\n + 2`), which
+  Swift accepts through its whitespace-symmetry rule, still does not
+  continue — logged OPEN rather than added; the user asked for the
+  trailing form. `eg/sion.swt`'s long conditions lost their outer
+  parentheses; the example's output is unchanged.

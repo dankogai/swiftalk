@@ -124,11 +124,11 @@ Each of these is a finding, with the workaround the example uses.
    a record of the finding.)* No bit operators either (already OPEN). `%` is cheap
    and Swift has it.
 3. **Newlines end statements everywhere except inside `[ ]` and
-   `( )`** — a long `||` chain must be parenthesized to continue on
+   `( )`** — a long `||` chain had to be parenthesized to continue on
    the next line; a line that starts with `||` is a syntax error.
-   Swift continues after a trailing binary operator. Either that
-   rule, or leaving it as is and documenting the parentheses idiom
-   (the grammar already does).
+   *(Landed in round 95: a trailing binary operator continues the
+   line, and the parser's long conditions lost their outer
+   parentheses. A leading operator still does not continue.)*
 4. **No `"""` multi-line String literals.** The README sample was an
    Array of lines `.joined("\n")`. *(Landed in round 94; the example
    now spells the sample as a `"""` literal, verbatim.)*

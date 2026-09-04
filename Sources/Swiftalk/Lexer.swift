@@ -73,7 +73,8 @@ struct Lexer {
                 pos += 1
             case "\n":
                 pos += 1
-                if !suppressNewlines, tokens.last != nil, tokens.last != .newline {
+                if !suppressNewlines, tokens.last != nil, tokens.last != .newline,
+                   !Lexer.continuesLine(after: tokens.last) {
                     tokens.append(.newline)
                 }
             case "/":
@@ -184,6 +185,21 @@ struct Lexer {
             }
         }
         return tokens
+    }
+
+    /// A trailing binary operator continues the line (round 95): the
+    /// newline after `+ - * / % =`, a comparison, `&& || ??` is not a
+    /// separator. Not after postfix `!`/`?`, and not after `...`/`..<`
+    /// — `0...` at a line's end is the unbounded range (round 88).
+    static func continuesLine(after last: Token?) -> Bool {
+        switch last {
+        case .punct(let p)?:
+            return "+-*/%=".contains(p)
+        case .op(let o)?:
+            return ["==", "!=", "<", "<=", ">", ">=", "&&", "||", "??"].contains(o)
+        default:
+            return false
+        }
     }
 
     /// JavaScript's rule (round 86): `/` starts a regex literal where an

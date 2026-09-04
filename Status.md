@@ -163,6 +163,20 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**A trailing binary operator continues the line** (round 95) — in a
+file and in the REPL; `0...` at a line's end stays the unbounded range:
+
+```text
+swiftalk> 1 +
+      2
+3
+swiftalk> let r = 0...
+0...
+swiftalk> true &&
+      false
+false
+```
+
 **`"""` and raw `#"..."#`** (round 94) — Swift's multi-line and raw
 string literals; the REPL keeps reading while a `"""` is open:
 

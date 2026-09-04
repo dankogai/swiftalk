@@ -137,6 +137,8 @@ extension Swiftalk {
         } catch {
             return false
         }
+        // a line ending in a binary operator wants the next one (round 95)
+        if Lexer.continuesLine(after: tokens.last) { return true }
         var depth = 0
         for token in tokens {
             switch token {

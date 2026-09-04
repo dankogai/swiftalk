@@ -21,7 +21,7 @@ struct REPLTests {
         #expect(needsMoreInput("(1 + "))
         #expect(needsMoreInput("[\"key\": [1, 2"))
         #expect(!needsMoreInput("[1, 2]"))
-        #expect(!needsMoreInput("1 +"))            // malformed, not incomplete
+        #expect(needsMoreInput("1 +"))        // a trailing operator continues since round 95            // malformed, not incomplete
         #expect(!needsMoreInput("\"unterminated")) // lex error → report, don't hang
         #expect(!needsMoreInput("42"))
     }
