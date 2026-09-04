@@ -2547,9 +2547,13 @@ private func binary(_ op: Character, _ lhs: Value, _ rhs: Value) throws -> Value
         case "*": a.multipliedReportingOverflow(by: b)
         case "/":
             b == 0 ? (0, false) : a.dividedReportingOverflow(by: b)
+        case "%":
+            // the remainder (round 93): Swift's — the sign of the dividend,
+            // Int.min % -1 an overflow, % 0 a zero-division, like /
+            b == 0 ? (0, false) : a.remainderReportingOverflow(dividingBy: b)
         default: fatalError("unreachable operator \(op)")
         }
-        if op == "/" && b == 0 { throw SwiftalkError.zeroDivision }
+        if (op == "/" || op == "%") && b == 0 { throw SwiftalkError.zeroDivision }
         guard !overflow else {
             throw SwiftalkError.overflow("\(a) \(op) \(b)")
         }
@@ -2560,6 +2564,8 @@ private func binary(_ op: Character, _ lhs: Value, _ rhs: Value) throws -> Value
         case "-": return .double(a - b)
         case "*": return .double(a * b)
         case "/": return .double(a / b)
+        case "%":
+            throw SwiftalkError.type("'%' is for Ints — as in Swift, a Double has no remainder operator")
         default: fatalError("unreachable operator \(op)")
         }
     case (.string(let a), .string(let b)) where op == "+":

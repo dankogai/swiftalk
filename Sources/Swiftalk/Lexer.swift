@@ -96,7 +96,7 @@ struct Lexer {
                 if !brackets.isEmpty { brackets.removeLast() }
                 pos += 1
                 tokens.append(.punct(Character(c)))
-            case ":", ",", "+", "-", "*", ";":
+            case ":", ",", "+", "-", "*", "%", ";":
                 pos += 1
                 tokens.append(.punct(Character(c)))
             case "?":

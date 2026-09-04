@@ -66,6 +66,7 @@ accepted in type annotations — `let xs: [Primitives] = [1, "one"]`,
 | Operator | Int | Double | String | Array | Date | Bool | any |
 |---|---|---|---|---|---|---|---|
 | `+ - * /` | ✓ (traps on overflow, `/0`) | ✓ | `+` only | `+` only | | | |
+| `%` | ✓ remainder, the dividend's sign; `% 0` traps (round 93) | type error, as in Swift | | | | | |
 | `< <= > >=` | ✓ | ✓ | ✓ | | ✓ | | |
 | `== !=` | | | | | | | ✓ same type, or vs nil |
 | `&& \|\| !` | | | | | | ✓ short-circuit | |
@@ -73,6 +74,6 @@ accepted in type annotations — `let xs: [Primitives] = [1, "one"]`,
 | `??` `x?` `x!` `x?.m` | | | | | | | ✓ (nil / Result) |
 
 Mixed arithmetic (`1 + 1.5`) is a type error — convert explicitly.
-Precedence, high to low: prefix `! -` · `* /` · `+ -` · `... ..<` ·
+Precedence, high to low: prefix `! -` · `* / %` · `+ -` · `... ..<` ·
 `??` · comparison · `&&` · `||` · `? :`. A lone `&` or `|` is a
 syntax error — bitwise operators are undecided.

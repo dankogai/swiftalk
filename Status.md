@@ -163,6 +163,31 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`%`** — the remainder (round 93), Swift's, Int only:
+
+```text
+swiftalk> 7 % 3
+1
+swiftalk> -7 % 3
+-1
+swiftalk> 7 % -3
+1
+swiftalk> 1 + 7 % 3
+2
+swiftalk> 7 % 3 * 2
+2
+swiftalk> (1...10).filter { $0 % 2 == 0 }
+[2, 4, 6, 8, 10]
+swiftalk> 7 % 0
+division by zero
+swiftalk> 7.5 % 2
+type error: '%' is not defined between Double and Int
+swiftalk> "a" % 2
+type error: '%' is not defined between String and Int
+swiftalk> -9223372036854775808 % -1
+overflow: integer literal '9223372036854775808' does not fit in Int
+```
+
 **Data's Range subscript** (round 92) — reading and writing, plus byte
 writes; a Data on the right of a Range write:
 

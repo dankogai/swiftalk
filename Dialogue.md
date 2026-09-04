@@ -1342,3 +1342,14 @@ the history. (Moved out of Design.md in round 65.)
   write side lopsided. A byte is an Int in 0...255 and the check is
   at the write, since a Data has no per-element lock to land through
   the way an Array's rebuilt value does.
+* **2026-09-04, round 93 — `%`** ("Let's implement `%` — the remainder
+  operator. Surprised to find it remained unimplemented"). Round 85's
+  first finding, closed: one token, one precedence-rule branch, one
+  arm in the Int arithmetic beside `/` — the same zero-division and
+  overflow answers, `remainderReportingOverflow` catching `Int.min %
+  -1` as Swift traps it, the sign of the dividend as Swift's. Doubles
+  get a type error rather than a value: Swift has no floating `%`
+  either (it wants `truncatingRemainder`), and the Double arm would
+  otherwise have fallen into a `fatalError` marked unreachable. The
+  base64 and UTF-8 arithmetic in `eg/sion.swt` keeps its `v - v / n *
+  n` as a record of the finding.

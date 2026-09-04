@@ -36,7 +36,7 @@ Shelved forms (`actor`, `class`, `super`) are not grammar today.
     keyword) and is division after a value, a name, or a closing
     bracket — JavaScript's rule. `//` is a comment, never an empty
     regex.
-* **Operators & punctuation**: `+ - * /`, `== != < <= > >=`, `&& ||`,
+* **Operators & punctuation**: `+ - * / %`, `== != < <= > >=`, `&& ||`,
   prefix `! -`, `...` `..<`, `??`, `= : , . ; ( ) [ ] { }`. Three
   spacing-sensitive rules:
   * `?` — `??` coalesces; *unspaced* `?.` chains, *unspaced* postfix
@@ -155,7 +155,7 @@ coalescing   = range [ "??" coalescing ] ;                          (* right-ass
 range        = additive [ "..." [ additive ] | "..<" additive ] ;   (* a... unbounded (round 88): the bound is
                                                                    absent when ) ] } , : ; { or a newline follows *)
 additive     = multiplicative { ( "+" | "-" ) multiplicative } ;
-multiplicative = unary { ( "*" | "/" ) unary } ;
+multiplicative = unary { ( "*" | "/" | "%" ) unary } ;      (* % is Int only (round 93) *)
 unary        = "-" unary | "!" unary | "await" unary | postfix ;
 postfix      = primary { suffix } ;
 suffix       = "." IDENT [ args ]                      (* member, method *)

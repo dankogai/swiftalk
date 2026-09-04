@@ -1129,7 +1129,7 @@ struct Parser {
 
     private mutating func parseMultiplicative() throws -> Expr {
         var lhs = try parseUnary()
-        while case .punct(let op)? = peek, op == "*" || op == "/" {
+        while case .punct(let op)? = peek, op == "*" || op == "/" || op == "%" {
             pos += 1
             lhs = .binary(op, lhs, try parseUnary())
         }

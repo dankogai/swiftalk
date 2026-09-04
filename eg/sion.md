@@ -120,7 +120,8 @@ Each of these is a finding, with the workaround the example uses.
    destructuring could take the loose lock when an element is nil,
    or `Any` could be the default lock for a nil initializer.
 2. **No `%`.** `v - v / n * n` throughout the base64 and UTF-8
-   arithmetic. No bit operators either (already OPEN). `%` is cheap
+   arithmetic. *(Landed in round 93; the example keeps the idiom as
+   a record of the finding.)* No bit operators either (already OPEN). `%` is cheap
    and Swift has it.
 3. **Newlines end statements everywhere except inside `[ ]` and
    `( )`** — a long `||` chain must be parenthesized to continue on

@@ -1039,7 +1039,9 @@ conformer (`suffix`, `dropFirst`, `dropLast`, `split`) plus a Range
 subscript on Array; then RegExp **as a module**, which makes
 `import` the prerequisite design — **OPEN**: modules and `import`
 (shape, what a module is, whether builtins like Regex live in one).
-Findings from the experiment, each OPEN: `%`; `"""` literals;
+Findings from the experiment, each OPEN (`%` landed in round 93 —
+Swift's remainder, Int only, `% 0` a zero-division and `Int.min % -1`
+an overflow, both as `/`): `"""` literals;
 newline continuation after a trailing binary operator; a strict
 `let` refusing `nil` (and `let` destructuring refusing a nil
 element); implicit-self `.name` shadowing format tags inside a type
