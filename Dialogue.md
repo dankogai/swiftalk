@@ -1426,3 +1426,20 @@ the history. (Moved out of Design.md in round 65.)
   document mixes key or value types — the user's next item, a strict
   `let` with an `Any` lock, is exactly what this needs; until then
   the annotation `let doc: SION = ...` carries it.
+* **2026-09-04, round 98 — `takeWhile` folded into `prefix`, `dropWhile`
+  into `dropFirst`** ("Let's aggregate seq.takeWhile() to seq.prefix()
+  like Swift. Unlike Swift swiftalk's functions and methods are not
+  multi-dispatch but its arguments are not typed (and return value
+  for that matter), you can go like `if $0.Type == Int, if $0.Type ==
+  Function` and so forth"). Round 88's two names are gone; `prefix`
+  and `dropFirst` each take an Int or a Function, and the value's
+  type is the dispatch — exactly the principle stated, and what every
+  builtin has done since `contains(x)`/`contains { }`. Swift's `while:`
+  label is accepted on both, which needed one parser change: a
+  keyword may be an argument label, as in Swift (`while` was refused
+  before). The one divergence recorded: Swift spells the drop
+  `drop(while:)`, a second name; swiftalk keeps one, `dropFirst`, with
+  both argument kinds — a name per operation, not per signature.
+  Tests, docs, the examples, error hints, and two Status transcripts
+  were swept off the old names — in Python, after macOS `sed` had
+  quietly given up on every file with an em dash in it.

@@ -254,9 +254,9 @@ extension Swiftalk {
             /// `.enumerated()` (round 73): (index, element) tuples, lazily.
             case enumerated(SequenceObject)
             /// The unbounded range `a...` as a lazy base (round 88), so
-            /// its `map`/`filter`/`enumerated`/`takeWhile` defer.
+            /// its `map`/`filter`/`enumerated`/`prefix { }` defer.
             case counting(from: Int64)
-            /// `.takeWhile { }` / `.dropWhile { }` (round 88), lazily.
+            /// `.prefix { } { }` / `.dropFirst { } { }` (round 88), lazily.
             case takenWhile(SequenceObject, FunctionObject)
             case droppedWhile(SequenceObject, FunctionObject)
             /// `.dropFirst(n)` (round 89), lazily — the only one of the

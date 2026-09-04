@@ -163,6 +163,29 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`prefix { }` and `dropFirst { }`** (round 98) — round 88's `takeWhile`/
+`dropWhile` folded into `prefix`/`dropFirst`, the argument's type
+deciding (an Int counts, a Function decides); Swift's `while:` accepted:
+
+```text
+swiftalk> [1, 2, 3, 4, 1].prefix(2)
+[1, 2]
+swiftalk> [1, 2, 3, 4, 1].prefix { $0 < 3 }
+[1, 2]
+swiftalk> [1, 2, 3, 4, 1].prefix(while: { $0 < 3 })
+[1, 2]
+swiftalk> [1, 2, 3, 4, 1].dropFirst { $0 < 3 }
+[3, 4, 1]
+swiftalk> "hello world".prefix { $0 != " " }
+"hello"
+swiftalk> (0...).prefix { $0 < 4 }.Array()
+[0, 1, 2, 3]
+swiftalk> (0...).dropFirst { $0 < 4 }.prefix(3)
+[4, 5, 6]
+swiftalk> [1, 2].takeWhile { true }
+unknown member: Array.takeWhile()
+```
+
 **SION is a built-in** (round 97) — `SION(text)` reads a document,
 `.String()` writes one; JSON via `SION(json:)` / `.String(.json)`;
 property lists via `SION(propertyList:)` / `.String(.propertyList)` /
@@ -378,10 +401,10 @@ swiftalk> [1, 2, 3, 4, 5].split { $0 / 2 * 2 == $0 }
 swiftalk> "a b  c".split { $0 == " " }
 ["a", "b", "c"]
 swiftalk> (0...).suffix(2)
-type error: an unbounded Range is infinite — .prefix(n) or .takeWhile it before .suffix
+type error: an unbounded Range is infinite — .prefix(n) or .prefix { } it before .suffix
 ```
 
-**`0...` and `takeWhile`/`dropWhile`** (round 88) — the unbounded range
+**`0...` and `prefix { }`/`dropFirst { }`** (round 88) — the unbounded range
 is an infinite lazy Sequence conformer; the two new members are lazy
 on it and on Sequence values, eager elsewhere:
 
@@ -394,19 +417,19 @@ swiftalk> for i in 10... { if i > 12 { break }; print(i) }
 12
 swiftalk> (0...).map { $0 * $0 }.prefix(4)
 [0, 1, 4, 9]
-swiftalk> (0...).takeWhile { $0 < 4 }.Array()
+swiftalk> (0...).prefix { $0 < 4 }.Array()
 [0, 1, 2, 3]
-swiftalk> (0...).dropWhile { $0 < 4 }.prefix(3)
+swiftalk> (0...).dropFirst { $0 < 4 }.prefix(3)
 [4, 5, 6]
 swiftalk> (0...).count
-type error: an unbounded Range is infinite — .prefix(n) or .takeWhile it deliberately
-swiftalk> [1, 2, 3, 4, 1].takeWhile { $0 < 3 }
+type error: an unbounded Range is infinite — .prefix(n) or .prefix { } it deliberately
+swiftalk> [1, 2, 3, 4, 1].prefix { $0 < 3 }
 [1, 2]
-swiftalk> "hello world".takeWhile { $0 != " " }
+swiftalk> "hello world".prefix { $0 != " " }
 "hello"
 swiftalk> let fib = Sequence { var a = 0; var b = 1; while true { yield a; (a, b) = (b, a + b) } }
 Sequence { ... }
-swiftalk> fib.takeWhile { $0 < 50 }.Array()
+swiftalk> fib.prefix { $0 < 50 }.Array()
 [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]
 swiftalk> switch 42 { case 40...: "big" default: "small" }
 "big"

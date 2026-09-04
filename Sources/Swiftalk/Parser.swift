@@ -1251,8 +1251,10 @@ struct Parser {
         try withTrailing(true) {
             if $0.peek != .punct(")") {
                 repeat {
+                    // a keyword may be an argument label, as in Swift —
+                    // prefix(while:), split(in:) — but not a literal word
                     if case .identifier(let label)? = $0.peek, $0.peek(at: 1) == .punct(":"),
-                       !keywords.contains(label) {
+                       !["true", "false", "nil"].contains(label) {
                         guard label != "_" else {
                             // round 61: `_` parameters have no label —
                             // pass the value positionally

@@ -988,7 +988,7 @@ private func countingIterator(from lower: Int64) -> ValueIterator {
 private func requireFinite(_ value: Value, for member: String) throws {
     if case .range(_, nil, _) = value {
         throw SwiftalkError.type(
-            "an unbounded Range is infinite — .prefix(n) or .takeWhile it before .\(member)")
+            "an unbounded Range is infinite — .prefix(n) or .prefix { } it before .\(member)")
     }
 }
 
@@ -1102,7 +1102,7 @@ extension SequenceObject {
             var done = false
             return ValueIterator {
                 if done { return nil }
-                guard let element = try it.next(), try holds(fn, element, for: "takeWhile") else {
+                guard let element = try it.next(), try holds(fn, element, for: "prefix { }") else {
                     done = true
                     return nil
                 }
@@ -1126,7 +1126,7 @@ extension SequenceObject {
             return ValueIterator {
                 while let element = try it.next() {
                     if dropping {
-                        if try holds(fn, element, for: "dropWhile") { continue }
+                        if try holds(fn, element, for: "dropFirst { }") { continue }
                         dropping = false
                     }
                     return element
@@ -2899,6 +2899,7 @@ private func method(on receiver: Value, name: String,
     case ("firstMatch", true), ("wholeMatch", true), ("matches", true): ["of"]   // round 86
     case ("replacing", true):  ["with"]
     case ("split", true):      ["separator", "whereSeparator"]                  // round 89
+    case ("prefix", true), ("dropFirst", true): ["while"]                        // round 98
     default:                   []
     }
     let args = try plainValues(
@@ -2944,7 +2945,7 @@ private func method(on receiver: Value, name: String,
         case .range(let lower, let upper, let closed):
             guard let upper else {
                 throw SwiftalkError.type(
-                    "an unbounded Range is infinite — .prefix(n) or .takeWhile it deliberately")
+                    "an unbounded Range is infinite — .prefix(n) or .prefix { } it deliberately")
             }
             return .int(try rangeCount(from: lower, to: upper, closed: closed))
         case .data(let bytes): return .int(Int64(bytes.count))
@@ -2972,9 +2973,24 @@ private func method(on receiver: Value, name: String,
         }
         return .array(out)
     case ("prefix", true):
-        // The lazy world's terminal (round 41): materialize the first n.
+        // prefix(n) — the lazy world's terminal (round 41): the first n,
+        // materialized. prefix { } / prefix(while:) (round 98, folding
+        // round 88's prefix { }): the leading elements while a predicate
+        // holds — lazy on a Sequence value and on `a...`, shaped like
+        // filter's result elsewhere. The argument's type decides.
+        if args.count == 1, case .function(let fn) = args[0] {
+            if let base = lazyBase(receiver) {
+                return .sequence(SequenceObject(kind: .takenWhile(base, fn)))
+            }
+            var kept: [Value] = []
+            let it = try iterator(of: receiver)
+            while let element = try it.next(), try holds(fn, element, for: "prefix") {
+                kept.append(element)
+            }
+            return reshape(kept, like: receiver)
+        }
         guard args.count == 1, case .int(let n) = args[0], n >= 0 else {
-            throw SwiftalkError.type(".prefix(n) takes one non-negative Int")
+            throw SwiftalkError.type(".prefix takes a non-negative Int, or a Function x -> Bool")
         }
         var out: [Value] = []
         let it = try iterator(of: receiver)
@@ -2989,6 +3005,24 @@ private func method(on receiver: Value, name: String,
         // n clamps to the count; dropFirst()/dropLast() default to 1;
         // the result is shaped like the receiver. dropFirst is lazy
         // where map is; suffix and dropLast must see the end.
+        if name == "dropFirst", args.count == 1, case .function(let fn) = args[0] {
+            // dropFirst { } / dropFirst(while:) (round 98, folding round
+            // 88's dropFirst { }): skip while the predicate holds, then all
+            if let base = lazyBase(receiver) {
+                return .sequence(SequenceObject(kind: .droppedWhile(base, fn)))
+            }
+            var kept: [Value] = []
+            var dropping = true
+            let it = try iterator(of: receiver)
+            while let element = try it.next() {
+                if dropping {
+                    if try holds(fn, element, for: "dropFirst") { continue }
+                    dropping = false
+                }
+                kept.append(element)
+            }
+            return reshape(kept, like: receiver)
+        }
         let n: Int64
         switch args.count {
         case 0 where name != "suffix": n = 1
@@ -2999,7 +3033,8 @@ private func method(on receiver: Value, name: String,
             n = k
         default:
             throw SwiftalkError.type(name == "suffix" ? ".suffix(n) takes one non-negative Int"
-                                                      : ".\(name)(n) takes one non-negative Int (default 1)")
+                                     : name == "dropFirst" ? ".dropFirst takes a non-negative Int (default 1), or a Function x -> Bool"
+                                                           : ".dropLast(n) takes one non-negative Int (default 1)")
         }
         if name == "dropFirst", let base = lazyBase(receiver) {
             return .sequence(SequenceObject(kind: .dropped(base, Int(clamping: n))))
@@ -3282,29 +3317,6 @@ private func method(on receiver: Value, name: String,
         }
         if !current.isEmpty { pieces.append(current) }
         return .array(pieces.map { reshape($0, like: receiver) })
-    case ("takeWhile", true), ("dropWhile", true):
-        // Round 88: lazy on a Sequence value and on `a...`; eager and
-        // shaped like filter's result on the rest.
-        guard args.count == 1, case .function(let fn) = args[0] else {
-            throw SwiftalkError.type(".\(name) takes a single Function x -> Bool")
-        }
-        if let base = lazyBase(receiver) {
-            return .sequence(SequenceObject(
-                kind: name == "takeWhile" ? .takenWhile(base, fn) : .droppedWhile(base, fn)))
-        }
-        var kept: [Value] = []
-        let it = try iterator(of: receiver)
-        var dropping = name == "dropWhile"
-        while let element = try it.next() {
-            if name == "takeWhile" {
-                guard try holds(fn, element, for: name) else { break }
-            } else if dropping {
-                if try holds(fn, element, for: name) { continue }
-                dropping = false
-            }
-            kept.append(element)
-        }
-        return reshape(kept, like: receiver)
     case ("has", true):
         // Presence, distinct from value (round 35): d.has(k) is true for
         // a key holding nil, false for a missing key — the question

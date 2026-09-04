@@ -981,24 +981,31 @@ first element, says which, and every element must agree (a mix is a
 type error; "map it to a String first"); empty joins to `""`, or `[]`
 under an Array separator; a String's own graphemes join too, so
 `"abc".joined("-")` is `"a-b-c"`. `separator:` joins the accepted
-labels. **`a...` and `takeWhile`/`dropWhile` — DECIDED (round 88)**:
+labels. **`a...` and `prefix { }`/`dropFirst { }` — DECIDED (round 88)**:
 `0...` is the unbounded range, Swift's `PartialRangeFrom` as a
 first-class value — infinite and lazy, printed as written, a
-Sequence conformer whose `map`/`filter`/`enumerated`/`takeWhile`/
-`dropWhile` defer (the same laziness a `Sequence` value has) and
+Sequence conformer whose `map`/`filter`/`enumerated`/`prefix { }`/
+`dropFirst { }` defer (the same laziness a `Sequence` value has) and
 whose eager terminals (`count`, `reduce`, `sorted`, `reversed`,
 `joined`, `Array()`) refuse it with the same message a Sequence's
 `.count` gives; `for i in 0...` with `break`, `(0...).prefix(n)`,
 `(1...)[i]`, `case 40...:` all work; the element after `Int.max` is
 an overflow error, not a wrap; `a..<` has no unbounded form. The
 parser reads `a...` as unbounded when nothing that could be a bound
-follows (`) ] } , : ; {` or a line end). `takeWhile { }` /
-`dropWhile { }` take the leading elements while a predicate holds /
+follows (`) ] } , : ; {` or a line end). `prefix { }` /
+`dropFirst { }` take the leading elements while a predicate holds /
 everything from its first miss, the predicate never asked again
 after it — lazy on a Sequence value and on `a...`, eager and shaped
 like `filter` (String → String, Dictionary → Dictionary) elsewhere.
-The names are the user's, deliberately not Swift's `prefix(while:)`
-/ `drop(while:)` — one of the recorded divergences. **The slicing
+(Round 88 named them `takeWhile`/`dropWhile`; **round 98 folded them
+into `prefix`/`dropFirst`**, Swift's `prefix(while:)` way — the
+argument's type dispatches, an Int counting and a Function deciding,
+Swift's `while:` label accepted; a keyword may be an argument label
+since this round, as in Swift. The user's principle: swiftalk's
+methods are not multi-dispatch, but their arguments are untyped, so
+one name switches on `$0.Type`. Swift's `drop(while:)` is a second
+name for the drop; swiftalk keeps one, `dropFirst`, with both
+argument kinds — the recorded divergence.) **The slicing
 family — DECIDED (round 89)**: `suffix(n)`, `dropFirst(n = 1)`,
 `dropLast(n = 1)`, and `split` on every Sequence conformer, Swift's
 names and semantics — `n` clamps to the count, a negative `n` is an
@@ -1007,13 +1014,13 @@ accepted) cuts at elements equal to a value or accepted by a
 predicate, empty pieces omitted as Swift's default. **Shape rule,
 now uniform**: every slice is shaped like its receiver — a String's
 is a String, a Dictionary's a Dictionary, anything else an Array —
-which is Swift's SubSequence rule and what `filter`/`takeWhile` did
+which is Swift's SubSequence rule and what `filter`/`prefix { }` did
 already; `prefix` joins it (round 41 had it return an Array for a
 String — revised, the one behavior change). `dropFirst` is lazy where
 `map` is (a Sequence value, `a...`); `suffix`, `dropLast`, and
 `split` must see the end and refuse an infinite source. This closes
 round 85's "index-free slicing" leaning: with `prefix`/`suffix`/
-`dropFirst`/`dropLast`/`split`/`takeWhile`/`dropWhile` and `Array()`
+`dropFirst`/`dropLast`/`split`/`prefix { }`/`dropFirst { }` and `Array()`
 + `joined()` for random access, **String subscripts are not coming**
 — decided, not OPEN. **The Array Range subscript — DECIDED (round
 90)**: `a[1..<3]`, `a[1...2]`, `a[1...]` give a new Array of those
