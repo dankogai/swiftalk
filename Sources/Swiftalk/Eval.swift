@@ -2644,6 +2644,36 @@ func convert(_ typeName: String, subject: Value?,
             throw SwiftalkError.type("String formats need a value to format")
         }
         return try stringFormat(subject, extra)
+    case "SION":
+        // SION(json: text) / SION(propertyList: text | data) (round 97)
+        guard subject == nil, extra.count == 1, let label = extra[0].label else {
+            throw SwiftalkError.type("SION(json: text) or SION(propertyList: text or data)")
+        }
+        switch (label, extra[0].value) {
+        case ("json", .string(let text)):          return try JSONFormat.parse(text)
+        case ("propertyList", .string(let text)):  return try PlistXML.parse(text)
+        case ("propertyList", .data(let bytes)):   return try PlistBinary.parse(bytes)
+        default:
+            throw SwiftalkError.type("SION(\(label):) takes a String\(label == "propertyList" ? " or a Data" : ""), not a \(extra[0].value.typeName)")
+        }
+    case "Data":
+        // s.Data(.utf8) — the text's bytes (round 97, moved from the bare
+        // form, which is now base64); x.Data(.propertyList) — binary plist
+        guard let subject, extra.count == 1, extra[0].label == nil,
+              case .string(let tag) = extra[0].value else {
+            throw SwiftalkError.type(".Data() takes one format: .utf8 or .propertyList")
+        }
+        switch tag {
+        case "utf8":
+            guard case .string(let s) = subject else {
+                throw SwiftalkError.type(".Data(.utf8) encodes a String")
+            }
+            return .data(Array(s.utf8))
+        case "propertyList":
+            return .data(try PlistBinary.emit(subject))
+        default:
+            throw SwiftalkError.type("unknown .Data() format .\(tag)")
+        }
     case "Regex":
         // Regex(pattern, flags) / pattern.Regex(flags) (round 86)
         guard let subject, case .string(let pattern) = subject,
@@ -2684,8 +2714,12 @@ private func stringFormat(_ subject: Value,
         throw SwiftalkError.type("unknown .String() format label '\(label!)'")
     }
     switch format {
-    case .string("quoted"):
-        return .string(subject.sourceString())
+    case .string("quoted"), .string("sion"):
+        return .string(subject.sourceString())          // .sion: SION IS the source form (round 97)
+    case .string("json"):
+        return .string(try JSONFormat.emit(subject))
+    case .string("propertyList"):
+        return .string(try PlistXML.emit(subject))
     case .string("utf8"):
         // data.String(.utf8) — the failable decode (§3d, round 23):
         // bytes may not be valid text, so nil when they aren't.

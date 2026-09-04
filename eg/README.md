@@ -41,6 +41,10 @@ laws are checked byte-for-byte, the outputs line-for-line.
   from UTF-8 bytes, comments — and the round-trip law verified
   through it. No RegExp, no String subscripts. The write-up, with
   what carried it and what got in the way, is [sion.md](sion.md).
+* **[formats.swt](formats.swt)** — SION built in (round 97): a
+  document read with `SION(text)`, written back with `.String()`,
+  and carried through JSON and property lists (XML and `bplist00`)
+  and back, `==` at every step; Data's base64 literal.
 * **[sequence.swt](sequence.swt)** — Sequences, lazy by default: a
   generator, coroutines that `yield`, deferred `map`/`filter`,
   infinite primes pulled by `.prefix` and `for`-`in` with `break`.

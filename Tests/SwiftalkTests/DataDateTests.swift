@@ -5,21 +5,21 @@ import Testing
 struct DataDateTests {
     @Test("Data: bytes distinct from String, constructed from strings and byte arrays")
     func dataBasics() throws {
-        #expect(try eval(#""café".Data()"#) == .data(Array("café".utf8)))
-        #expect(try eval(#"Data("café") == "café".Data()"#) == .bool(true))   // round-47 law
+        #expect(try eval(#""café".Data(.utf8)"#) == .data(Array("café".utf8)))   // .utf8 since round 97
+        #expect(try eval(#"Data("Y2Fmw6k=") == "café".Data(.utf8)"#) == .bool(true))   // Data(s) is base64 now
         #expect(try eval("Data([255, 0, 128])") == .data([255, 0, 128]))
         #expect(try eval("Data()") == .data([]))
         #expect(try eval("Data([256])") == .nil)          // not a byte — failable
         #expect(try eval("Data([1, -1])") == .nil)
         #expect(throws: SwiftalkError.self) { try eval("Data(1.5)") }
-        #expect(try eval(#""abc".Data().Type == Data"#) == .bool(true))
+        #expect(try eval(#""abc".Data(.utf8).Type == Data"#) == .bool(true))
         #expect(try eval("Data.conforms(to: Hashable)") == .bool(true))
     }
 
     @Test("Data: count, byte subscripts, equality, dictionary keys")
     func dataAccess() throws {
-        #expect(try eval(#""abc".Data().count"#) == .int(3))
-        #expect(try eval(#""café".Data().count"#) == .int(5))   // bytes, not graphemes
+        #expect(try eval(#""abc".Data(.utf8).count"#) == .int(3))
+        #expect(try eval(#""café".Data(.utf8).count"#) == .int(5))   // bytes, not graphemes
         #expect(try eval("Data([10, 20, 30])[1]") == .int(20))
         #expect(throws: SwiftalkError.self) { try eval("Data([1])[9]") }
         #expect(try eval(#"[Data([1]): "one"][Data([1])]"#) == .string("one"))
@@ -27,12 +27,12 @@ struct DataDateTests {
 
     @Test("Data round-trips: source form re-enters; .String(.utf8) decodes, failably")
     func dataRoundTrip() throws {
-        #expect(try eval("Data([255, 1]).String()") == .string("Data([255, 1])"))
-        #expect(try eval("Data([255, 1]).String(.quoted)") == .string("Data([255, 1])"))
+        #expect(try eval("Data([255, 1]).String()") == .string(".Data(\"/wE=\")"))       // SION's spelling since round 97
+        #expect(try eval("Data([255, 1]).String(.quoted)") == .string(".Data(\"/wE=\")"))
         let v = try eval("Data([0, 127, 255])")
         #expect(try eval(v.sourceString()) == v)
         // decode: text comes back; junk comes back nil
-        #expect(try eval(#""caf\u{E9}".Data().String(.utf8)"#) == .string("café"))
+        #expect(try eval(#""caf\u{E9}".Data(.utf8).String(.utf8)"#) == .string("café"))
         #expect(try eval("Data([255, 254]).String(.utf8)") == .nil)
         #expect(try eval("Data([255]).debugDescription") == .string("Data([0xff])"))
     }

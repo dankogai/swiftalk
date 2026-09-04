@@ -142,10 +142,10 @@ Each of these is a finding, with the workaround the example uses.
 7. **Errors carry no line number** — `swiftalk file.swt` says what
    went wrong, not where. Finding a syntax error in 300 lines meant
    bisecting. Worth adding to the lexer's error path.
-8. **Data's source form is `Data([99, 97])`, not SION's
-   `.Data("base64")`** — the parser accepts both, but swiftalk's own
-   output is not SION here. When SION becomes built-in this must be
-   settled (base64 output is already OPEN in doc/Data.md).
+8. **Data's source form was `Data([99, 97])`, not SION's
+   `.Data("base64")`** — the parser accepts both. *(Settled in round
+   97, when SION became built-in: the source form is SION's, and
+   `Data(s)` decodes base64.)*
 9. Minor: no `uppercased()`/`lowercased()`; `.count` on a Sequence
    is deliberately an error, so lengths come from `.Array().count`.
 10. **No recursion guard.** The tree-walker's recursion budget is its

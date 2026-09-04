@@ -475,11 +475,15 @@ extension Value {
             }.joined(separator: ", ")
             return props.isEmpty ? "\(obj.type.name) { }" : "\(obj.type.name) { \(props) }"
         case .data(let bytes):
-            // Constructor source form — round-trips (SION's base64
-            // spelling is OPEN).
-            return "Data([" + bytes.map {
-                Value.int(Int64($0)).sourceString(debug: debug, seen: seen)
-            }.joined(separator: ", ") + "])"
+            // SION's own spelling since round 97 — .Data("base64"), which
+            // re-enters as Data(base64); the debug form keeps the bytes
+            // visible, in hex, through the Array constructor.
+            if debug {
+                return "Data([" + bytes.map {
+                    Value.int(Int64($0)).sourceString(debug: true, seen: seen)
+                }.joined(separator: ", ") + "])"
+            }
+            return ".Data(\"\(Base64.encode(bytes))\")"
         case .date(let epoch):
             // SION's own spelling — .Date(epoch); hex-float under debug,
             // exactly as SION serializes dates.

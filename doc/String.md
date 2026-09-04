@@ -15,7 +15,9 @@ view (§11). `"..."` literals with `\(interpolation)`, escapes `\" \\
 | `s.String()` | `s` itself (argless `.String()` is description) |
 | `s.String(.quoted)` | source form, escaped: `"\"hi\""` — `eval` re-enters it |
 | `s.Int()`, `s.Double()`, `s.Bool()` | failable parses (see those pages) |
-| `s.Data()` | UTF-8 bytes, infallible |
+| `s.Data(.utf8)` | UTF-8 bytes, infallible (round 97; the bare `s.Data()` decodes base64) |
+| `s.SION()`, `SION(json: s)`, `SION(propertyList: s)` | parse the String as SION / JSON / an XML property list — see [SION.md](SION.md) |
+| `v.String(.json)`, `v.String(.propertyList)`, `v.String(.sion)` | any SION value as JSON / an XML property list / SION text (round 97) |
 | `for c in s` | graphemes |
 | `s.map { }` | an **Array** of results |
 | `s.filter { }` | a **String** (Swift-compatible) |

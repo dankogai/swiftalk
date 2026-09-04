@@ -1399,3 +1399,30 @@ the history. (Moved out of Design.md in round 65.)
   or parenthesizes. `...` never leads, as it never trails. The REPL
   evaluates a line as soon as it is complete, so the leading form is
   for files; there, trailing operators do the job.
+* **2026-09-04, round 97 — SION, built in** ("before that, add SION.
+  `SION(string)` parses string to SION. `sion.String()` stringify.
+  `SION(json:string)` treats the string as JSON. `sion.String(.json)`
+  emits a JSON string. `SION(propertyList:)` and
+  `sion.String(.propertyList)` behaves accordingly and
+  `sion.Data(.propertyList)` emits binary form. msgPack and YAML
+  later. update doc/ and eg/"). The first decision made the rest
+  small: a SION value is any value SION can carry, unboxed —
+  `SION(text)` hands back the Dictionary itself, and `.String()` of
+  it is already SION, so "stringify" was free and the round-trip law
+  doubles as the format's guarantee. The reader is swiftalk's own
+  lexer and parser with a literal-only walk over the AST (no names,
+  no calls but `.Date()`/`.Data()`), which is how comments, `"""`,
+  hex floats and `_` came along for nothing. Two forks went to the
+  user: Data's literal — SION's `.Data("base64")` won, so `Data(s)`
+  now decodes base64 and the text's bytes are `s.Data(.utf8)`,
+  which touched a dozen docs and tests and closed round 85's finding
+  8 — and JSON's gaps, where "lossy but useful" won (Data → base64,
+  Date → a number, non-String keys → their `String()`). Property
+  lists got both forms, XML in Apple's layout and `bplist00`, each
+  Foundation-free and verified against `plutil` in both directions
+  (an Apple-written binary plist is embedded in the tests). One
+  finding for the next round, met while writing the example: `let
+  doc = SION(text)` fails under round 59's strict inference when the
+  document mixes key or value types — the user's next item, a strict
+  `let` with an `Any` lock, is exactly what this needs; until then
+  the annotation `let doc: SION = ...` carries it.

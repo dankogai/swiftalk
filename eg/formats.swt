@@ -1,0 +1,45 @@
+// SION, JSON, and property lists — the formats a value reads from and
+// writes to (round 97). A "SION value" is any value SION can carry;
+// there is no box: what SION(text) returns is the Array or Dictionary
+// itself, and .String() of any such value IS its SION text.
+
+let config: SION = SION("""
+    [
+        "name":    "swiftalk",
+        "version": 97,
+        "ratio":   0.5,
+        "tags":    ["lang", "swift"],
+        "when":    .Date(1234567890.0),          // SION's dates and bytes
+        "bytes":   .Data("AQID"),
+        "empty":   [:],
+        // comments, hex, and _ come with swiftalk's own lexer
+        "limit":   0xff_ff,
+    ]
+    """)
+print(config["name"], config["limit"], config["when"], config["bytes"].count)
+print(SION(config.String()) == config)              // the round-trip law, through SION
+
+// JSON: canonical (keys sorted), lossy where JSON is poorer —
+// Data becomes base64 text, Date a number
+let json = config.String(.json)
+print(json)
+let back: SION = SION(json: json)
+print(back["bytes"], back["when"])                  // a String and a Double now
+print(SION(json: #"{"a": [1, 2.5, -3e2, "\u00e9", null, {"b": false}]}"#))
+
+// property lists: XML text, and Apple's binary form as Data
+let xml = config.String(.propertyList)
+print(xml.split("\n")[3...5].joined("\n"))
+print(SION(propertyList: xml) == config)
+let bin = config.Data(.propertyList)
+print(bin[0..<8].String(.utf8), bin.count)
+print(SION(propertyList: bin) == config)
+
+// Data's literal is SION's: base64
+let d = "café".Data(.utf8)
+print(d, d.String(.utf8), Data("Y2Fmw6k=") == d, "not base64".Data())
+
+// what a format cannot carry is a type error, never a silent loss:
+// [nil].String(.propertyList), [1: "one"].String(.propertyList),
+// (1.0 / 0.0).String(.json), SION(json: "[1, 2") — each throws.
+print([1: "one"].String(.json))                       // JSON keys become Strings

@@ -351,8 +351,9 @@ Primitives:
   optionally. **No `.utf16` view — UTF-16 needs to go to hell.**
 * **`Data`** — a sequence of unsigned 8-bit bytes, **distinct from
   `String`**. Bytes are bytes; text is text. **Implemented round 50**:
-  `Data([255, 1])` source form (hex bytes under debug; SION's base64
-  spelling OPEN); `Data(str)` ≡ `str.Data()` (UTF-8, infallible);
+  `.Data("base64")` source form since round 97 — SION's own (hex bytes
+  under debug); `Data(base64)` ≡ `base64.Data()` (failable); the text's
+  bytes are `str.Data(.utf8)` (infallible);
   `data.String(.utf8)` decodes failably (`nil` on invalid bytes);
   `.count` and read-only byte subscripts; `Hashable`.
 * **`Date`** — joined the roster in round 17 as a consequence of
@@ -395,7 +396,7 @@ formats**:
 ```swiftalk
 data.String(.utf8)  // Data → String?  (failable: bytes may not be valid text)
 data.String()       // Data → String   (infallible: source form, round-trips)
-string.Data()       // String → Data   (infallible: text always has bytes)
+string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bare Data(s) is base64, round 97)
 "42".Int()          // String → Int?   (failable, presumably)
 42.String()         // Int → String    ("42")
 255.String(.hex)    // Int → String    ("0xff") — format via arguments
@@ -576,6 +577,33 @@ short-circuit on the right, precedence `!` > comparison > `&&` >
 `||` > ternary, with `??` above comparison. Prefix `!` and postfix
 `!` (force unwrap) coexist; position tells them apart. A lone `&` or
 `|` is a syntax error — bitwise operators are undecided.
+
+**SION as a built-in — DECIDED (round 97)**. The user's spec: "`SION(string)`
+parses string to SION. `sion.String()` stringify. `SION(json:string)`
+treats the string as JSON. `sion.String(.json)` emits a JSON string.
+`SION(propertyList:)` and `sion.String(.propertyList)` behaves
+accordingly and `sion.Data(.propertyList)` emits binary form. msgPack
+and YAML later." **A SION value is any value SION can carry — there
+is no box**: `SION(text)` returns the Array or Dictionary itself, and
+`.String()` of such a value is its SION text, so the round-trip law
+and "SION reads what swiftalk writes" are one fact. Reading reuses
+swiftalk's own lexer and parser, admitting only literal forms and the
+spellings `.Date(epoch)` / `.Data("base64")` — a document is data,
+never code. Two decisions taken with the user: **Data's literal is
+SION's** (`.Data("base64")` is the source form, `Data(s)` decodes
+base64 failably, and the text's bytes moved to `s.Data(.utf8)`,
+mirroring `d.String(.utf8)`), and **JSON is lossy but useful** (Data
+→ base64 String, Date → epoch number, a non-String key → its
+`String()`; `nil` → `null`). Property lists refuse what they cannot
+carry — `nil`, non-String keys — as errors, never a silent loss; XML
+in Apple's layout, binary as `bplist00`, both verified against
+`plutil`. A malformed document is a type error with a position, not
+`nil`, since `nil` is itself a SION value. `SION` stays an annotation
+name too (round 59). Foundation-free throughout: base64, JSON, an XML
+subset, civil dates, and bplist are hand-written in `Formats.swift`.
+**OPEN**: msgPack, YAML; `Any`-lock inference so `let doc = SION(text)`
+binds a mixed document without an annotation (the strict `let` of
+round 59 refuses mixed keys and values — the next round's subject).
 
 ## 3a. Optionals & nil — DECIDED
 
@@ -1054,7 +1082,8 @@ with none is a prefix; a leading `.` is excluded, since `.x = 1` at
 a line's start is implicit self); a strict `let` refusing `nil` (and `let` destructuring refusing a nil
 element); implicit-self `.name` shadowing format tags inside a type
 body; error messages without line numbers; Data's source form
-`Data([...])` vs SION's `.Data("base64")`; and **no recursion
+`Data([...])` vs SION's `.Data("base64")` (settled in round 97: SION's);
+and **no recursion
 guard** — the recursion budget is the thread's stack and nothing
 checks it, so a deep program on a small-stack thread is a SIGBUS,
 not an error (the SION test had to move to a 64 MB pthread).

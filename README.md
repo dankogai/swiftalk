@@ -67,9 +67,14 @@ for x in mixed {
 }
 let answer = "42".Int() ?? 0                  // failable conversion + default
 let hex    = 255.String(.hex)                 // "0xff"; radix: 16 for bare "ff"
-let bytes  = "café".Data()                    // infallible; UTF-8 default
+let bytes  = "café".Data(.utf8)               // infallible; .Data("base64") is the literal
 let text   = bytes.String(.utf8)              // String? — bytes may not be text
-let src    = bytes.String()                   // source form; eval(src) == bytes
+let src    = bytes.String()                   // .Data("Y2Fmw6k=") — SION; eval(src) == bytes
+
+// SION is built in (round 97): the same values, three formats
+let doc: SION = SION("[\"n\": 42, \"when\": .Date(0x0p+0)]")   // any SION text, comments and all
+doc.String(.json)                             // {"n":42,"when":0.0}
+SION(propertyList: doc.String(.propertyList)) == doc   // true; .Data(.propertyList) is bplist00
 
 // Regex is a core type with a literal (round 86); a match with captures is a tuple
 let when = "2026-09-03".firstMatch(/(?<y>\d+)-(?<m>\d+)-(?<d>\d+)/)   // (whole, y:, m:, d:)

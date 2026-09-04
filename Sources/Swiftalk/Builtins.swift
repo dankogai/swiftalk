@@ -142,7 +142,8 @@ enum Builtins {
             switch args.first {
             case nil:              return .data([])
             case .data(let b)?:    return .data(b)
-            case .string(let s)?:  return .data(Array(s.utf8))   // str.Data() — infallible (§3d)
+            case .string(let s)?:  // Data(base64) — SION's literal (round 97); nil if not base64.
+                return Base64.decode(s).map(Value.data) ?? .nil
             case .array(let a)?:
                 // Data([255, 1]) — the source form; a non-byte is nil (failable)
                 var bytes: [UInt8] = []
@@ -182,6 +183,17 @@ enum Builtins {
             case nil:              return .tuple([])
             case .tuple(let t)?:   return .tuple(t)
             case let v?:           return .tuple(try collect(v))
+            }
+        },
+        "SION": type("SION") { args in
+            // SION(text) reads a SION document (round 97); a value SION
+            // can carry is returned as it is. json:/propertyList: via convert().
+            switch args.first {
+            case .string(let text)?: return try SIONFormat.parse(text)
+            case nil: throw SwiftalkError.type("SION(text) reads a SION document; SION(json:) and SION(propertyList:) the other formats")
+            case let v?:
+                guard isSION(v) else { throw SwiftalkError.type("a \(v.typeName) is not SION") }
+                return v
             }
         },
         "Regex": type("Regex") { args in

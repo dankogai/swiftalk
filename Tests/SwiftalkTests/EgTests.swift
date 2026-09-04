@@ -206,7 +206,7 @@ struct EgTests {
             true ["k": [nil, 1.5]]
             true ["😇": true, 1.0: [], nil: [:]]
             true .Date(1234567890.5)
-            true Data([99, 97, 102, 195, 169])
+            true .Data("Y2Fmw6k=")
             expected ',' or ']' at 5
             expected ',' or ']' at 3
             unterminated string at 5
@@ -214,6 +214,26 @@ struct EgTests {
             bad base64 at 6
             unexpected 'x' at 4
             unexpected 't' at 0
+
+            """)
+    }
+
+    @Test("formats.swt: SION, JSON, and property lists — round trips through every format (round 97)")
+    func formats() throws {
+        #expect(try output(of: try slurp("formats.swt")) == """
+            swiftalk 65535 .Date(1234567890.0) 3
+            true
+            {\"bytes\":\"AQID\",\"empty\":{},\"limit\":65535,\"name\":\"swiftalk\",\"ratio\":0.5,\"tags\":[\"lang\",\"swift\"],\"version\":97,\"when\":1234567890.0}
+            AQID 1234567890.0
+            [\"a\": [1, 2.5, -300.0, \"é\", nil, [\"b\": false]]]
+            <dict>
+            	<key>bytes</key>
+            	<data>AQID</data>
+            true
+            bplist00 174
+            true
+            .Data(\"Y2Fmw6k=\") café true nil
+            {\"1\":\"one\"}
 
             """)
     }

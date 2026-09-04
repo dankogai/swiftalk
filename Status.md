@@ -163,6 +163,38 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**SION is a built-in** (round 97) — `SION(text)` reads a document,
+`.String()` writes one; JSON via `SION(json:)` / `.String(.json)`;
+property lists via `SION(propertyList:)` / `.String(.propertyList)` /
+`.Data(.propertyList)`; Data's literal is SION's `.Data("base64")`:
+
+```text
+swiftalk> "café".Data(.utf8)
+.Data("Y2Fmw6k=")
+swiftalk> Data("Y2Fmw6k=").String(.utf8)
+"café"
+swiftalk> SION("[1, 0xff, .Date(0x0p+0), .Data(\"AQID\")]")
+[1, 255, .Date(0.0), .Data("AQID")]
+swiftalk> let c: SION = ["n": 42, "tags": ["a", "b"], "none": nil]
+["n": 42, "none": nil, "tags": ["a", "b"]]
+swiftalk> c.String(.json)
+"{\"n\":42,\"none\":null,\"tags\":[\"a\",\"b\"]}"
+swiftalk> SION(json: c.String(.json)) == c
+true
+swiftalk> let p: SION = ["n": 42, "tags": ["a", "b"]]
+["n": 42, "tags": ["a", "b"]]
+swiftalk> p.String(.propertyList).split("\n")[3]
+"<dict>"
+swiftalk> SION(propertyList: p.String(.propertyList)) == p
+true
+swiftalk> p.Data(.propertyList)[0..<8].String(.utf8)
+"bplist00"
+swiftalk> SION(propertyList: p.Data(.propertyList)) == p
+true
+swiftalk> [nil].String(.propertyList)
+type error: property lists have no nil
+```
+
 **A leading binary operator continues the previous line** (round 96,
 Swift's whitespace rule — infix with whitespace after it, a prefix
 without); a file's worth, since the REPL evaluates line by line:
@@ -244,26 +276,26 @@ overflow: integer literal '9223372036854775808' does not fit in Int
 writes; a Data on the right of a Range write:
 
 ```text
-swiftalk> var d = "hello".Data()
-Data([104, 101, 108, 108, 111])
+swiftalk> var d = "hello".Data(.utf8)
+.Data("aGVsbG8=")
 swiftalk> d[1..<3]
-Data([101, 108])
+.Data("ZWw=")
 swiftalk> d[1..<3].String(.utf8)
 "el"
 swiftalk> d[5...]
-Data([])
+.Data("")
 swiftalk> d[2...9]
 type error: range 2...9 is out of range (count 5)
 swiftalk> d[0] = 72
 72
-swiftalk> d[1...] = "i!".Data()
-Data([105, 33])
+swiftalk> d[1...] = "i!".Data(.utf8)
+.Data("aSE=")
 swiftalk> d.String(.utf8)
 "Hi!"
 swiftalk> d[d.count...] = Data([33])
-Data([33])
+.Data("IQ==")
 swiftalk> d
-Data([72, 105, 33, 33])
+.Data("SGkhIQ==")
 swiftalk> d[0..<1] = [9]
 type error: assigning through a Range of a Data takes a Data, not a Array
 swiftalk> d[0] = 256
@@ -1082,8 +1114,8 @@ swiftalk> 21.doubled()
 **`Data` and `Date`** are in — the SION roster is complete:
 
 ```text
-swiftalk> "café".Data()
-Data([99, 97, 102, 195, 169])
+swiftalk> "café".Data(.utf8)                        // .Data() is base64 since round 97
+.Data("Y2Fmw6k=")
 swiftalk> Data([255, 254]).String(.utf8) == nil    // failable decode
 true
 swiftalk> Date()

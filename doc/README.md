@@ -21,6 +21,7 @@ REPL). Sections in [Design.md](../Design.md) are cited as §n.
 | `Task` | a spawned computation | [Task.md](Task.md) |
 | `Tuple` | a grab bag `(v0, v1, ...)`, one loose type | [Tuple.md](Tuple.md) |
 | `Regex` | `/pattern/flags`, Swift's engine | [Regex.md](Regex.md) |
+| `SION` | the data format, built in: SION, JSON, property lists | [SION.md](SION.md) |
 | `Result` | built-in enum: `.success` / `.failure` | [Result.md](Result.md) |
 | `struct` | user value types | [struct.md](struct.md) |
 | `enum` | user sum types | [enum.md](enum.md) |
@@ -59,7 +60,9 @@ extension Int { var squared { self * self } }      // a read-only computed prope
 `Primitives` (nil, Bool, Int, Double, String, and Arrays/Dictionaries
 of them), `SION` (Primitives plus Data and Date), and `Any` are
 accepted in type annotations — `let xs: [Primitives] = [1, "one"]`,
-`var a: Any = 1` — but are not values.
+`var a: Any = 1`. `Primitives` and `Any` are not values; `SION` is
+also a type since round 97 — `SION(text)` reads a document, see
+[SION.md](SION.md).
 
 ## Operators, by type
 

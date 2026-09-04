@@ -297,7 +297,7 @@ print(MySION("[1, /* two */ 2, // three\n 3,]").parse()!)
 // --- through a parser written in swiftalk
 let values: [Any] = [nil, true, -42, 42.195, 1e100, "漢字😇\n", [1, [2, [3]]],
                      ["k": [nil, 1.5]], [nil: [:], 1.0: [], "😇": true],
-                     Date(1234567890.5), "café".Data()]
+                     Date(1234567890.5), "café".Data(.utf8)]
 for v in values {
     let back: Any = MySION(v.String(.quoted)).parse()!
     print(back == v, v.String(.quoted))
