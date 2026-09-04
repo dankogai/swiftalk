@@ -652,6 +652,25 @@ spellings already end in `=`), the range operators make no assignable
 value, and `=` itself is assignment — so the family is complete, not
 open-ended.
 
+**Bitwise operations are methods — DECIDED (round 105)**. The user:
+"They are rarer than ever especially in modern languages yet needed
+sometime. I am a little reluctant to implement operators for that
+since symbols are so precious." Kotlin's answer, then: `a.and(b)`,
+`a.or(b)`, `a.xor(b)`, `a.not()`, `a.shifted(by: n)` — one name, a
+positive `n` shifting left and a negative one right (the user's
+refinement; Swift's smart shift underneath, so an overshift is 0 or
+-1, never a trap), `a.bit(i)`, and the `[Bool]` the user first
+proposed as a *view*: `a.bits` (64, bit 0 first) and `Int(bits:)`.
+Not the carrier — elementwise `[Bool]` operations would need the
+vocabulary anyway and `&&` on Arrays would break "Bools only";
+width and sign have no natural answer; and the real uses (packing,
+checksums, base64) want a word, not 64 allocations. `Bool(Int)` is
+`false` for 0 and `true` otherwise — a conversion, which leaves §3b
+untouched: nothing is truthy in a condition. A recorded divergence
+from Swift and JavaScript both; `& | ^ ~ << >>` stay free — `|` in
+particular for a type union, `Int | String`, should annotations ever
+want one.
+
 ## 3a. Optionals & nil — DECIDED
 
 **The full Optional suite survives — on a flat model.** `nil` is *not*

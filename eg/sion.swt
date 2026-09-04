@@ -136,18 +136,18 @@ struct MySION {
 
     // (named fromCodePoint, not utf8: inside a type body .utf8 would
     // be the implicit-self member, shadowing the .String(.utf8) tag)
-    // no %, no bit operators: v - v / n * n is v mod n
+    // bitwise, as methods (round 105) — no operator symbols spent:
+    // .shifted(by: -6) is >> 6, .and(63) is & 63, .or(0x80) is | 0x80
     let fromCodePoint = { code in
         if code == nil { return nil }
-        let mod = { v, n in v - v / n * n }
+        let tail = { c, n in 0x80.or(c.shifted(by: -n).and(63)) }
         var bytes: [Int] = []
         if code < 0x80 { bytes = [code] }
-        else if code < 0x800 { bytes = [0xC0 + code / 64, 0x80 + mod(code, 64)] }
+        else if code < 0x800 { bytes = [0xC0.or(code.shifted(by: -6)), tail(code, 0)] }
         else if code < 0x10000 {
-            bytes = [0xE0 + code / 4096, 0x80 + mod(code / 64, 64), 0x80 + mod(code, 64)]
+            bytes = [0xE0.or(code.shifted(by: -12)), tail(code, 6), tail(code, 0)]
         } else {
-            bytes = [0xF0 + code / 262144, 0x80 + mod(code / 4096, 64),
-                     0x80 + mod(code / 64, 64), 0x80 + mod(code, 64)]
+            bytes = [0xF0.or(code.shifted(by: -18)), tail(code, 12), tail(code, 6), tail(code, 0)]
         }
         return Data(bytes).String(.utf8)
     }
@@ -191,14 +191,14 @@ struct MySION {
             var pad = 0
             for k in 0...3 {
                 let c = cs[i + k]
-                if c == "=" { pad = pad + 1; n = n * 64; continue }
+                if c == "=" { pad += 1; n = n.shifted(by: 6); continue }
                 let v = index[c]
                 if v == nil { return nil }
-                n = n * 64 + v
+                n = n.shifted(by: 6).or(v)
             }
-            bytes.append(n / 65536)
-            if pad < 2 { bytes.append(n / 256 - n / 65536 * 256) }
-            if pad < 1 { bytes.append(n - n / 256 * 256) }
+            bytes.append(n.shifted(by: -16))
+            if pad < 2 { bytes.append(n.shifted(by: -8).and(255)) }
+            if pad < 1 { bytes.append(n.and(255)) }
             i = i + 4
         }
         if i != cs.count { return nil }

@@ -76,6 +76,7 @@ enum Builtins {
             case nil:              return .bool(false)
             case .bool(let b)?:    return .bool(b)
             case .string(let s)?:  return s == "true" ? .bool(true) : s == "false" ? .bool(false) : .nil
+            case .int(let i)?:     return .bool(i != 0)          // Bool(0) is false, else true (round 105)
             case let v?: throw SwiftalkError.type("cannot convert \(v.typeName) to Bool")
             }
         },

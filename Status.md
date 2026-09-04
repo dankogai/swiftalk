@@ -163,6 +163,41 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**Bitwise, as methods** (round 105) — `and`, `or`, `xor`, `not`,
+`shifted(by:)` (negative shifts right), `bit`, the `[Bool]` view, and
+`Bool(Int)`; no operator symbols spent:
+
+```text
+swiftalk> 0b1100.and(0b1010)
+8
+swiftalk> 0b1100.or(0b1010)
+14
+swiftalk> 0b1100.xor(0b1010)
+6
+swiftalk> 5.not()
+-6
+swiftalk> 1.shifted(by: 10)
+1024
+swiftalk> 1024.shifted(by: -3)
+128
+swiftalk> (-16).shifted(by: -2)
+-4
+swiftalk> 0b1010.bit(1)
+true
+swiftalk> 5.bits.prefix(4)
+[true, false, true, false]
+swiftalk> Int(bits: [true, false, true])
+5
+swiftalk> 255.nonzeroBitCount
+8
+swiftalk> Bool(0)
+false
+swiftalk> Bool(-3)
+true
+swiftalk> 0xC0.or(0x1F600.shifted(by: -18))
+192
+```
+
 **`&&=` and `||=`** (round 104) — Bools only, the operators' own
 short-circuit; the `op=` family is complete:
 

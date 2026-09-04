@@ -2795,6 +2795,25 @@ func convert(_ typeName: String, subject: Value?,
         default:
             throw SwiftalkError.type("unknown .Data() format .\(tag)")
         }
+    case "Int":
+        // Int(bits: [Bool]) (round 105): bit 0 first; fewer than 64 bits
+        // zero-extend, exactly 64 is the two's-complement word, more is
+        // an overflow.
+        guard subject == nil, extra.count == 1, extra[0].label == "bits",
+              case .array(let bits) = extra[0].value else {
+            throw SwiftalkError.type("Int(bits: [Bool]) — the bits, bit 0 first")
+        }
+        guard bits.count <= 64 else {
+            throw SwiftalkError.overflow("Int(bits:) takes at most 64 bits, got \(bits.count)")
+        }
+        var word: UInt64 = 0
+        for (i, bit) in bits.enumerated() {
+            guard case .bool(let b) = bit else {
+                throw SwiftalkError.type("Int(bits:) takes Bools, not a \(bit.typeName) at \(i)")
+            }
+            if b { word |= 1 << UInt64(i) }
+        }
+        return .int(Int64(bitPattern: word))
     case "Regex":
         // Regex(pattern, flags) / pattern.Regex(flags) (round 86)
         guard let subject, case .string(let pattern) = subject,
@@ -3021,6 +3040,7 @@ private func method(on receiver: Value, name: String,
     case ("replacing", true):  ["with"]
     case ("split", true):      ["separator", "whereSeparator"]                  // round 89
     case ("prefix", true), ("dropFirst", true): ["while"]                        // round 98
+    case ("shifted", true): ["by"]                                               // round 105
     default:                   []
     }
     let args = try plainValues(
@@ -3438,6 +3458,53 @@ private func method(on receiver: Value, name: String,
         }
         if !current.isEmpty { pieces.append(current) }
         return .array(pieces.map { reshape($0, like: receiver) })
+    // ---- bitwise, as methods (round 105): the symbols stay free ----
+    case ("and", true), ("or", true), ("xor", true), ("shifted", true):
+        guard case .int(let a) = receiver else {
+            throw SwiftalkError.unknownMember("\(receiver.typeName).\(name)()")
+        }
+        guard args.count == 1, case .int(let b) = args[0] else {
+            throw SwiftalkError.type(".\(name) takes one Int")
+        }
+        switch name {
+        case "and":     return .int(a & b)
+        case "or":      return .int(a | b)
+        case "xor":     return .int(a ^ b)
+        default:
+            // shifted(by:): left for a positive count, right (arithmetic,
+            // sign-filling) for a negative one — Swift's smart shift, which
+            // also answers an overshift with 0 or -1 rather than trapping
+            return .int(a << b)
+        }
+    case ("not", true):
+        guard case .int(let a) = receiver else {
+            throw SwiftalkError.unknownMember("\(receiver.typeName).not()")
+        }
+        guard args.isEmpty else { throw SwiftalkError.type(".not() takes no arguments") }
+        return .int(~a)
+    case ("bit", true):
+        guard case .int(let a) = receiver else {
+            throw SwiftalkError.unknownMember("\(receiver.typeName).bit()")
+        }
+        guard args.count == 1, case .int(let i) = args[0], (0..<64).contains(i) else {
+            throw SwiftalkError.type(".bit(i) takes an Int in 0..<64")
+        }
+        return .bool(a >> i & 1 == 1)
+    case ("bits", false):
+        // the [Bool] view — 64 elements, bit 0 first; Int(bits:) reverses it
+        guard case .int(let a) = receiver else {
+            throw SwiftalkError.unknownMember("\(receiver.typeName).bits")
+        }
+        return .array((0..<64).map { .bool(a >> $0 & 1 == 1) })
+    case ("nonzeroBitCount", false), ("leadingZeroBitCount", false), ("trailingZeroBitCount", false):
+        guard case .int(let a) = receiver else {
+            throw SwiftalkError.unknownMember("\(receiver.typeName).\(name)")
+        }
+        switch name {
+        case "nonzeroBitCount":     return .int(Int64(a.nonzeroBitCount))
+        case "leadingZeroBitCount": return .int(Int64(a.leadingZeroBitCount))
+        default:                    return .int(Int64(a.trailingZeroBitCount))
+        }
     case ("has", true):
         // Presence, distinct from value (round 35): d.has(k) is true for
         // a key holding nil, false for a missing key — the question

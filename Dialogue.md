@@ -1528,3 +1528,17 @@ the history. (Moved out of Design.md in round 65.)
   cannot (`<=` is already taken, and `==`'s would be `===`), the
   range operators produce nothing assignable, and `=` is assignment.
   The family is complete at eight, and the Design says so.
+* **2026-09-04, round 105 — bitwise, as methods** ("I like your
+  sketch. Go for it. As for `.shifted()`, accept negative values which
+  is interpreted as `>>`. Also add `Bool(Int)` which returns `false`
+  for `0` and `true` otherwise"). The assessment before it had weighed
+  three roads — Swift's six operators, the user's `[Bool]`, and
+  Kotlin's named methods — and recommended the third with `[Bool]`
+  kept as a view; the user took it with two refinements. `shifted(by:
+  n)` is one name for both directions, and Swift's smart shift
+  turned out to be exactly that already, negative counts included,
+  overshifts answered with 0 or -1. `Bool(Int)` is a conversion,
+  deliberately not truthiness: `if 3 { }` still errors. The base64
+  and UTF-8 code in `eg/sion.swt` — round 85's `n / 65536` and `v -
+  v / n * n` — now reads `n.shifted(by: -16)` and `c.and(63)`, its
+  output unchanged. Symbols spent: none.
