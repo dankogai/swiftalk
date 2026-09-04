@@ -13,6 +13,7 @@ o + 1 }` (round 80) — and inside, `o` is itself.
 | `Bool("true")`, `Bool("false")` | the value; any other String → `nil` (failable) |
 | `Bool(x)` for other types | type error |
 | `b == c`, `b != c` | equality |
+| `b &&= c`, `b ||= c` | `b = b && c` / `b = b || c`, short-circuit: `c` is evaluated only when `b` does not decide (round 104) |
 | `c ? a : b` | ternary (the `?` must be spaced; unspaced `?` is postfix propagate) |
 | `a && b` | logical and — short-circuit, Bool operands only (round 69) |
 | `a \|\| b` | logical or — short-circuit, Bool operands only |

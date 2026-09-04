@@ -400,6 +400,22 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
                 try isAbsent(old) ? evaluate(expr, in: env) : old
             }
         }
+        if op == "&" || op == "|" {
+            // &&= / ||= (round 104): Bools only, short-circuit like the
+            // operators — the right side is evaluated only when it decides
+            let name = op == "&" ? "&&=" : "||="
+            return try assign(target, .nil, in: env) { old in
+                guard case .bool(let flag) = old else {
+                    throw SwiftalkError.type("'\(name)' takes a Bool target, not \(old.typeName) — nothing is truthy (§3b)")
+                }
+                if (op == "&") != flag { return old }           // false &&= _, true ||= _: decided
+                let rhs = try evaluate(expr, in: env)         // once
+                guard case .bool = rhs else {
+                    throw SwiftalkError.type("'\(name)' takes a Bool — nothing is truthy (§3b)")
+                }
+                return rhs
+            }
+        }
         let rhs = try evaluate(expr, in: env)
         return try assign(target, rhs, in: env) { old in try binary(op, old, rhs) }
     case .assignment(let target, let expr):

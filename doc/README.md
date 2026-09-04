@@ -73,6 +73,7 @@ also a type since round 97 — `SION(text)` reads a document, see
 | `%` | ✓ remainder, the dividend's sign; `% 0` traps (round 93) | type error, as in Swift | | | | | |
 | `+= -= *= /= %=` | ✓ (round 102) — `x op= y` is `x = x op y`, the target evaluated once | ✓ | `+=` | `+=` | | | |
 | `??=` | `x ??= y` writes `y` only when `x` is nil (or a Result failure); `y` unevaluated otherwise (round 103) — any type | | | | | | |
+| `&&= ||=` | Bool targets and Bools only; short-circuit like the operators (round 104) — the `op=` family is now every binary operator that can spell one | | | | | | |
 | `< <= > >=` | ✓ | ✓ | ✓ | | ✓ | | |
 | `== !=` | | | | | | | ✓ same type, or vs nil |
 | `&& \|\| !` | | | | | | ✓ short-circuit | |

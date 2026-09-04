@@ -147,7 +147,12 @@ struct Lexer {
                     throw SwiftalkError.syntax("unexpected '\(c)' — did you mean '\(c)\(c)'?")
                 }
                 pos += 1
-                tokens.append(.op(String(c) + String(c)))
+                if peek == "=" {                            // &&= ||= (round 104)
+                    pos += 1
+                    tokens.append(.op(String(c) + String(c) + "="))
+                } else {
+                    tokens.append(.op(String(c) + String(c)))
+                }
             case "=", "!", "<", ">":
                 pos += 1
                 if peek == "=" {
@@ -219,7 +224,7 @@ struct Lexer {
             return "+-*/%=".contains(p)
         case .op(let o)?:
             return ["==", "!=", "<", "<=", ">", ">=", "&&", "||", "??",
-                    "+=", "-=", "*=", "/=", "%=", "??="].contains(o)
+                    "+=", "-=", "*=", "/=", "%=", "??=", "&&=", "||="].contains(o)
         default:
             return false
         }

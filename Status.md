@@ -163,6 +163,32 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`&&=` and `||=`** (round 104) — Bools only, the operators' own
+short-circuit; the `op=` family is complete:
+
+```text
+swiftalk> var ok = true
+true
+swiftalk> ok &&= 1 < 2
+true
+swiftalk> ok &&= false
+false
+swiftalk> ok
+false
+swiftalk> var any = false
+false
+swiftalk> any ||= 3 > 4
+false
+swiftalk> any ||= true
+true
+swiftalk> any
+true
+swiftalk> var n = 1
+1
+swiftalk> n &&= true
+type error: '&&=' takes a Bool target, not Int — nothing is truthy (§3b)
+```
+
 **`??=`** (round 103) — assign only when absent; the right side stays
 unevaluated otherwise:
 

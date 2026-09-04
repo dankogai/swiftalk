@@ -643,7 +643,14 @@ none: `x ??= y` writes `y` only when `x` is what `??` steps over —
 nil, or a Result failure — and leaves `y` unevaluated otherwise;
 `d["k"] ??= 0` is the set-a-default idiom. The write goes through the
 lock, so a failed Result takes a Result (`r ??= .success(0)`), not a
-bare payload. `&&=`/`||=` stay out.
+bare payload. **`&&=` and `||=` — DECIDED (round 104)**, closing the
+family ("any binop `a = a op b`"): Bool targets and Bools only, with
+the operators' short-circuit — `false &&= x` and `true ||= x` never
+evaluate `x`. The `op=` set is now every binary operator that can
+spell one: `+ - * / % ?? && ||`. The comparisons cannot (their
+spellings already end in `=`), the range operators make no assignable
+value, and `=` itself is assignment — so the family is complete, not
+open-ended.
 
 ## 3a. Optionals & nil — DECIDED
 

@@ -1517,3 +1517,14 @@ the history. (Moved out of Design.md in round 65.)
   is left untouched rather than rewritten, so `??=` never unwraps a
   success the way `x = x ?? y` would. `d["k"] ??= 0` is the idiom it
   exists for.
+* **2026-09-04, round 104 — `&&=`, `||=`, and the whole family**
+  ("Let's implement `&&=` and `||=` and any binop `a = a op b`"). The
+  two ride round 103's closure hook with the operators' own
+  short-circuit — `false &&= x` and `true ||= x` leave `x` unevaluated
+  — and refuse anything but Bools on either side, as `&&`/`||` do
+  (§3b: nothing is truthy). "Any binop" then has a natural answer
+  rather than an open list: every binary operator that can spell an
+  `op=` now has one — `+ - * / % ?? && ||` — while the comparisons
+  cannot (`<=` is already taken, and `==`'s would be `===`), the
+  range operators produce nothing assignable, and `=` is assignment.
+  The family is complete at eight, and the Design says so.

@@ -399,6 +399,10 @@ struct Parser {
                 pos += 1
                 return .compoundAssignment(target: try lvalue(from: expr), op: "?", expr: try parseExpr())
             }
+            if case .op(let o)? = peek, o == "&&=" || o == "||=" {          // round 104
+                pos += 1
+                return .compoundAssignment(target: try lvalue(from: expr), op: o.first!, expr: try parseExpr())
+            }
             guard case .punct("=")? = peek else {
                 return .expression(expr)
             }
