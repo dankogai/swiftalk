@@ -21,8 +21,8 @@ struct ContinuationTests {
         #expect(try eval("let o: Int? = 7\nlet v = o!\nv") == .int(7))
         #expect(try eval("let r = 0...\nr.String()") == .string("0..."))
         #expect(try eval("let r = 0...\n(1...3).count") == .int(3))
-        // a leading operator still does not continue (Swift would; OPEN)
-        #expect(throws: SwiftalkError.self) { try eval("let s = 1\n + 2") }
+        // a leading operator continues too since round 96 (Swift's rule)
+        #expect(try eval("let s = 1\n + 2\ns") == .int(3))
         // a dangling operator at the end of the program is an error, not a hang
         #expect(throws: SwiftalkError.self) { try eval("let s = 1 +") }
     }

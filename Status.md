@@ -163,6 +163,23 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**A leading binary operator continues the previous line** (round 96,
+Swift's whitespace rule — infix with whitespace after it, a prefix
+without); a file's worth, since the REPL evaluates line by line:
+
+```swiftalk
+let total = 1
+    + 2
+    + 3                 // 6
+let ok = total > 5
+    && total < 7        // true
+let sign = total > 0
+    ? "positive"
+    : "not"             // "positive"
+let y = 5
+-y                      // a prefix: its own statement, -5
+```
+
 **A trailing binary operator continues the line** (round 95) — in a
 file and in the REPL; `0...` at a line's end stays the unbounded range:
 

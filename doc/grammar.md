@@ -14,8 +14,13 @@ Shelved forms (`actor`, `class`, `super`) are not grammar today.
   `&& || ??` — which continues the expression on the next line
   (round 95); not after postfix `!`/`?`, and not after `...`, since
   `0...` at a line's end is the unbounded range. A *leading* operator
-  does not continue the previous line. Inside `{ }` newlines
-  matter — a body is a statement list. The REPL
+  continues the previous line too (round 96, Swift's rule): an
+  operator at a line's start *with whitespace after it* is infix, so
+  the newline before it goes — `+ 2`, `&& c`, `?? d`, `= v`, and the
+  spaced ternary's `? a` / `: b`; with none it is a prefix and starts
+  a statement (`-x`, `!flag`). Never a leading `.` — `.x = 1` at a
+  line's start is implicit self (round 49) — and never `...`. Inside
+  `{ }` newlines matter — a body is a statement list. The REPL
   evaluates a statement as soon as its line completes, so `else` and
   a second trailing closure must share the line there.
 * **Identifiers**: a Unicode-alphabetic character or `_`, then

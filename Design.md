@@ -1047,9 +1047,11 @@ delimiter, `\#(...)` the raw interpolation):
 newline continuation after a trailing binary operator (landed in
 round 95: the newline after `+ - * / % =`, a comparison, `&& || ??`
 is not a separator — not after postfix `!`/`?`, and not after `...`,
-which round 88 gave a meaning at a line's end; a leading operator
-still does not continue, though Swift allows it — OPEN); a strict
-`let` refusing `nil` (and `let` destructuring refusing a nil
+which round 88 gave a meaning at a line's end; the leading form
+landed in round 96 by Swift's whitespace rule — an operator leading
+a line with whitespace after it is infix and continues, `-x`/`!x`
+with none is a prefix; a leading `.` is excluded, since `.x = 1` at
+a line's start is implicit self); a strict `let` refusing `nil` (and `let` destructuring refusing a nil
 element); implicit-self `.name` shadowing format tags inside a type
 body; error messages without line numbers; Data's source form
 `Data([...])` vs SION's `.Data("base64")`; and **no recursion

@@ -128,7 +128,7 @@ Each of these is a finding, with the workaround the example uses.
    the next line; a line that starts with `||` is a syntax error.
    *(Landed in round 95: a trailing binary operator continues the
    line, and the parser's long conditions lost their outer
-   parentheses. A leading operator still does not continue.)*
+   parentheses. Round 96 added the leading form, Swift's rule.)*
 4. **No `"""` multi-line String literals.** The README sample was an
    Array of lines `.joined("\n")`. *(Landed in round 94; the example
    now spells the sample as a `"""` literal, verbatim.)*

@@ -68,6 +68,14 @@ struct Lexer {
             brackets.last == "[" || brackets.last == "("
         }
         while let c = peek {
+            // A leading binary operator continues the previous line
+            // (round 96, Swift's rule): an operator at a line's start
+            // with whitespace after it is infix — the newline before it
+            // goes; `-x` / `!x` with none is a prefix, a new statement.
+            if tokens.count >= 2, tokens[tokens.count - 2] == .newline,
+               Lexer.leadsContinuation(tokens.last), c == " " || c == "\t" || c == "\n" {
+                tokens.remove(at: tokens.count - 2)
+            }
             switch c {
             case " ", "\t", "\r":
                 pos += 1
@@ -200,6 +208,16 @@ struct Lexer {
         default:
             return false
         }
+    }
+
+    /// The operators that continue the previous line when they lead a
+    /// line with whitespace after them (round 96): the trailing set,
+    /// plus the spaced ternary's `?` and `:`. Not `.` — `.x = 1` at a
+    /// line's start is implicit self (round 49).
+    static func leadsContinuation(_ token: Token?) -> Bool {
+        if continuesLine(after: token) { return true }
+        if case .punct(let p)? = token { return p == "?" || p == ":" }
+        return false
     }
 
     /// JavaScript's rule (round 86): `/` starts a regex literal where an

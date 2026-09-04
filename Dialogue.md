@@ -1385,3 +1385,17 @@ the history. (Moved out of Design.md in round 65.)
   continue — logged OPEN rather than added; the user asked for the
   trailing form. `eg/sion.swt`'s long conditions lost their outer
   parentheses; the example's output is unchanged.
+* **2026-09-04, round 96 — leading-operator continuation** ("Let's
+  implement the leading operator continuation too, like Swift").
+  Swift's rule, which is a whitespace rule: an operator at a line's
+  start with whitespace after it is infix, so the newline before it
+  is not a separator; with none after it (`-x`, `!flag`) it is a
+  prefix and the line is a new statement. The set is round 95's plus
+  the spaced ternary's `?` and `:`, so a ternary can stand on three
+  lines. One exclusion Swift does not need: a leading `.` — Swift's
+  most-used continuation, `xs\n  .map { }` — because `.x = 1` at a
+  line's start has been swiftalk's implicit self since round 49; a
+  chain that wants to break lines keeps its dot at the line's end,
+  or parenthesizes. `...` never leads, as it never trails. The REPL
+  evaluates a line as soon as it is complete, so the leading form is
+  for files; there, trailing operators do the job.
