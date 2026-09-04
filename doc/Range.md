@@ -12,7 +12,7 @@ materializes unless asked; `(1...1000000000000).count` is O(1).
 | `r[i]` | the i-th element (offset), bounds-checked; no writes |
 | `for i in r` | iteration, element by element |
 | `r.map` / `.filter` / `.reduce` | eager, yielding Arrays / a value |
-| `r.prefix(n)` | the first n as an Array |
+| `r.prefix(n)`, `r.suffix(n)`, `r.dropFirst(n)`, `r.dropLast(n)`, `r.split(x)` | as Arrays (round 89); on `a...` only `dropFirst` (lazy) — the rest refuse an infinite range |
 | `r.sorted { $0 > $1 }`, `r.contains(7)` | an Array / membership (round 83) |
 | `r.reversed()` | an Array, descending (round 84) |
 | `a...` | **the unbounded range** (round 88): infinite, lazy — `for i in 0... { ... break }`, `(0...).prefix(5)`, `(1...)[3]`, `case 40...:`; `map`/`filter`/`enumerated`/`takeWhile`/`dropWhile` defer on it (a Sequence comes back); `count`, `reduce`, `sorted`, `reversed`, `joined`, `Array()` refuse it; the element after `Int.max` is an overflow error. `a..<` has no unbounded form |

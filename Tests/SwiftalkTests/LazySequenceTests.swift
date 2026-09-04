@@ -67,7 +67,7 @@ struct LazySequenceTests {
     func countAndPrefix() throws {
         #expect(throws: SwiftalkError.self) { try eval("Sequence([0]) { return $0 }.count") }
         #expect(try eval("(1...100).prefix(3)") == .array([.int(1), .int(2), .int(3)]))
-        #expect(try eval("\"abc\".prefix(2)") == .array([.string("a"), .string("b")]))
+        #expect(try eval("\"abc\".prefix(2)") == .string("ab"))   // a String since round 89 (was an Array)
         #expect(try eval("[1, 2].prefix(9)") == .array([.int(1), .int(2)]))   // short is fine
         #expect(try eval("Sequence([0]) { return $0 }.Type.conforms(to: Sequence)") == .bool(true))
         #expect(try eval("Sequence.name") == .string("Sequence"))

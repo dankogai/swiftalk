@@ -21,7 +21,9 @@ view (§11). `"..."` literals with `\(interpolation)`, escapes `\" \\
 | `s.filter { }` | a **String** (Swift-compatible) |
 | `s.reduce(init) { }` | fold over graphemes |
 | `s.Array()` | `["h", "é", ...]` |
-| `s.prefix(n)` | the first n graphemes, as an Array |
+| `s.prefix(n)`, `s.suffix(n)` | the first / last n graphemes, **as a String** (round 89, revising 41's Array) |
+| `s.dropFirst(n)`, `s.dropLast(n)` | all but the first / last n graphemes, a String; `n` defaults to 1 (round 89) |
+| `s.split { }` | pieces between graphemes the predicate accepts, as Strings — beside `split(", ")` and `split(/re/)` (round 89) |
 | `s.sorted()` | the graphemes, sorted, as an Array (round 83) |
 | `s.contains("ell")`, `s.contains { }` | substring (as Swift's; `""` is found) / grapheme predicate (round 83) |
 | `s.reversed()` | the graphemes, reversed, as an Array — `s.reversed().joined()` reverses a String (round 84) |

@@ -1285,3 +1285,21 @@ the history. (Moved out of Design.md in round 65.)
   after `Int.max` is an overflow error after `Int.max` itself has
   been handed out. The names follow the user's request rather than
   Swift's `prefix(while:)`/`drop(while:)` — recorded as a divergence.
+* **2026-09-04, round 89 — the slicing family** ("Let's implement the
+  slicing family: `suffix`, `dropFirst`, `dropLast`, `split`"). Swift's
+  names, Swift's semantics (`n` clamps, the drops default to 1, empty
+  pieces omitted), on every Sequence conformer through the round-88
+  helpers: `dropFirst` is a lazy kind beside `dropped-while` so `(0...)
+  .dropFirst(3)` and `fib.dropFirst(5)` defer; `suffix`, `dropLast`,
+  and `split` drain and refuse an infinite source. `split` grew from
+  round 86's String-only member into the general one — a value or a
+  predicate as the separator, `separator:`/`whereSeparator:` accepted
+  (the label-stripping now takes a set per member). The one decision
+  with a cost: the shape rule is now uniform — a slice is shaped like
+  its receiver, Swift's SubSequence rule and what `filter`/`takeWhile`
+  already did — so `prefix` on a String now gives a String rather
+  than round 41's Array; one round-41 test pinned the old shape and
+  was updated, and the asymmetry (`s.prefix(2)` an Array,
+  `s.dropFirst(2)` a String) would have been indefensible. With this family in, round 85's question is
+  closed: String subscripts are not coming; `Array()` + `joined()`
+  remain the honest random-access route.

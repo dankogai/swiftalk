@@ -1095,6 +1095,16 @@ extension SequenceObject {
                 }
                 return element
             }
+        case .dropped(let base, let n):
+            let it = base.makeIterator()
+            var skipped = false
+            return ValueIterator {
+                if !skipped {
+                    skipped = true
+                    for _ in 0..<n { guard try it.next() != nil else { return nil } }
+                }
+                return try it.next()
+            }
         case .droppedWhile(let base, let fn):
             // skip while the predicate holds; from the first miss on,
             // everything — the predicate is never asked again
@@ -2758,21 +2768,21 @@ private func method(on receiver: Value, name: String,
     if called, Builtins.types[name] != nil || Builtins.protocols[name] != nil {
         return try convert(name, subject: receiver, extra: labeledArgs)
     }
-    // Swift's own labels on the round-83/84 members are accepted and
-    // dropped — sorted(by:), contains(where:), joined(separator:) —
-    // the bare spelling works too.
-    let swiftLabel: String? = switch (name, called) {
-    case ("sorted", true):     "by"
-    case ("contains", true):   "where"
-    case ("joined", true):     "separator"
-    case ("firstMatch", true), ("wholeMatch", true), ("matches", true): "of"   // round 86
-    case ("replacing", true):  "with"
-    case ("split", true):      "separator"
-    default:                   nil
+    // Swift's own labels on the round-83+ members are accepted and
+    // dropped — sorted(by:), contains(where:), joined(separator:),
+    // split(whereSeparator:) — the bare spelling works too.
+    let swiftLabels: Set<String> = switch (name, called) {
+    case ("sorted", true):     ["by"]
+    case ("contains", true):   ["where"]
+    case ("joined", true):     ["separator"]
+    case ("firstMatch", true), ("wholeMatch", true), ("matches", true): ["of"]   // round 86
+    case ("replacing", true):  ["with"]
+    case ("split", true):      ["separator", "whereSeparator"]                  // round 89
+    default:                   []
     }
     let args = try plainValues(
-        swiftLabel == nil ? labeledArgs
-                          : labeledArgs.map { $0.label == swiftLabel ? (nil, $0.value) : $0 },
+        swiftLabels.isEmpty ? labeledArgs
+                            : labeledArgs.map { $0.label.map(swiftLabels.contains) == true ? (nil, $0.value) : $0 },
         for: ".\(name)")
     switch (name, called) {
     case ("Type", false):
@@ -2850,7 +2860,39 @@ private func method(on receiver: Value, name: String,
         while out.count < Int(n), let element = try it.next() {
             out.append(element)
         }
-        return .array(out)
+        // shaped like the receiver (round 89, revising 41's Array for a
+        // String): a String's prefix is a String, as Swift's is
+        return reshape(out, like: receiver)
+    case ("suffix", true), ("dropFirst", true), ("dropLast", true):
+        // The slicing family (round 89), Swift's names and semantics:
+        // n clamps to the count; dropFirst()/dropLast() default to 1;
+        // the result is shaped like the receiver. dropFirst is lazy
+        // where map is; suffix and dropLast must see the end.
+        let n: Int64
+        switch args.count {
+        case 0 where name != "suffix": n = 1
+        case 1:
+            guard case .int(let k) = args[0], k >= 0 else {
+                throw SwiftalkError.type(".\(name)(n) takes one non-negative Int")
+            }
+            n = k
+        default:
+            throw SwiftalkError.type(name == "suffix" ? ".suffix(n) takes one non-negative Int"
+                                                      : ".\(name)(n) takes one non-negative Int (default 1)")
+        }
+        if name == "dropFirst", let base = lazyBase(receiver) {
+            return .sequence(SequenceObject(kind: .dropped(base, Int(clamping: n))))
+        }
+        try requireFinite(receiver, for: name)
+        let all = try collect(receiver)
+        let count = Int(clamping: n)
+        let kept: [Value]
+        switch name {
+        case "suffix":    kept = Array(all.suffix(count))
+        case "dropFirst": kept = Array(all.dropFirst(count))
+        default:          kept = Array(all.dropLast(count))
+        }
+        return reshape(kept, like: receiver)
     case ("description", false):
         // print's form: Strings bare, everything else source form.
         return .string(displayString(receiver))
@@ -3085,19 +3127,40 @@ private func method(on receiver: Value, name: String,
             throw SwiftalkError.type(".replacing takes what to find (a Regex or a String) and the replacement (a String, or a Function of the match)")
         }
     case ("split", true):
-        // s.split(/re/) / s.split(", ") — Swift's split(separator:),
-        // empty pieces omitted as in Swift
-        guard case .string(let s) = receiver else {
-            throw SwiftalkError.unknownMember("\(receiver.typeName).split()")
-        }
+        // Swift's split(separator:) / split(whereSeparator:), on every
+        // conformer (round 89; a String's Regex/String separators since
+        // 86): the separator is a value (equality) or a Function
+        // (predicate); pieces are shaped like the receiver — a
+        // String's are Strings, an Array's Arrays; empty pieces are
+        // omitted, as in Swift.
         guard args.count == 1 else {
-            throw SwiftalkError.type(".split takes a separator: a Regex or a String")
+            throw SwiftalkError.type(".split takes one separator: a value, a Function, or (on a String) a Regex")
         }
-        switch args[0] {
-        case .regex(let r):   return .array(s.split(separator: r.regex).map { .string(String($0)) })
-        case .string(let sep): return .array(s.split(separator: sep).map { .string(String($0)) })
-        default: throw SwiftalkError.type(".split takes a separator: a Regex or a String")
+        if case .string(let s) = receiver {
+            switch args[0] {
+            case .regex(let r):    return .array(s.split(separator: r.regex).map { .string(String($0)) })
+            case .string(let sep): return .array(s.split(separator: sep).map { .string(String($0)) })
+            case .function:        break            // a grapheme predicate: below
+            default: throw SwiftalkError.type("String.split takes a String, a Regex, or a Function of a grapheme")
+            }
         }
+        try requireFinite(receiver, for: "split")
+        var pieces: [[Value]] = []
+        var current: [Value] = []
+        let it = try iterator(of: receiver)
+        while let element = try it.next() {
+            let isSeparator: Bool
+            if case .function(let fn) = args[0] { isSeparator = try holds(fn, element, for: "split") }
+            else { isSeparator = element == args[0] }
+            if isSeparator {
+                if !current.isEmpty { pieces.append(current) }
+                current = []
+            } else {
+                current.append(element)
+            }
+        }
+        if !current.isEmpty { pieces.append(current) }
+        return .array(pieces.map { reshape($0, like: receiver) })
     case ("takeWhile", true), ("dropWhile", true):
         // Round 88: lazy on a Sequence value and on `a...`; eager and
         // shaped like filter's result on the rest.

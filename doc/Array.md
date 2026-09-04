@@ -20,7 +20,9 @@ Arrays are dense — a sparse array is a Dictionary.
 | `a.map { }` | an Array of results |
 | `a.filter { }` | an Array of the kept |
 | `a.reduce(init) { acc, x in }` | fold |
-| `a.prefix(n)` | the first n |
+| `a.prefix(n)`, `a.suffix(n)` | the first / last n; n clamps to the count |
+| `a.dropFirst(n)`, `a.dropLast(n)` | all but the first / last n; `n` defaults to 1 (round 89) |
+| `a.split(x)`, `a.split { }`, `a.split(separator:)`, `a.split(whereSeparator:)` | pieces between separators, as Arrays; empty pieces omitted, as Swift's (round 89) |
 | `a.sorted()`, `a.sorted { a, b in }`, `a.sorted(by:)` | a new Array; bare needs Comparable elements (Int, Double, String, Date) — mixed is `<`'s type error (round 83) |
 | `a.contains(x)`, `a.contains { }`, `a.contains(where:)` | equality (everything is Equatable) / predicate (round 83) |
 | `a.reversed()` | a new Array (round 84) |

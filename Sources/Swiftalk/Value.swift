@@ -259,6 +259,9 @@ extension Swiftalk {
             /// `.takeWhile { }` / `.dropWhile { }` (round 88), lazily.
             case takenWhile(SequenceObject, FunctionObject)
             case droppedWhile(SequenceObject, FunctionObject)
+            /// `.dropFirst(n)` (round 89), lazily — the only one of the
+            /// slicing family that need not see the end.
+            case dropped(SequenceObject, Int)
         }
         let kind: Kind
 

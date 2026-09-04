@@ -970,8 +970,25 @@ everything from its first miss, the predicate never asked again
 after it — lazy on a Sequence value and on `a...`, eager and shaped
 like `filter` (String → String, Dictionary → Dictionary) elsewhere.
 The names are the user's, deliberately not Swift's `prefix(while:)`
-/ `drop(while:)` — one of the recorded divergences. Still OPEN:
-String subscripts.
+/ `drop(while:)` — one of the recorded divergences. **The slicing
+family — DECIDED (round 89)**: `suffix(n)`, `dropFirst(n = 1)`,
+`dropLast(n = 1)`, and `split` on every Sequence conformer, Swift's
+names and semantics — `n` clamps to the count, a negative `n` is an
+error; `split(x)` / `split { }` (`separator:` / `whereSeparator:`
+accepted) cuts at elements equal to a value or accepted by a
+predicate, empty pieces omitted as Swift's default. **Shape rule,
+now uniform**: every slice is shaped like its receiver — a String's
+is a String, a Dictionary's a Dictionary, anything else an Array —
+which is Swift's SubSequence rule and what `filter`/`takeWhile` did
+already; `prefix` joins it (round 41 had it return an Array for a
+String — revised, the one behavior change). `dropFirst` is lazy where
+`map` is (a Sequence value, `a...`); `suffix`, `dropLast`, and
+`split` must see the end and refuse an infinite source. This closes
+round 85's "index-free slicing" leaning: with `prefix`/`suffix`/
+`dropFirst`/`dropLast`/`split`/`takeWhile`/`dropWhile` and `Array()`
++ `joined()` for random access, **String subscripts are not coming**
+— decided, not OPEN. An Array Range subscript (`a[1..<3]`) stays
+LEANING.
 
 ## 11. Strings — DECIDED (core)
 

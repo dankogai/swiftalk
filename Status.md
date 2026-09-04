@@ -163,6 +163,33 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**The slicing family** (round 89) — `suffix`, `dropFirst`, `dropLast`,
+`split` on every Sequence conformer, shaped like the receiver
+(`prefix` now too):
+
+```text
+swiftalk> [1, 2, 3, 4, 5].suffix(2)
+[4, 5]
+swiftalk> [1, 2, 3, 4, 5].dropFirst()
+[2, 3, 4, 5]
+swiftalk> [1, 2, 3, 4, 5].dropLast(2)
+[1, 2, 3]
+swiftalk> "héllo".prefix(2)
+"hé"
+swiftalk> "héllo".dropFirst()
+"éllo"
+swiftalk> (0...).dropFirst(3).prefix(2)
+[3, 4]
+swiftalk> [1, 0, 2, 0, 0, 3].split(0)
+[[1], [2], [3]]
+swiftalk> [1, 2, 3, 4, 5].split { $0 / 2 * 2 == $0 }
+[[1], [3], [5]]
+swiftalk> "a b  c".split { $0 == " " }
+["a", "b", "c"]
+swiftalk> (0...).suffix(2)
+type error: an unbounded Range is infinite — .prefix(n) or .takeWhile it before .suffix
+```
+
 **`0...` and `takeWhile`/`dropWhile`** (round 88) — the unbounded range
 is an infinite lazy Sequence conformer; the two new members are lazy
 on it and on Sequence values, eager elsewhere:
