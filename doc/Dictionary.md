@@ -12,6 +12,7 @@ three keys), as SION allows. A homogeneous literal infers `[K: V]`
 | `d[k]` | the value, or `nil` when absent |
 | `d[k] = v` | insert or replace (`v` may be `nil`); needs a `var` root |
 | `d.has(k)` | presence — true for a key holding nil, false for a missing key |
+| `d[k] ??= v` | set a default: writes `v` only when `d[k]` is nil (round 103) |
 | `d.remove(k)` | deletes the entry; returns the removed value or `nil`; needs a `var` root |
 | `d.count` | entries (nil-valued ones included) |
 | `d == e` | equality |

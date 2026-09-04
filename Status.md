@@ -163,6 +163,33 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`??=`** (round 103) — assign only when absent; the right side stays
+unevaluated otherwise:
+
+```text
+swiftalk> var name: String? = nil
+swiftalk> name ??= "anonymous"
+"anonymous"
+swiftalk> name ??= "ignored"
+"anonymous"
+swiftalk> name
+"anonymous"
+swiftalk> var d = ["a": 1]
+["a": 1]
+swiftalk> d["b"] ??= 0
+0
+swiftalk> d["a"] ??= 99
+1
+swiftalk> d
+["a": 1, "b": 0]
+swiftalk> var r = Result.failure("e")
+Result.failure("e")
+swiftalk> r ??= Result.success(1)
+Result.success(1)
+swiftalk> r
+Result.success(1)
+```
+
 **`+= -= *= /= %=`** (round 102) — read, combine, write, through the
 same path as `=`; the operator's own answers throughout:
 

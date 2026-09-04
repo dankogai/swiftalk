@@ -125,7 +125,12 @@ struct Lexer {
                 pos += 1
                 if peek == "?" {
                     pos += 1
-                    tokens.append(.op("??"))
+                    if peek == "=" {                        // ??= (round 103)
+                        pos += 1
+                        tokens.append(.op("??="))
+                    } else {
+                        tokens.append(.op("??"))
+                    }
                 } else if unspaced, peek == "." {
                     pos += 1
                     tokens.append(.op("?."))
@@ -214,7 +219,7 @@ struct Lexer {
             return "+-*/%=".contains(p)
         case .op(let o)?:
             return ["==", "!=", "<", "<=", ">", ">=", "&&", "||", "??",
-                    "+=", "-=", "*=", "/=", "%="].contains(o)
+                    "+=", "-=", "*=", "/=", "%=", "??="].contains(o)
         default:
             return false
         }

@@ -392,9 +392,16 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
     case .compoundAssignment(let target, let op, let expr):
         // Round 102: read-combine-write through the same path machinery
         // as assignment — subscripts are evaluated once; the result is
-        // the value written, as an assignment's is.
+        // the value written, as an assignment's is. `??=` (round 103):
+        // the right side is evaluated only when the target is absent —
+        // nil, or a Result failure — exactly when `??` would take it.
+        if op == "?" {
+            return try assign(target, .nil, in: env) { old in
+                try isAbsent(old) ? evaluate(expr, in: env) : old
+            }
+        }
         let rhs = try evaluate(expr, in: env)
-        return try assign(target, rhs, in: env, combine: op)
+        return try assign(target, rhs, in: env) { old in try binary(op, old, rhs) }
     case .assignment(let target, let expr):
         let value = try evaluate(expr, in: env)
         if relaxed {
@@ -2418,13 +2425,23 @@ private enum PathStep {
 /// read-modify-write on COW values: steps evaluate once, left to
 /// right; the rebuilt container lands back in the root binding, whose
 /// mutability and type lock still govern.
+/// What `??` steps over: nil, or a Result failure (round 103's `??=`
+/// replaces exactly these).
+func isAbsent(_ value: Value) -> Bool {
+    switch value {
+    case .nil: return true
+    case .enumCase(let ev) where ev.type === Builtins.resultType: return ev.caseName == "failure"
+    default: return false
+    }
+}
+
 @discardableResult
 private func assign(_ target: LValue, _ value: Value, in env: Environment,
-                    combine op: Character? = nil) throws -> Value {
+                    combine: ((Value) throws -> Value)? = nil) throws -> Value {
     // (a, b) = (b, a) (round 71): the right side was evaluated whole
     // before any element lands, so the swap idiom works.
     if case .tuple(let targets) = target {
-        guard op == nil else {
+        guard combine == nil else {
             throw SwiftalkError.type("compound assignment takes one target, not a tuple pattern")
         }
         guard case .tuple(let tuple) = value else {
@@ -2456,8 +2473,8 @@ private func assign(_ target: LValue, _ value: Value, in env: Environment,
     guard case .variable(let name) = root else { fatalError("unreachable") }
     // the value that lands: the right side, or old ∘ right for `op=`
     func landing(_ old: () throws -> Value) throws -> Value {
-        guard let op else { return value }
-        return try binary(op, try old(), value)
+        guard let combine else { return value }
+        return try combine(try old())
     }
     if steps.isEmpty {
         let final = try landing { try env.lookup(name) }

@@ -1507,3 +1507,13 @@ the history. (Moved out of Design.md in round 65.)
   `/` is division, so `x /= 2` never starts a literal). Trailing
   `op=` continues a line like any binary operator. Not added: `??=`
   and the logical ones, which Swift lacks too.
+* **2026-09-04, round 103 — `??=`** ("Let's implement `??=`"). Round
+  102 had noted Swift lacks it; the user wants it, so it is a recorded
+  divergence. It rides round 102's statement with the hook changed
+  from an operator to a closure of the old value, which is what
+  laziness needed: the right side is evaluated only when the target
+  is absent — nil, or a Result failure, exactly the cases `??` steps
+  over (one predicate, `isAbsent`, now serves both). A present target
+  is left untouched rather than rewritten, so `??=` never unwraps a
+  success the way `x = x ?? y` would. `d["k"] ??= 0` is the idiom it
+  exists for.

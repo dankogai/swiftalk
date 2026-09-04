@@ -638,7 +638,12 @@ machinery as `=`: `a[f()] += 1` evaluates `f()` once, `p.x *= 2`
 rebuilds the struct copy-on-write, a `let` refuses, the REPL does
 not implicitly declare through `op=`. Its value is the value
 written, as an assignment's is. A tuple pattern is not a target.
-Not added: `??=`, `&&=`, `||=` — Swift has none of them either.
+**`??=` — DECIDED (round 103)**, a divergence from Swift, which has
+none: `x ??= y` writes `y` only when `x` is what `??` steps over —
+nil, or a Result failure — and leaves `y` unevaluated otherwise;
+`d["k"] ??= 0` is the set-a-default idiom. The write goes through the
+lock, so a failed Result takes a Result (`r ??= .success(0)`), not a
+bare payload. `&&=`/`||=` stay out.
 
 ## 3a. Optionals & nil — DECIDED
 
