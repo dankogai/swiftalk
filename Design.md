@@ -1000,7 +1000,12 @@ an Array ("RHS must be an array of the same element type, otherwise
 fatal error" — the user), and the element types are the variable's
 lock, checked as the rebuilt Array lands, so `a[0..<1] = ["x"]` on
 a `[Int]` is the same error `a[0] = "x"` is. Bounds as for reading.
-`Data`'s Range subscript stays OPEN; Strings stay without one
+**`Data` follows (round 92)**: `d[1..<3]` / `d[1...]` read a Data,
+`d[0..<1] = Data([...])` is the same `replaceSubrange` with a Data on
+the right, and `d[i] = byte` writes one byte (an Int in 0...255 —
+Data's "element type", checked at the write, since a Data has no
+per-element lock to land through). One bounds helper serves Array
+and Data, reading and writing. Strings stay without a subscript
 (round 89).
 
 ## 11. Strings — DECIDED (core)

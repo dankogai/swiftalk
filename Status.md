@@ -163,6 +163,36 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**Data's Range subscript** (round 92) — reading and writing, plus byte
+writes; a Data on the right of a Range write:
+
+```text
+swiftalk> var d = "hello".Data()
+Data([104, 101, 108, 108, 111])
+swiftalk> d[1..<3]
+Data([101, 108])
+swiftalk> d[1..<3].String(.utf8)
+"el"
+swiftalk> d[5...]
+Data([])
+swiftalk> d[2...9]
+type error: range 2...9 is out of range (count 5)
+swiftalk> d[0] = 72
+72
+swiftalk> d[1...] = "i!".Data()
+Data([105, 33])
+swiftalk> d.String(.utf8)
+"Hi!"
+swiftalk> d[d.count...] = Data([33])
+Data([33])
+swiftalk> d
+Data([72, 105, 33, 33])
+swiftalk> d[0..<1] = [9]
+type error: assigning through a Range of a Data takes a Data, not a Array
+swiftalk> d[0] = 256
+type error: a Data byte is an Int in 0...255, not 256
+```
+
 **`a[0..<1] = [9]`** — assignment through a Range subscript (round 91):
 Swift's `replaceSubrange`; the right side must be an Array of the
 variable's element type:

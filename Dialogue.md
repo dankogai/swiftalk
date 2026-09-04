@@ -1329,3 +1329,16 @@ the history. (Moved out of Design.md in round 65.)
   to 'a'[0] of type Int" — the same sentence `a[0] = "x"` gets. A
   non-Array right side is refused before that. Nested paths (`d["k"]
   [1...] = [0]`) work through the COW rebuild as any subscript does.
+* **2026-09-04, round 92 — the Range subscript on `Data`** ("Let's
+  implement the Range subscript on `Data`"). Reading and writing, as
+  Array got in rounds 90–91, from one shared bounds helper (Array's
+  read and write had each carried a copy of the check; Data would
+  have been the third). `d[1..<3]` is a Data, `d[0..<1] = Data(...)`
+  is `replaceSubrange` with a Data — not an Int Array — on the right,
+  so "an Array of the same element type" reads as "a Data" here. One
+  addition beyond the request, stated as such: the single-byte write
+  `d[i] = 255`, which doc/Data.md had carried as OPEN since round 50;
+  a Range write without an element write would have left Data's
+  write side lopsided. A byte is an Int in 0...255 and the check is
+  at the write, since a Data has no per-element lock to land through
+  the way an Array's rebuilt value does.

@@ -1477,6 +1477,25 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
 /// `a[i]` traps on a bad index like Swift; `d[k]` is the flat optional
 /// lookup of §3a — nil for a missing key, indistinguishable from a
 /// stored nil.
+/// A Range index's positions in a container of `count` elements —
+/// Swift's rule, 0 ≤ from ≤ to ≤ count, shared by Array and Data,
+/// reading and writing (rounds 90–92).
+private func sliceBounds(_ index: Value, lower: Int64, upper: Int64?, closed: Bool,
+                         count: Int) throws -> Range<Int> {
+    var end = Int64(count)
+    if let upper {
+        let (e, overflow) = closed ? upper.addingReportingOverflow(1) : (upper, false)
+        guard !overflow else {
+            throw SwiftalkError.type("range \(index.sourceString()) is out of range (count \(count))")
+        }
+        end = e
+    }
+    guard lower >= 0, lower <= end, end <= Int64(count) else {
+        throw SwiftalkError.type("range \(index.sourceString()) is out of range (count \(count))")
+    }
+    return Int(lower)..<Int(end)
+}
+
 private func subscriptRead(_ container: Value, _ index: Value) throws -> Value {
     switch container {
     case .array(let a):
@@ -1484,19 +1503,7 @@ private func subscriptRead(_ container: Value, _ index: Value) throws -> Value {
             // a[1..<3] / a[1...2] / a[1...] (round 90): a new Array — a
             // value, not a view. Swift's bounds rule: 0 ≤ from ≤ to ≤ count,
             // so a[count...] is [] and anything past the end is an error.
-            let count = Int64(a.count)
-            var end = count
-            if let upper {
-                let (e, overflow) = closed ? upper.addingReportingOverflow(1) : (upper, false)
-                guard !overflow else {
-                    throw SwiftalkError.type("range \(index.sourceString()) is out of range (count \(count))")
-                }
-                end = e
-            }
-            guard lower >= 0, lower <= end, end <= count else {
-                throw SwiftalkError.type("range \(index.sourceString()) is out of range (count \(count))")
-            }
-            return .array(Array(a[Int(lower)..<Int(end)]))
+            return .array(Array(a[try sliceBounds(index, lower: lower, upper: upper, closed: closed, count: a.count)]))
         }
         guard case .int(let i) = index else {
             throw SwiftalkError.type("Array index must be an Int or a Range, not \(index.typeName)")
@@ -1526,8 +1533,12 @@ private func subscriptRead(_ container: Value, _ index: Value) throws -> Value {
         guard !overflow else { throw SwiftalkError.overflow("this Range element does not fit in an Int") }
         return .int(v)
     case .data(let bytes):
+        if case .range(let lower, let upper, let closed) = index {
+            // d[1..<3] / d[1...] (round 92): a Data of those bytes
+            return .data(Array(bytes[try sliceBounds(index, lower: lower, upper: upper, closed: closed, count: bytes.count)]))
+        }
         guard case .int(let i) = index else {
-            throw SwiftalkError.type("Data index must be an Int, not \(index.typeName)")
+            throw SwiftalkError.type("Data index must be an Int or a Range, not \(index.typeName)")
         }
         guard bytes.indices.contains(Int(i)) else {
             throw SwiftalkError.type("index \(i) out of range (count \(bytes.count))")
@@ -1559,19 +1570,8 @@ private func subscriptWrite(_ container: Value, _ index: Value, _ newValue: Valu
                 throw SwiftalkError.type(
                     "assigning through a Range takes an Array, not a \(newValue.typeName)")
             }
-            let count = Int64(a.count)
-            var end = count
-            if let upper {
-                let (e, overflow) = closed ? upper.addingReportingOverflow(1) : (upper, false)
-                guard !overflow else {
-                    throw SwiftalkError.type("range \(index.sourceString()) is out of range (count \(count))")
-                }
-                end = e
-            }
-            guard lower >= 0, lower <= end, end <= count else {
-                throw SwiftalkError.type("range \(index.sourceString()) is out of range (count \(count))")
-            }
-            a.replaceSubrange(Int(lower)..<Int(end), with: replacement)
+            a.replaceSubrange(try sliceBounds(index, lower: lower, upper: upper, closed: closed, count: a.count),
+                              with: replacement)
             return .array(a)
         }
         guard case .int(let i) = index else {
@@ -1585,6 +1585,30 @@ private func subscriptWrite(_ container: Value, _ index: Value, _ newValue: Valu
     case .dictionary(var d):
         d[index] = newValue
         return .dictionary(d)
+    case .data(var bytes):
+        // Round 92: d[i] = byte, and d[0..<1] = Data([...]) — Swift's
+        // replaceSubrange, as for Arrays (round 91). A byte is an Int
+        // in 0...255; the right side of a Range write is a Data.
+        if case .range(let lower, let upper, let closed) = index {
+            guard case .data(let replacement) = newValue else {
+                throw SwiftalkError.type(
+                    "assigning through a Range of a Data takes a Data, not a \(newValue.typeName)")
+            }
+            bytes.replaceSubrange(try sliceBounds(index, lower: lower, upper: upper, closed: closed, count: bytes.count),
+                                  with: replacement)
+            return .data(bytes)
+        }
+        guard case .int(let i) = index else {
+            throw SwiftalkError.type("Data index must be an Int or a Range, not \(index.typeName)")
+        }
+        guard bytes.indices.contains(Int(i)) else {
+            throw SwiftalkError.type("index \(i) out of range (count \(bytes.count))")
+        }
+        guard case .int(let b) = newValue, let byte = UInt8(exactly: b) else {
+            throw SwiftalkError.type("a Data byte is an Int in 0...255, not \(newValue.sourceString())")
+        }
+        bytes[Int(i)] = byte
+        return .data(bytes)
     case .string:
         throw SwiftalkError.type("String subscripts are undecided (Design.md §11)")
     default:
