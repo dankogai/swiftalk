@@ -161,7 +161,18 @@ struct Lexer {
                     tokens.append(.punct("."))
                 }
             case "\"":
-                tokens.append(try lexStringToken())
+                tokens.append(try startsTripleQuote() ? lexMultilineString(hashes: 0)
+                                                     : lexStringToken(hashes: 0))
+            case "#":
+                // Raw strings (round 94): #"..."# / #"""..."""# — a `\` or a
+                // `"` counts only when followed by as many `#`s.
+                var hashes = 0
+                while peek == "#" { hashes += 1; pos += 1 }
+                guard peek == "\"" else {
+                    throw SwiftalkError.syntax("unexpected character '#'")
+                }
+                tokens.append(try startsTripleQuote() ? lexMultilineString(hashes: hashes)
+                                                     : lexStringToken(hashes: hashes))
             case "0"..."9":
                 // After a `.` the digits are a tuple index (round 70):
                 // `t.0.1` is two member accesses, not `t` then `0.1`.
@@ -255,20 +266,105 @@ struct Lexer {
 
     /// Lexes a string literal; `\(...)` makes it an interpolated token
     /// whose expression parts are captured as sub-token streams.
-    private mutating func lexStringToken() throws -> Token {
+    private func startsTripleQuote() -> Bool {
+        pos + 2 < scalars.count && scalars[pos] == "\"" && scalars[pos + 1] == "\"" && scalars[pos + 2] == "\""
+    }
+
+    /// `hashes` `#`s follow the current position (0 always does).
+    private func hashesFollow(_ hashes: Int) -> Bool {
+        guard hashes > 0 else { return true }
+        guard pos + hashes <= scalars.count else { return false }
+        return scalars[pos..<(pos + hashes)].allSatisfy { $0 == "#" }
+    }
+
+    /// A single-line literal, `"..."` or `#"..."#`.
+    private mutating func lexStringToken(hashes: Int) throws -> Token {
         pos += 1  // consume opening quote
+        return try lexStringBody(hashes: hashes, terminated: true)
+    }
+
+    /// `"""` (round 94, Swift's rules): the content starts on the line
+    /// after the opening delimiter and ends on the line before the
+    /// closing one; the closing delimiter's indentation is stripped
+    /// from every line (a line with less is an error unless blank);
+    /// a `\` at a line's end joins it to the next. Escapes and
+    /// interpolation as in a single-line literal; `"` needs no escape.
+    private mutating func lexMultilineString(hashes: Int) throws -> Token {
+        pos += 3  // the opening """
+        while let c = peek, c == " " || c == "\t" { pos += 1 }
+        guard peek != nil else {
+            // the REPL's case: the opening line alone — more lines wanted
+            throw SwiftalkError.syntax("unterminated multi-line string literal — close it with \"\"\" on its own line")
+        }
+        guard peek == "\n" else {
+            throw SwiftalkError.syntax("a multi-line string's content starts on the line after the opening \"\"\"")
+        }
+        let openingNewline = pos
+        pos += 1
+        let contentStart = pos
+        // find the closing delimiter: a newline, optional indentation, """ and the #s
+        var j = openingNewline
+        var found: (newline: Int, lineStart: Int, delimiter: Int)? = nil
+        while j < scalars.count {
+            if scalars[j] == "\n" {
+                var m = j + 1
+                while m < scalars.count, scalars[m] == " " || scalars[m] == "\t" { m += 1 }
+                if m + 2 < scalars.count, scalars[m] == "\"", scalars[m + 1] == "\"", scalars[m + 2] == "\"",
+                   (hashes == 0 || (m + 3 + hashes <= scalars.count
+                                    && scalars[(m + 3)..<(m + 3 + hashes)].allSatisfy { $0 == "#" })) {
+                    found = (j, j + 1, m)
+                    break
+                }
+            }
+            j += 1
+        }
+        guard let (newline, lineStart, delimiter) = found else {
+            throw SwiftalkError.syntax("unterminated multi-line string literal — close it with \"\"\" on its own line")
+        }
+        let indent = Array(scalars[lineStart..<delimiter])
+        let content = newline > openingNewline ? Array(scalars[contentStart..<newline]) : []
+        // de-indent line by line
+        var lines: [[Unicode.Scalar]] = [[]]
+        for c in content {
+            if c == "\n" { lines.append([]) } else { lines[lines.count - 1].append(c) }
+        }
+        var body = ""
+        for (n, line) in lines.enumerated() {
+            if n > 0 { body.append("\n") }
+            if line.allSatisfy({ $0 == " " || $0 == "\t" }) && line.count <= indent.count { continue }
+            guard line.starts(with: indent) else {
+                throw SwiftalkError.syntax(
+                    "line \(n + 1) of the multi-line string is indented less than its closing \"\"\"")
+            }
+            body.unicodeScalars.append(contentsOf: line[indent.count...])
+        }
+        pos = delimiter + 3 + hashes
+        var sub = Lexer(body)
+        return try sub.lexStringBody(hashes: hashes, terminated: false)
+    }
+
+    /// The body of any string literal: escapes, `\(...)` interpolation,
+    /// and — with `hashes` — the raw rule. `terminated` bodies end at a
+    /// closing `"` (plus the `#`s); a multi-line body is its own whole.
+    private mutating func lexStringBody(hashes: Int, terminated: Bool) throws -> Token {
         var segments: [StringSegment] = []
         var current = ""
+        func finish() -> Token {
+            guard !segments.isEmpty else { return .string(current) }
+            if !current.isEmpty { segments.append(.literal(current)) }
+            return .interpolated(segments)
+        }
         while true {
             guard let c = advance() else {
-                throw SwiftalkError.syntax("unterminated string literal")
+                if terminated { throw SwiftalkError.syntax("unterminated string literal") }
+                return finish()
             }
             switch c {
-            case "\"":
-                guard !segments.isEmpty else { return .string(current) }
-                if !current.isEmpty { segments.append(.literal(current)) }
-                return .interpolated(segments)
-            case "\\":
+            case "\"" where terminated && hashesFollow(hashes):
+                pos += hashes
+                return finish()
+            case "\\" where hashesFollow(hashes):
+                pos += hashes
                 guard let e = advance() else {
                     throw SwiftalkError.syntax("unterminated escape sequence")
                 }
@@ -287,6 +383,8 @@ struct Lexer {
                 case "t":  current.append("\t")
                 case "0":  current.append("\0")
                 case "u":  current.unicodeScalars.append(try lexUnicodeEscape())
+                case "\n" where !terminated:
+                    break                     // a line continuation: the newline is eaten
                 default:
                     throw SwiftalkError.syntax("unknown escape sequence '\\\(e)'")
                 }

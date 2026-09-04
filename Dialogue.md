@@ -1353,3 +1353,21 @@ the history. (Moved out of Design.md in round 65.)
   otherwise have fallen into a `fatalError` marked unreachable. The
   base64 and UTF-8 arithmetic in `eg/sion.swt` keeps its `v - v / n *
   n` as a record of the finding.
+* **2026-09-04, round 94 — `"""` and raw `#"..."#`** ("Let's implement
+  `"""` multi-line string literals. also implement uninterpolating
+  version"). Round 85's fourth finding, closed with Swift's two forms
+  — the raw string being the "uninterpolating version": `#"..."#`,
+  where `\` and `"` are literal unless followed by as many `#`s, so
+  `\#(x)` still interpolates when wanted and `Regex(#"\d+"#)` reads
+  without doubled backslashes. One body routine now serves all four
+  shapes (single/multi × plain/raw): a `"` or `\` counts only when the
+  literal's `#`s follow it. The multi-line form finds its closing
+  delimiter first and strips that line's indentation from every
+  content line, Swift's rule to the letter (less indentation is an
+  error, blank lines excepted, content must start on the next line,
+  `\` at a line's end joins lines). The REPL learned to keep reading
+  while a `"""` is open — the opening line alone had produced the
+  "content starts on the next line" error rather than "unterminated",
+  so `needsMoreInput` never saw it; now it does. `eg/sion.swt`'s
+  README sample is a `"""` literal, verbatim, with the test output
+  unchanged.

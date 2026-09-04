@@ -129,9 +129,9 @@ Each of these is a finding, with the workaround the example uses.
    Swift continues after a trailing binary operator. Either that
    rule, or leaving it as is and documenting the parentheses idiom
    (the grammar already does).
-4. **No `"""` multi-line String literals.** The README sample is an
-   Array of lines `.joined("\n")`. Swift has them; they would make
-   SION-in-swiftalk documents readable.
+4. **No `"""` multi-line String literals.** The README sample was an
+   Array of lines `.joined("\n")`. *(Landed in round 94; the example
+   now spells the sample as a `"""` literal, verbatim.)*
 5. **Implicit self shadows format tags.** A method named `utf8` made
    `.String(.utf8)` inside the struct resolve to `self.utf8`. Renamed
    to `fromCodePoint`. A rule ("a `.name` argument to a builtin is a

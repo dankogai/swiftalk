@@ -163,6 +163,27 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`"""` and raw `#"..."#`** (round 94) — Swift's multi-line and raw
+string literals; the REPL keeps reading while a `"""` is open:
+
+```text
+swiftalk> let s = """
+      hi "there"
+      \(40 + 2)
+      """
+"hi \"there\"\n42"
+swiftalk> s.count
+13
+swiftalk> #"raw \n \(x)"#
+"raw \\n \\(x)"
+swiftalk> #"total: \#(6 * 7)"#
+"total: 42"
+swiftalk> let path = #"""
+      C:\dir\file
+      """#
+"C:\\dir\\file"
+```
+
 **`%`** — the remainder (round 93), Swift's, Int only:
 
 ```text

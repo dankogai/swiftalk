@@ -29,6 +29,14 @@ Shelved forms (`actor`, `class`, `super`) are not grammar today.
     stays member access). A `.` needs a digit on both sides.
   * String: `"..."` with `\" \\ \n \r \t \0 \u{...}` and `\(expr)`
     interpolation (nesting freely).
+  * Multi-line String (round 94, Swift's rules): `"""` then a newline,
+    the content, and `"""` on its own line; the closing delimiter's
+    indentation is stripped from every line (less is an error, blank
+    lines excepted); `"` needs no escape; `\` at a line's end joins
+    lines; escapes and interpolation as above.
+  * Raw String (round 94): `#"..."#`, `#"""..."""#`, any number of `#`
+    — `\` and `"` are literal unless followed by as many `#`s, so
+    `\#(expr)` interpolates and `\#n` is a newline; `##"a "# b"##`.
   * Regex (round 86): `/pattern/flags` — `\/` is a `/` in the
     pattern, every other backslash is kept for the engine; flags are
     letters from `imsx`. A `/` starts a regex where an operand cannot
@@ -167,7 +175,7 @@ suffix       = "." IDENT [ args ]                      (* member, method *)
              | "!"                                     (* force-unwrap *)
              | "?." IDENT [ args ] ;                   (* optional chaining *)
 
-primary      = INT | DOUBLE | STRING | REGEX | "true" | "false" | "nil"
+primary      = INT | DOUBLE | STRING | REGEX | "true" | "false" | "nil"   (* STRING: "...", """...""", #"..."# *)
              | IDENT | "$" | "$" INT
              | "." IDENT                               (* implicit self member, or a format tag *)
              | "(" expression ")"                      (* grouping *)

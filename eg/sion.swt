@@ -249,35 +249,35 @@ struct MySION {
     }
 }
 
-// --- the README sample of swift-sion, verbatim (no """ yet: joined) ---
-let sample = [
-    "[",
-    "    \"nil\":      nil,",
-    "    \"bool\":     true,",
-    "    \"int\":      -42,",
-    "    \"double\":   42.195,",
-    "    \"string\":   \"漢字、カタカナ、ひらがなの入ったstring😇\",",
-    "    \"array\":    [nil, true, 1, 1.0, \"one\", [1], [\"one\":1.0]],",
-    "    \"dictionary\":   [",
-    "        \"nil\":      nil,",
-    "        \"bool\":     false,",
-    "        \"int\":      0,",
-    "        \"double\":   0.0,",
-    "        \"string\":   \"\",",
-    "        \"array\":    [],",
-    "        \"dictionary\": [:]",
-    "    ],",
-    "    \"url\":\"https://github.com/dankogai/\",",
-    "    \"date\":.Date(0x0p+0),",
-    "    \"data\":.Data(\"R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7\"),",
-    "    nil:        \"Unlike JSON and Property Lists,\",",
-    "    true:       \"Yes, SION\",",
-    "    1:          \"does accept\",",
-    "    1.0:        \"non-String keys.\",",
-    "    []:         \"like\",",
-    "    [:]:        \"Map of ECMAScript.\"",
-    "]",
-].joined("\n")
+// --- the README sample of swift-sion, verbatim (a """ literal since round 94) ---
+let sample = """
+    [
+        "nil":      nil,
+        "bool":     true,
+        "int":      -42,
+        "double":   42.195,
+        "string":   "漢字、カタカナ、ひらがなの入ったstring😇",
+        "array":    [nil, true, 1, 1.0, "one", [1], ["one":1.0]],
+        "dictionary":   [
+            "nil":      nil,
+            "bool":     false,
+            "int":      0,
+            "double":   0.0,
+            "string":   "",
+            "array":    [],
+            "dictionary": [:]
+        ],
+        "url":"https://github.com/dankogai/",
+        "date":.Date(0x0p+0),
+        "data":.Data("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"),
+        nil:        "Unlike JSON and Property Lists,",
+        true:       "Yes, SION",
+        1:          "does accept",
+        1.0:        "non-String keys.",
+        []:         "like",
+        [:]:        "Map of ECMAScript."
+    ]
+    """
 
 let doc: [Any: Any] = MySION(sample).parse()!     // mixed keys need the annotation (§3)
 print(doc["int"], doc["double"], doc["bool"], doc["nil"], doc.has("nil"))

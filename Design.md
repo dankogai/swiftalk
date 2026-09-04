@@ -1041,7 +1041,9 @@ subscript on Array; then RegExp **as a module**, which makes
 (shape, what a module is, whether builtins like Regex live in one).
 Findings from the experiment, each OPEN (`%` landed in round 93 —
 Swift's remainder, Int only, `% 0` a zero-division and `Int.min % -1`
-an overflow, both as `/`): `"""` literals;
+an overflow, both as `/`; `"""` and raw `#"..."#` literals landed in
+round 94, Swift's rules — indentation stripped to the closing
+delimiter, `\#(...)` the raw interpolation):
 newline continuation after a trailing binary operator; a strict
 `let` refusing `nil` (and `let` destructuring refusing a nil
 element); implicit-self `.name` shadowing format tags inside a type

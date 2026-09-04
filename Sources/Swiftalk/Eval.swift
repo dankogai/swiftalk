@@ -125,7 +125,18 @@ extension Swiftalk {
     /// malformed) returns false.
     public static func needsMoreInput(_ source: String) -> Bool {
         var lexer = Lexer(source)
-        guard let tokens = try? lexer.tokenize() else { return false }
+        let tokens: [Token]
+        do {
+            tokens = try lexer.tokenize()
+        } catch let error as SwiftalkError {
+            // an open """ (round 94) wants more lines, like an open bracket
+            if case .syntax(let message) = error, message.hasPrefix("unterminated multi-line string") {
+                return true
+            }
+            return false
+        } catch {
+            return false
+        }
         var depth = 0
         for token in tokens {
             switch token {
