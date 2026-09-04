@@ -74,6 +74,8 @@ also a type since round 97 — `SION(text)` reads a document, see
 | `+= -= *= /= %=` | ✓ (round 102) — `x op= y` is `x = x op y`, the target evaluated once | ✓ | `+=` | `+=` | | | |
 | `??=` | `x ??= y` writes `y` only when `x` is nil (or a Result failure); `y` unevaluated otherwise (round 103) — any type | | | | | | |
 | `&&= ||=` | Bool targets and Bools only; short-circuit like the operators (round 104) — the `op=` family is now every binary operator that can spell one | | | | | | |
+| `^^`, `^^=` | logical xor, Bools only, both sides evaluated; between `&&` and `||` (round 106) | | | | | | |
+| `.not()`, `.and()`, `.or()`, `.xor()` | logical on a Bool (eager), bitwise on an Int (rounds 105/106) — one name, the receiver decides | ✓ | | | | | |
 | `< <= > >=` | ✓ | ✓ | ✓ | | ✓ | | |
 | `== !=` | | | | | | | ✓ same type, or vs nil |
 | `&& \|\| !` | | | | | | ✓ short-circuit | |
@@ -82,5 +84,5 @@ also a type since round 97 — `SION(text)` reads a document, see
 
 Mixed arithmetic (`1 + 1.5`) is a type error — convert explicitly.
 Precedence, high to low: prefix `! -` · `* / %` · `+ -` · `... ..<` ·
-`??` · comparison · `&&` · `||` · `? :`. A lone `&` or `|` is a
+`??` · comparison · `&&` · `^^` · `||` · `? :`. A lone `&` or `|` is a
 syntax error — bitwise operators are undecided.

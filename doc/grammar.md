@@ -55,7 +55,7 @@ Shelved forms (`actor`, `class`, `super`) are not grammar today.
     keyword) and is division after a value, a name, or a closing
     bracket — JavaScript's rule. `//` is a comment, never an empty
     regex.
-* **Operators & punctuation**: `+ - * / %`, `+= -= *= /= %= ??= &&= ||=`, `== != < <= > >=`, `&& ||`,
+* **Operators & punctuation**: `+ - * / %`, `+= -= *= /= %= ??= &&= ||= ^^=`, `== != < <= > >=`, `&& ^^ ||`,
   prefix `! -`, `...` `..<`, `??`, `= : , . ; ( ) [ ] { }`. Three
   spacing-sensitive rules:
   * `?` — `??` coalesces; *unspaced* `?.` chains, *unspaced* postfix
@@ -86,7 +86,7 @@ export       = "export" ( declaration | destructure | structDecl | enumDecl )
 declaration  = ( "let" | "var" ) IDENT [ ":" type ] "=" expression ;
 destructure  = ( "let" | "var" ) pattern { "," pattern } "=" expression ;
                                                        (* let (a, b) = t, or let a, b = t (round 99) *)
-assignment   = lvalue ( "=" | "+=" | "-=" | "*=" | "/=" | "%=" | "??=" | "&&=" | "||=" ) expression ;
+assignment   = lvalue ( "=" | "+=" | "-=" | "*=" | "/=" | "%=" | "??=" | "&&=" | "||=" | "^^=" ) expression ;
                                                        (* op= reads, combines, writes; the target's
                                                           subscripts are evaluated once (round 102) *)
 lvalue       = IDENT
@@ -177,7 +177,8 @@ Precedence, loosest to tightest; each line is one grammar level.
 ```
 expression   = ternary ;
 ternary      = disjunction [ "?" expression ":" expression ] ;      (* spaced ?, right-assoc *)
-disjunction  = conjunction { "||" conjunction } ;                   (* short-circuit *)
+disjunction  = xor { "||" xor } ;                                   (* short-circuit *)
+xor          = conjunction { "^^" conjunction } ;                   (* both sides evaluated (round 106) *)
 conjunction  = comparison { "&&" comparison } ;
 comparison   = coalescing [ ( "==" | "!=" | "<" | "<=" | ">" | ">=" ) coalescing ] ;   (* not chained *)
 coalescing   = range [ "??" coalescing ] ;                          (* right-assoc, lazy right *)

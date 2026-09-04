@@ -163,6 +163,37 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`^^`, and `not`/`and`/`or`/`xor` on Bools** (round 106) — logical
+xor with a level between `&&` and `||`; the four names dispatch on
+the receiver, bitwise on an Int, logical on a Bool:
+
+```text
+swiftalk> true ^^ false
+true
+swiftalk> true ^^ true
+false
+swiftalk> true.xor(false)
+true
+swiftalk> true.and(false)
+false
+swiftalk> false.or(true)
+true
+swiftalk> true.not()
+false
+swiftalk> var b = true
+true
+swiftalk> b ^^= true
+false
+swiftalk> b
+false
+swiftalk> true && false ^^ true || false
+true
+swiftalk> 5.xor(3)
+6
+swiftalk> 1 ^ 2
+syntax error: '^' is not an operator — '^^' is xor on Bools, '.xor()' on Ints
+```
+
 **Bitwise, as methods** (round 105) — `and`, `or`, `xor`, `not`,
 `shifted(by:)` (negative shifts right), `bit`, the `[Bool]` view, and
 `Bool(Int)`; no operator symbols spent:

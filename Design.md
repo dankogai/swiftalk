@@ -669,7 +669,17 @@ checksums, base64) want a word, not 64 allocations. `Bool(Int)` is
 untouched: nothing is truthy in a condition. A recorded divergence
 from Swift and JavaScript both; `& | ^ ~ << >>` stay free — `|` in
 particular for a type union, `Int | String`, should annotations ever
-want one.
+want one. **Round 106**: the same four names on a *Bool* are the
+logical operations — `b.not()`, `b.and(c)`, `b.or(c)`, `b.xor(c)` for
+`!`, `&&`, `||`, and the new **`^^`** — one name, the receiver's type
+deciding, as every builtin does. The methods are eager (a method
+evaluates its argument; `&&`/`||` short-circuit), a difference worth
+one sentence in the docs and no more. `^^` is logical xor, Bools
+only, both sides evaluated, with a precedence level of its own
+between `&&` and `||` (C's `^` sits between `&` and `|` for the same
+reason); `^^=` joins the `op=` family by round 104's rule. A lone `^`
+is a syntax error that names both spellings — the symbol is still
+unspent.
 
 ## 3a. Optionals & nil — DECIDED
 

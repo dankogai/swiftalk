@@ -24,6 +24,7 @@ indirect enum Expr {
     case logicalAnd(Expr, Expr)                           // a && b — short-circuit (round 69)
     case logicalOr(Expr, Expr)                            // a || b — short-circuit
     case logicalNot(Expr)                                 // !a — prefix
+    case logicalXor(Expr, Expr)                           // a ^^ b — both sides evaluated (round 106)
     case superRef                                         // super — receiver position only (round 56)
     case coalesce(Expr, Expr)                             // a ?? b — default on nil/failure
     case optionalMember(Expr, name: String,               // a?.b / a?.b(args) — nil skips
@@ -399,7 +400,7 @@ struct Parser {
                 pos += 1
                 return .compoundAssignment(target: try lvalue(from: expr), op: "?", expr: try parseExpr())
             }
-            if case .op(let o)? = peek, o == "&&=" || o == "||=" {          // round 104
+            if case .op(let o)? = peek, o == "&&=" || o == "||=" || o == "^^=" {   // rounds 104/106
                 pos += 1
                 return .compoundAssignment(target: try lvalue(from: expr), op: o.first!, expr: try parseExpr())
             }
@@ -1162,16 +1163,28 @@ struct Parser {
     /// `a || b` — left-associative, short-circuit; binds looser than
     /// `&&`, tighter than the ternary (Swift's precedence, round 69).
     private mutating func parseDisjunction() throws -> Expr {
-        var lhs = try parseConjunction()
+        var lhs = try parseXor()
         while case .op("||")? = peek {
             pos += 1
-            lhs = .logicalOr(lhs, try parseConjunction())
+            lhs = .logicalOr(lhs, try parseXor())
         }
         return lhs
     }
 
     /// `a && b` — left-associative, short-circuit; binds tighter than
     /// `||`, looser than comparison.
+    /// `a ^^ b` (round 106): logical xor, between && and || as C puts ^
+    /// between & and |; both sides are evaluated — there is nothing
+    /// to short-circuit.
+    private mutating func parseXor() throws -> Expr {
+        var lhs = try parseConjunction()
+        while case .op("^^")? = peek {
+            pos += 1
+            lhs = .logicalXor(lhs, try parseConjunction())
+        }
+        return lhs
+    }
+
     private mutating func parseConjunction() throws -> Expr {
         var lhs = try parseComparison()
         while case .op("&&")? = peek {

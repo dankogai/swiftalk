@@ -1542,3 +1542,17 @@ the history. (Moved out of Design.md in round 65.)
   and UTF-8 code in `eg/sion.swt` — round 85's `n / 65536` and `v -
   v / n * n` — now reads `n.shifted(by: -16)` and `c.and(63)`, its
   output unchanged. Symbols spent: none.
+* **2026-09-04, round 106 — `not`/`and`/`or`/`xor` on Bools, and
+  `^^`** ("Implement `not`, `and`, `or`, and `xor` to mean `!`, `&&`,
+  `||`, and `^^` respectively. or, we haven't implemented `^^` yet so
+  implement it as well"). The four names from round 105 now dispatch
+  on the receiver: bitwise on an Int, logical on a Bool — the
+  round-98 principle once more. Two things decided along the way:
+  the methods are eager, because a method evaluates its argument
+  before it is called, so `b.and(expensive())` is not `b &&
+  expensive()`; and `^^` — new to the language, Swift has none —
+  takes a precedence level between `&&` and `||`, as C's `^` sits
+  between `&` and `|`, with both sides evaluated since xor cannot
+  short-circuit. `^^=` follows from round 104's rule. The lexer now
+  meets `^` and says what to write instead; the symbol itself is
+  still unspent.

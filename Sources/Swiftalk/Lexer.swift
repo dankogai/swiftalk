@@ -100,6 +100,14 @@ struct Lexer {
                     pos += 1
                     tokens.append(.punct("/"))
                 }
+            case "^":
+                // ^^ is logical xor, ^^= its assignment (round 106); a lone
+                // ^ is not an operator — bitwise xor is a method (round 105)
+                guard pos + 1 < scalars.count, scalars[pos + 1] == "^" else {
+                    throw SwiftalkError.syntax("'^' is not an operator — '^^' is xor on Bools, '.xor()' on Ints")
+                }
+                pos += 2
+                if peek == "=" { pos += 1; tokens.append(.op("^^=")) } else { tokens.append(.op("^^")) }
             case "[", "(", "{":
                 brackets.append(c)
                 pos += 1
@@ -224,7 +232,7 @@ struct Lexer {
             return "+-*/%=".contains(p)
         case .op(let o)?:
             return ["==", "!=", "<", "<=", ">", ">=", "&&", "||", "??",
-                    "+=", "-=", "*=", "/=", "%=", "??=", "&&=", "||="].contains(o)
+                    "+=", "-=", "*=", "/=", "%=", "??=", "&&=", "||=", "^^", "^^="].contains(o)
         default:
             return false
         }

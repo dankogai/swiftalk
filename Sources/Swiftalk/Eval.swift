@@ -400,6 +400,16 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
                 try isAbsent(old) ? evaluate(expr, in: env) : old
             }
         }
+        if op == "^" {
+            // ^^= (round 106): Bools only, both sides evaluated
+            let rhs = try evaluate(expr, in: env)
+            return try assign(target, .nil, in: env) { old in
+                guard case .bool(let a) = old, case .bool(let b) = rhs else {
+                    throw SwiftalkError.type("'^^=' takes Bools — nothing is truthy (§3b)")
+                }
+                return .bool(a != b)
+            }
+        }
         if op == "&" || op == "|" {
             // &&= / ||= (round 104): Bools only, short-circuit like the
             // operators — the right side is evaluated only when it decides
@@ -1514,6 +1524,12 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
             throw SwiftalkError.type("'||' takes Bools — nothing is truthy (§3b)")
         }
         return .bool(b)
+    case .logicalXor(let lhs, let rhs):
+        guard case .bool(let a) = try evaluate(lhs, in: env),
+              case .bool(let b) = try evaluate(rhs, in: env) else {
+            throw SwiftalkError.type("'^^' takes Bools — nothing is truthy (§3b)")
+        }
+        return .bool(a != b)
     case .logicalNot(let inner):
         guard case .bool(let a) = try evaluate(inner, in: env) else {
             throw SwiftalkError.type("prefix '!' takes a Bool — nothing is truthy (§3b)")
@@ -3459,7 +3475,23 @@ private func method(on receiver: Value, name: String,
         if !current.isEmpty { pieces.append(current) }
         return .array(pieces.map { reshape($0, like: receiver) })
     // ---- bitwise, as methods (round 105): the symbols stay free ----
+    // ---- on a Bool (round 106) the same names are logical: and, or,
+    // xor, not — eager, as any method is (a method evaluates its
+    // argument; && and || do not always)
     case ("and", true), ("or", true), ("xor", true), ("shifted", true):
+        if case .bool(let a) = receiver {
+            guard name != "shifted" else {
+                throw SwiftalkError.unknownMember("Bool.shifted()")
+            }
+            guard args.count == 1, case .bool(let b) = args[0] else {
+                throw SwiftalkError.type("Bool.\(name) takes one Bool — nothing is truthy (§3b)")
+            }
+            switch name {
+            case "and": return .bool(a && b)
+            case "or":  return .bool(a || b)
+            default:    return .bool(a != b)
+            }
+        }
         guard case .int(let a) = receiver else {
             throw SwiftalkError.unknownMember("\(receiver.typeName).\(name)()")
         }
@@ -3477,10 +3509,11 @@ private func method(on receiver: Value, name: String,
             return .int(a << b)
         }
     case ("not", true):
+        guard args.isEmpty else { throw SwiftalkError.type(".not() takes no arguments") }
+        if case .bool(let b) = receiver { return .bool(!b) }
         guard case .int(let a) = receiver else {
             throw SwiftalkError.unknownMember("\(receiver.typeName).not()")
         }
-        guard args.isEmpty else { throw SwiftalkError.type(".not() takes no arguments") }
         return .int(~a)
     case ("bit", true):
         guard case .int(let a) = receiver else {
