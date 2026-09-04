@@ -1316,3 +1316,16 @@ the history. (Moved out of Design.md in round 65.)
   logged OPEN with `Data`'s Range subscript; Strings stay without
   one, as round 89 decided. This closes the last LEANING item from
   round 85's assessment.
+* **2026-09-04, round 91 — `a[0..<1] = [9]`** ("Let's implement
+  `a[0..<1] = [9]` — assignment through a Range subscript. Note RHS
+  must be an array of the same element type, otherwise fatal error").
+  Swift's `replaceSubrange`, in the one place it belongs — the Array
+  branch of the subscript write — with the read side's bounds rule:
+  the range's positions are replaced by the right side's elements,
+  however many, so the slice grows, shrinks, or vanishes, `a[1...] =
+  []` truncates and `a[a.count...] = xs` appends. The "fatal error"
+  came for free: the rebuilt Array lands through the variable's lock,
+  and round 59's path-aware check already says "cannot assign String
+  to 'a'[0] of type Int" — the same sentence `a[0] = "x"` gets. A
+  non-Array right side is refused before that. Nested paths (`d["k"]
+  [1...] = [0]`) work through the COW rebuild as any subscript does.

@@ -992,8 +992,16 @@ round 85's "index-free slicing" leaning: with `prefix`/`suffix`/
 positions (a value, never a view — no ArraySlice, per §4), under
 Swift's bounds rule `0 ≤ from ≤ to ≤ count`, so `a[a.count...]` is
 `[]` and anything past the end is the same error `a[i]` gives.
-Read-only: `a[0..<1] = [...]` (Swift's replaceSubrange) is OPEN, as
-is the same subscript on `Data`. Strings stay without it (round 89).
+**Assignment through it — DECIDED (round 91)**: `a[0..<1] = [9]` is
+Swift's `replaceSubrange` — the positions in the range are replaced
+by the right side's elements, however many, so `a[1...] = []`
+truncates and `a[a.count...] = xs` appends; the right side must be
+an Array ("RHS must be an array of the same element type, otherwise
+fatal error" — the user), and the element types are the variable's
+lock, checked as the rebuilt Array lands, so `a[0..<1] = ["x"]` on
+a `[Int]` is the same error `a[0] = "x"` is. Bounds as for reading.
+`Data`'s Range subscript stays OPEN; Strings stay without one
+(round 89).
 
 ## 11. Strings — DECIDED (core)
 

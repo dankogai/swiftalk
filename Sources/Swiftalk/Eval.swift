@@ -1548,8 +1548,34 @@ private func subscriptRead(_ container: Value, _ index: Value) throws -> Value {
 private func subscriptWrite(_ container: Value, _ index: Value, _ newValue: Value) throws -> Value {
     switch container {
     case .array(var a):
+        if case .range(let lower, let upper, let closed) = index {
+            // a[0..<1] = [9] (round 91): Swift's replaceSubrange — the
+            // positions in the range are replaced by the Array on the
+            // right, however many elements it has, so a slice can grow,
+            // shrink, or vanish; a[a.count...] = xs appends. Bounds as
+            // for reading. The elements' types are checked against the
+            // variable's lock when the rebuilt Array lands (round 59).
+            guard case .array(let replacement) = newValue else {
+                throw SwiftalkError.type(
+                    "assigning through a Range takes an Array, not a \(newValue.typeName)")
+            }
+            let count = Int64(a.count)
+            var end = count
+            if let upper {
+                let (e, overflow) = closed ? upper.addingReportingOverflow(1) : (upper, false)
+                guard !overflow else {
+                    throw SwiftalkError.type("range \(index.sourceString()) is out of range (count \(count))")
+                }
+                end = e
+            }
+            guard lower >= 0, lower <= end, end <= count else {
+                throw SwiftalkError.type("range \(index.sourceString()) is out of range (count \(count))")
+            }
+            a.replaceSubrange(Int(lower)..<Int(end), with: replacement)
+            return .array(a)
+        }
         guard case .int(let i) = index else {
-            throw SwiftalkError.type("Array index must be an Int, not \(index.typeName)")
+            throw SwiftalkError.type("Array index must be an Int or a Range, not \(index.typeName)")
         }
         guard a.indices.contains(Int(i)) else {
             throw SwiftalkError.type("index \(i) out of range (count \(a.count))")

@@ -163,8 +163,33 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`a[0..<1] = [9]`** — assignment through a Range subscript (round 91):
+Swift's `replaceSubrange`; the right side must be an Array of the
+variable's element type:
+
+```text
+swiftalk> var a = [10, 20, 30, 40, 50]
+[10, 20, 30, 40, 50]
+swiftalk> a[0..<1] = [9]
+[9]
+swiftalk> a
+[9, 20, 30, 40, 50]
+swiftalk> a[1...2] = [1, 2, 3, 4]
+[1, 2, 3, 4]
+swiftalk> a[1...4] = []
+[]
+swiftalk> a[a.count...] = [7, 8]
+[7, 8]
+swiftalk> a[0..<1] = ["x"]
+type error: cannot assign String to 'a'[0] of type Int
+swiftalk> a[0..<1] = 5
+type error: assigning through a Range takes an Array, not a Int
+swiftalk> a[3...] = [1]
+type error: range 3... is out of range (count 1)
+```
+
 **`a[1..<3]`** — Range subscripts on Arrays (round 90): a new Array of
-those positions, Swift's bounds rule, read-only:
+those positions, Swift's bounds rule:
 
 ```text
 swiftalk> let a = [10, 20, 30, 40, 50]
