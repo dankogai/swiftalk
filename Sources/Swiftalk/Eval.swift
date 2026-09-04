@@ -1480,8 +1480,26 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
 private func subscriptRead(_ container: Value, _ index: Value) throws -> Value {
     switch container {
     case .array(let a):
+        if case .range(let lower, let upper, let closed) = index {
+            // a[1..<3] / a[1...2] / a[1...] (round 90): a new Array — a
+            // value, not a view. Swift's bounds rule: 0 ≤ from ≤ to ≤ count,
+            // so a[count...] is [] and anything past the end is an error.
+            let count = Int64(a.count)
+            var end = count
+            if let upper {
+                let (e, overflow) = closed ? upper.addingReportingOverflow(1) : (upper, false)
+                guard !overflow else {
+                    throw SwiftalkError.type("range \(index.sourceString()) is out of range (count \(count))")
+                }
+                end = e
+            }
+            guard lower >= 0, lower <= end, end <= count else {
+                throw SwiftalkError.type("range \(index.sourceString()) is out of range (count \(count))")
+            }
+            return .array(Array(a[Int(lower)..<Int(end)]))
+        }
         guard case .int(let i) = index else {
-            throw SwiftalkError.type("Array index must be an Int, not \(index.typeName)")
+            throw SwiftalkError.type("Array index must be an Int or a Range, not \(index.typeName)")
         }
         guard a.indices.contains(Int(i)) else {
             throw SwiftalkError.type("index \(i) out of range (count \(a.count))")

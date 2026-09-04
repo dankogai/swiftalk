@@ -20,6 +20,7 @@ Arrays are dense — a sparse array is a Dictionary.
 | `a.map { }` | an Array of results |
 | `a.filter { }` | an Array of the kept |
 | `a.reduce(init) { acc, x in }` | fold |
+| `a[1..<3]`, `a[1...2]`, `a[1...]` | a **Range subscript** (round 90): a new Array of those positions — `0 ≤ from ≤ to ≤ count`, so `a[a.count...]` is `[]` and past the end is an error; read-only (assignment through a Range is OPEN) |
 | `a.prefix(n)`, `a.suffix(n)` | the first / last n; n clamps to the count |
 | `a.dropFirst(n)`, `a.dropLast(n)` | all but the first / last n; `n` defaults to 1 (round 89) |
 | `a.split(x)`, `a.split { }`, `a.split(separator:)`, `a.split(whereSeparator:)` | pieces between separators, as Arrays; empty pieces omitted, as Swift's (round 89) |

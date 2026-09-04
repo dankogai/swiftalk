@@ -1303,3 +1303,16 @@ the history. (Moved out of Design.md in round 65.)
   `s.dropFirst(2)` a String) would have been indefensible. With this family in, round 85's question is
   closed: String subscripts are not coming; `Array()` + `joined()`
   remain the honest random-access route.
+* **2026-09-04, round 90 — `a[1..<3]`, `a[1...2]`** ("Let's implement
+  the Array Range subscript `a[1..<3]` and `a[1...2]`"). One branch in
+  `subscriptRead`: a Range index on an Array yields a new Array of
+  those positions, and round 88's `a[1...]` falls out of it as "to
+  the end". Two decisions: the result is a value, not a view — there
+  is no ArraySlice in swiftalk, COW Arrays make the copy cheap and
+  §4's value semantics stay uniform; and the bounds rule is Swift's
+  (`0 ≤ from ≤ to ≤ count`), so `a[a.count...]` and `a[2..<2]` are
+  empty while `a[1...5]` on five elements is the error `a[5]` would
+  give. Assignment through a Range (`a[0..<1] = [9]`) is refused and
+  logged OPEN with `Data`'s Range subscript; Strings stay without
+  one, as round 89 decided. This closes the last LEANING item from
+  round 85's assessment.

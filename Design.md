@@ -987,8 +987,13 @@ String — revised, the one behavior change). `dropFirst` is lazy where
 round 85's "index-free slicing" leaning: with `prefix`/`suffix`/
 `dropFirst`/`dropLast`/`split`/`takeWhile`/`dropWhile` and `Array()`
 + `joined()` for random access, **String subscripts are not coming**
-— decided, not OPEN. An Array Range subscript (`a[1..<3]`) stays
-LEANING.
+— decided, not OPEN. **The Array Range subscript — DECIDED (round
+90)**: `a[1..<3]`, `a[1...2]`, `a[1...]` give a new Array of those
+positions (a value, never a view — no ArraySlice, per §4), under
+Swift's bounds rule `0 ≤ from ≤ to ≤ count`, so `a[a.count...]` is
+`[]` and anything past the end is the same error `a[i]` gives.
+Read-only: `a[0..<1] = [...]` (Swift's replaceSubrange) is OPEN, as
+is the same subscript on `Data`. Strings stay without it (round 89).
 
 ## 11. Strings — DECIDED (core)
 
