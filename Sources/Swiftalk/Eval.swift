@@ -2954,6 +2954,13 @@ private func method(on receiver: Value, name: String,
        let value = try DoubleMath.member(name, args: labeledArgs, called: called) {
         return value
     }
+    // Int.random(in: 1...6) (round 109): a Range's worth of Ints; the
+    // in: label accepted; uncalled, a Function value.
+    if case .function(let f) = receiver, case .type("Int") = f.role, name == "random" {
+        guard !called else { return try IntRandom.call(labeledArgs) }
+        return .function(FunctionObject(parameters: [], body: [], closure: Builtins.emptyEnvironment,
+                                        builtin: { try IntRandom.call($0.map { (label: nil, value: $0) }) }))
+    }
     if case .function(let f) = receiver, case .enumType(let et) = f.role,
        et.cases[name] != nil {
         return try constructEnumCase(et, name, args: labeledArgs, called: called)

@@ -1581,3 +1581,11 @@ the history. (Moved out of Design.md in round 65.)
   C and Swift do it, where JS rounds half up. Swift 6's strict
   concurrency wanted the closure tables marked `nonisolated(unsafe)`,
   as the builtin tables already are.
+* **2026-09-05, round 109 — `Int.random(in:)`** ("Let's implement
+  `Int.random(in:)` too"). Swift's, through round 108's static-member
+  hook, on swiftalk's Int-only Range: closed or half-open, the `in:`
+  label optional as labels are, an empty range an error where Swift
+  traps, the unbounded range refused. Uncalled it is a Function
+  value, like `Double.sqrt`. A `Double.random(in:)` would need a
+  Range of Doubles, which the language does not have; `Double.random()`
+  in [0, 1) scales, and the docs say so.

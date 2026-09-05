@@ -701,7 +701,11 @@ taken uncalled is a Function value, so `xs.map(Double.sqrt)` reads;
 `round` is C's and Swift's half-away-from-zero, not JS's half-up —
 recorded; `random()` is the system generator in [0, 1). The first
 static members on a builtin type; the mechanism is one hook in
-member dispatch on the type's constructor Function.
+member dispatch on the type's constructor Function. **Round 109**
+added `Int.random(in:)` the same way — Swift's, on a bounded,
+non-empty Range (empty traps in Swift, errors here; `0...` is
+refused); a `Double.random(in:)` cannot be spelled while Ranges are
+Int-only, so `Double.random()` scales instead.
 
 ## 3a. Optionals & nil — DECIDED
 

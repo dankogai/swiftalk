@@ -40,7 +40,7 @@ Bool from the predicates, and labeled tuples from `modf`/`frexp`/`remquo`.
 | `erf`, `erfc`, `tgamma`, `gamma`, `lgamma`, `j0`, `j1`, `jn(n, x)`, `y0`, `y1`, `yn(n, x)` | libm's specials and Bessel functions |
 | `fround(x)` | JS's: rounded through a 32-bit float |
 | `isNaN`, `isFinite`, `isInfinite`, `isZero`, `isNormal`, `isSubnormal` | Bools |
-| `random()` | in [0, 1), the system generator |
+| `random()` | in [0, 1), the system generator. (`Int.random(in:)` takes a Range; a Double has no Range to give — scale `random()` instead) |
 
 Not carried over from JS: `clz32` and `imul` (Int's business — see
 `leadingZeroBitCount`).

@@ -163,6 +163,20 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`Int.random(in:)`** (round 109) — a bounded, non-empty Range's worth:
+
+```text
+swiftalk> let d = Int.random(in: 1...6)
+swiftalk> d >= 1 && d <= 6
+true
+swiftalk> (1...100).map { Int.random(0..<3) }.filter { $0 > 2 }.count
+0
+swiftalk> Int.random(in: 1..<1)
+type error: Int.random(in:) needs a non-empty Range — 1..<1 is empty
+swiftalk> Int.random(in: 0...)
+type error: Int.random(in:) needs a bounded Range — 0... has no upper bound
+```
+
 **`Double.` — the math library** (round 108): libm and JS's `Math` as
 static members, Int arguments promoted, functions usable as values:
 

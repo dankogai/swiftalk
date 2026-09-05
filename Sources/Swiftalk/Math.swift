@@ -139,3 +139,24 @@ enum DoubleMath {
         }
     }
 }
+
+/// `Int.random(in: range)` (round 109): Swift's, on swiftalk's Int-only
+/// Range — closed or half-open, never empty, never unbounded.
+enum IntRandom {
+    static func call(_ args: [(label: String?, value: Value)]) throws -> Value {
+        guard args.count == 1, args[0].label == nil || args[0].label == "in",
+              case .range(let lower, let upper, let closed) = args[0].value else {
+            throw SwiftalkError.type("Int.random(in:) takes one Range: Int.random(in: 1...6)")
+        }
+        guard let upper else {
+            throw SwiftalkError.type("Int.random(in:) needs a bounded Range — \(lower)... has no upper bound")
+        }
+        if closed {
+            return .int(Int64.random(in: lower...upper))
+        }
+        guard lower < upper else {
+            throw SwiftalkError.type("Int.random(in:) needs a non-empty Range — \(lower)..<\(upper) is empty")
+        }
+        return .int(Int64.random(in: lower..<upper))
+    }
+}
