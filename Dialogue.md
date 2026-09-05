@@ -1617,3 +1617,11 @@ the history. (Moved out of Design.md in round 65.)
   value to bind, so those annotations are spelled out — the one thing
   a keyword bought, judged not worth it. The Design keeps round 110's
   paragraph with the retraction under it, as §9 keeps its graveyard.
+* **2026-09-05, round 112 — `Double.random(max)`, `Double.random(min,
+  max)`** ("Let's implement Double.random(in:) with a Double range
+  too. Since Range<Double> is nonexistent. Let's just define:
+  Double.random() [0, 1), Double.random(max) [0,max),
+  Double.random(min,max) [min,max)"). Argument count is the
+  dispatch, as every builtin does it; the bounds must be finite with
+  min < max, since an empty interval traps in Swift and errors here;
+  Int arguments promote as in the rest of `Double.`.

@@ -163,6 +163,19 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`Double.random(max)`, `Double.random(min, max)`** (round 112) — half-open
+intervals by argument count:
+
+```text
+swiftalk> let a = Double.random(10)
+swiftalk> a >= 0.0 && a < 10.0
+true
+swiftalk> (1...300).map { Double.random(-1, 1) }.filter { $0 < -1.0 || $0 >= 1.0 }.count
+0
+swiftalk> Double.random(3, 3)
+type error: Double.random needs finite bounds with min < max, got 3.0 and 3.0
+```
+
 **`let I = Int` is the alias** (round 111; round 110's `typealias` is
 retracted) — a type is a value, so a binding names it for
 construction, comparison, annotation, and the conversion law:

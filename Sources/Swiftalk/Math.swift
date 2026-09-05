@@ -105,8 +105,21 @@ enum DoubleMath {
             let xs = try args.map { try number($0, name) }
             return .double(xs.reduce(0.0) { hypot($0, $1) })
         case "random":
-            guard args.isEmpty else { throw SwiftalkError.type("Double.random() takes no arguments") }
-            return .double(Double.random(in: 0..<1))
+            // random() in [0, 1); random(max) in [0, max); random(min, max)
+            // in [min, max) — round 112: Range is Int-only, so the bounds
+            // are arguments. Finite, non-empty.
+            let bounds = try args.map { try number($0, name) }
+            let (lo, hi): (Double, Double)
+            switch bounds.count {
+            case 0: (lo, hi) = (0, 1)
+            case 1: (lo, hi) = (0, bounds[0])
+            case 2: (lo, hi) = (bounds[0], bounds[1])
+            default: throw SwiftalkError.type("Double.random() / random(max) / random(min, max)")
+            }
+            guard lo.isFinite, hi.isFinite, lo < hi else {
+                throw SwiftalkError.type("Double.random needs finite bounds with min < max, got \(lo) and \(hi)")
+            }
+            return .double(Double.random(in: lo..<hi))
         case "fma":
             let a = try arity(3); return .double(fma(a[0], a[1], a[2]))
         case "ldexp", "scalbn":

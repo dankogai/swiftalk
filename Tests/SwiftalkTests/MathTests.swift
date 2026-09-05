@@ -74,10 +74,21 @@ struct MathTests {
         #expect(try eval("Double.fmax(1, Double.nan)") == .double(1))
     }
 
-    @Test("Double.random() in [0, 1); a function member uncalled is a Function value; errors")
+    @Test("Double.random() in [0, 1); random(max) in [0, max); random(min, max) in [min, max) (round 112); a function member uncalled is a Function value; errors")
     func randomAndValues() throws {
         #expect(try eval("let r = Double.random()\nr >= 0.0 && r < 1.0") == .bool(true))
         #expect(try eval("(1...100).map { Double.random() }.filter { $0 >= 1.0 }.count") == .int(0))
+        #expect(try eval("(1...300).map { Double.random(5) }.filter { $0 < 0.0 || $0 >= 5.0 }.count") == .int(0))
+        #expect(try eval("(1...300).map { Double.random(-1, 1) }.filter { $0 < -1.0 || $0 >= 1.0 }.count") == .int(0))
+        #expect(try eval("(1...300).map { Double.random(2, 3) }.contains { $0 > 2.5 }") == .bool(true))
+        #expect(try eval("Double.random(0.5).Type == Double") == .bool(true))
+        #expect(throws: SwiftalkError.self) { try eval("Double.random(0)") }
+        #expect(throws: SwiftalkError.self) { try eval("Double.random(-2)") }
+        #expect(throws: SwiftalkError.self) { try eval("Double.random(3, 3)") }
+        #expect(throws: SwiftalkError.self) { try eval("Double.random(5, 1)") }
+        #expect(throws: SwiftalkError.self) { try eval("Double.random(Double.infinity)") }
+        #expect(throws: SwiftalkError.self) { try eval("Double.random(1, 2, 3)") }
+        #expect(throws: SwiftalkError.self) { try eval("Double.random(\"x\")") }
         #expect(try eval("[1.0, 4.0, 9.0].map(Double.sqrt)") == .array([.double(1), .double(2), .double(3)]))
         #expect(try eval("let f = Double.pow\nf(2, 3)") == .double(8))
         #expect(try eval("Double.sqrt.Type == Function") == .bool(true))
@@ -86,7 +97,6 @@ struct MathTests {
         #expect(throws: SwiftalkError.self) { try eval("Double.sqrt(\"x\")") }
         #expect(throws: SwiftalkError.self) { try eval("Double.nope") }
         #expect(throws: SwiftalkError.self) { try eval("Double.pow(x: 1, 2)") }
-        #expect(throws: SwiftalkError.self) { try eval("Double.random(1)") }
         #expect(throws: SwiftalkError.self) { try eval("Double.ldexp(1.5, 2.0)") }
         #expect(throws: SwiftalkError.self) { try eval("Int.sqrt(4)") }         // Double's, not Int's
         // the type's own members are untouched

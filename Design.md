@@ -705,7 +705,9 @@ member dispatch on the type's constructor Function. **Round 109**
 added `Int.random(in:)` the same way — Swift's, on a bounded,
 non-empty Range (empty traps in Swift, errors here; `0...` is
 refused); a `Double.random(in:)` cannot be spelled while Ranges are
-Int-only, so `Double.random()` scales instead.
+Int-only — so **round 112** made the bounds arguments: `Double.random()`
+in [0, 1), `random(max)` in [0, max), `random(min, max)` in [min, max),
+finite and non-empty, the user's own three-line spec.
 
 **`typealias` — DECIDED (round 110)** ("We haven't implemented
 typealias yet"). Swift's, for the annotation vocabulary: `typealias

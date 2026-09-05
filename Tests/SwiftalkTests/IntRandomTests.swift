@@ -23,6 +23,6 @@ struct IntRandomTests {
         #expect(throws: SwiftalkError.self) { try eval("Int.random(6)") }
         #expect(throws: SwiftalkError.self) { try eval("Int.random()") }
         #expect(throws: SwiftalkError.self) { try eval("Int.random(to: 1...6)") }
-        #expect(throws: SwiftalkError.self) { try eval("Double.random(in: 1...6)") }
+        #expect(throws: SwiftalkError.self) { try eval("Double.random(in: 1...6)") }   // Double's bounds are arguments (round 112)
     }
 }
