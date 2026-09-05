@@ -163,6 +163,36 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`Byte`, and `Data.random`** (round 116) — Data's element type, an Int
+that fits a byte: Byte arithmetic traps, a Byte meets an Int as an Int,
+equality by value:
+
+```text
+swiftalk> let d = "hé!".Data(.utf8)
+.Data("aMOpIQ==")
+swiftalk> d[0]
+Byte(104)
+swiftalk> d[0].Type
+Byte
+swiftalk> d[0] == 104
+true
+swiftalk> d[0] + 1
+105
+swiftalk> d[1] + d[2]
+overflow: Byte(195) + Byte(169)
+swiftalk> Byte(200) + Byte(100)
+overflow: Byte(200) + Byte(100)
+swiftalk> Byte(256)
+swiftalk> Byte.max
+Byte(255)
+swiftalk> d.filter { $0 > 127 }
+.Data("w6k=")
+swiftalk> d.reduce(0) { $0 + $1 }
+501
+swiftalk> Data.random(4).count
+4
+```
+
 **`Data` is a Sequence** (round 115) — its bytes as Ints; slices are
 Datas, `map`/`sorted`/`reversed` Arrays:
 

@@ -84,6 +84,7 @@ enum DoubleMath {
         switch v {
         case .double(let d): return d
         case .int(let i):    return Double(i)
+        case .byte(let b):   return Double(b)
         default: throw SwiftalkError.type("Double.\(name) takes numbers, not a \(v.typeName)")
         }
     }
@@ -156,12 +157,25 @@ enum DoubleMath {
     }
 }
 
-/// Swift's static properties on Int (round 113): read bare, never called.
+/// Swift's static properties on Int (round 113) and Byte (round 116):
+/// read bare, never called.
 enum IntStatics {
-    nonisolated(unsafe) static let values: [String: Value] = [
-        "min": .int(Int64.min), "max": .int(Int64.max),
-        "bitWidth": .int(64), "zero": .int(0), "isSigned": .bool(true),
+    nonisolated(unsafe) static let values: [String: [String: Value]] = [
+        "Int": ["min": .int(Int64.min), "max": .int(Int64.max),
+                "bitWidth": .int(64), "zero": .int(0), "isSigned": .bool(true)],
+        "Byte": ["min": .byte(0), "max": .byte(255),
+                 "bitWidth": .int(8), "zero": .byte(0), "isSigned": .bool(false)],
     ]
+}
+
+/// `Data.random(n)` (round 116): n bytes from the system generator.
+enum DataStatics {
+    static func random(_ args: [Value]) throws -> Value {
+        guard args.count == 1, case .int(let n) = args[0], n >= 0 else {
+            throw SwiftalkError.type("Data.random(count) takes one non-negative Int")
+        }
+        return .data((0..<n).map { _ in UInt8.random(in: 0...255) })
+    }
 }
 
 /// `String.fromCodePoint(n, ...)` (round 114): JS's, Swift's
@@ -170,8 +184,11 @@ enum StringStatics {
     static func fromCodePoint(_ args: [Value]) throws -> Value {
         var out = ""
         for v in args {
-            guard case .int(let i) = v else {
-                throw SwiftalkError.type("String.fromCodePoint takes Ints, not a \(v.typeName)")
+            let i: Int64
+            switch v {
+            case .int(let n):  i = n
+            case .byte(let b): i = Int64(b)                 // a Byte is an Int that fits (round 116)
+            default: throw SwiftalkError.type("String.fromCodePoint takes Ints, not a \(v.typeName)")
             }
             guard i >= 0, i <= 0x10FFFF, let scalar = Unicode.Scalar(UInt32(i)) else {
                 throw SwiftalkError.type("\(i) is not a Unicode scalar value")

@@ -136,6 +136,7 @@ enum JSONFormat {
         case .nil:          out += "null"
         case .bool(let b):  out += b ? "true" : "false"
         case .int(let i):   out += String(i)
+        case .byte(let b):  out += String(b)
         case .double(let d):
             guard d.isFinite else { throw SwiftalkError.type("JSON has no \(d)") }
             out += Value.double(d).sourceString()
@@ -412,6 +413,7 @@ enum PlistXML {
         case .nil:           throw SwiftalkError.type("property lists have no nil")
         case .bool(let b):   out += tab + (b ? "<true/>\n" : "<false/>\n")
         case .int(let i):    out += tab + "<integer>\(i)</integer>\n"
+        case .byte(let b):   out += tab + "<integer>\(b)</integer>\n"
         case .double(let d):
             guard d.isFinite else { throw SwiftalkError.type("property lists have no \(d)") }
             out += tab + "<real>\(Value.double(d).sourceString())</real>\n"

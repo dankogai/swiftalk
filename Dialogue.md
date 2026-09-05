@@ -1652,3 +1652,18 @@ the history. (Moved out of Design.md in round 65.)
   `Data([104, 105]).map(String.fromCodePoint).joined()` is "hi" —
   round 114's static meeting this round's conformance. doc/Data.md's
   last OPEN line is gone.
+* **2026-09-05, round 116 — `Byte`, Data's element type; `Data.random`**
+  ("Let us add `Byte` (== UInt8) as an element type of `Data`. Then
+  let's implement `Data` static vars too"). Two questions went to the
+  user first. How a Byte meets an Int: Swift's strict `UInt8` leans
+  on literal inference, which swiftalk lacks, so a strict Byte would
+  have broken round 115's `d.filter { $0 > 127 }` overnight; the
+  user chose *interoperate* — `Byte op Byte` a trapping Byte, `Byte
+  op Int` an Int, comparison and equality by value, locks still
+  distinguishing. That equality meant writing `Value`'s `==` and
+  `hash` by hand for the first time (a Byte hashes as the Int it
+  equals). And "Data static vars", since Swift's `Data` has none:
+  `Data.random(n)`, beside `Int.random` and `Double.random`, plus
+  `Byte.min`/`max`/`bitWidth`. Data's subscripts, iterator, slices,
+  and literal all speak Byte now; the bitwise methods mask to eight
+  bits on a Byte receiver.

@@ -363,6 +363,19 @@ Primitives:
   bytes are `str.Data(.utf8)` (infallible);
   `data.String(.utf8)` decodes failably (`nil` on invalid bytes);
   `.count` and read-only byte subscripts; `Hashable`.
+* **`Byte`** — **round 116**: Data's element type, Swift's `UInt8`, and
+  the user's decision on how it meets `Int`: *interoperate* — "a
+  Byte is an Int that fits a byte": `Byte op Byte` a Byte (trapping),
+  `Byte op Int` an Int, comparison and equality by value (`Byte(33)
+  == 33`, hashing to match), while type locks keep them apart
+  (`x.Type == Byte`; no Byte lands in an Int slot). Chosen over
+  Swift's strict `UInt8`, which relies on literal inference swiftalk
+  does not have — a strict Byte would have broken `d.filter { $0 >
+  127 }` the day after round 115 made Data a Sequence. `Byte.min`/
+  `max`/`bitWidth`/`zero`/`isSigned`; the bitwise methods on a Byte
+  give a Byte, masked; `Data.random(n)` beside the other randoms. A
+  bare Byte is not SION (no spelling); JSON and plists write it as a
+  number.
 * **`Date`** — joined the roster in round 17 as a consequence of
   `Primitives`' SION-completeness (§3c); **implemented round 50**:
   seconds since the Unix epoch as a `Double` — SION's own

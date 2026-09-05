@@ -80,10 +80,23 @@ enum Builtins {
             case let v?: throw SwiftalkError.type("cannot convert \(v.typeName) to Bool")
             }
         },
+        "Byte": type("Byte") { args in
+            // Byte(x) (round 116): an Int in 0...255, or nil; a String
+            // parses as Int does; Byte() is 0.
+            switch args.first {
+            case nil:             return .byte(0)
+            case .byte(let b)?:   return .byte(b)
+            case .int(let i)?:    return UInt8(exactly: i).map(Value.byte) ?? .nil
+            case .double(let d)?: return UInt8(exactly: d.rounded(.towardZero)).map(Value.byte) ?? .nil
+            case .string(let s)?: return parseInt(s).flatMap { UInt8(exactly: $0) }.map(Value.byte) ?? .nil
+            case let v?: throw SwiftalkError.type("cannot convert \(v.typeName) to Byte")
+            }
+        },
         "Int": type("Int") { args in
             switch args.first {
             case nil:             return .int(0)
             case .int(let i)?:    return .int(i)
+            case .byte(let b)?:   return .int(Int64(b))
             case .double(let d)?: // truncation toward zero, as in Swift; nil if unrepresentable
                 guard let i = Int64(exactly: d.rounded(.towardZero)) else { return .nil }
                 return .int(i)
@@ -96,6 +109,7 @@ enum Builtins {
             case nil:             return .double(0)
             case .double(let d)?: return .double(d)
             case .int(let i)?:    return .double(Double(i))
+            case .byte(let b)?:   return .double(Double(b))
             case .string(let s)?: // Swift's parser accepts hex floats: Double("0x1.8p0") == 1.5
                 return Double(s).map(Value.double) ?? .nil
             case .date(let t)?:   return .double(t)   // a Date IS its epoch (round 50)
@@ -146,11 +160,16 @@ enum Builtins {
             case .string(let s)?:  // Data(base64) — SION's literal (round 97); nil if not base64.
                 return Base64.decode(s).map(Value.data) ?? .nil
             case .array(let a)?:
-                // Data([255, 1]) — the source form; a non-byte is nil (failable)
+                // Data([255, 1]) — Bytes or Ints; a non-byte is nil (failable)
                 var bytes: [UInt8] = []
                 for v in a {
-                    guard case .int(let i) = v, let byte = UInt8(exactly: i) else { return .nil }
-                    bytes.append(byte)
+                    switch v {
+                    case .byte(let b): bytes.append(b)
+                    case .int(let i):
+                        guard let byte = UInt8(exactly: i) else { return .nil }
+                        bytes.append(byte)
+                    default: return .nil
+                    }
                 }
                 return .data(bytes)
             case let v?: throw SwiftalkError.type("cannot convert \(v.typeName) to Data")
@@ -258,7 +277,7 @@ enum Builtins {
 
     private static let allTypeNames: Set<String> =
         ["Nil", "Bool", "Int", "Double", "String", "Array", "Dictionary",
-         "Range", "Function", "Sequence", "Data", "Date", "Task", "Tuple", "Regex"]
+         "Range", "Function", "Sequence", "Data", "Date", "Task", "Tuple", "Regex", "Byte"]
 
     /// Who conforms to what (§10, rounds 26/38/41): built-ins conform
     /// natively — everything is Equatable and Hashable (all values are
@@ -268,7 +287,7 @@ enum Builtins {
         "Sequence":   ["String", "Array", "Dictionary", "Range", "Sequence", "Tuple", "Data"],   // Data since round 115
         "Equatable":  allTypeNames,
         "Hashable":   allTypeNames,
-        "Comparable": ["Int", "Double", "String", "Date"],
+        "Comparable": ["Int", "Double", "String", "Date", "Byte"],
     ]
 
     /// Int-from-String, accepting everything the lexer does: optional

@@ -17,6 +17,7 @@ REPL). Sections in [Design.md](../Design.md) are cited as §n.
 | `Function` | the one function type | [Function.md](Function.md) |
 | `Sequence` | lazy generators & coroutines (also a protocol) | [Sequence.md](Sequence.md) |
 | `Data` | bytes, `[UInt8]` | [Data.md](Data.md) |
+| `Byte` | Data's element — an Int that fits a byte | [Byte.md](Byte.md) |
 | `Date` | epoch seconds as Double | [Date.md](Date.md) |
 | `Task` | a spawned computation | [Task.md](Task.md) |
 | `Tuple` | a grab bag `(v0, v1, ...)`, one loose type | [Tuple.md](Tuple.md) |

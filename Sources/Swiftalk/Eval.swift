@@ -308,7 +308,7 @@ func typeMatches(_ value: Value, _ lockName: String) -> Bool {
 
 private let knownTypeNames: Set<String> =
     ["Nil", "Bool", "Int", "Double", "String", "Array", "Dictionary", "Function",
-     "Range", "Sequence", "Data", "Date", "Task", "Tuple", "Regex",
+     "Range", "Sequence", "Data", "Date", "Task", "Tuple", "Regex", "Byte",
      // Round 59: annotation vocabulary — Any admits everything,
      // Primitives/SION admit their rosters. Not (yet) values.
      "Primitives", "SION", "Any"]
@@ -1112,9 +1112,9 @@ func iterator(of sequence: Value) throws -> ValueIterator {
         var it = t.makeIterator()
         return ValueIterator { it.next() }
     case .data(let bytes):
-        // Data is a Sequence of its bytes, as Ints (round 115)
+        // Data is a Sequence of its bytes (round 115) — Bytes since round 116
         var it = bytes.makeIterator()
-        return ValueIterator { it.next().map { .int(Int64($0)) } }
+        return ValueIterator { it.next().map { .byte($0) } }
     default:
         throw SwiftalkError.type("cannot iterate a \(sequence.typeName)")
     }
@@ -1160,7 +1160,13 @@ private func reshape(_ kept: [Value], like receiver: Value) -> Value {
         return .string(kept.map { if case .string(let s) = $0 { s } else { "" } }.joined())
     case .data:
         // a Data's slice is a Data (round 115) — its elements are bytes
-        return .data(kept.compactMap { if case .int(let i) = $0 { UInt8(exactly: i) } else { nil } })
+        return .data(kept.compactMap {
+            switch $0 {
+            case .byte(let b): return b
+            case .int(let i):  return UInt8(exactly: i)
+            default:           return nil
+            }
+        })
     case .dictionary:
         var d: [Value: Value] = [:]
         for pair in kept {
@@ -1714,7 +1720,7 @@ private func subscriptRead(_ container: Value, _ index: Value) throws -> Value {
         guard bytes.indices.contains(Int(i)) else {
             throw SwiftalkError.type("index \(i) out of range (count \(bytes.count))")
         }
-        return .int(Int64(bytes[Int(i)]))
+        return .byte(bytes[Int(i)])                       // a Byte since round 116
     case .string:
         throw SwiftalkError.type("String subscripts are undecided (Design.md §11)")
     default:
@@ -1775,8 +1781,16 @@ private func subscriptWrite(_ container: Value, _ index: Value, _ newValue: Valu
         guard bytes.indices.contains(Int(i)) else {
             throw SwiftalkError.type("index \(i) out of range (count \(bytes.count))")
         }
-        guard case .int(let b) = newValue, let byte = UInt8(exactly: b) else {
-            throw SwiftalkError.type("a Data byte is an Int in 0...255, not \(newValue.sourceString())")
+        let byte: UInt8
+        switch newValue {
+        case .byte(let b): byte = b
+        case .int(let i):
+            guard let b = UInt8(exactly: i) else {
+                throw SwiftalkError.type("a Data byte is a Byte, or an Int in 0...255, not \(newValue.sourceString())")
+            }
+            byte = b
+        default:
+            throw SwiftalkError.type("a Data byte is a Byte, or an Int in 0...255, not \(newValue.sourceString())")
         }
         bytes[Int(i)] = byte
         return .data(bytes)
@@ -2735,6 +2749,23 @@ func run(_ fn: FunctionObject, ordered: [Value]) throws -> (result: Value, local
 /// Int overflow traps (§3b), and `+` concatenates Strings and Arrays.
 private func binary(_ op: Character, _ lhs: Value, _ rhs: Value) throws -> Value {
     switch (lhs, rhs) {
+    case (.byte(let a), .byte(let b)):
+        // Byte op Byte is a Byte (round 116) — UInt8's, trapping
+        let (result, overflow): (UInt8, Bool) = switch op {
+        case "+": a.addingReportingOverflow(b)
+        case "-": a.subtractingReportingOverflow(b)
+        case "*": a.multipliedReportingOverflow(by: b)
+        case "/": b == 0 ? (0, false) : a.dividedReportingOverflow(by: b)
+        case "%": b == 0 ? (0, false) : a.remainderReportingOverflow(dividingBy: b)
+        default: fatalError("unreachable operator \(op)")
+        }
+        if (op == "/" || op == "%") && b == 0 { throw SwiftalkError.zeroDivision }
+        guard !overflow else { throw SwiftalkError.overflow("Byte(\(a)) \(op) Byte(\(b))") }
+        return .byte(result)
+    case (.byte(let a), .int):
+        return try binary(op, .int(Int64(a)), rhs)          // Byte op Int is an Int
+    case (.int, .byte(let b)):
+        return try binary(op, lhs, .int(Int64(b)))
     case (.int(let a), .int(let b)):
         let (result, overflow): (Int64, Bool) = switch op {
         case "+": a.addingReportingOverflow(b)
@@ -2779,7 +2810,12 @@ private func binary(_ op: Character, _ lhs: Value, _ rhs: Value) throws -> Value
 private func compare(_ op: String, _ lhs: Value, _ rhs: Value) throws -> Value {
     switch op {
     case "==", "!=":
-        if case .nil = lhs {} else if case .nil = rhs {} else {
+        // a Byte and an Int compare by value (round 116)
+        let byteInt: Bool = switch (lhs, rhs) {
+        case (.byte, .int), (.int, .byte): true
+        default: false
+        }
+        if case .nil = lhs {} else if case .nil = rhs {} else if byteInt {} else {
             guard lhs.typeName == rhs.typeName else {
                 throw SwiftalkError.type(
                     "'\(op)' is not defined between \(lhs.typeName) and \(rhs.typeName)")
@@ -2790,6 +2826,9 @@ private func compare(_ op: String, _ lhs: Value, _ rhs: Value) throws -> Value {
         let ascending: Bool
         switch (lhs, rhs) {
         case (.int(let a), .int(let b)):       ascending = a < b
+        case (.byte(let a), .byte(let b)):     ascending = a < b
+        case (.byte(let a), .int(let b)):      ascending = Int64(a) < b      // by value (round 116)
+        case (.int(let a), .byte(let b)):      ascending = a < Int64(b)
         case (.double(let a), .double(let b)): ascending = a < b
         case (.string(let a), .string(let b)): ascending = a < b
         case (.date(let a), .date(let b)):     ascending = a < b   // Comparable (round 50)
@@ -3011,9 +3050,21 @@ private func method(on receiver: Value, name: String,
         return try StringStatics.fromCodePoint(labeledArgs.map(\.value))
     }
     // Int.min, Int.max, Int.bitWidth… (round 113): Swift's static properties
-    if case .function(let f) = receiver, case .type("Int") = f.role, let v = IntStatics.values[name] {
-        guard !called else { throw SwiftalkError.type("Int.\(name) is a constant, not a function") }
+    if case .function(let f) = receiver, case .type(let t) = f.role, let table = IntStatics.values[t],
+       let v = table[name] {
+        guard !called else { throw SwiftalkError.type("\(t).\(name) is a constant, not a function") }
         return v
+    }
+    // Data.random(n) (round 116): n random bytes
+    if case .function(let f) = receiver, case .type("Data") = f.role, name == "random" {
+        guard called else {
+            return .function(FunctionObject(parameters: [], body: [], closure: Builtins.emptyEnvironment,
+                                            builtin: { try DataStatics.random($0) }))
+        }
+        if let label = labeledArgs.compactMap(\.label).first {
+            throw SwiftalkError.type("Data.random takes no argument label '\(label)'")
+        }
+        return try DataStatics.random(labeledArgs.map(\.value))
     }
     // Int.random(in: 1...6) (round 109): a Range's worth of Ints; the
     // in: label accepted; uncalled, a Function value.
@@ -3575,6 +3626,23 @@ private func method(on receiver: Value, name: String,
     // ---- bitwise, as methods on an Int (round 105; bit-prefixed since
     // round 107): the symbols stay free ----
     case ("bitAnd", true), ("bitOr", true), ("bitXor", true), ("shifted", true):
+        if case .byte(let a) = receiver {
+            // on a Byte (round 116): a Byte comes back, masked to 8 bits
+            let b: Int64
+            switch args.first {
+            case .byte(let x)? where args.count == 1: b = Int64(x)
+            case .int(let x)? where args.count == 1:  b = x
+            default: throw SwiftalkError.type(".\(name) takes one Int or Byte")
+            }
+            let x = Int64(a)
+            let r: Int64 = switch name {
+            case "bitAnd": x & b
+            case "bitOr":  x | b
+            case "bitXor": x ^ b
+            default:       x << b
+            }
+            return .byte(UInt8(truncatingIfNeeded: r))
+        }
         guard case .int(let a) = receiver else {
             throw SwiftalkError.unknownMember("\(receiver.typeName).\(name)()")
         }
@@ -3600,6 +3668,7 @@ private func method(on receiver: Value, name: String,
         return .bool(!b)
     case ("bitNot", true):
         guard args.isEmpty else { throw SwiftalkError.type(".bitNot() takes no arguments") }
+        if case .byte(let b) = receiver { return .byte(~b) }
         guard case .int(let a) = receiver else {
             throw SwiftalkError.unknownMember("\(receiver.typeName).bitNot()")
         }

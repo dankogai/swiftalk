@@ -9,6 +9,7 @@ extension Swiftalk {
     /// space plus `Function` (Design.md §3b/§3c/§2.4). `Data` and `Date`
     /// join in later milestones.
     public enum Value: Hashable {
+        // (== and hash(into:) are written out below: a Byte equals the Int it is)
         case `nil`
         case bool(Bool)
         case int(Int64)
@@ -40,6 +41,10 @@ extension Swiftalk {
         /// Bytes (round 50, §3b): distinct from String — bytes are
         /// bytes, text is text. Foundation-free.
         case data([UInt8])
+        /// A byte (round 116): Data's element type — Swift's UInt8. An Int
+        /// that fits a byte: `Byte op Byte` is a Byte (trapping, as UInt8),
+        /// `Byte op Int` an Int, comparison and equality by value.
+        case byte(UInt8)
         /// A point in time (round 50, §3b via §3c's SION-completeness):
         /// seconds since the Unix epoch, stored as a Double — SION's own
         /// representation.
@@ -377,6 +382,7 @@ extension Value {
         case .enumCase(let ev): return ev.type.name
         case .structValue(let sv): return sv.type.name
         case .data: return "Data"
+        case .byte: return "Byte"
         case .date: return "Date"
         case .task: return "Task"
         case .tuple: return "Tuple"
@@ -474,6 +480,9 @@ extension Value {
                 "\($0): \((obj.storage[$0] ?? .nil).sourceString(debug: debug, seen: seen))"
             }.joined(separator: ", ")
             return props.isEmpty ? "\(obj.type.name) { }" : "\(obj.type.name) { \(props) }"
+        case .byte(let b):
+            // Byte(255) — re-enters; hex under debug, as Data's bytes are
+            return "Byte(" + (debug ? "0x" + String(b, radix: 16) : String(b)) + ")"
         case .data(let bytes):
             // SION's own spelling since round 97 — .Data("base64"), which
             // re-enters as Data(base64); the debug form keeps the bytes
@@ -556,4 +565,59 @@ extension Value {
 
 extension Value: CustomStringConvertible {
     public var description: String { sourceString() }
+}
+
+extension Swiftalk.Value {
+    /// Equality by hand (round 116), so that a Byte equals the Int of the
+    /// same value — `Byte(33) == 33` — everything else as synthesis would.
+    public static func == (lhs: Swiftalk.Value, rhs: Swiftalk.Value) -> Bool {
+        switch (lhs, rhs) {
+        case (.nil, .nil): return true
+        case (.bool(let a), .bool(let b)): return a == b
+        case (.int(let a), .int(let b)): return a == b
+        case (.byte(let a), .byte(let b)): return a == b
+        case (.byte(let a), .int(let b)): return Int64(a) == b
+        case (.int(let a), .byte(let b)): return a == Int64(b)
+        case (.double(let a), .double(let b)): return a == b
+        case (.string(let a), .string(let b)): return a == b
+        case (.array(let a), .array(let b)): return a == b
+        case (.dictionary(let a), .dictionary(let b)): return a == b
+        case (.function(let a), .function(let b)): return a == b
+        case (.range(let a, let b, let c), .range(let d, let e, let f)): return a == d && b == e && c == f
+        case (.sequence(let a), .sequence(let b)): return a == b
+        case (.enumCase(let a), .enumCase(let b)): return a == b
+        case (.structValue(let a), .structValue(let b)): return a == b
+        case (.data(let a), .data(let b)): return a == b
+        case (.date(let a), .date(let b)): return a == b
+        case (.task(let a), .task(let b)): return a == b
+        case (.tuple(let a), .tuple(let b)): return a == b
+        case (.actor(let a), .actor(let b)): return a == b
+        case (.regex(let a), .regex(let b)): return a == b
+        default: return false
+        }
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        switch self {
+        case .nil: hasher.combine(0)
+        case .bool(let b): hasher.combine(1); hasher.combine(b)
+        case .int(let i): hasher.combine(2); hasher.combine(i)
+        case .byte(let b): hasher.combine(2); hasher.combine(Int64(b))     // as the Int it equals
+        case .double(let d): hasher.combine(3); hasher.combine(d)
+        case .string(let s): hasher.combine(4); hasher.combine(s)
+        case .array(let a): hasher.combine(5); hasher.combine(a)
+        case .dictionary(let d): hasher.combine(6); hasher.combine(d)
+        case .function(let f): hasher.combine(7); hasher.combine(f)
+        case .range(let a, let b, let c): hasher.combine(8); hasher.combine(a); hasher.combine(b); hasher.combine(c)
+        case .sequence(let s): hasher.combine(9); hasher.combine(s)
+        case .enumCase(let e): hasher.combine(10); hasher.combine(e)
+        case .structValue(let s): hasher.combine(11); hasher.combine(s)
+        case .data(let d): hasher.combine(12); hasher.combine(d)
+        case .date(let t): hasher.combine(13); hasher.combine(t)
+        case .task(let t): hasher.combine(14); hasher.combine(t)
+        case .tuple(let t): hasher.combine(15); hasher.combine(t)
+        case .actor(let a): hasher.combine(16); hasher.combine(a)
+        case .regex(let r): hasher.combine(17); hasher.combine(r)
+        }
+    }
 }
