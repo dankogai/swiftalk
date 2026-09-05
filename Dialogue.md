@@ -1589,3 +1589,14 @@ the history. (Moved out of Design.md in round 65.)
   value, like `Double.sqrt`. A `Double.random(in:)` would need a
   Range of Doubles, which the language does not have; `Double.random()`
   in [0, 1) scales, and the docs say so.
+* **2026-09-05, round 110 — `typealias`** ("We haven't implemented
+  typealias yet"). Swift's keyword and shape, resolved once at the
+  point an annotation is used and stored resolved — so `checkValue`
+  and the locks never see an alias, and an alias of an alias costs
+  nothing. Three sites needed the substitution: a declaration's
+  annotation, a struct's property annotations, and an enum's payload
+  type names (which must resolve to a plain name — a payload type is
+  a name, not an annotation). One convenience: an alias to a plain
+  type doubles as that type's value, so `Number("7")` and `x.Type ==
+  Number` work; a `[String]` alias has no value to give and stays
+  annotation-only. Not yet exportable across modules — logged OPEN.

@@ -27,7 +27,7 @@ Shelved forms (`actor`, `class`, `super`) are not grammar today.
   alphanumerics/`_`. `$` and `$0`, `$1`, … are identifiers of their own.
 * **Keywords** (never identifiers): `let var true false nil in if
   else while repeat for break continue return yield async await enum
-  case switch default struct extension import export`. Contextual
+  case switch default struct extension import export typealias`. Contextual
   (identifiers elsewhere): `init self get set willSet didSet newValue
   oldValue where from`. (`Regex` and `SION` are type names, not
   keywords.)
@@ -76,8 +76,10 @@ statement    = declaration | destructure | assignment | expression
              | while | repeat | for                   (* if and switch are expressions *)
              | "break" | "continue"
              | "return" [ expression ] | "yield" [ expression ]
-             | enumDecl | structDecl | extensionDecl
+             | enumDecl | structDecl | extensionDecl | typealias
              | import | export ;                       (* a file's top level only *)
+
+typealias    = "typealias" IDENT "=" type ;            (* round 110 *)
 
 import       = "import" ( IDENT | "(" IDENT { "," IDENT } ")" ) "from" STRING ;   (* round 100 *)
 export       = "export" ( declaration | destructure | structDecl | enumDecl )

@@ -163,6 +163,30 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`typealias`** (round 110) — a name for any annotation; an alias to a
+plain type is that type's value too:
+
+```text
+swiftalk> typealias Number = Int
+swiftalk> let n: Number = 42
+42
+swiftalk> Number("7")
+7
+swiftalk> n.Type == Number
+true
+swiftalk> typealias Names = [String]
+swiftalk> var xs: Names = ["a"]
+["a"]
+swiftalk> xs.append(1)
+type error: cannot assign Int to 'xs'[1] of type String
+swiftalk> typealias MaybeInt = Number?
+swiftalk> var m: MaybeInt = nil
+swiftalk> m = 3
+3
+swiftalk> typealias Bad = Nope
+type error: unknown type 'Nope'
+```
+
 **`Int.random(in:)`** (round 109) — a bounded, non-empty Range's worth:
 
 ```text

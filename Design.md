@@ -707,6 +707,20 @@ non-empty Range (empty traps in Swift, errors here; `0...` is
 refused); a `Double.random(in:)` cannot be spelled while Ranges are
 Int-only, so `Double.random()` scales instead.
 
+**`typealias` — DECIDED (round 110)** ("We haven't implemented
+typealias yet"). Swift's, for the annotation vocabulary: `typealias
+Name = Type` where `Type` is anything an annotation can say — a
+builtin, a user struct or enum, `[T]`, `[K: V]`, `T?`, `Any`/`SION`/
+`Primitives`, or another alias. Resolution happens once, where the
+annotation is used (a declaration, a struct property, an enum
+payload), and locks are stored resolved, so the rest of the type
+discipline never meets an alias. An alias to a plain type is bound to
+that type's value as well, so `Number("7")` constructs and `x.Type ==
+Number` holds; an alias to a parameterized or optional type is
+annotation-only. Scoped like a binding. One more keyword, Swift's own.
+OPEN: exporting an alias across modules (exports are values; a
+parameterized alias has none).
+
 ## 3a. Optionals & nil — DECIDED
 
 **The full Optional suite survives — on a flat model.** `nil` is *not*

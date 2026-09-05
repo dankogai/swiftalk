@@ -65,6 +65,17 @@ accepted in type annotations — `let xs: [Primitives] = [1, "one"]`,
 also a type since round 97 — `SION(text)` reads a document, see
 [SION.md](SION.md).
 
+## `typealias` (round 110)
+
+`typealias Name = Type` names any annotation — `typealias Number =
+Int`, `typealias Names = [String]`, `typealias MaybeInt = Number?`,
+`typealias Doc = SION`, a struct or enum name — for use wherever an
+annotation goes: declarations, struct properties, enum payloads,
+nested inside `[...]`. An alias to a plain type is also the type's
+value (`Number("7")`, `x.Type == Number`); an alias to a parameterized
+or optional type is annotation-only. Scoped like a binding; not
+exportable across modules yet (OPEN).
+
 ## Operators, by type
 
 | Operator | Int | Double | String | Array | Date | Bool | any |

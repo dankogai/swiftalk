@@ -212,6 +212,12 @@ final class Environment {
     var isFileScope = false
     /// The names this file exports, in order.
     var exports: [String] = []
+    /// `typealias` (round 110): name → the resolved annotation, scoped
+    /// like a binding.
+    var typeAliases: [String: TypeAnnotation] = [:]
+    func alias(_ name: String) -> TypeAnnotation? {
+        typeAliases[name] ?? parent?.alias(name)
+    }
 
     init(parent: Environment? = nil) {
         self.parent = parent
@@ -315,6 +321,20 @@ private let knownTypeNames: Set<String> =
 
 /// A parameterized annotation is known iff its name and every
 /// parameter's are (round 59) — `[Int]`, `[String: [Wat]]` checks Wat.
+/// Sees through typealiases (round 110), recursively into parameters.
+/// Aliases are stored resolved, so one substitution is the whole job.
+func resolveAliases(_ annotation: TypeAnnotation, in env: Environment) throws -> TypeAnnotation {
+    if let target = env.alias(annotation.name) {
+        guard annotation.parameters.isEmpty else {
+            throw SwiftalkError.type("'\(annotation.name)' is a typealias and takes no parameters")
+        }
+        return TypeAnnotation(name: target.name, optional: annotation.optional || target.optional,
+                              parameters: target.parameters)
+    }
+    return TypeAnnotation(name: annotation.name, optional: annotation.optional,
+                          parameters: try annotation.parameters.map { try resolveAliases($0, in: env) })
+}
+
 private func annotationIsKnown(_ annotation: TypeAnnotation, in env: Environment) -> Bool {
     (knownTypeNames.contains(annotation.name) || isUserType(annotation.name, in: env))
         && annotation.parameters.allSatisfy { annotationIsKnown($0, in: env) }
@@ -347,9 +367,10 @@ func execute(_ statement: Stmt, in env: Environment, relaxed: Bool = false) thro
 
 private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) throws -> Value {
     switch statement {
-    case .declaration(let mutable, let name, let annotation, let initializer):
+    case .declaration(let mutable, let name, let rawAnnotation, let initializer):
         // An annotation naming a user enum enables `.case` initializers
         // (round 45), the way `Function` enables `.todo` (round 44).
+        let annotation = try rawAnnotation.map { try resolveAliases($0, in: env) }   // round 110
         let annotatedEnum = try annotation.flatMap { try resolveEnumAnnotation($0, in: env) }
         let value: Value
         if case .memberLiteral("todo") = initializer,
@@ -466,6 +487,29 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             guard flag else { break }
         }
         return .nil
+    case .typealiasS(let name, let type):
+        // Round 110: the alias is resolved and validated now, stored
+        // resolved, and — when it names a plain type with a value in
+        // scope — bound to that constructor too, so Number(42) and
+        // x.Type == Number work.
+        guard env.alias(name) == nil, !env.has(name) else {
+            throw SwiftalkError.type("redeclaration of '\(name)'")
+        }
+        let resolved = try resolveAliases(type, in: env)
+        guard annotationIsKnown(resolved, in: env) else {
+            throw SwiftalkError.type("unknown type '\(type.display)'")
+        }
+        env.typeAliases[name] = resolved
+        if resolved.parameters.isEmpty, !resolved.optional,
+           let value = try? env.lookup(resolved.name), case .function(let f) = value {
+            switch f.role {
+            case .type, .enumType, .structType, .actorType:
+                try env.declare(name, Binding(
+                    mutable: false, lock: TypeAnnotation(name: "Function", optional: false), value: value))
+            default: break
+            }
+        }
+        return .nil
     case .importS(let namespace, let names, let spec):
         // Modules (round 100): load once per Interpreter, then bind —
         // the namespace as a labeled tuple of the exports, the named
@@ -538,6 +582,18 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
         try runner.yieldValue(value)
         return .nil
     case .enumDecl(let name, let caseOrder, let cases, let methodExprs):
+        // payload type names see through typealiases (round 110): only
+        // to a plain, non-optional type — a payload type is a name
+        var cases = cases
+        for (caseName, payloads) in cases {
+            cases[caseName] = try payloads.map { payload in
+                guard let t = payload.typeName, let target = env.alias(t) else { return payload }
+                guard target.parameters.isEmpty, !target.optional else {
+                    throw SwiftalkError.type("case \(caseName): a payload type is a plain name — '\(t)' aliases \(target.display)")
+                }
+                return (label: payload.label, typeName: target.name)
+            }
+        }
         let et = EnumType(name: name, caseOrder: caseOrder, cases: cases)
         et.methods = makeMethods(methodExprs, in: env)
         let constructor = FunctionObject(
@@ -555,6 +611,16 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
         return .function(constructor)
     case .structDecl(let name, let propertyOrder, let properties, let methodExprs,
                      let initExprs, let computedExprs):
+        // typealiases in property annotations resolve now (round 110)
+        var properties = properties
+        for (key, prop) in properties {
+            guard let a = prop.annotation else { continue }
+            var resolvedProp = prop
+            resolvedProp = StructType.Property(mutable: prop.mutable, annotation: try resolveAliases(a, in: env),
+                                               defaultExpr: prop.defaultExpr,
+                                               willSetExpr: prop.willSetExpr, didSetExpr: prop.didSetExpr)
+            properties[key] = resolvedProp
+        }
         let st = StructType(name: name, propertyOrder: propertyOrder,
                             properties: properties, declEnv: env)
         st.methods = makeMethods(methodExprs, in: env)
