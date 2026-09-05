@@ -1642,3 +1642,13 @@ the history. (Moved out of Design.md in round 65.)
   promised since round 17: `unicodeScalars`/`utf32` and `utf8`, as
   `[Int]`, with `.utf16` refused as §11 says. A surrogate or an
   out-of-range Int is an error, not a replacement character.
+* **2026-09-05, round 115 — `Data` as a Sequence** ("Let's implement
+  `Data` as a Sequence"). One iterator case — the bytes, as Ints —
+  and the conformance roster, and every member from `for`-`in` to
+  `split` came along, since they all pull through the one iterator.
+  The shapes follow Swift's `Data`: `filter`, `prefix`, the slicing
+  family, and `split` give Datas back (round 88's reshape helper
+  learned a third case), `map`, `sorted`, and `reversed` give Arrays.
+  `Data([104, 105]).map(String.fromCodePoint).joined()` is "hi" —
+  round 114's static meeting this round's conformance. doc/Data.md's
+  last OPEN line is gone.

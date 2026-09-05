@@ -1111,6 +1111,10 @@ func iterator(of sequence: Value) throws -> ValueIterator {
     case .tuple(let t):
         var it = t.makeIterator()
         return ValueIterator { it.next() }
+    case .data(let bytes):
+        // Data is a Sequence of its bytes, as Ints (round 115)
+        var it = bytes.makeIterator()
+        return ValueIterator { it.next().map { .int(Int64($0)) } }
     default:
         throw SwiftalkError.type("cannot iterate a \(sequence.typeName)")
     }
@@ -1154,6 +1158,9 @@ private func reshape(_ kept: [Value], like receiver: Value) -> Value {
     switch receiver {
     case .string:
         return .string(kept.map { if case .string(let s) = $0 { s } else { "" } }.joined())
+    case .data:
+        // a Data's slice is a Data (round 115) — its elements are bytes
+        return .data(kept.compactMap { if case .int(let i) = $0 { UInt8(exactly: i) } else { nil } })
     case .dictionary:
         var d: [Value: Value] = [:]
         for pair in kept {
@@ -3316,6 +3323,8 @@ private func method(on receiver: Value, name: String,
             if keep { kept.append(element) }
         }
         switch receiver {
+        case .data:
+            return reshape(kept, like: receiver)          // Data.filter gives back a Data (round 115)
         case .string:
             // Swift-compatible: String.filter gives back a String.
             return .string(kept.map { if case .string(let s) = $0 { s } else { "" } }.joined())

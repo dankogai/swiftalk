@@ -22,6 +22,7 @@ is `.Data("base64")`, and `Data(s)` decodes base64.
 | `d.String(.json)` | a base64 String (JSON has no bytes) |
 | `v.Data(.propertyList)` | any SION value as a binary property list — see [SION.md](SION.md) |
 | `d == e` | byte equality; usable as a Dictionary key |
+| `for b in d`, `d.map`, `d.filter`, `d.reduce`, `d.contains`, `d.sorted`, … | **a Sequence of its bytes, as Ints** (round 115): every Sequence member; `filter`, `prefix`, `suffix`, `dropFirst`, `dropLast`, `split` give Datas back, `map`/`sorted`/`reversed` Arrays — Swift's shapes |
 
 ```swift
 "café".Data(.utf8)                     // .Data("Y2Fmw6k=")
@@ -30,4 +31,4 @@ Data("hello")                          // nil — not base64
 Data([255, 254]).String(.utf8) == nil  // true
 ```
 
-OPEN: Data as a Sequence.
+(Data became a Sequence in round 115; nothing is OPEN here.)

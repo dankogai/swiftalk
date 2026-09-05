@@ -163,6 +163,26 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`Data` is a Sequence** (round 115) — its bytes as Ints; slices are
+Datas, `map`/`sorted`/`reversed` Arrays:
+
+```text
+swiftalk> let d = "hé!".Data(.utf8)
+.Data("aMOpIQ==")
+swiftalk> d.map { $0 + 1 }
+[105, 196, 170, 34]
+swiftalk> d.filter { $0 > 127 }
+.Data("w6k=")
+swiftalk> d.reduce(0) { $0 + $1 }
+501
+swiftalk> d.prefix(2)
+.Data("aMM=")
+swiftalk> Data([1, 0, 2]).split(0)
+[.Data("AQ=="), .Data("Ag==")]
+swiftalk> Data.conforms(to: Sequence)
+true
+```
+
 **`String.fromCodePoint`, `unicodeScalars`, `utf8`** (round 114) — code
 points in and out; no `.utf16`:
 

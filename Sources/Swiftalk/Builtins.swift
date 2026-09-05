@@ -265,7 +265,7 @@ enum Builtins {
     /// dictionary keys), Comparable is Int/Double/String, Sequence is
     /// the iterables (lazy Sequences included).
     static let conformance: [String: Set<String>] = [
-        "Sequence":   ["String", "Array", "Dictionary", "Range", "Sequence", "Tuple"],
+        "Sequence":   ["String", "Array", "Dictionary", "Range", "Sequence", "Tuple", "Data"],   // Data since round 115
         "Equatable":  allTypeNames,
         "Hashable":   allTypeNames,
         "Comparable": ["Int", "Double", "String", "Date"],

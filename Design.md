@@ -1184,7 +1184,9 @@ the right, and `d[i] = byte` writes one byte (an Int in 0...255 —
 Data's "element type", checked at the write, since a Data has no
 per-element lock to land through). One bounds helper serves Array
 and Data, reading and writing. Strings stay without a subscript
-(round 89).
+(round 89). **Data is a Sequence (round 115)**, of its bytes as Ints —
+the last conformer the roster of §10 lacked; its slices are Datas and
+its `map`/`sorted`/`reversed` Arrays, Swift's shapes.
 
 ## 11. Strings — DECIDED (core)
 
