@@ -37,7 +37,7 @@ struct MathTests {
         #expect(try eval("Double.exp(0)") == .double(1))
         #expect(try eval("Double.log10(1000)") == .double(3))
         #expect(try eval("Double.log2(8)") == .double(3))
-        #expect(try eval("Double.cbrt(27)") == .double(3))
+        #expect(try eval("Double.abs(Double.cbrt(27) - 3.0) < 1e-12") == .bool(true))   // glibc's cbrt is an ulp off exact
         #expect(try eval("Double.expm1(0)") == .double(0))
         #expect(try eval("Double.log1p(0)") == .double(0))
         #expect(try eval("Double.sin(0)") == .double(0))
