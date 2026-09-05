@@ -2992,6 +2992,17 @@ private func method(on receiver: Value, name: String,
        let value = try DoubleMath.member(name, args: labeledArgs, called: called) {
         return value
     }
+    // String.fromCodePoint(0x1F600, ...) (round 114); uncalled, a Function value
+    if case .function(let f) = receiver, case .type("String") = f.role, name == "fromCodePoint" {
+        if let label = labeledArgs.compactMap(\.label).first {
+            throw SwiftalkError.type("String.fromCodePoint takes no argument label '\(label)'")
+        }
+        guard called else {
+            return .function(FunctionObject(parameters: [], body: [], closure: Builtins.emptyEnvironment,
+                                            builtin: { try StringStatics.fromCodePoint($0) }))
+        }
+        return try StringStatics.fromCodePoint(labeledArgs.map(\.value))
+    }
     // Int.min, Int.max, Int.bitWidth… (round 113): Swift's static properties
     if case .function(let f) = receiver, case .type("Int") = f.role, let v = IntStatics.values[name] {
         guard !called else { throw SwiftalkError.type("Int.\(name) is a constant, not a function") }
@@ -3607,6 +3618,13 @@ private func method(on receiver: Value, name: String,
         case "leadingZeroBitCount": return .int(Int64(a.leadingZeroBitCount))
         default:                    return .int(Int64(a.trailingZeroBitCount))
         }
+    case ("unicodeScalars", false), ("utf32", false), ("utf8", false):
+        // the scalar and byte views (round 114; §11 — no .utf16), as [Int]
+        guard case .string(let s) = receiver else {
+            throw SwiftalkError.unknownMember("\(receiver.typeName).\(name)")
+        }
+        if name == "utf8" { return .array(s.utf8.map { .int(Int64($0)) }) }
+        return .array(s.unicodeScalars.map { .int(Int64($0.value)) })
     case ("has", true):
         // Presence, distinct from value (round 35): d.has(k) is true for
         // a key holding nil, false for a missing key — the question

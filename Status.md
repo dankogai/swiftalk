@@ -163,6 +163,24 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`String.fromCodePoint`, `unicodeScalars`, `utf8`** (round 114) — code
+points in and out; no `.utf16`:
+
+```text
+swiftalk> String.fromCodePoint(72, 105, 0x1F600)
+"Hi😀"
+swiftalk> "hé😀".unicodeScalars
+[104, 233, 128512]
+swiftalk> "hé😀".utf8
+[104, 195, 169, 240, 159, 152, 128]
+swiftalk> "é".unicodeScalars.map(String.fromCodePoint).joined()
+"é"
+swiftalk> String.fromCodePoint(0xD800)
+type error: 55296 is not a Unicode scalar value
+swiftalk> "a".utf16
+unknown member: String.utf16
+```
+
 **`Int.min`, `Int.max`, …** (round 113) — Swift's static properties:
 
 ```text

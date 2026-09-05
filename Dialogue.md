@@ -1633,3 +1633,12 @@ the history. (Moved out of Design.md in round 65.)
   `exponentBitCount`, `significandBitCount`. Constants read bare and
   refuse a call, as `Double.pi` does; `Int.max + 1` is still the
   overflow trap, which is rather the point of having the name.
+* **2026-09-05, round 114 — `String.fromCodePoint`, and the scalar and
+  byte views** ("Let's implement String static vars too"). Swift's
+  String has no static properties to mirror, so the question went
+  back: the answer chosen was the code-point utilities — JS's
+  `String.fromCodePoint(n, ...)`, which round 85's SION parser had
+  wanted badly enough to encode UTF-8 by hand — and the views §11 had
+  promised since round 17: `unicodeScalars`/`utf32` and `utf8`, as
+  `[Int]`, with `.utf16` refused as §11 says. A surrogate or an
+  out-of-range Int is an error, not a replacement character.

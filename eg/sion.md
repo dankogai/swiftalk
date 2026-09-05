@@ -88,9 +88,11 @@ MySION(text).parse()        // Result.success(value) or Result.failure("what at 
   decides where a number ends and whether it is a Double; `Int(text)`
   and `Double(text)` do the rest, since they accept everything the
   lexer does — prefixes, `_`, exponents, hex floats (round 59).
-* **`\u{1F600}` without a scalar constructor.** There is none, so the
+* **`\u{1F600}` without a scalar constructor.** There was none, so the
   code point is turned into UTF-8 bytes by arithmetic and decoded
-  with `Data(bytes).String(.utf8)`. Base64 is the same trick in the
+  with `Data(bytes).String(.utf8)`. *(Round 114 added
+  `String.fromCodePoint`; the example keeps the hand-rolled encoder
+  as round 105's bitwise demonstration.)* Base64 is the same trick in the
   other direction: `n / 65536`, `n - n / 256 * 256`.
 * **A dictionary with any key** just works: `dict[key] = r.value`
   with `nil`, `1.0`, `[]`, `[:]` as keys, `nil` as a stored value,

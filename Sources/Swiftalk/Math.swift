@@ -164,6 +164,24 @@ enum IntStatics {
     ]
 }
 
+/// `String.fromCodePoint(n, ...)` (round 114): JS's, Swift's
+/// `String(UnicodeScalar)` — Ints that are Unicode scalars, or an error.
+enum StringStatics {
+    static func fromCodePoint(_ args: [Value]) throws -> Value {
+        var out = ""
+        for v in args {
+            guard case .int(let i) = v else {
+                throw SwiftalkError.type("String.fromCodePoint takes Ints, not a \(v.typeName)")
+            }
+            guard i >= 0, i <= 0x10FFFF, let scalar = Unicode.Scalar(UInt32(i)) else {
+                throw SwiftalkError.type("\(i) is not a Unicode scalar value")
+            }
+            out.unicodeScalars.append(scalar)
+        }
+        return .string(out)
+    }
+}
+
 /// `Int.random(in: range)` (round 109): Swift's, on swiftalk's Int-only
 /// Range — closed or half-open, never empty, never unbounded.
 enum IntRandom {

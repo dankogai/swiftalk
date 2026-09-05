@@ -16,6 +16,9 @@ view (§11). `"..."` literals with `\(interpolation)`, escapes `\" \\
 | `s.String(.quoted)` | source form, escaped: `"\"hi\""` — `eval` re-enters it |
 | `s.Int()`, `s.Double()`, `s.Bool()` | failable parses (see those pages) |
 | `s.Data(.utf8)` | UTF-8 bytes, infallible (round 97; the bare `s.Data()` decodes base64) |
+| `s.unicodeScalars`, `s.utf32` | the Unicode scalar values, as `[Int]` (round 114) |
+| `s.utf8` | the UTF-8 bytes, as `[Int]` (round 114). There is no `.utf16` (§11) |
+| `String.fromCodePoint(0x1F600, ...)` | a String from scalar values — JS's name, Swift's `String(UnicodeScalar)`; a surrogate or an out-of-range Int is an error; uncalled, a Function value (round 114) |
 | `s.SION()`, `SION(json: s)`, `SION(propertyList: s)` | parse the String as SION / JSON / an XML property list — see [SION.md](SION.md) |
 | `v.String(.json)`, `v.String(.propertyList)`, `v.String(.sion)` | any SION value as JSON / an XML property list / SION text (round 97) |
 | `for c in s` | graphemes |

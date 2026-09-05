@@ -711,6 +711,13 @@ finite and non-empty, the user's own three-line spec. **Round 113**
 added Swift's static properties: `Int.min`, `Int.max`, `Int.bitWidth`,
 `Int.zero`, `Int.isSigned`, and `Double.zero`/`radix`/
 `exponentBitCount`/`significandBitCount` — constants, read bare.
+**Round 114**, for `String`, which has no static properties of its own:
+`String.fromCodePoint(n, ...)` (JS's name; Swift's `String(UnicodeScalar)`;
+a surrogate or out-of-range Int is an error), and §11's views on
+instances — `unicodeScalars`/`utf32` as the scalar values and `utf8`
+as the bytes, each `[Int]`, no `.utf16`. Round 85's hand-rolled UTF-8
+encoder in `eg/sion.swt` is thereby optional; it stays as the
+bitwise demonstration.
 
 **`typealias` — DECIDED (round 110)** ("We haven't implemented
 typealias yet"). Swift's, for the annotation vocabulary: `typealias
