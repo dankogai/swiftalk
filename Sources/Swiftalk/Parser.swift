@@ -152,8 +152,6 @@ enum Stmt {
                    computed: [String: ComputedSpec])
     case extensionDecl(typeName: String, methods: [String: Expr],
                        computed: [String: ComputedSpec])
-    /// `typealias Name = Type` (round 110): a name for an annotation
-    case typealiasS(name: String, type: TypeAnnotation)
     /// `import M from "./mod.swt"` / `import (a, b) from "..."` (round 100)
     case importS(namespace: String?, names: [String], spec: String)
     /// `export let x = ...` (any declaration) / `export (a, b)` (round 100)
@@ -171,7 +169,7 @@ let keywords: Set<String> = [
     "async", "await",
     "enum", "case", "switch", "default", "struct", "extension",
     "import", "export",                      // modules (round 100); `from` is contextual
-    "typealias",                             // round 110
+    // "typealias" — RETRACTED (round 111): types are values; `let I = Int` aliases
     // "actor", "class", "super" — SHELVED (round 62): the reference
     // types are off the surface; the machinery stays in-tree, dormant.
     // Three fewer keywords: `let class = 1` is legal, like `guard`.
@@ -261,13 +259,6 @@ struct Parser {
         switch peek {
         case .identifier("let"), .identifier("var"):
             return try parseDeclaration()
-        case .identifier("typealias"):
-            pos += 1
-            guard case .identifier(let name)? = advance(), !keywords.contains(name), !name.hasPrefix("$") else {
-                throw SwiftalkError.syntax("typealias Name = Type")
-            }
-            try expect("=")
-            return .typealiasS(name: name, type: try parseTypeAnnotation())
         case .identifier("import"):
             pos += 1
             var namespace: String? = nil
@@ -315,7 +306,6 @@ struct Parser {
             case .destructure(_, let pattern, _):       names = Parser.names(in: pattern)
             case .structDecl(let name, _, _, _, _, _):  names = [name]
             case .enumDecl(let name, _, _, _):          names = [name]
-            case .typealiasS(let name, _):              names = [name]
             default:
                 throw SwiftalkError.syntax("export takes a let/var/struct/enum declaration, or export (a, b)")
             }

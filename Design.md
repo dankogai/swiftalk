@@ -721,6 +721,21 @@ annotation-only. Scoped like a binding. One more keyword, Swift's own.
 OPEN: exporting an alias across modules (exports are values; a
 parameterized alias has none).
 
+**RETRACTED in round 111** — the user: "Unlike types in Swift, Types
+in swiftalk are also a Function object so a simple `let I = Int`
+does the same as `typealias` (I've tried). Retract `typealias` and
+document the workaround. And make `42.S()` work if we have `let S =
+String`." So: no keyword; a binding is the alias. What round 110's
+machinery had given annotations survives in a smaller form — an
+annotation naming a binding that holds a type means that type (a
+declaration's, a struct property's, an enum payload's, nested in
+`[...]`), resolved once and stored resolved — and the round-47 law
+gained its last step: `x.S()` with `let S = String` is `x.String()`,
+failing by the real name when the conversion does not exist. A
+parameterized or optional annotation has no value to bind and so no
+alias; that is the one thing `typealias` did that a binding cannot,
+and it is not worth a keyword.
+
 ## 3a. Optionals & nil — DECIDED
 
 **The full Optional suite survives — on a flat model.** `nil` is *not*

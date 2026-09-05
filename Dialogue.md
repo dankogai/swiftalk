@@ -1600,3 +1600,20 @@ the history. (Moved out of Design.md in round 65.)
   type doubles as that type's value, so `Number("7")` and `x.Type ==
   Number` work; a `[String]` alias has no value to give and stays
   annotation-only. Not yet exportable across modules — logged OPEN.
+* **2026-09-05, round 111 — `typealias` retracted; `let I = Int` is
+  the alias** ("Come to think of it, Unlike types in Swift, Types in
+  swiftalk are also a Function object so a simple `let I = Int` does
+  the same as `typealias` (I've tried). Retract `typealias` and
+  document the workaround. And make `42.S()` work if we have `let S =
+  String` and Int has `.String`. if it doesn't it croaks with
+  '.String not found' in Int"). Right, and a day old. The keyword,
+  the statement, and the alias table are gone; what stays is the one
+  rule round 110 had buried under them: an annotation naming a
+  binding that holds a type means that type — `let n: I = 42`, `var
+  r: R` in a struct, `case some(N)` in an enum — resolved where it is
+  used. The round-47 law then closes the loop: `42.S()` looks `S` up,
+  finds `String`, and converts; `42.D()` with `let D = Data` fails as
+  `Data(42)` does, by the real name. A `[String]` or `Int?` has no
+  value to bind, so those annotations are spelled out — the one thing
+  a keyword bought, judged not worth it. The Design keeps round 110's
+  paragraph with the retraction under it, as §9 keeps its graveyard.
