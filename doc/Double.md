@@ -14,6 +14,36 @@ mix in arithmetic without a conversion.
 | `Double(x)` otherwise | type error |
 | `d + e`, `d - e`, `d * e`, `d / e` | IEEE arithmetic (`/ 0.0` gives inf, no trap) |
 | `d % e` | type error — as in Swift, no floating remainder operator (round 93) |
+
+## `Double.` — the math library (round 108)
+
+libm and JS's `Math`, as static members of `Double`. Constants are
+read bare; functions are called, or taken uncalled as Function values
+(`xs.map(Double.sqrt)`). Int arguments are promoted — the type is named
+in the call — and results are Doubles, except an Int from `ilogb`, a
+Bool from the predicates, and labeled tuples from `modf`/`frexp`/`remquo`.
+
+| Member | Meaning |
+|---|---|
+| `pi`, `tau`, `e`, `ln2`, `ln10`, `log2e`, `log10e`, `sqrt2`, `sqrtHalf` | the constants (JS's `Math.E`, `LN2`… in lowerCamel; `sqrtHalf` is `SQRT1_2`) |
+| `infinity`, `nan`, `greatestFiniteMagnitude`, `leastNormalMagnitude`, `leastNonzeroMagnitude`, `ulpOfOne` | Swift's |
+| `abs`, `sqrt`, `cbrt`, `pow(x, y)`, `hypot(x, y, ...)` | `hypot` is n-ary, as JS's |
+| `exp`, `exp2`, `expm1`, `log`, `log2`, `log10`, `log1p`, `logb` | |
+| `sin cos tan`, `asin acos atan`, `atan2(y, x)`, `sinh cosh tanh`, `asinh acosh atanh` | |
+| `floor`, `ceil`, `trunc`, `round`, `rint`, `nearbyint` | `round` is half away from zero (C's, Swift's — JS rounds half up: `Double.round(-2.5)` is -3 here, -2 in JS); `rint` to even |
+| `sign(x)` | -1, 0, 1 as Doubles (±0 and NaN come back as they are) |
+| `max(...)`, `min(...)` | n-ary |
+| `fmod`, `remainder`, `remquo(x, y)` | `remquo` → `(remainder:, quotient:)` |
+| `fma(x, y, z)`, `fdim`, `fmax`, `fmin`, `copysign`, `nextafter` | |
+| `ldexp(x, n)`, `scalbn(x, n)`, `frexp(x)`, `ilogb(x)` | `n` an Int; `frexp` → `(fraction:, exponent:)`; `ilogb` → an Int |
+| `modf(x)` | `(integer:, fraction:)` |
+| `erf`, `erfc`, `tgamma`, `gamma`, `lgamma`, `j0`, `j1`, `jn(n, x)`, `y0`, `y1`, `yn(n, x)` | libm's specials and Bessel functions |
+| `fround(x)` | JS's: rounded through a 32-bit float |
+| `isNaN`, `isFinite`, `isInfinite`, `isZero`, `isNormal`, `isSubnormal` | Bools |
+| `random()` | in [0, 1), the system generator |
+
+Not carried over from JS: `clz32` and `imul` (Int's business — see
+`leadingZeroBitCount`).
 | `d < e` etc., `==` | Comparable, Equatable |
 | `d.String()` | the shortest round-tripping decimal: `0.30000000000000004` |
 | `d.String(.hex)` | hex float, `"0x1.fep7"` — re-enters as a literal |

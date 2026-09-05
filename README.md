@@ -76,6 +76,10 @@ let doc: SION = SION("[\"n\": 42, \"when\": .Date(0x0p+0)]")   // any SION text,
 doc.String(.json)                             // {"n":42,"when":0.0}
 SION(propertyList: doc.String(.propertyList)) == doc   // true; .Data(.propertyList) is bplist00
 
+// math is built in (round 108): libm and JS's Math, as Double's static members
+Double.hypot(3, 4)                            // 5.0 — Int arguments promote
+[1.0, 4.0, 9.0].map(Double.sqrt)              // [1.0, 2.0, 3.0] — a function member is a value
+
 // modules (round 100): a .swt file, evaluated once; only exports cross
 import Geometry from "./geometry.swt"         // every export, as Geometry.name
 import (area) from "./geometry.swt"           // the named ones, directly — the same instance

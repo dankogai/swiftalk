@@ -1564,3 +1564,20 @@ the history. (Moved out of Design.md in round 65.)
   `.and()` now gets an error that names `.bitAnd()`. `shifted`, `bit`,
   and `bits` were never ambiguous and keep their names. The example,
   the tests, the docs, and two Status transcripts were swept.
+* **2026-09-04, round 108 — `Double.pi`, `Double.sqrt(x)`: the math
+  library** ("Math constants and functions should be built-in as well
+  since they are there at (Darwin|Glibc) yet `.swt` implementations
+  are expected to be slow. Add them as static constants|functions of
+  `Double.` all real functions in `libm`. coverage as full as JS
+  `Math`"). A table in one file — constants, unary, binary, the
+  predicates, and the handful with their own shapes (`max`/`min`/
+  `hypot` n-ary, `ldexp`/`jn` with an Int, `modf`/`frexp`/`remquo`
+  answering labeled tuples, `random()`) — and one hook where member
+  dispatch meets the `Double` constructor Function: the first static
+  members a builtin type has had. Two conveniences decided: Int
+  arguments promote, because the type is named in the call, and an
+  uncalled function member is a Function value, so `xs.map(Double.sqrt)`
+  works. One divergence recorded: `round` is half-away-from-zero, as
+  C and Swift do it, where JS rounds half up. Swift 6's strict
+  concurrency wanted the closure tables marked `nonisolated(unsafe)`,
+  as the builtin tables already are.

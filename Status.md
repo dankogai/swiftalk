@@ -163,6 +163,34 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`Double.` — the math library** (round 108): libm and JS's `Math` as
+static members, Int arguments promoted, functions usable as values:
+
+```text
+swiftalk> Double.pi
+3.141592653589793
+swiftalk> Double.sqrt(2)
+1.4142135623730951
+swiftalk> Double.pow(2, 10)
+1024.0
+swiftalk> Double.hypot(3, 4)
+5.0
+swiftalk> Double.round(-2.5)
+-3.0
+swiftalk> Double.modf(3.75)
+(integer: 3.0, fraction: 0.75)
+swiftalk> Double.frexp(8.0)
+(fraction: 0.5, exponent: 4)
+swiftalk> Double.tgamma(5)
+24.0
+swiftalk> [1.0, 4.0, 9.0].map(Double.sqrt)
+[1.0, 2.0, 3.0]
+swiftalk> Double.isNaN(Double.sqrt(-1))
+true
+swiftalk> Double.pi()
+type error: Double.pi is a constant, not a function
+```
+
 **`bitAnd`, `bitOr`, `bitXor`, `bitNot`** (round 107) — the Int names
 are bit-prefixed; `and`/`or`/`xor`/`not` belong to Bool alone:
 

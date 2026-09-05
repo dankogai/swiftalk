@@ -2948,6 +2948,12 @@ private func method(on receiver: Value, name: String,
     }
     // Member access on a user enum type constructs its cases (round 45):
     // Shape.circle(r: 3.0), Shape.point.
+    // Double.pi, Double.sqrt(x), … (round 108): libm and JS's Math as
+    // static members of Double; a miss falls through to the rest.
+    if case .function(let f) = receiver, case .type("Double") = f.role,
+       let value = try DoubleMath.member(name, args: labeledArgs, called: called) {
+        return value
+    }
     if case .function(let f) = receiver, case .enumType(let et) = f.role,
        et.cases[name] != nil {
         return try constructEnumCase(et, name, args: labeledArgs, called: called)

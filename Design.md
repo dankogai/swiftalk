@@ -685,6 +685,24 @@ reason); `^^=` joins the `op=` family by round 104's rule. A lone `^`
 is a syntax error that names both spellings — the symbol is still
 unspent.
 
+**Math is built in, as `Double.`'s static members — DECIDED (round
+108)**. The user: "Math constants and functions should be built-in as
+well since they are there at (Darwin|Glibc) yet `.swt`
+implementations are expected to be slow. Add them as static
+constants|functions of `Double.` all real functions in `libm`.
+coverage as full as JS `Math`." So `Double.pi`, `Double.sqrt(x)`,
+`Double.pow(x, y)`… — every real function libm has and everything
+JS's `Math` has (bar `clz32`/`imul`, which are Int's), Swift's names
+where Swift has them and lowerCamel for JS's constants. Decisions:
+Int arguments promote, since the type is named in the call, and
+results are Doubles (an Int from `ilogb`, Bools from the predicates,
+labeled tuples from `modf`/`frexp`/`remquo`); a function member
+taken uncalled is a Function value, so `xs.map(Double.sqrt)` reads;
+`round` is C's and Swift's half-away-from-zero, not JS's half-up —
+recorded; `random()` is the system generator in [0, 1). The first
+static members on a builtin type; the mechanism is one hook in
+member dispatch on the type's constructor Function.
+
 ## 3a. Optionals & nil — DECIDED
 
 **The full Optional suite survives — on a flat model.** `nil` is *not*

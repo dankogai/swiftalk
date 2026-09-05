@@ -1,0 +1,141 @@
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
+
+/// `Double.pi`, `Double.sqrt(x)`, … — libm and JS's `Math`, as static
+/// members of `Double` (round 108). Constants are read bare; functions
+/// are called, or taken uncalled as Function values (`xs.map(Double.sqrt)`).
+/// Int arguments are promoted — the type is named in the call — and every
+/// result is a Double, except where the answer is an Int (`ilogb`), a
+/// Bool (`isNaN`…), or a labeled tuple (`modf`, `frexp`, `remquo`).
+enum DoubleMath {
+    static let constants: [String: Double] = [
+        "pi": .pi, "tau": 2 * .pi, "e": M_E,
+        "ln2": M_LN2, "ln10": M_LN10, "log2e": M_LOG2E, "log10e": M_LOG10E,
+        "sqrt2": 2.0.squareRoot(), "sqrtHalf": 0.5.squareRoot(),
+        "infinity": .infinity, "nan": .nan,
+        "greatestFiniteMagnitude": .greatestFiniteMagnitude,
+        "leastNormalMagnitude": .leastNormalMagnitude,
+        "leastNonzeroMagnitude": .leastNonzeroMagnitude,
+        "ulpOfOne": .ulpOfOne,
+    ]
+
+    nonisolated(unsafe) static let unary: [String: (Double) -> Double] = [
+        "abs": { Swift.abs($0) }, "sqrt": { $0.squareRoot() }, "cbrt": { cbrt($0) },
+        "exp": { exp($0) }, "exp2": { exp2($0) }, "expm1": { expm1($0) },
+        "log": { log($0) }, "log2": { log2($0) }, "log10": { log10($0) }, "log1p": { log1p($0) },
+        "logb": { logb($0) },
+        "sin": { sin($0) }, "cos": { cos($0) }, "tan": { tan($0) },
+        "asin": { asin($0) }, "acos": { acos($0) }, "atan": { atan($0) },
+        "sinh": { sinh($0) }, "cosh": { cosh($0) }, "tanh": { tanh($0) },
+        "asinh": { asinh($0) }, "acosh": { acosh($0) }, "atanh": { atanh($0) },
+        "floor": { $0.rounded(.down) }, "ceil": { $0.rounded(.up) }, "trunc": { $0.rounded(.towardZero) },
+        "round": { $0.rounded() },                     // half away from zero — C's, Swift's; JS rounds half up
+        "rint": { $0.rounded(.toNearestOrEven) }, "nearbyint": { $0.rounded(.toNearestOrEven) },
+        "sign": { $0.isNaN ? .nan : $0 > 0 ? 1 : $0 < 0 ? -1 : $0 },   // JS's: ±0 come back as they are
+        "erf": { erf($0) }, "erfc": { erfc($0) },
+        "tgamma": { tgamma($0) }, "gamma": { tgamma($0) }, "lgamma": { lgamma($0) },
+        "j0": { j0($0) }, "j1": { j1($0) }, "y0": { y0($0) }, "y1": { y1($0) },
+        "fround": { Double(Float($0)) },
+    ]
+
+    nonisolated(unsafe) static let binary: [String: (Double, Double) -> Double] = [
+        "pow": { pow($0, $1) }, "atan2": { atan2($0, $1) },
+        "fmod": { fmod($0, $1) }, "remainder": { remainder($0, $1) },
+        "fdim": { fdim($0, $1) }, "fmax": { fmax($0, $1) }, "fmin": { fmin($0, $1) },
+        "copysign": { copysign($0, $1) }, "nextafter": { nextafter($0, $1) },
+    ]
+
+    nonisolated(unsafe) static let predicates: [String: (Double) -> Bool] = [
+        "isNaN": { $0.isNaN }, "isFinite": { $0.isFinite }, "isInfinite": { $0.isInfinite },
+        "isZero": { $0.isZero }, "isNormal": { $0.isNormal }, "isSubnormal": { $0.isSubnormal },
+    ]
+
+    /// The names that are functions (for the uncalled, Function-valued form).
+    static let functions: Set<String> = Set(unary.keys).union(binary.keys).union(predicates.keys)
+        .union(["max", "min", "hypot", "random", "fma", "ldexp", "scalbn", "ilogb", "jn", "yn",
+                "modf", "frexp", "remquo"])
+
+    /// nil when `name` is not a math member — the caller falls through.
+    static func member(_ name: String, args: [(label: String?, value: Value)], called: Bool) throws -> Value? {
+        if let c = constants[name] {
+            guard !called else { throw SwiftalkError.type("Double.\(name) is a constant, not a function") }
+            return .double(c)
+        }
+        guard functions.contains(name) else { return nil }
+        if let label = args.compactMap(\.label).first {
+            throw SwiftalkError.type("Double.\(name) takes no argument label '\(label)'")
+        }
+        let values = args.map(\.value)
+        if !called {
+            // the Function-valued form: `xs.map(Double.sqrt)`
+            return .function(FunctionObject(parameters: [], body: [], closure: Builtins.emptyEnvironment,
+                                            builtin: { try apply(name, $0) }))
+        }
+        return try apply(name, values)
+    }
+
+    private static func number(_ v: Value, _ name: String) throws -> Double {
+        switch v {
+        case .double(let d): return d
+        case .int(let i):    return Double(i)
+        default: throw SwiftalkError.type("Double.\(name) takes numbers, not a \(v.typeName)")
+        }
+    }
+
+    private static func apply(_ name: String, _ args: [Value]) throws -> Value {
+        func arity(_ n: Int) throws -> [Double] {
+            guard args.count == n else {
+                throw SwiftalkError.type("Double.\(name) takes \(n) argument\(n == 1 ? "" : "s"), got \(args.count)")
+            }
+            return try args.map { try number($0, name) }
+        }
+        if let f = unary[name]      { return .double(f(try arity(1)[0])) }
+        if let f = binary[name]     { let a = try arity(2); return .double(f(a[0], a[1])) }
+        if let p = predicates[name] { return .bool(p(try arity(1)[0])) }
+        switch name {
+        case "max", "min":
+            guard !args.isEmpty else { throw SwiftalkError.type("Double.\(name) takes at least one number") }
+            let xs = try args.map { try number($0, name) }
+            return .double(name == "max" ? xs.reduce(-.infinity, { Swift.max($0, $1) })
+                                         : xs.reduce(.infinity, { Swift.min($0, $1) }))
+        case "hypot":
+            let xs = try args.map { try number($0, name) }
+            return .double(xs.reduce(0.0) { hypot($0, $1) })
+        case "random":
+            guard args.isEmpty else { throw SwiftalkError.type("Double.random() takes no arguments") }
+            return .double(Double.random(in: 0..<1))
+        case "fma":
+            let a = try arity(3); return .double(fma(a[0], a[1], a[2]))
+        case "ldexp", "scalbn":
+            guard args.count == 2, case .int(let n) = args[1] else {
+                throw SwiftalkError.type("Double.\(name)(x, n) takes a number and an Int")
+            }
+            return .double(scalbn(try number(args[0], name), Int(clamping: n)))
+        case "ilogb":
+            return .int(Int64(ilogb(try arity(1)[0])))
+        case "jn", "yn":
+            guard args.count == 2, case .int(let n) = args[0] else {
+                throw SwiftalkError.type("Double.\(name)(n, x) takes an Int order and a number")
+            }
+            let x = try number(args[1], name)
+            return .double(name == "jn" ? jn(Int32(clamping: n), x) : yn(Int32(clamping: n), x))
+        case "modf":
+            let x = try arity(1)[0]
+            let whole = x.rounded(.towardZero)
+            return .tuple([.double(whole), .double(x - whole)], labels: ["integer", "fraction"])
+        case "frexp":
+            let x = try arity(1)[0]
+            let (fraction, exponent) = frexp(x)
+            return .tuple([.double(fraction), .int(Int64(exponent))], labels: ["fraction", "exponent"])
+        case "remquo":
+            let a = try arity(2)
+            let (rem, quo) = remquo(a[0], a[1])
+            return .tuple([.double(rem), .int(Int64(quo))], labels: ["remainder", "quotient"])
+        default:
+            throw SwiftalkError.unknownMember("Double.\(name)")
+        }
+    }
+}
