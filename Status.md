@@ -163,6 +163,21 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`Int.min`, `Int.max`, …** (round 113) — Swift's static properties:
+
+```text
+swiftalk> Int.max
+9223372036854775807
+swiftalk> Int.min
+-9223372036854775808
+swiftalk> Int.bitWidth
+64
+swiftalk> Int.max + 1
+overflow: 9223372036854775807 + 1
+swiftalk> Double.significandBitCount
+52.0
+```
+
 **`Double.random(max)`, `Double.random(min, max)`** (round 112) — half-open
 intervals by argument count:
 

@@ -1625,3 +1625,11 @@ the history. (Moved out of Design.md in round 65.)
   dispatch, as every builtin does it; the bounds must be finite with
   min < max, since an empty interval traps in Swift and errors here;
   Int arguments promote as in the rest of `Double.`.
+* **2026-09-05, round 113 — `Int.min`, `Int.max`, and Swift's other
+  static properties** ("Before `Int.random()`, add `static var`s of
+  Swift. `.min`, `.max`...."). A small table beside `Int.random`:
+  `min`, `max`, `bitWidth`, `zero`, `isSigned`; and the four Swift
+  Double statics the math library had not listed — `zero`, `radix`,
+  `exponentBitCount`, `significandBitCount`. Constants read bare and
+  refuse a call, as `Double.pi` does; `Int.max + 1` is still the
+  overflow trap, which is rather the point of having the name.

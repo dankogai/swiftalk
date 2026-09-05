@@ -2992,6 +2992,11 @@ private func method(on receiver: Value, name: String,
        let value = try DoubleMath.member(name, args: labeledArgs, called: called) {
         return value
     }
+    // Int.min, Int.max, Int.bitWidth… (round 113): Swift's static properties
+    if case .function(let f) = receiver, case .type("Int") = f.role, let v = IntStatics.values[name] {
+        guard !called else { throw SwiftalkError.type("Int.\(name) is a constant, not a function") }
+        return v
+    }
     // Int.random(in: 1...6) (round 109): a Range's worth of Ints; the
     // in: label accepted; uncalled, a Function value.
     if case .function(let f) = receiver, case .type("Int") = f.role, name == "random" {

@@ -20,6 +20,9 @@ enum DoubleMath {
         "leastNormalMagnitude": .leastNormalMagnitude,
         "leastNonzeroMagnitude": .leastNonzeroMagnitude,
         "ulpOfOne": .ulpOfOne,
+        "zero": 0, "radix": 2,                                          // round 113
+        "exponentBitCount": Double(Double.exponentBitCount),
+        "significandBitCount": Double(Double.significandBitCount),
     ]
 
     nonisolated(unsafe) static let unary: [String: (Double) -> Double] = [
@@ -151,6 +154,14 @@ enum DoubleMath {
             throw SwiftalkError.unknownMember("Double.\(name)")
         }
     }
+}
+
+/// Swift's static properties on Int (round 113): read bare, never called.
+enum IntStatics {
+    nonisolated(unsafe) static let values: [String: Value] = [
+        "min": .int(Int64.min), "max": .int(Int64.max),
+        "bitWidth": .int(64), "zero": .int(0), "isSigned": .bool(true),
+    ]
 }
 
 /// `Int.random(in: range)` (round 109): Swift's, on swiftalk's Int-only

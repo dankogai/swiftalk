@@ -21,6 +21,7 @@ separators.
 | `a.bits` | the `[Bool]` view — 64 elements, bit 0 first |
 | `Int(bits: [Bool])` | back from the view; fewer than 64 zero-extend, more is an overflow |
 | `a.nonzeroBitCount`, `a.leadingZeroBitCount`, `a.trailingZeroBitCount` | Swift's own |
+| `Int.min`, `Int.max`, `Int.bitWidth`, `Int.zero`, `Int.isSigned` | Swift's static properties (round 113): -2⁶³, 2⁶³-1, 64, 0, true |
 | `Int.random(in: 1...6)`, `Int.random(0..<3)` | a random Int from a bounded, non-empty Range — the system generator (round 109); uncalled, a Function value |
 | `i < j` etc., `==` | Comparable, Equatable |
 | `i.String()` | decimal, e.g. `"255"` |

@@ -707,7 +707,10 @@ non-empty Range (empty traps in Swift, errors here; `0...` is
 refused); a `Double.random(in:)` cannot be spelled while Ranges are
 Int-only — so **round 112** made the bounds arguments: `Double.random()`
 in [0, 1), `random(max)` in [0, max), `random(min, max)` in [min, max),
-finite and non-empty, the user's own three-line spec.
+finite and non-empty, the user's own three-line spec. **Round 113**
+added Swift's static properties: `Int.min`, `Int.max`, `Int.bitWidth`,
+`Int.zero`, `Int.isSigned`, and `Double.zero`/`radix`/
+`exponentBitCount`/`significandBitCount` — constants, read bare.
 
 **`typealias` — DECIDED (round 110)** ("We haven't implemented
 typealias yet"). Swift's, for the annotation vocabulary: `typealias

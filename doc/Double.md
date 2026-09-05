@@ -26,7 +26,7 @@ Bool from the predicates, and labeled tuples from `modf`/`frexp`/`remquo`.
 | Member | Meaning |
 |---|---|
 | `pi`, `tau`, `e`, `ln2`, `ln10`, `log2e`, `log10e`, `sqrt2`, `sqrtHalf` | the constants (JS's `Math.E`, `LN2`… in lowerCamel; `sqrtHalf` is `SQRT1_2`) |
-| `infinity`, `nan`, `greatestFiniteMagnitude`, `leastNormalMagnitude`, `leastNonzeroMagnitude`, `ulpOfOne` | Swift's |
+| `infinity`, `nan`, `greatestFiniteMagnitude`, `leastNormalMagnitude`, `leastNonzeroMagnitude`, `ulpOfOne`, `zero`, `radix`, `exponentBitCount`, `significandBitCount` | Swift's (the last four since round 113; the bit counts as Doubles, like every `Double.` constant) |
 | `abs`, `sqrt`, `cbrt`, `pow(x, y)`, `hypot(x, y, ...)` | `hypot` is n-ary, as JS's |
 | `exp`, `exp2`, `expm1`, `log`, `log2`, `log10`, `log1p`, `logb` | |
 | `sin cos tan`, `asin acos atan`, `atan2(y, x)`, `sinh cosh tanh`, `asinh acosh atanh` | |
