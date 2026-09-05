@@ -74,6 +74,7 @@ let src    = bytes.String()                   // .Data("Y2Fmw6k=") — SION; eva
 // SION is built in (round 97): the same values, three formats
 let doc: SION = SION("[\"n\": 42, \"when\": .Date(0x0p+0)]")   // any SION text, comments and all
 doc.String(.json)                             // {"n":42,"when":0.0}
+doc.String(.pretty)                           // the SION, one entry per line; .String(.json, .pretty) likewise
 SION(propertyList: doc.String(.propertyList)) == doc   // true; .Data(.propertyList) is bplist00
 
 // math is built in (round 108): libm and JS's Math, as Double's static members

@@ -16,6 +16,7 @@ SION text — the round-trip law `eval(x.String()) == x` (§3d) and
 | `v.String()`, `v.String(.sion)` | the SION text (what the REPL echoes) |
 | `SION(json: text)` | read JSON (RFC 8259): `null` → nil, numbers → Int when they fit and have no fraction or exponent, else Double; objects → Dictionaries with String keys |
 | `v.String(.json)` | write JSON — canonical (keys sorted), **lossy where JSON is poorer**: Data → a base64 String, Date → the epoch as a number, a non-String key → its `String()`; an infinite or NaN Double is an error |
+| `v.String(.pretty)`, `v.String(.json, .pretty)` | the SION / JSON text laid out one element per line, two spaces a level (round 117); the same document, so `SION(v.String(.pretty)) == v` |
 | `SION(propertyList: text)` | read an XML property list (`<plist>`, `<dict>`/`<key>`, `<array>`, `<string>`, `<integer>`, `<real>`, `<true/>`, `<false/>`, `<date>` ISO 8601, `<data>` base64; entities; comments) |
 | `v.String(.propertyList)` | write one, Apple's layout — keys sorted, tabs; **nil and non-String keys are errors** (property lists have neither) |
 | `SION(propertyList: data)` | read Apple's binary form, `bplist00` |

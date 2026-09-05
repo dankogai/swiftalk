@@ -2934,13 +2934,24 @@ func convert(_ typeName: String, subject: Value?,
 }
 
 /// String's format vocabulary (rounds 20–21, 42): .quoted, .hex/.oct/
-/// .bin (prefixed, literal-ready), radix: n (bare digits).
+/// .bin (prefixed, literal-ready), radix: n (bare digits); .pretty
+/// (round 117) rides beside .sion or .json — alone, it means .sion.
 private func stringFormat(_ subject: Value,
                           _ formats: [(label: String?, value: Value)]) throws -> Value {
+    var formats = formats
+    var pretty = false
+    if let i = formats.firstIndex(where: { $0.label == nil && $0.value == .string("pretty") }) {
+        pretty = true
+        formats.remove(at: i)
+        if formats.isEmpty { formats = [(label: nil, value: .string("sion"))] }
+    }
     guard formats.count == 1 else {
-        throw SwiftalkError.type(".String() takes at most one format argument")
+        throw SwiftalkError.type(".String() takes at most one format argument, plus .pretty")
     }
     let (label, format) = formats[0]
+    if pretty, ![.string("quoted"), .string("sion"), .string("json"), .string("propertyList")].contains(format) {
+        throw SwiftalkError.type(".pretty lays out .sion (the default), .json, or .propertyList — not \(format.sourceString())")
+    }
     if label == "radix" {
         guard case .int(let radix) = format, (2...36).contains(radix) else {
             throw SwiftalkError.type(".String(radix:) takes an Int in 2...36")
@@ -2955,9 +2966,10 @@ private func stringFormat(_ subject: Value,
     }
     switch format {
     case .string("quoted"), .string("sion"):
-        return .string(subject.sourceString())          // .sion: SION IS the source form (round 97)
+        // .sion: SION IS the source form (round 97); .pretty opens it up (round 117)
+        return .string(pretty ? subject.prettyString() : subject.sourceString())
     case .string("json"):
-        return .string(try JSONFormat.emit(subject))
+        return .string(try JSONFormat.emit(subject, pretty: pretty))
     case .string("propertyList"):
         return .string(try PlistXML.emit(subject))
     case .string("utf8"):

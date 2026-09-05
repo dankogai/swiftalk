@@ -1667,3 +1667,17 @@ the history. (Moved out of Design.md in round 65.)
   `Byte.min`/`max`/`bitWidth`. Data's subscripts, iterator, slices,
   and literal all speak Byte now; the bitwise methods mask to eight
   bits on a Byte receiver.
+* **2026-09-05, round 117 — `.pretty`** ("Add `.pretty` option to
+  (Array|Dictionary|SION).String(). `[0,1,2,3].String(.pretty)` ->
+  one element per line"). The format vocabulary of round 20 had
+  always taken exactly one word; `.pretty` is a modifier rather than
+  a format, so `.String()` now takes a format and `.pretty` in either
+  order, `.pretty` alone standing for `.sion`. The layout is the
+  obvious one — JSON.stringify's third argument, two spaces — and the
+  same walker as the source form: Arrays and Dictionaries open up,
+  keys still sorted, every other value on its line as `.String()`
+  prints it, so the pretty text is the same document and `SION(text)`
+  reads it back. The JSON emitter gained the same switch (`"key":
+  value` with a space when pretty, `{}` for an empty object). The
+  property-list form was laid out already, so `.pretty` there is a
+  harmless no-op; a number format with `.pretty` is a type error.

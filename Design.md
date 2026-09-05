@@ -625,6 +625,20 @@ subset, civil dates, and bplist are hand-written in `Formats.swift`.
 binds a mixed document without an annotation (the strict `let` of
 round 59 refuses mixed keys and values — the next round's subject).
 
+**`.pretty` — DECIDED (round 117)** ("Add `.pretty` option to
+(Array|Dictionary|SION).String()"). One more word in `.String()`'s
+format vocabulary, and the first that combines: `.String(.pretty)`
+is the source form laid out one element per line, two spaces a level
+— Arrays and Dictionaries open up, everything else prints as it
+does on its own line — and `.String(.json, .pretty)` (either order)
+is the same layout for JSON, `"key": value` with a space. Alone,
+`.pretty` means `.sion`, since SION is the source form; with
+`.propertyList` it is accepted and changes nothing, that text being
+laid out already; with a number format (`.hex`, `radix:`) it is an
+error. Not a new format: the text is the same document — `SION(v.
+String(.pretty)) == v` — with whitespace SION and JSON both ignore.
+Empty containers stay `[]`, `[:]`, `{}`.
+
 **`nil` infers `Any` — DECIDED (round 101)**. Round 59's inference
 refused to bind a strict `let`/`var` from `nil` ("cannot infer a type
 from nil — annotate it"), which bit every failable conversion — `let

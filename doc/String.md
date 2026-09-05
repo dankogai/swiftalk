@@ -21,6 +21,7 @@ view (§11). `"..."` literals with `\(interpolation)`, escapes `\" \\
 | `String.fromCodePoint(0x1F600, ...)` | a String from scalar values — JS's name, Swift's `String(UnicodeScalar)`; a surrogate or an out-of-range Int is an error; uncalled, a Function value (round 114) |
 | `s.SION()`, `SION(json: s)`, `SION(propertyList: s)` | parse the String as SION / JSON / an XML property list — see [SION.md](SION.md) |
 | `v.String(.json)`, `v.String(.propertyList)`, `v.String(.sion)` | any SION value as JSON / an XML property list / SION text (round 97) |
+| `v.String(.pretty)`, `v.String(.json, .pretty)` | the same SION / JSON text laid out one element per line, two spaces a level — Arrays and Dictionaries open up, everything else stays on its line; `.pretty` alone means `.sion` (round 117) |
 | `for c in s` | graphemes |
 | `s.map { }` | an **Array** of results |
 | `s.filter { }` | a **String** (Swift-compatible) |

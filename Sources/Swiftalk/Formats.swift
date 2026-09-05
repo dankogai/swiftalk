@@ -124,14 +124,20 @@ enum JSONFormat {
     /// `.String(.json)`: lossy where JSON is poorer than SION (round 97's
     /// decision): Data → base64 String, Date → epoch number, a non-String
     /// key → its String() form; nil → null. Keys sorted, so the text is
-    /// canonical. Infinite or NaN Doubles have no JSON.
-    static func emit(_ value: Value) throws -> String {
+    /// canonical. Infinite or NaN Doubles have no JSON. `pretty` (round
+    /// 117) lays it out one member per line, two spaces a level.
+    static func emit(_ value: Value, pretty: Bool = false) throws -> String {
         var out = ""
-        try write(value, into: &out)
+        try write(value, depth: pretty ? 0 : nil, into: &out)
         return out
     }
 
-    private static func write(_ value: Value, into out: inout String) throws {
+    /// `depth` is nil for the compact form; the nesting level when pretty.
+    private static func newline(_ depth: Int?, into out: inout String) {
+        if let depth { out += "\n" + String(repeating: "  ", count: depth) }
+    }
+
+    private static func write(_ value: Value, depth: Int?, into out: inout String) throws {
         switch value {
         case .nil:          out += "null"
         case .bool(let b):  out += b ? "true" : "false"
@@ -144,22 +150,28 @@ enum JSONFormat {
         case .data(let b):   writeString(Base64.encode(b), into: &out)
         case .date(let t):   out += Value.double(t).sourceString()
         case .array(let a):
+            if a.isEmpty { out += "[]"; return }
             out += "["
             for (i, e) in a.enumerated() {
                 if i > 0 { out += "," }
-                try write(e, into: &out)
+                newline(depth.map { $0 + 1 }, into: &out)
+                try write(e, depth: depth.map { $0 + 1 }, into: &out)
             }
+            newline(depth, into: &out)
             out += "]"
         case .dictionary(let d):
+            if d.isEmpty { out += "{}"; return }
             let pairs = d.map { (key: displayString($0.key), value: $0.value) }
                 .sorted { $0.key < $1.key }
             out += "{"
             for (i, p) in pairs.enumerated() {
                 if i > 0 { out += "," }
+                newline(depth.map { $0 + 1 }, into: &out)
                 writeString(p.key, into: &out)
-                out += ":"
-                try write(p.value, into: &out)
+                out += depth == nil ? ":" : ": "
+                try write(p.value, depth: depth.map { $0 + 1 }, into: &out)
             }
+            newline(depth, into: &out)
             out += "}"
         default:
             throw SwiftalkError.type("a \(value.typeName) has no JSON form")

@@ -527,6 +527,35 @@ extension Value {
         }
     }
 
+    /// `.String(.pretty)` (round 117): the source form laid out one
+    /// element per line, two spaces a level — Arrays and Dictionaries
+    /// open up; every other value prints as `.String()` does, on its
+    /// line. Still SION: `eval` and `SION(text)` read it back.
+    public func prettyString() -> String {
+        prettyString(depth: 0)
+    }
+
+    private func prettyString(depth: Int) -> String {
+        let pad = String(repeating: "  ", count: depth + 1)
+        let close = String(repeating: "  ", count: depth)
+        switch self {
+        case .array(let a):
+            if a.isEmpty { return "[]" }
+            return "[\n" + a.map { pad + $0.prettyString(depth: depth + 1) }.joined(separator: ",\n")
+                + "\n" + close + "]"
+        case .dictionary(let d):
+            if d.isEmpty { return "[:]" }
+            let body = d
+                .map { (key: $0.key.sourceString(), value: $0.value.prettyString(depth: depth + 1)) }
+                .sorted { $0.key < $1.key }
+                .map { pad + "\($0.key): \($0.value)" }
+                .joined(separator: ",\n")
+            return "[\n" + body + "\n" + close + "]"
+        default:
+            return sourceString()
+        }
+    }
+
     /// Swift-style hex-float notation (`0x1.fep7`), the Double
     /// `.debugDescription` of round 37. (The lexer does not parse
     /// hex-float literals yet — that half of the §3d round trip is OPEN.)

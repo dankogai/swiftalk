@@ -163,6 +163,48 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`.String(.pretty)`** (round 117) — the source form laid out one
+element per line, two spaces a level; `.String(.json, .pretty)` for
+JSON; the same document, so SION reads it back:
+
+```text
+swiftalk> [0, 1, 2, 3].String(.pretty)
+"[\n  0,\n  1,\n  2,\n  3\n]"
+swiftalk> print([0, 1, 2, 3].String(.pretty))
+[
+  0,
+  1,
+  2,
+  3
+]
+swiftalk> let doc: SION = ["name": "swiftalk", "tags": ["a", "b"], "empty": [:]]
+["empty": [:], "name": "swiftalk", "tags": ["a", "b"]]
+swiftalk> print(doc.String(.pretty))
+[
+  "empty": [:],
+  "name": "swiftalk",
+  "tags": [
+    "a",
+    "b"
+  ]
+]
+swiftalk> print(doc.String(.json, .pretty))
+{
+  "empty": {},
+  "name": "swiftalk",
+  "tags": [
+    "a",
+    "b"
+  ]
+}
+swiftalk> SION(doc.String(.pretty)) == doc
+true
+swiftalk> 42.String(.pretty)
+"42"
+swiftalk> 255.String(.hex, .pretty)
+type error: .pretty lays out .sion (the default), .json, or .propertyList — not "hex"
+```
+
 **`Byte`, and `Data.random`** (round 116) — Data's element type, an Int
 that fits a byte: Byte arithmetic traps, a Byte meets an Int as an Int,
 equality by value:
