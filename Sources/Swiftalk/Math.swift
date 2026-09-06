@@ -159,9 +159,10 @@ extension DoubleMath {
     }
 }
 
-/// The one shape of `Double.random` and `Int.random` (round 119):
-/// `random()`, `random(to:)`, `random(from:to:)`. The labels may be
-/// omitted — positional is (from, to) — but a wrong one is an error.
+/// `Double.random`'s shape (round 119): `random()`, `random(to:)`,
+/// `random(from:to:)`. The labels may be omitted — positional is
+/// (from, to) — but a wrong one is an error. Int has a Range, and so
+/// only `Int.random(in:)` (round 120 took back round 119's Int forms).
 enum RandomBounds {
     static func parse(_ args: [(label: String?, value: Value)], _ who: String) throws -> (from: Value?, to: Value?) {
         let usage = SwiftalkError.type("\(who).random(), .random(to:), or .random(from:to:)")
@@ -224,22 +225,12 @@ enum StringStatics {
 }
 
 /// `Int.random(in: range)` (round 109): Swift's, on swiftalk's Int-only
-/// Range — closed or half-open, never empty, never unbounded. And
-/// (round 119) `Int.random()` in [0, 1], `random(to:)` in [0, to],
-/// `random(from:to:)` in [from, to] — closed, so the whole Int line is
-/// `random(from: Int.min, to: Int.max)`.
+/// Range — closed or half-open, never empty, never unbounded. The only
+/// form: a Range says `f..<t` or `f...t` itself, and `Int.min...Int.max`
+/// is the whole line (round 120, taking back round 119's `to:`/`from:`).
 enum IntRandom {
     static func call(_ args: [(label: String?, value: Value)]) throws -> Value {
-        guard args.count == 1, case .range = args[0].value else {
-            let (from, to) = try RandomBounds.parse(args, "Int")
-            let lo = try from.map(bound) ?? 0
-            let hi = try to.map(bound) ?? 1
-            guard lo <= hi else {
-                throw SwiftalkError.type("Int.random needs from <= to, got \(lo) and \(hi)")
-            }
-            return .int(Int64.random(in: lo...hi))
-        }
-        guard args[0].label == nil || args[0].label == "in",
+        guard args.count == 1, args[0].label == nil || args[0].label == "in",
               case .range(let lower, let upper, let closed) = args[0].value else {
             throw SwiftalkError.type("Int.random(in:) takes one Range: Int.random(in: 1...6)")
         }
@@ -253,13 +244,5 @@ enum IntRandom {
             throw SwiftalkError.type("Int.random(in:) needs a non-empty Range — \(lower)..<\(upper) is empty")
         }
         return .int(Int64.random(in: lower..<upper))
-    }
-
-    private static func bound(_ v: Value) throws -> Int64 {
-        switch v {
-        case .int(let i):  return i
-        case .byte(let b): return Int64(b)
-        default: throw SwiftalkError.type("Int.random takes Int bounds, not a \(v.typeName)")
-        }
     }
 }

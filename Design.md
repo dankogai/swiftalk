@@ -742,14 +742,18 @@ refused); a `Double.random(in:)` cannot be spelled while Ranges are
 Int-only — so **round 112** made the bounds arguments: `Double.random()`
 in [0, 1), `random(max)` in [0, max), `random(min, max)` in [min, max),
 finite and non-empty, the user's own three-line spec. **Round 119**
-named them and gave `Int` the same shape: `random()`, `random(to:)`,
-`random(from:to:)` on both types, **half-open for Double** ([0, 1),
-[0, to), [from, to) — finite, from < to) and **closed for Int** ([0, 1],
-[0, to], [from, to] — from <= to), the closedness being what lets
-`Int.random(from: Int.min, to: Int.max)` name the whole line, which no
-half-open bound could. The labels may be omitted — positional is
-(from, to), so round 112's spellings still read — but a wrong label
-is an error. `Int.random(in: range)` stays beside them, Swift's. **Round 113**
+named them: `random()`, `random(to:)`, `random(from:to:)`, half-open
+([0, 1), [0, to), [from, to) — finite, from < to); the labels may be
+omitted — positional is (from, to), so round 112's spellings still
+read — but a wrong label is an error. Round 119 had given `Int` the
+same three shapes, closed; **round 120 took them back** ("Int has
+range. Forget about Int.random. Just limit to .random(f..<t) and
+.random(f...t)"): a Range already says half-open or closed itself,
+`Int.min...Int.max` is the whole line, and a second spelling of the
+same thing is exactly the kind of vocabulary the small core refuses.
+So `Int.random(in:)` — round 109's, the `in:` optional — is Int's only
+form, and Double has the labeled bounds only because Range is
+Int-only. **Round 113**
 added Swift's static properties: `Int.min`, `Int.max`, `Int.bitWidth`,
 `Int.zero`, `Int.isSigned`, and `Double.zero`/`radix`/
 `exponentBitCount`/`significandBitCount` — constants, read bare.

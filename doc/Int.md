@@ -22,8 +22,7 @@ separators.
 | `Int(bits: [Bool])` | back from the view; fewer than 64 zero-extend, more is an overflow |
 | `a.nonzeroBitCount`, `a.leadingZeroBitCount`, `a.trailingZeroBitCount` | Swift's own |
 | `Int.min`, `Int.max`, `Int.bitWidth`, `Int.zero`, `Int.isSigned` | Swift's static properties (round 113): -2⁶³, 2⁶³-1, 64, 0, true |
-| `Int.random(in: 1...6)`, `Int.random(0..<3)` | a random Int from a bounded, non-empty Range — the system generator (round 109); uncalled, a Function value |
-| `Int.random()`, `Int.random(to: n)`, `Int.random(from: a, to: b)` | in [0, 1], [0, n], [a, b] — **closed**, so `Int.random(from: Int.min, to: Int.max)` is the whole line; `from <= to`, else an error; the labels may be omitted, positional is (from, to) (round 119) |
+| `Int.random(in: 1...6)`, `Int.random(0..<3)` | a random Int from a bounded, non-empty Range — the system generator (round 109); uncalled, a Function value. The only form: a Range says `f..<t` or `f...t` itself, and `Int.min...Int.max` is the whole line (round 120 took back a `to:`/`from:` spelling; Double's is different because Range is Int-only) |
 | `i < j` etc., `==` | Comparable, Equatable |
 | `i.String()` | decimal, e.g. `"255"` |
 | `i.String(.hex)` / `.oct` / `.bin` | prefixed, literal-ready: `"0xff"`, `"-0o377"`, `"0b11"` |

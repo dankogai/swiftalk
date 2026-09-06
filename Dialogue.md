@@ -1711,3 +1711,14 @@ the history. (Moved out of Design.md in round 65.)
   still works, but `max:` or `to:` before `from:` is an error.
   Revised: round 109's tests that expected `Int.random()` and
   `Int.random(6)` to be errors — they are the coin and 0...6 now.
+* **2026-09-06, round 120 — Int's `random` is Range-only again**
+  ("Wait. Int has range. Forget about Int.random. Just limit to
+  .random(f..<t) and .random(f...t)"), revising round 119. Right: the
+  reason Double got `to:`/`from:` in round 112 was that Range is
+  Int-only, and that reason does not carry to Int, whose Range says
+  half-open or closed in its own spelling and reaches `Int.min...
+  Int.max` without help. Two spellings of one thing is what the small
+  core is for refusing. Round 119's Int arms and the Byte-bound
+  helper are gone; the shared bounds parser now serves Double alone;
+  round 109's tests that expected `Int.random()` and `Int.random(6)`
+  to be errors are back, joined by `to:` and `from:` as errors.
