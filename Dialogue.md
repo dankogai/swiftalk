@@ -1695,3 +1695,19 @@ the history. (Moved out of Design.md in round 65.)
   every leaf. The test re-enters the pretty text through the
   interpreter where the types are declared, since that — not SION —
   is the round trip these forms make.
+* **2026-09-06, round 119 — `random()`, `random(to:)`, `random(from:to:)`
+  on Double and Int** ("Little improvement on Double.random … Also
+  Int.random … for Int, `to` is inclusive so you can go
+  `.random(from: Int.min, to: Int.max)`"). Round 112's bare
+  `random(max)` / `random(min, max)` gain their labels, and `Int`
+  gets the same three shapes where it had only `random(in: range)`.
+  The one difference between the types is the one the user named:
+  Double's interval is half-open, as [0, 1) has always been, while
+  Int's is closed — `random()` is a coin, `random(to: 6)` is 0...6,
+  and `from: Int.min, to: Int.max` covers every Int, which a
+  half-open upper bound could never spell. One parser serves both
+  (`RandomBounds`); labels are optional in the positional order
+  (from, to), so a `Double.random` handed around as a Function value
+  still works, but `max:` or `to:` before `from:` is an error.
+  Revised: round 109's tests that expected `Int.random()` and
+  `Int.random(6)` to be errors — they are the coin and 0...6 now.

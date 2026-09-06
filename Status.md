@@ -163,6 +163,33 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`random()`, `random(to:)`, `random(from:to:)`** (round 119) — one
+shape on Int and Double: closed for Int, so `Int.random(from: Int.min,
+to: Int.max)` is the whole line; half-open for Double:
+
+```text
+swiftalk> (1...100).map { Int.random() }.filter { $0 != 0 && $0 != 1 }.count
+0
+swiftalk> (1...300).map { Int.random(to: 6) }.contains(6)
+true
+swiftalk> (1...300).map { Int.random(from: -2, to: 2) }.filter { $0 < -2 || $0 > 2 }.count
+0
+swiftalk> Int.random(from: Int.min, to: Int.max).Type
+Int
+swiftalk> Int.random(from: 5, to: 5)
+5
+swiftalk> Int.random(from: 3, to: 1)
+type error: Int.random needs from <= to, got 3 and 1
+swiftalk> (1...300).map { Double.random(to: 5) }.filter { $0 < 0.0 || $0 >= 5.0 }.count
+0
+swiftalk> (1...300).map { Double.random(from: -1, to: 1) }.filter { $0 < -1.0 || $0 >= 1.0 }.count
+0
+swiftalk> Double.random(from: 3, to: 3)
+type error: Double.random needs finite bounds with from < to, got 3.0 and 3.0
+swiftalk> Int.random(max: 6)
+type error: Int.random(), .random(to:), or .random(from:to:)
+```
+
 **`.String(.pretty)` for tuples, structs, and enum payloads** (round
 118) — every composite with a literal source form opens up; the text
 re-enters where its types are declared:

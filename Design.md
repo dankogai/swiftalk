@@ -741,7 +741,15 @@ non-empty Range (empty traps in Swift, errors here; `0...` is
 refused); a `Double.random(in:)` cannot be spelled while Ranges are
 Int-only — so **round 112** made the bounds arguments: `Double.random()`
 in [0, 1), `random(max)` in [0, max), `random(min, max)` in [min, max),
-finite and non-empty, the user's own three-line spec. **Round 113**
+finite and non-empty, the user's own three-line spec. **Round 119**
+named them and gave `Int` the same shape: `random()`, `random(to:)`,
+`random(from:to:)` on both types, **half-open for Double** ([0, 1),
+[0, to), [from, to) — finite, from < to) and **closed for Int** ([0, 1],
+[0, to], [from, to] — from <= to), the closedness being what lets
+`Int.random(from: Int.min, to: Int.max)` name the whole line, which no
+half-open bound could. The labels may be omitted — positional is
+(from, to), so round 112's spellings still read — but a wrong label
+is an error. `Int.random(in: range)` stays beside them, Swift's. **Round 113**
 added Swift's static properties: `Int.min`, `Int.max`, `Int.bitWidth`,
 `Int.zero`, `Int.isSigned`, and `Double.zero`/`radix`/
 `exponentBitCount`/`significandBitCount` — constants, read bare.

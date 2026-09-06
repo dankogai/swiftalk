@@ -89,6 +89,15 @@ struct MathTests {
         #expect(throws: SwiftalkError.self) { try eval("Double.random(Double.infinity)") }
         #expect(throws: SwiftalkError.self) { try eval("Double.random(1, 2, 3)") }
         #expect(throws: SwiftalkError.self) { try eval("Double.random(\"x\")") }
+        // round 119: the labels — random(to:), random(from:to:); positional stays (from, to)
+        #expect(try eval("(1...300).map { Double.random(to: 5) }.filter { $0 < 0.0 || $0 >= 5.0 }.count") == .int(0))
+        #expect(try eval("(1...300).map { Double.random(from: -1, to: 1) }.filter { $0 < -1.0 || $0 >= 1.0 }.count") == .int(0))
+        #expect(try eval("(1...300).map { Double.random(from: 2, to: 3) }.contains { $0 > 2.5 }") == .bool(true))
+        #expect(try eval("Double.random(to: 0.5).Type == Double") == .bool(true))
+        #expect(try eval("let f = Double.random\nlet r = f(2, 3)\nr >= 2.0 && r < 3.0") == .bool(true))
+        #expect(throws: SwiftalkError.self) { try eval("Double.random(from: 3, to: 3)") }
+        #expect(throws: SwiftalkError.self) { try eval("Double.random(to: 1, from: 0)") }
+        #expect(throws: SwiftalkError.self) { try eval("Double.random(max: 1)") }
         #expect(try eval("[1.0, 4.0, 9.0].map(Double.sqrt)") == .array([.double(1), .double(2), .double(3)]))
         #expect(try eval("let f = Double.pow\nf(2, 3)") == .double(8))
         #expect(try eval("Double.sqrt.Type == Function") == .bool(true))

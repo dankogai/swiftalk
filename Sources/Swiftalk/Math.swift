@@ -68,6 +68,7 @@ enum DoubleMath {
             return .double(c)
         }
         guard functions.contains(name) else { return nil }
+        if name == "random", called { return try random(args) }       // its labels are its own (round 119)
         if let label = args.compactMap(\.label).first {
             throw SwiftalkError.type("Double.\(name) takes no argument label '\(label)'")
         }
@@ -109,21 +110,7 @@ enum DoubleMath {
             let xs = try args.map { try number($0, name) }
             return .double(xs.reduce(0.0) { hypot($0, $1) })
         case "random":
-            // random() in [0, 1); random(max) in [0, max); random(min, max)
-            // in [min, max) — round 112: Range is Int-only, so the bounds
-            // are arguments. Finite, non-empty.
-            let bounds = try args.map { try number($0, name) }
-            let (lo, hi): (Double, Double)
-            switch bounds.count {
-            case 0: (lo, hi) = (0, 1)
-            case 1: (lo, hi) = (0, bounds[0])
-            case 2: (lo, hi) = (bounds[0], bounds[1])
-            default: throw SwiftalkError.type("Double.random() / random(max) / random(min, max)")
-            }
-            guard lo.isFinite, hi.isFinite, lo < hi else {
-                throw SwiftalkError.type("Double.random needs finite bounds with min < max, got \(lo) and \(hi)")
-            }
-            return .double(Double.random(in: lo..<hi))
+            return try random(args.map { (label: nil, value: $0) })   // the Function-valued form, positional
         case "fma":
             let a = try arity(3); return .double(fma(a[0], a[1], a[2]))
         case "ldexp", "scalbn":
@@ -153,6 +140,43 @@ enum DoubleMath {
             return .tuple([.double(rem), .int(Int64(quo))], labels: ["remainder", "quotient"])
         default:
             throw SwiftalkError.unknownMember("Double.\(name)")
+        }
+    }
+}
+
+extension DoubleMath {
+    /// `Double.random()` in [0, 1), `random(to:)` in [0, to), `random(from:to:)`
+    /// in [from, to) — half-open, finite, non-empty (round 112's shape,
+    /// round 119's labels). Range is Int-only, so the bounds are arguments.
+    fileprivate static func random(_ args: [(label: String?, value: Value)]) throws -> Value {
+        let (from, to) = try RandomBounds.parse(args, "Double")
+        let lo = try from.map { try number($0, "random") } ?? 0
+        let hi = try to.map { try number($0, "random") } ?? 1
+        guard lo.isFinite, hi.isFinite, lo < hi else {
+            throw SwiftalkError.type("Double.random needs finite bounds with from < to, got \(lo) and \(hi)")
+        }
+        return .double(Double.random(in: lo..<hi))
+    }
+}
+
+/// The one shape of `Double.random` and `Int.random` (round 119):
+/// `random()`, `random(to:)`, `random(from:to:)`. The labels may be
+/// omitted — positional is (from, to) — but a wrong one is an error.
+enum RandomBounds {
+    static func parse(_ args: [(label: String?, value: Value)], _ who: String) throws -> (from: Value?, to: Value?) {
+        let usage = SwiftalkError.type("\(who).random(), .random(to:), or .random(from:to:)")
+        switch args.count {
+        case 0:
+            return (nil, nil)
+        case 1:
+            guard args[0].label == nil || args[0].label == "to" else { throw usage }
+            return (nil, args[0].value)
+        case 2:
+            guard args[0].label == nil || args[0].label == "from",
+                  args[1].label == nil || args[1].label == "to" else { throw usage }
+            return (args[0].value, args[1].value)
+        default:
+            throw usage
         }
     }
 }
@@ -200,10 +224,22 @@ enum StringStatics {
 }
 
 /// `Int.random(in: range)` (round 109): Swift's, on swiftalk's Int-only
-/// Range — closed or half-open, never empty, never unbounded.
+/// Range — closed or half-open, never empty, never unbounded. And
+/// (round 119) `Int.random()` in [0, 1], `random(to:)` in [0, to],
+/// `random(from:to:)` in [from, to] — closed, so the whole Int line is
+/// `random(from: Int.min, to: Int.max)`.
 enum IntRandom {
     static func call(_ args: [(label: String?, value: Value)]) throws -> Value {
-        guard args.count == 1, args[0].label == nil || args[0].label == "in",
+        guard args.count == 1, case .range = args[0].value else {
+            let (from, to) = try RandomBounds.parse(args, "Int")
+            let lo = try from.map(bound) ?? 0
+            let hi = try to.map(bound) ?? 1
+            guard lo <= hi else {
+                throw SwiftalkError.type("Int.random needs from <= to, got \(lo) and \(hi)")
+            }
+            return .int(Int64.random(in: lo...hi))
+        }
+        guard args[0].label == nil || args[0].label == "in",
               case .range(let lower, let upper, let closed) = args[0].value else {
             throw SwiftalkError.type("Int.random(in:) takes one Range: Int.random(in: 1...6)")
         }
@@ -217,5 +253,13 @@ enum IntRandom {
             throw SwiftalkError.type("Int.random(in:) needs a non-empty Range — \(lower)..<\(upper) is empty")
         }
         return .int(Int64.random(in: lower..<upper))
+    }
+
+    private static func bound(_ v: Value) throws -> Int64 {
+        switch v {
+        case .int(let i):  return i
+        case .byte(let b): return Int64(b)
+        default: throw SwiftalkError.type("Int.random takes Int bounds, not a \(v.typeName)")
+        }
     }
 }
