@@ -29,6 +29,7 @@ struct Point {
 | `p.computed`, `p.computed = v` | runs the getter / setter; the setter's mutations write back COW-style |
 | `p == q` | structural equality; `p.Type == Point`; `Point.name` |
 | `p.String()` | `"Point(x: 3, y: 4)"` — round-trips wherever Point is declared |
+| `p.String(.pretty)` | the same, one property per line, two spaces a level (round 118) |
 | `extension Point { let m = { } ; var c { } }` | adds methods and computed properties |
 
 **No `mutating` keyword** (round 50a): a method may mutate whatever

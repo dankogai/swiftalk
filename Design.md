@@ -637,7 +637,14 @@ is the same layout for JSON, `"key": value` with a space. Alone,
 laid out already; with a number format (`.hex`, `radix:`) it is an
 error. Not a new format: the text is the same document — `SION(v.
 String(.pretty)) == v` — with whitespace SION and JSON both ignore.
-Empty containers stay `[]`, `[:]`, `{}`.
+Empty containers stay `[]`, `[:]`, `{}`. **Round 118** extends the
+opening-up to every composite with a literal source form: tuples
+(labels kept, `(7,)` keeping its comma), structs (memberwise, one
+property per line), and enum cases with payloads; a payload-less
+case, an empty tuple or struct, and the leaves — Data, Date, Regex,
+Range, the Function-family placeholders — stay on one line. The
+pretty text is still the source form, re-entering wherever its types
+are declared.
 
 **`nil` infers `Any` — DECIDED (round 101)**. Round 59's inference
 refused to bind a strict `let`/`var` from `nil` ("cannot infer a type

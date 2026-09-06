@@ -16,6 +16,7 @@ source form round-trips.
 | `t == u` | element-wise |
 | `t.Type` | `Tuple`, whatever the contents |
 | `t.String()` | `"(1, \"a\")"` — `(7,)` for a 1-tuple |
+| `t.String(.pretty)` | one element per line, two spaces a level, labels kept; `(7,)` keeps its comma (round 118) |
 | `for x in t`, `t.map`, `t.filter`, `t.reduce`, `t.Array()` | a Tuple conforms to Sequence |
 | `seq.enumerated()` | `(index, element)` tuples — see [Sequence.md](Sequence.md) |
 | `Tuple()`, `Tuple(seq)`, `seq.Tuple()` | empty; gathered from any Sequence conformer |

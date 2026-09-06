@@ -34,6 +34,7 @@ enum Shape {
 | `s.m(args)` | methods, `self` bound; `switch self` inside |
 | `s == t` | equality of case and payloads; `s.Type == Shape` |
 | `s.String()` | `"Shape.circle(r: 2.5)"` — round-trips wherever Shape is declared |
+| `s.String(.pretty)` | the same, one payload per line, two spaces a level; a case without a payload is one line (round 118) |
 | `extension Shape { let m = { } }` | adds methods |
 
 ```swift

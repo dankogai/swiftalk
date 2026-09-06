@@ -1681,3 +1681,17 @@ the history. (Moved out of Design.md in round 65.)
   value` with a space when pretty, `{}` for an empty object). The
   property-list form was laid out already, so `.pretty` there is a
   harmless no-op; a number format with `.pretty` is a type error.
+* **2026-09-06, round 118 — `.pretty` for tuples and structs** ("Let's
+  implement `.String(.pretty)` for tuples and structs too"). Round 117
+  had opened up only the two SION containers; the rule is better
+  stated as "every composite with a literal source form", which also
+  takes in enum cases with payloads — the third thing in the language
+  that prints as `Name(label: value, ...)`, and a hole otherwise
+  (`[Shape.circle(r: [1, 2])]` would have opened the Array and not
+  the payload). Same walker, three more arms: tuples keep their
+  labels and a 1-tuple its trailing comma, structs go memberwise in
+  declaration order, payloads follow their case's labels. What stays
+  on one line: an empty tuple or struct, a payload-less case, and
+  every leaf. The test re-enters the pretty text through the
+  interpreter where the types are declared, since that — not SION —
+  is the round trip these forms make.

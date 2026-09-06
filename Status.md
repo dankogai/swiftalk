@@ -163,6 +163,46 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`.String(.pretty)` for tuples, structs, and enum payloads** (round
+118) — every composite with a literal source form opens up; the text
+re-enters where its types are declared:
+
+```text
+swiftalk> struct Point { var x: Int = 0; var y: Int = 0 }
+Point
+swiftalk> enum Shape { case circle(r: Double), dot }
+Shape
+swiftalk> print((name: "swiftalk", tags: ["a", "b"]).String(.pretty))
+(
+  name: "swiftalk",
+  tags: [
+    "a",
+    "b"
+  ]
+)
+swiftalk> print((7,).String(.pretty))
+(
+  7,
+)
+swiftalk> print([Point(x: 1, y: 2), Point(x: 3, y: 4)].String(.pretty))
+[
+  Point(
+    x: 1,
+    y: 2
+  ),
+  Point(
+    x: 3,
+    y: 4
+  )
+]
+swiftalk> print(Shape.circle(r: 2.5).String(.pretty))
+Shape.circle(
+  r: 2.5
+)
+swiftalk> Shape.dot.String(.pretty)
+"Shape.dot"
+```
+
 **`.String(.pretty)`** (round 117) — the source form laid out one
 element per line, two spaces a level; `.String(.json, .pretty)` for
 JSON; the same document, so SION reads it back:

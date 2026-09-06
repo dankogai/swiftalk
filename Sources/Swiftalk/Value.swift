@@ -529,8 +529,11 @@ extension Value {
 
     /// `.String(.pretty)` (round 117): the source form laid out one
     /// element per line, two spaces a level — Arrays and Dictionaries
-    /// open up; every other value prints as `.String()` does, on its
-    /// line. Still SION: `eval` and `SION(text)` read it back.
+    /// open up, and since round 118 so do tuples, structs, and enum
+    /// cases with payloads: every composite with a literal source form.
+    /// Everything else prints as `.String()` does, on its line. The
+    /// text is the same source — `SION(text)` reads the SION back, and
+    /// a tuple or struct re-enters wherever its type is declared.
     public func prettyString() -> String {
         prettyString(depth: 0)
     }
@@ -551,6 +554,26 @@ extension Value {
                 .map { pad + "\($0.key): \($0.value)" }
                 .joined(separator: ",\n")
             return "[\n" + body + "\n" + close + "]"
+        case .tuple(let t):
+            if t.count == 0 { return "()" }
+            let lonely = t.count == 1 && t.labels[0] == nil        // (x,) keeps its comma
+            let body = zip(t.labels, t.values).map { label, value in
+                pad + (label.map { "\($0): " } ?? "") + value.prettyString(depth: depth + 1)
+            }.joined(separator: ",\n")
+            return "(\n" + body + (lonely ? ",\n" : "\n") + close + ")"
+        case .structValue(let sv):
+            if sv.type.propertyOrder.isEmpty { return sourceString() }
+            let body = sv.type.propertyOrder.map { prop in
+                pad + "\(prop): \((sv.values[prop] ?? .nil).prettyString(depth: depth + 1))"
+            }.joined(separator: ",\n")
+            return sv.type.name + "(\n" + body + "\n" + close + ")"
+        case .enumCase(let ev) where !ev.associated.isEmpty:
+            let params = ev.type.cases[ev.caseName] ?? []
+            let body = zip(params, ev.associated).map { param, value in
+                let v = value.prettyString(depth: depth + 1)
+                return pad + (param.label.map { "\($0): \(v)" } ?? v)
+            }.joined(separator: ",\n")
+            return "\(ev.type.name).\(ev.caseName)(\n" + body + "\n" + close + ")"
         default:
             return sourceString()
         }
