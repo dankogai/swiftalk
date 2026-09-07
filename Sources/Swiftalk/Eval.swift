@@ -44,6 +44,8 @@ extension Swiftalk {
             environment.isFileScope = true
             modules = ModuleSystem(builtins: builtins)
             installBuiltins()
+            installEval(in: environment)                                   // round 122/123
+            modules.fileScopeSetup = { [unowned self] scope in installEval(in: scope) }
         }
 
         /// The POSIX file read `import` uses — for an embedder's own loader.
@@ -60,16 +62,6 @@ extension Swiftalk {
         /// the global environment (§2.4) — not keywords.
         private func installBuiltins() {
             let box = outputBox
-            // eval (round 122): the language's own — source in, the last
-            // statement's value out — run at the program's top level, so
-            // it sees what the file's top level sees and its declarations
-            // stay, as a line typed at the REPL would. Not Swift's.
-            declareBuiltin("eval") { [unowned self] args in
-                guard args.count == 1, case .string(let source) = args[0] else {
-                    throw SwiftalkError.type("eval takes one String of swiftalk source")
-                }
-                return try run(source)
-            }
             declareBuiltin("print") { args in
                 // Raw display: Strings bare, everything else source form
                 // (round 35, completing round 23's display question).
@@ -137,21 +129,42 @@ extension Swiftalk {
             modules.baseStack = [scriptPath.map(ModuleSystem.directory(of:)) ?? "."]
             let previousModules = ModuleContext.activate(modules)
             defer { ModuleContext.activate(previousModules) }
-            return try run(source)
+            return try run(source, in: environment)
         }
 
-        /// The evaluator proper: lex, parse, execute at the top level.
-        /// `eval` above wraps it in the scheduler and module contexts;
-        /// the language's `eval()` (round 122) calls it with both already
-        /// active.
-        private func run(_ source: String) throws -> Value {
+        /// `eval` (round 122): the language's own — source in, the last
+        /// statement's value out — run at the file's top level, so it sees
+        /// what the top level sees and its declarations stay, as a line
+        /// typed at the REPL would. Not Swift's. **Each file scope has its
+        /// own** (round 123): the program's is installed at init, a
+        /// module's when it loads, each closing over its scope — so `eval`
+        /// resolves lexically, and a module function's `eval` is the
+        /// module's top level whoever calls it. Not a builtin, so the
+        /// file-scope rule against shadowing builtins does not apply; the
+        /// binding is a `let`, and redeclaring it is the usual error.
+        func installEval(in scope: Environment) {
+            let fn = FunctionObject(parameters: [], body: [], closure: scope) { [unowned self] args in
+                guard args.count == 1, case .string(let source) = args[0] else {
+                    throw SwiftalkError.type("eval takes one String of swiftalk source")
+                }
+                return try run(source, in: scope)
+            }
+            try! scope.declare("eval", Binding(
+                mutable: false, lock: TypeAnnotation(name: "Function", optional: false), value: .function(fn)))
+        }
+
+        /// The evaluator proper: lex, parse, execute in a file scope —
+        /// the program's, or a module's. `eval` above wraps it in the
+        /// scheduler and module contexts; the language's `eval()` (round
+        /// 122) calls it with both already active.
+        private func run(_ source: String, in scope: Environment) throws -> Value {
             var lexer = Lexer(source)
             var parser = Parser(try lexer.tokenize())
             let program = try parser.parseProgram()
             var last = Value.nil
             do {
                 for statement in program {
-                    last = try execute(statement, in: environment, relaxed: relaxed)
+                    last = try execute(statement, in: scope, relaxed: relaxed)
                 }
             } catch is ControlFlow {
                 throw SwiftalkError.syntax("'break'/'continue' outside a loop")

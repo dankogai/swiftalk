@@ -1759,3 +1759,17 @@ the history. (Moved out of Design.md in round 65.)
   `eval` was split into the context setup and a `run` the builtin
   calls with the scheduler and modules already active. A module's own
   top level is OPEN.
+* **2026-09-07, round 123 — a module's own `eval`** ("Also add `eval`
+  to the module's own top level"), closing round 122's OPEN. The
+  first attempt kept a stack of executing file scopes and it was
+  wrong the moment a module finished loading: an exported function
+  calling `eval` later would have run in the importer's top level.
+  The right answer is lexical: `eval` stops being a builtin and
+  becomes a `let` that each file scope gets on creation — the
+  program's at init, a module's as it loads — each closing over its
+  own scope. Then `eval` resolves like any name, through the closure
+  chain, and "the file's top level" is wherever the text calling
+  `eval` was written. No caller tracking, nothing on the call path.
+  A module's unexported names are visible to its own `eval` and never
+  to the importer's; `let eval = 1` at a top level is the same
+  redeclaration error it was.

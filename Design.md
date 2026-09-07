@@ -631,8 +631,16 @@ it (JavaScript's indirect eval, not its direct one — a closure's
 environment is not something a string should reach into). Errors are
 the ordinary ones, thrown; `break`/`return` in evaluated source are
 the syntax errors they are at the top. A Function value, so `map(eval)`
-works. Inside a module, "the top level" is still the program's — a
-module's own scope is OPEN.
+works. **Round 123** ("Also add `eval` to the module's own top
+level"): a module's `eval` runs at the module's top level, and the
+mechanism is lexical rather than dynamic — `eval` is not a builtin
+but a `let` installed in every file scope, closing over that scope,
+so it resolves through the closure chain like any name. A function a
+module exports therefore evaluates in the module it came from,
+seeing its unexported names and never the importer's; the program's
+`eval` is the program's. No caller-tracking, no stack, no cost on the
+call path; what a file's top level means is settled by where the
+text was written.
 
 **SION as a built-in — DECIDED (round 97)**. The user's spec: "`SION(string)`
 parses string to SION. `sion.String()` stringify. `SION(json:string)`

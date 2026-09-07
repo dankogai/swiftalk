@@ -163,6 +163,35 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**A module's own `eval`** (round 123) — each file scope has its own
+`eval`, closing over that scope, so a module's runs at the module's top
+level whoever calls it. With `m.swt` beside the REPL:
+
+```swift
+let secret = 7
+export let peek = { eval("secret") }
+export let define = { eval("let minted = 1") }
+export let minted = { eval("minted") }
+```
+
+```text
+swiftalk> import M from "./m.swt"
+swiftalk> M.peek()
+7
+swiftalk> secret
+type error: undefined variable 'secret'
+swiftalk> M.define()
+type error: redeclaration of 'minted'
+swiftalk> M.minted()
+{ ... }
+swiftalk> minted
+type error: undefined variable 'minted'
+swiftalk> let secret = "mine"
+"mine"
+swiftalk> eval("secret")
+"mine"
+```
+
 **`eval()`** (round 122) — the language's own, a divergence from Swift:
 a String of source in, its last statement's value out, run at the
 program's top level; the round-trip law, said in the language:

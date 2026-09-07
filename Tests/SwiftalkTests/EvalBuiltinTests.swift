@@ -32,6 +32,32 @@ struct EvalBuiltinTests {
         #expect(try eval("[\"1\", \"2\"].map(eval)") == .array([.int(1), .int(2)]))
     }
 
+    @Test("in a module, eval runs at the module's own top level (round 123) — while it loads, and from its functions after")
+    func moduleScope() throws {
+        let files = ["m.swt": """
+            let secret = 7
+            export let peek = { eval("secret") }
+            export let define = { eval("let minted = 1") }
+            export let made = { eval("minted") }
+            export let outside = { eval("mainName") }
+            export let loaded = eval("secret + 1")
+            let f = { a in eval("a") }
+            """]
+        let i = Swiftalk.Interpreter()
+        i.moduleLoader = { spec in
+            guard let source = files[spec] else { throw SwiftalkError.type("no module '\(spec)'") }
+            return source
+        }
+        #expect(try i.eval("import M from \"./m.swt\"\nM.loaded") == .int(8))                // while loading
+        #expect(try i.eval("M.peek()") == .int(7))                                          // the module's top, not exported
+        #expect(throws: SwiftalkError.self) { try i.eval("secret") }
+        #expect(try i.eval("let mainName = 1\nmainName") == .int(1))
+        #expect(throws: SwiftalkError.self) { try i.eval("M.outside()") }                    // the module's top, not the program's
+        #expect(try i.eval("M.define()\nM.made()") == .int(1))                                // declared into the module's top
+        #expect(throws: SwiftalkError.self) { try i.eval("minted") }
+        #expect(try i.eval("eval(\"mainName\")") == .int(1))                                 // back in the program, its own top
+    }
+
     @Test("errors are the language's: a syntax error, a wrong argument, control flow outside its place")
     func errors() throws {
         #expect(throws: SwiftalkError.self) { try eval("eval(\"1 +\")") }

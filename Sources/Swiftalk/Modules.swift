@@ -20,6 +20,9 @@ final class ModuleSystem {
     private var cache: [String: Module] = [:]
     private var loading: Set<String> = []
     var baseStack: [String] = ["."]
+    /// Runs on every new module scope before its statements do — the
+    /// Interpreter installs the module's own `eval` there (round 123).
+    var fileScopeSetup: ((Environment) -> Void)? = nil
     /// resolved spec → source. nil: files through POSIX, URLs refused.
     var loader: ((String) throws -> String)? = nil
 
@@ -40,6 +43,7 @@ final class ModuleSystem {
         defer { baseStack.removeLast() }
         let env = Environment(parent: builtins)
         env.isFileScope = true
+        fileScopeSetup?(env)
         do {
             var lexer = Lexer(source)
             var parser = Parser(try lexer.tokenize())
