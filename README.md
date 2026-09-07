@@ -69,7 +69,8 @@ let answer = "42".Int() ?? 0                  // failable conversion + default
 let hex    = 255.String(.hex)                 // "+0xff" — signed both ways; radix: 16 for bare "ff"
 let bytes  = "café".Data(.utf8)               // infallible; .Data("base64") is the literal
 let text   = bytes.String(.utf8)              // String? — bytes may not be text
-let src    = bytes.String()                   // .Data("Y2Fmw6k=") — SION; eval(src) == bytes
+let src    = bytes.String()                   // .Data("Y2Fmw6k=") — SION
+eval(src) == bytes                            // true — eval() is the language's own (round 122)
 
 // SION is built in (round 97): the same values, three formats
 let doc: SION = SION("[\"n\": 42, \"when\": .Date(0x0p+0)]")   // any SION text, comments and all

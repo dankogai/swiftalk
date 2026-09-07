@@ -617,6 +617,23 @@ never a type error: values of different types are simply not the same
 value, where `==` asks a question with no answer. Same precedence as
 `==`, unchained, continuing a line.
 
+**`eval()` in the language — DECIDED (round 122)** ("Toplevel `eval()`
+in Swiftalk is missing. It is DIFFERENT from Swift's interpreter").
+Milestone 0's evaluator, exposed: `eval(source)` takes a String, runs
+it as a program, and returns its last statement's value. Swift has no
+such thing — it is a recorded divergence, JavaScript's, and the law
+§3d had been stating since round 21 (`eval(x.String()) == x`) is now
+a sentence the language can say about itself. Where it runs was the
+one decision: **at the program's top level**, the file's scope — it
+sees every top-level name and type, its declarations land there as a
+line typed at the REPL would, and a caller's locals are invisible to
+it (JavaScript's indirect eval, not its direct one — a closure's
+environment is not something a string should reach into). Errors are
+the ordinary ones, thrown; `break`/`return` in evaluated source are
+the syntax errors they are at the top. A Function value, so `map(eval)`
+works. Inside a module, "the top level" is still the program's — a
+module's own scope is OPEN.
+
 **SION as a built-in — DECIDED (round 97)**. The user's spec: "`SION(string)`
 parses string to SION. `sion.String()` stringify. `SION(json:string)`
 treats the string as JSON. `sion.String(.json)` emits a JSON string.
@@ -1441,8 +1458,8 @@ there — errors, same as `await`); nonisolated escape hatches;
 0. **Implement `eval()`** — the core evaluator: source string in, value
    out. Everything else is a client of this. Doubles as the embedding
    API's heart (§5: swiftalk-as-Lua) and, potentially, a user-visible
-   `eval()` in the language itself (**OPEN** whether to expose it, and
-   how it interacts with the §5 minimal-core goal).
+   `eval()` in the language itself — **exposed in round 122**, at the
+   program's top level; the §5 core grew by one function.
 1. **Implement REPL** — a read–`eval`–print loop around milestone 0.
    This is where §2.2's relaxed mode (bare `x = 1` allowed) first
    matters, and where `.String()`-on-everything (§3d) pays off for

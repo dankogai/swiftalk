@@ -163,6 +163,35 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`eval()`** (round 122) — the language's own, a divergence from Swift:
+a String of source in, its last statement's value out, run at the
+program's top level; the round-trip law, said in the language:
+
+```text
+swiftalk> eval("1 + 2")
+3
+swiftalk> let v: SION = ["a": [1, 2.5, nil], "d": Data("AQID")]
+["a": [1, 2.5, nil], "d": .Data("AQID")]
+swiftalk> eval(v.String()) == v
+true
+swiftalk> struct P { var x: Int = 0 }
+P
+swiftalk> eval(P(x: 3).String()) == P(x: 3)
+true
+swiftalk> eval("let y = 40")
+40
+swiftalk> y + 2
+42
+swiftalk> ["1", "2"].map(eval)
+[1, 2]
+swiftalk> let f = { a in eval("a") }
+{ a in ... }
+swiftalk> f(1)
+type error: undefined variable 'a'
+swiftalk> eval("1 +")
+syntax error: unexpected token end of input
+```
+
 **Prefix `+`, a signed `.hex`, and `===` / `!==`** (round 121) — `+x` is
 the number itself; `.String(.hex)` writes the sign both ways; `===` is
 the same type and the same bits, never a type error:

@@ -1742,3 +1742,20 @@ the history. (Moved out of Design.md in round 65.)
   three `.hex` expectations from rounds 20–21, one from round 58, and
   one from round 111, now signed. Found on the way: `class` is shelved (round 62), so the
   reference-identity test stays out with it.
+* **2026-09-07, round 122 — `eval()` in the language** ("Toplevel
+  `eval()` in Swiftalk is missing. It is DIFFERENT from Swift's
+  interpreter"). Milestone 0 had left this OPEN since round 1; the
+  round-trip law had been written as `eval(x.String()) == x` all
+  along, and only Swift could say it. Now the language can: `eval`
+  is the third global function, beside `print` and `debugPrint`, a
+  Function value that lexes, parses, and runs its String at the
+  program's top level and returns the last statement's value. The
+  scope question had two answers and one was clearly wrong: reaching
+  into a caller's closure from a string is JavaScript's direct eval,
+  the thing every engine regrets; the top level is JavaScript's
+  indirect eval and the REPL's own model — what is typed lands there.
+  So `eval("let y = 40")` binds `y` for the rest of the program, `let
+  f = { a in eval("a") }` cannot see `a`, and the interpreter's
+  `eval` was split into the context setup and a `run` the builtin
+  calls with the scheduler and modules already active. A module's own
+  top level is OPEN.

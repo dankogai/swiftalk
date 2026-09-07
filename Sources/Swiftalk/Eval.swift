@@ -60,6 +60,16 @@ extension Swiftalk {
         /// the global environment (§2.4) — not keywords.
         private func installBuiltins() {
             let box = outputBox
+            // eval (round 122): the language's own — source in, the last
+            // statement's value out — run at the program's top level, so
+            // it sees what the file's top level sees and its declarations
+            // stay, as a line typed at the REPL would. Not Swift's.
+            declareBuiltin("eval") { [unowned self] args in
+                guard args.count == 1, case .string(let source) = args[0] else {
+                    throw SwiftalkError.type("eval takes one String of swiftalk source")
+                }
+                return try run(source)
+            }
             declareBuiltin("print") { args in
                 // Raw display: Strings bare, everything else source form
                 // (round 35, completing round 23's display question).
@@ -117,9 +127,6 @@ extension Swiftalk {
         /// Evaluates a program (statements separated by newlines or `;`)
         /// and returns the value of its last statement.
         public func eval(_ source: String) throws -> Value {
-            var lexer = Lexer(source)
-            var parser = Parser(try lexer.tokenize())
-            let program = try parser.parseProgram()
             // The top level is the scheduler's main context (round 53:
             // top-level await) — installed thread-locally for the
             // duration, which is all "colorless" costs.
@@ -130,6 +137,17 @@ extension Swiftalk {
             modules.baseStack = [scriptPath.map(ModuleSystem.directory(of:)) ?? "."]
             let previousModules = ModuleContext.activate(modules)
             defer { ModuleContext.activate(previousModules) }
+            return try run(source)
+        }
+
+        /// The evaluator proper: lex, parse, execute at the top level.
+        /// `eval` above wraps it in the scheduler and module contexts;
+        /// the language's `eval()` (round 122) calls it with both already
+        /// active.
+        private func run(_ source: String) throws -> Value {
+            var lexer = Lexer(source)
+            var parser = Parser(try lexer.tokenize())
+            let program = try parser.parseProgram()
             var last = Value.nil
             do {
                 for statement in program {

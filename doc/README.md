@@ -79,6 +79,16 @@ conversion the type does not have fails as it would by its real
 name. What a binding cannot alias: a parameterized or optional
 annotation (`[String]`, `Int?`) — spell those out, or annotate `Any`.
 
+## The three global functions
+
+| Form | Meaning |
+|---|---|
+| `print(x, ...)` | writes each value's `description` — Strings bare, everything else source form — space-separated, newline-terminated |
+| `debugPrint(x, ...)` | the same with `debugDescription`: quoted Strings, hex numbers |
+| `eval(source)` | **the language's own `eval`** (round 122; Swift has none): the String is a swiftalk program, its last statement's value comes back. It runs **at the program's top level** — sees what the top level sees, declares into it as a line at the REPL would, and cannot see a caller's locals. Errors are the language's: a syntax error, an undefined name, `break` outside a loop. It is the round-trip law in the language: `eval(x.String()) == x` |
+
+`eval` is a Function value like the other two — `["1", "2"].map(eval)`.
+
 ## Operators, by type
 
 | Operator | Int | Double | String | Array | Date | Bool | any |
