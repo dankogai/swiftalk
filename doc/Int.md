@@ -27,7 +27,7 @@ separators.
 | `i === j`, `i !== j` | the same type and the same value — `1 !== 1.0`, `Byte(1) !== 1`; never a type error (round 121) |
 | `+i`, `-i` | prefix: the number itself / negation (`+` since round 121) |
 | `i.String()` | decimal, e.g. `"255"` |
-| `i.String(.hex)` / `.oct` / `.bin` | prefixed, literal-ready: `"+0xff"`, `"-0o377"`, `"0b11"` — `.hex` carries its sign both ways since round 121 |
+| `i.String(.hex)` / `.oct` / `.bin` | prefixed, literal-ready, **signed both ways**: `"+0xff"`, `"-0o377"`, `"+0b11"` (round 121 for `.hex`, 124 for the rest); the debug form stays unsigned |
 | `i.String(radix: n)` | bare digits, n in 2...36: `"ff"` |
 | `i.Double()` | `Double(i)` |
 | `i.debugDescription` | hex: `0xff` |

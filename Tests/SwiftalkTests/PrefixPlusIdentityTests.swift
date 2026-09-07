@@ -1,7 +1,7 @@
 import Testing
 @testable import Swiftalk
 
-@Suite("prefix +, a signed .hex, and === / !== (round 121)")
+@Suite("prefix +, a signed .hex, and === / !== (round 121); .oct/.bin signed too (round 124)")
 struct PrefixPlusIdentityTests {
     @Test("prefix + is the number itself — Int, Double, Byte; anything else is a type error")
     func prefixPlus() throws {
@@ -20,7 +20,7 @@ struct PrefixPlusIdentityTests {
         #expect(throws: SwiftalkError.self) { try eval("+nil") }
     }
 
-    @Test(".String(.hex) carries its sign: +0xff, -0x10, +0x0p0, -0x0p0; nan and inf as they are; still re-enters")
+    @Test(".String(.hex)/.oct/.bin carry their sign: +0xff, -0x10, +0x0p0, -0x0p0, +0o20, -0b101; nan and inf as they are; still re-enter")
     func signedHex() throws {
         #expect(try eval("255.String(.hex)") == .string("+0xff"))
         #expect(try eval("0.String(.hex)") == .string("+0x0"))
@@ -34,7 +34,13 @@ struct PrefixPlusIdentityTests {
         #expect(try eval("Int(255.String(.hex))") == .int(255))
         #expect(try eval("Double((-0.0).String(.hex)).String(.hex)") == .string("-0x0p0"))
         #expect(try eval("255.debugDescription") == .string("0xff"))       // the debug form is unchanged
-        #expect(try eval("16.String(.oct)") == .string("0o20"))            // .oct/.bin unchanged
+        #expect(try eval("16.String(.oct)") == .string("+0o20"))           // .oct/.bin followed in round 124
+        #expect(try eval("0.String(.bin)") == .string("+0b0"))
+        #expect(try eval("(-5).String(.bin)") == .string("-0b101"))
+        #expect(try eval("Int((-5).String(.bin))") == .int(-5))
+        #expect(try eval("Int(16.String(.oct))") == .int(16))
+        #expect(try eval("eval(255.String(.bin)) == 255") == .bool(true))
+        #expect(try eval("(255...4096).debugDescription") == .string("0xff...0x1000"))     // the debug form still is not
     }
 
     @Test("=== / !==: the same type and the same bits — nan === nan, +0.0 !== -0.0; never a type error")

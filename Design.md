@@ -429,8 +429,8 @@ string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bar
 
   ```swift
   255.String(.hex)        // "0xff"       — prefixed, literal-ready
-  255.String(.oct)        // "0o377"
-  255.String(.bin)        // "0b11111111"
+  255.String(.oct)        // "+0o377"       — signed both ways since round 124
+  255.String(.bin)        // "+0b11111111"
   255.String(radix: 16)   // "ff"         — bare digits, any radix
   ```
 
@@ -607,8 +607,11 @@ number itself, on Int, Double, and Byte, a type error elsewhere; after
 an operand, `a +1` stays binary. `.String(.hex)` writes the sign both
 ways — `+0xff`, `-0x10`, `+0x0p0`, `-0x0p0` — so a Double's signed zero
 shows in the one format meant for the programmer's eye; `nan` and
-`inf` are as they were, and so are `.oct`/`.bin` and the debug form
-(OPEN: whether they should follow). `===` and `!==` are JS's
+`inf` are as they were, and so is the debug form. `.oct`/`.bin`
+followed in **round 124** ("Let's implement `.oct` and `.bin` with
+explicit `+` too"): the three prefixed formats are one rule now —
+the sign is always written — and `debugDescription`, being the
+source form, is still not. `===` and `!==` are JS's
 `Object.is`, not Swift's reference identity (which the shelved
 classes give under `==` already): the same type and the same value bit
 for bit — `Double.nan === Double.nan`, `+0.0 !== -0.0`, `1 !== 1.0`,

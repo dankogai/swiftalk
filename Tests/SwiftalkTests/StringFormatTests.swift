@@ -28,8 +28,8 @@ struct StringFormatTests {
     @Test(".hex/.oct/.bin are prefixed and literal-ready; radix: is bare (round 20)")
     func radixFormats() throws {
         #expect(try eval("255.String(.hex)") == .string("+0xff"))          // the sign is explicit (round 121)
-        #expect(try eval("255.String(.oct)") == .string("0o377"))
-        #expect(try eval("255.String(.bin)") == .string("0b11111111"))
+        #expect(try eval("255.String(.oct)") == .string("+0o377"))        // signed both ways (round 124)
+        #expect(try eval("255.String(.bin)") == .string("+0b11111111"))
         #expect(try eval("(-16).String(.hex)") == .string("-0x10"))
         #expect(try eval("255.String(radix: 16)") == .string("ff"))
         #expect(try eval("255.String(radix: 36)") == .string("73"))

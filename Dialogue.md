@@ -1773,3 +1773,12 @@ the history. (Moved out of Design.md in round 65.)
   A module's unexported names are visible to its own `eval` and never
   to the importer's; `let eval = 1` at a top level is the same
   redeclaration error it was.
+* **2026-09-07, round 124 — `.oct` and `.bin` signed too** ("Let's
+  implement `.oct` and `.bin` with explicit `+` too"), closing the
+  OPEN round 121 left. One rule for the three prefixed formats: the
+  sign is always written, `+0o377`, `-0b101`, `+0b0`. `Int(text)`
+  and `eval` read them back as before, since prefix `+` has been a
+  number's since round 121. The debug form is untouched — it is the
+  source form, and `0xff` is what a literal looks like. Revised: two
+  expectations from rounds 20–21 and round 121's own "unchanged"
+  line.

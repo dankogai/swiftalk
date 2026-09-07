@@ -163,6 +163,22 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`.oct` and `.bin` signed both ways** (round 124) — one rule for the
+three prefixed formats, the debug form still unsigned:
+
+```text
+swiftalk> 255.String(.oct)
+"+0o377"
+swiftalk> (-5).String(.bin)
+"-0b101"
+swiftalk> 0.String(.bin)
+"+0b0"
+swiftalk> eval(255.String(.bin)) == 255
+true
+swiftalk> 255.debugDescription
+"0xff"
+```
+
 **A module's own `eval`** (round 123) — each file scope has its own
 `eval`, closing over that scope, so a module's runs at the module's top
 level whoever calls it. With `m.swt` beside the REPL:

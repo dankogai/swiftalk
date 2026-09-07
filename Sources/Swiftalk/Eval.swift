@@ -3075,7 +3075,8 @@ private func stringFormat(_ subject: Value,
             throw SwiftalkError.type(".String(.oct)/.String(.bin) are an Int's formats")
         }
         let (prefix, radix) = format == .string("oct") ? ("0o", 8) : ("0b", 2)
-        return .string((i < 0 ? "-" : "") + prefix + String(i.magnitude, radix: radix))
+        // signed both ways, as .hex is (round 124 after 121): "+0o377", "-0b11"
+        return .string((i < 0 ? "-" : "+") + prefix + String(i.magnitude, radix: radix))
     default:
         throw SwiftalkError.type("unknown .String() format \(format.sourceString())")
     }
