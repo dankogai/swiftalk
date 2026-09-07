@@ -36,7 +36,7 @@ See [grammar.md](grammar.md) for the syntax as parsed.
 |---|---|
 | `x.Type` | the constructor Function (`42.Type == Int`); `x.Type.name` is its name |
 | `x.description` | print's form: Strings bare, everything else source form |
-| `x.debugDescription` | debugPrint's form: quoted strings, hex numbers |
+| `x.debugDescription` | debugPrint's form: quoted strings, signed hex numbers (`.String(.sign, .hex)`, round 125) |
 | `x.String()` | description; `x.String(.quoted)` is source form (§3d) |
 | `x == y`, `x != y` | equality — same type required (except against `nil`); reference-ish types compare by identity |
 | `x === y`, `x !== y` | the same type and the same value, bit for bit — JS's `Object.is`: `Double.nan === Double.nan`, `+0.0 !== -0.0`, `1 !== 1.0`; recursive through containers; never a type error (round 121) |
@@ -84,7 +84,7 @@ annotation (`[String]`, `Int?`) — spell those out, or annotate `Any`.
 | Form | Meaning |
 |---|---|
 | `print(x, ...)` | writes each value's `description` — Strings bare, everything else source form — space-separated, newline-terminated |
-| `debugPrint(x, ...)` | the same with `debugDescription`: quoted Strings, hex numbers |
+| `debugPrint(x, ...)` | the same with `debugDescription`: quoted Strings, signed hex numbers |
 | `eval(source)` | **the language's own `eval`** (round 122; Swift has none): the String is a swiftalk program, its last statement's value comes back. It runs **at the file's top level** — sees what the top level sees, declares into it as a line at the REPL would, and cannot see a caller's locals. Errors are the language's: a syntax error, an undefined name, `break` outside a loop. It is the round-trip law in the language: `eval(x.String()) == x` |
 
 `eval` is a Function value like the other two — `["1", "2"].map(eval)`

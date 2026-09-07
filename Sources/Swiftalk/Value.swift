@@ -411,12 +411,13 @@ extension Value {
         case .bool(let b):
             return b ? "true" : "false"
         case .int(let i):
-            return debug ? (i < 0 ? "-0x" : "0x") + String(i.magnitude, radix: 16)
+            // the debug form is .String(.sign, .hex) — signed both ways (round 125)
+            return debug ? (i < 0 ? "-0x" : "+0x") + String(i.magnitude, radix: 16)
                          : String(i)
         case .double(let d):
             // Swift's Double description is the shortest string that
             // round-trips, e.g. (0.1 + 0.2) -> "0.30000000000000004".
-            return debug ? Value.hexFloat(d) : String(d)
+            return debug ? Value.hexFloat(d, signed: true) : String(d)     // .String(.sign, .hex) (round 125)
         case .string(let s):
             return Value.quote(s)
         case .array(let a):
@@ -488,15 +489,15 @@ extension Value {
             // re-enters as Data(base64); the debug form keeps the bytes
             // visible, in hex, through the Array constructor.
             if debug {
-                return "Data([" + bytes.map {
-                    Value.int(Int64($0)).sourceString(debug: true, seen: seen)
-                }.joined(separator: ", ") + "])"
+                return "Data([" + bytes.map { "0x" + String($0, radix: 16) }.joined(separator: ", ") + "])"
             }
             return ".Data(\"\(Base64.encode(bytes))\")"
         case .date(let epoch):
             // SION's own spelling — .Date(epoch); hex-float under debug,
             // exactly as SION serializes dates.
-            return ".Date(\(Value.double(epoch).sourceString(debug: debug, seen: seen)))"
+            // (unsigned under debug, as SION writes it — not the Double's
+            // own signed debug form; round 125)
+            return ".Date(\(debug ? Value.hexFloat(epoch) : Value.double(epoch).sourceString(debug: false, seen: seen)))"
         case .regex(let r):
             return r.sourceForm              // /pattern/flags — a literal, re-enters
         case .structValue(let sv):
@@ -582,7 +583,10 @@ extension Value {
     /// Swift-style hex-float notation (`0x1.fep7`), the Double
     /// `.debugDescription` of round 37. (The lexer does not parse
     /// hex-float literals yet — that half of the §3d round trip is OPEN.)
-    static func hexFloat(_ d: Double) -> String {
+    /// `signed` writes the `+` too (round 125's `.sign`): everything
+    /// but nan has a sign, `+inf` included.
+    static func hexFloat(_ d: Double, signed: Bool = false) -> String {
+        if signed, !d.isNaN, d.sign == .plus { return "+" + hexFloat(d) }
         if d.isNaN { return "nan" }
         if d.isInfinite { return d < 0 ? "-inf" : "inf" }
         if d == 0 { return d.sign == .minus ? "-0x0p0" : "0x0p0" }

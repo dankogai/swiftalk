@@ -68,14 +68,14 @@ struct SequenceTests {
     @Test("description/debugDescription: decimal for humans, hex for programmers (round 37)")
     func descriptions() throws {
         #expect(try eval("255.description") == .string("255"))
-        #expect(try eval("255.debugDescription") == .string("0xff"))
+        #expect(try eval("255.debugDescription") == .string("+0xff"))        // .String(.sign, .hex) (round 125)
         #expect(try eval("(-16).debugDescription") == .string("-0x10"))
-        #expect(try eval("(255.0).debugDescription") == .string("0x1.fep7"))
-        #expect(try eval("(1.5).debugDescription") == .string("0x1.8p0"))
-        #expect(try eval("(0.5).debugDescription") == .string("0x1p-1"))
+        #expect(try eval("(255.0).debugDescription") == .string("+0x1.fep7"))
+        #expect(try eval("(1.5).debugDescription") == .string("+0x1.8p0"))
+        #expect(try eval("(0.5).debugDescription") == .string("+0x1p-1"))
         #expect(try eval("\"a\".description") == .string("a"))
         #expect(try eval("\"a\".debugDescription") == .string("\"a\""))
-        #expect(try eval("[255].debugDescription") == .string("[0xff]"))
+        #expect(try eval("[255].debugDescription") == .string("[+0xff]"))
         // debug Int notation round-trips (§3d); hex floats: lexer support OPEN
         #expect(try eval("0xff") == .int(255))
     }
@@ -86,6 +86,6 @@ struct SequenceTests {
         var out = ""
         interp.output = { out += $0 }
         _ = try interp.eval("debugPrint(255, 1.5, \"a\")")
-        #expect(out == "0xff 0x1.8p0 \"a\"\n")
+        #expect(out == "+0xff +0x1.8p0 \"a\"\n")
     }
 }

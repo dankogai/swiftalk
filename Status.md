@@ -163,20 +163,38 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
-**`.oct` and `.bin` signed both ways** (round 124) — one rule for the
-three prefixed formats, the debug form still unsigned:
+**`.String(.sign)`** (round 125, revising 121 and 124) — a positive
+number's `+` on request, beside any number format or alone; without
+it, omitted. `debugDescription` for Int and Double is `.String(.sign,
+.hex)`:
 
 ```text
-swiftalk> 255.String(.oct)
-"+0o377"
-swiftalk> (-5).String(.bin)
-"-0b101"
-swiftalk> 0.String(.bin)
-"+0b0"
-swiftalk> eval(255.String(.bin)) == 255
-true
-swiftalk> 255.debugDescription
+swiftalk> 42.String(.sign)
+"+42"
+swiftalk> 255.String(.hex)
 "0xff"
+swiftalk> 255.String(.sign, .hex)
+"+0xff"
+swiftalk> (-0.0).String(.sign, .hex)
+"-0x0p0"
+swiftalk> (0.0).String(.sign, .hex)
+"+0x0p0"
+swiftalk> Double.nan.String(.sign)
+"nan"
+swiftalk> 16.String(.sign, .oct)
+"+0o20"
+swiftalk> 255.String(.sign, radix: 16)
+"+ff"
+swiftalk> 255.debugDescription
+"+0xff"
+swiftalk> (1.5).debugDescription
+"+0x1.8p0"
+swiftalk> [255, -1].debugDescription
+"[+0xff, -0x1]"
+swiftalk> 255.debugDescription == 255.String(.sign, .hex)
+true
+swiftalk> "s".String(.sign)
+type error: .sign is a number's modifier, not a String's
 ```
 
 **A module's own `eval`** (round 123) — each file scope has its own
@@ -237,9 +255,10 @@ swiftalk> eval("1 +")
 syntax error: unexpected token end of input
 ```
 
-**Prefix `+`, a signed `.hex`, and `===` / `!==`** (round 121) — `+x` is
-the number itself; `.String(.hex)` writes the sign both ways; `===` is
-the same type and the same bits, never a type error:
+**Prefix `+` and `===` / `!==`** (round 121) — `+x` is the number
+itself; `===` is the same type and the same bits, never a type error
+(the signed `.hex` this round also brought moved behind `.sign` in
+round 125):
 
 ```text
 swiftalk> +1.0
@@ -251,7 +270,7 @@ swiftalk> [+1, -1, +0.0]
 swiftalk> +"a"
 type error: cannot apply prefix + to String
 swiftalk> 255.String(.hex)
-"+0xff"
+"0xff"
 swiftalk> (-0.0).String(.hex)
 "-0x0p0"
 swiftalk> Int(255.String(.hex))
@@ -1600,7 +1619,7 @@ swiftalk> let fact20 = (1...20).reduce(1) { $0 * $1 }
 swiftalk> (1...10).filter { $0 / 2 * 2 == $0 }.map { $0 * $0 }.reduce(0) { $0 + $1 }
 220
 swiftalk> debugPrint(255, 255.0)   // debugDescription is hex, for the programmer
-0xff 0x1.fep7
++0xff +0x1.fep7
 ```
 
 **`Range` and `Sequence`** are in — `Range` is first-class and lazy
@@ -1660,7 +1679,7 @@ literal-ready while `radix:` is bare:
 swiftalk> "foo".String(.quoted)
 "\"foo\""
 swiftalk> 255.String(.hex)
-"+0xff"
+"0xff"
 swiftalk> 255.String(radix: 16)
 "ff"
 swiftalk> Int(255.String(.hex)) == 255
@@ -1959,7 +1978,7 @@ true
 swiftalk> 0x1.fep7                      // hex floats lex at last:
 255.0
 swiftalk> debugPrint(0.1)               // ...debug output re-enters
-0x1.999999999999ap-4
++0x1.999999999999ap-4
 swiftalk> 0x1.999999999999ap-4 == 0.1
 true
 ```

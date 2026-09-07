@@ -27,15 +27,16 @@ separators.
 | `i === j`, `i !== j` | the same type and the same value — `1 !== 1.0`, `Byte(1) !== 1`; never a type error (round 121) |
 | `+i`, `-i` | prefix: the number itself / negation (`+` since round 121) |
 | `i.String()` | decimal, e.g. `"255"` |
-| `i.String(.hex)` / `.oct` / `.bin` | prefixed, literal-ready, **signed both ways**: `"+0xff"`, `"-0o377"`, `"+0b11"` (round 121 for `.hex`, 124 for the rest); the debug form stays unsigned |
+| `i.String(.hex)` / `.oct` / `.bin` | prefixed, literal-ready: `"0xff"`, `"-0o377"`, `"0b11"` |
+| `i.String(.sign)`, `i.String(.sign, .hex)`, `i.String(.sign, radix: 16)` | the `+` a positive number otherwise omits (round 125): `"+42"`, `"+0xff"`, `"+ff"`; a negative is `-` either way; `.sign` rides beside any number format |
 | `i.String(radix: n)` | bare digits, n in 2...36: `"ff"` |
 | `i.Double()` | `Double(i)` |
-| `i.debugDescription` | hex: `0xff` |
+| `i.debugDescription` | `i.String(.sign, .hex)`: `+0xff`, `-0x10` (round 125) |
 
 ```swift
 9223372036854775807 + 1   // overflow: traps
 Int("0xff")               // 255
-255.String(.hex).Int()!   // 255 — prefixed forms round-trip ("+0xff")
+255.String(.hex).Int()!   // 255 — prefixed forms round-trip; so does "+0xff" from .sign
 7 / 2                     // 3
 1 + 1.5                   // type error: Int ≠ Double
 ```

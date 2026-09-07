@@ -1782,3 +1782,21 @@ the history. (Moved out of Design.md in round 65.)
   source form, and `0xff` is what a literal looks like. Revised: two
   expectations from rounds 20–21 and round 121's own "unchanged"
   line.
+* **2026-09-07, round 125 — `.sign`; the debug form is `.String(.sign,
+  .hex)`** ("Let's add `String(.sign)` instead. With that positive
+  values are prefixed with `+`. Without it it is omitted. And
+  `.debugDescription` for Int and Double are defined as
+  `.String(.sign, .hex)`"), revising rounds 121 and 124. Better: a
+  sign the reader asks for rather than one a format imposes, and the
+  same word for every number format — `42.String(.sign)` is `"+42"`,
+  `.String(.sign, .hex)` is `"+0xff"`, `.String(.sign, radix: 16)` is
+  `"+ff"`. The modifier machinery round 117 built for `.pretty` took
+  `.sign` in a dozen lines; the two refuse each other, and `.sign`
+  refuses a text format. The one place the sign is always on is the
+  debug form, by definition now: `255.debugDescription` is
+  `"+0xff"`, and so `debugPrint` shows it, through Arrays and Ranges.
+  Two deliberate exceptions: a Data's byte dump and a Date's epoch
+  keep SION's unsigned spelling — bytes have no sign, and `.Date(0x…)`
+  is how SION writes a date. Revised: the round 121/124 expectations
+  (formats unsigned again) and round 37's debug-form expectations
+  (signed now).

@@ -25,7 +25,7 @@ struct TypeValueAliasTests {
     func conversionLaw() throws {
         #expect(try eval("let S = String\n42.S()") == .string("42"))
         #expect(try eval("let S = String\n[1, 2].S()") == .string("[1, 2]"))
-        #expect(try eval("let S = String\n255.S(.hex)") == .string("+0xff"))
+        #expect(try eval("let S = String\n255.S(.hex)") == .string("0xff"))
         #expect(try eval("let D = Data\n\"hi\".D(.utf8).count") == .int(2))
         #expect(throws: SwiftalkError.self) { try eval("let D = Data\n42.D()") }
         #expect(throws: SwiftalkError.self) { try eval("let S = 3\n42.S()") }            // not a type: no law

@@ -429,8 +429,8 @@ string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bar
 
   ```swift
   255.String(.hex)        // "0xff"       — prefixed, literal-ready
-  255.String(.oct)        // "+0o377"       — signed both ways since round 124
-  255.String(.bin)        // "+0b11111111"
+  255.String(.oct)        // "0o377"        — "+0o377" under .sign (round 125)
+  255.String(.bin)        // "0b11111111"
   255.String(radix: 16)   // "ff"         — bare digits, any radix
   ```
 
@@ -604,14 +604,21 @@ error for `+1.0`. Implement it. Also explicitly prefix `+` for
 positive values when `.String(.hex)`. Also implement `===` and `!==`
 where `+0 !== -0` and `nan === nan`"). Prefix `+` is Swift's: the
 number itself, on Int, Double, and Byte, a type error elsewhere; after
-an operand, `a +1` stays binary. `.String(.hex)` writes the sign both
-ways — `+0xff`, `-0x10`, `+0x0p0`, `-0x0p0` — so a Double's signed zero
-shows in the one format meant for the programmer's eye; `nan` and
-`inf` are as they were, and so is the debug form. `.oct`/`.bin`
-followed in **round 124** ("Let's implement `.oct` and `.bin` with
-explicit `+` too"): the three prefixed formats are one rule now —
-the sign is always written — and `debugDescription`, being the
-source form, is still not. `===` and `!==` are JS's
+an operand, `a +1` stays binary. `.String(.hex)` wrote the sign both
+ways from this round, `.oct`/`.bin` from **round 124** — **revised in
+round 125** ("Let's add `String(.sign)` instead. With that positive
+values are prefixed with `+`. Without it it is omitted. And
+`.debugDescription` for Int and Double are defined as `.String(.sign,
+.hex)`"): the always-on sign was a format's business made the reader's,
+so it is a modifier now, the second after `.pretty`. `.sign` rides
+beside any number format — none (`"+42"`), `.hex`/`.oct`/`.bin`,
+`radix:` — and writes the `+` a positive number otherwise omits; a
+negative is `-` either way; `nan` alone has no sign, `+inf` does. The
+formats are unsigned again, as rounds 20–21 had them. What keeps the
+sign always is the **debug form**: `debugDescription` for Int and
+Double is `.String(.sign, .hex)` — `+0xff`, `+0x1.8p0`, `-0x0p0` beside
+`+0x0p0` — through collections and Ranges; a Data's bytes and a
+Date's epoch stay in SION's own unsigned spelling. `===` and `!==` are JS's
 `Object.is`, not Swift's reference identity (which the shelved
 classes give under `==` already): the same type and the same value bit
 for bit — `Double.nan === Double.nan`, `+0.0 !== -0.0`, `1 !== 1.0`,

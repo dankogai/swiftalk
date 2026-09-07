@@ -32,7 +32,7 @@ struct RangeTests {
             let v = try eval(source)
             #expect(try eval(v.sourceString()) == v)
         }
-        #expect(try eval("(255...4096).debugDescription") == .string("0xff...0x1000"))
+        #expect(try eval("(255...4096).debugDescription") == .string("+0xff...+0x1000"))
     }
 
     @Test("Range conforms to Sequence: for-in, map, filter, reduce, count, Array()")

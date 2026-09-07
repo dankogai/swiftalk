@@ -3006,23 +3006,48 @@ func convert(_ typeName: String, subject: Value?,
 }
 
 /// String's format vocabulary (rounds 20–21, 42): .quoted, .hex/.oct/
-/// .bin (prefixed, literal-ready), radix: n (bare digits); .pretty
-/// (round 117) rides beside .sion or .json — alone, it means .sion.
+/// .bin (prefixed, literal-ready), radix: n (bare digits); two
+/// modifiers ride beside a format — .pretty (round 117) with .sion or
+/// .json, alone meaning .sion; .sign (round 125) with a number's format,
+/// alone meaning the plain decimal — and write the `+` a positive
+/// number otherwise omits. Nothing but nan has a sign.
 private func stringFormat(_ subject: Value,
                           _ formats: [(label: String?, value: Value)]) throws -> Value {
     var formats = formats
-    var pretty = false
+    var pretty = false, sign = false
     if let i = formats.firstIndex(where: { $0.label == nil && $0.value == .string("pretty") }) {
         pretty = true
         formats.remove(at: i)
-        if formats.isEmpty { formats = [(label: nil, value: .string("sion"))] }
     }
-    guard formats.count == 1 else {
-        throw SwiftalkError.type(".String() takes at most one format argument, plus .pretty")
+    if let i = formats.firstIndex(where: { $0.label == nil && $0.value == .string("sign") }) {
+        sign = true
+        formats.remove(at: i)
+    }
+    guard formats.count <= 1 else {
+        throw SwiftalkError.type(".String() takes at most one format argument, plus .pretty or .sign")
+    }
+    guard !(pretty && sign) else {
+        throw SwiftalkError.type(".pretty lays out text and .sign marks a number — not both")
+    }
+    /// the sign to write: `-` for a negative, `+` for the rest under .sign
+    func plus(_ negative: Bool) -> String { negative ? "-" : sign ? "+" : "" }
+    if formats.isEmpty {
+        if pretty { return .string(subject.prettyString()) }
+        // .String(.sign): the plain number, signed
+        switch subject {
+        case .int(let i):    return .string(plus(i < 0) + String(i.magnitude))
+        case .byte(let b):   return .string(plus(false) + String(b))
+        case .double(let d): return .string(d.isNaN ? "nan" : plus(d.sign == .minus) + String(d.magnitude))
+        default:
+            throw SwiftalkError.type(".sign is a number's modifier, not a \(subject.typeName)'s")
+        }
     }
     let (label, format) = formats[0]
     if pretty, ![.string("quoted"), .string("sion"), .string("json"), .string("propertyList")].contains(format) {
         throw SwiftalkError.type(".pretty lays out .sion (the default), .json, or .propertyList — not \(format.sourceString())")
+    }
+    if sign, label != "radix", ![.string("hex"), .string("oct"), .string("bin")].contains(format) {
+        throw SwiftalkError.type(".sign goes with a number's format — .hex, .oct, .bin, radix:, or none — not \(format.sourceString())")
     }
     if label == "radix" {
         guard case .int(let radix) = format, (2...36).contains(radix) else {
@@ -3031,7 +3056,7 @@ private func stringFormat(_ subject: Value,
         guard case .int(let i) = subject else {
             throw SwiftalkError.type(".String(radix:) is an Int's format")
         }
-        return .string(String(i, radix: Int(radix)))
+        return .string(plus(i < 0) + String(i.magnitude, radix: Int(radix)))
     }
     guard label == nil else {
         throw SwiftalkError.type("unknown .String() format label '\(label!)'")
@@ -3063,10 +3088,10 @@ private func stringFormat(_ subject: Value,
     case .string("hex"):
         // Literal-ready, prefixed — round-trips (rounds 20–21).
         switch subject {
-        // The sign is explicit since round 121 — "+0xff", "+0x0p0",
-        // "-0x0p0" — so a Double's signed zero shows; nan and inf as they are.
-        case .int(let i):     return .string((i < 0 ? "" : "+") + subject.sourceString(debug: true))
-        case .double(let d):  return .string((d.isFinite && d.sign == .plus ? "+" : "") + Value.hexFloat(d))
+        // "0xff", "-0x10"; under .sign "+0xff", "+0x0p0" beside "-0x0p0"
+        // — a Double's signed zero shows (rounds 121, 125)
+        case .int(let i):     return .string(plus(i < 0) + "0x" + String(i.magnitude, radix: 16))
+        case .double(let d):  return .string(Value.hexFloat(d, signed: sign))
         default:
             throw SwiftalkError.type(".String(.hex) is a number's format")
         }
@@ -3075,8 +3100,7 @@ private func stringFormat(_ subject: Value,
             throw SwiftalkError.type(".String(.oct)/.String(.bin) are an Int's formats")
         }
         let (prefix, radix) = format == .string("oct") ? ("0o", 8) : ("0b", 2)
-        // signed both ways, as .hex is (round 124 after 121): "+0o377", "-0b11"
-        return .string((i < 0 ? "-" : "+") + prefix + String(i.magnitude, radix: radix))
+        return .string(plus(i < 0) + prefix + String(i.magnitude, radix: radix))
     default:
         throw SwiftalkError.type("unknown .String() format \(format.sourceString())")
     }
