@@ -171,7 +171,7 @@ level whoever calls it. With `m.swt` beside the REPL:
 let secret = 7
 export let peek = { eval("secret") }
 export let define = { eval("let minted = 1") }
-export let minted = { eval("minted") }
+export let read = { eval("minted") }
 ```
 
 ```text
@@ -181,9 +181,9 @@ swiftalk> M.peek()
 swiftalk> secret
 type error: undefined variable 'secret'
 swiftalk> M.define()
-type error: redeclaration of 'minted'
-swiftalk> M.minted()
-{ ... }
+1
+swiftalk> M.read()
+1
 swiftalk> minted
 type error: undefined variable 'minted'
 swiftalk> let secret = "mine"
