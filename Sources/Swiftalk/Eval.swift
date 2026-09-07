@@ -1413,6 +1413,13 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
         case let v:
             throw SwiftalkError.type("cannot negate \(v.typeName)")
         }
+    case .unaryPlus(let e):
+        // prefix + (round 121): the number itself — Int, Double, Byte
+        let v = try evaluate(e, in: env)
+        switch v {
+        case .int, .double, .byte: return v
+        default: throw SwiftalkError.type("cannot apply prefix + to \(v.typeName)")
+        }
     case .binary(let op, let lhs, let rhs):
         return try binary(op, try evaluate(lhs, in: env), try evaluate(rhs, in: env))
     case .comparison(let op, let lhs, let rhs):
@@ -2804,6 +2811,38 @@ private func binary(_ op: Character, _ lhs: Value, _ rhs: Value) throws -> Value
     }
 }
 
+/// `===`/`!==` (round 121): JS's `Object.is` — the same type and the
+/// same value, bit for bit: `Double.nan === Double.nan`, `+0.0 !== -0.0`;
+/// references by identity; containers element-wise, recursively, keys
+/// included. Never a type error — values of different types (a Byte and
+/// an Int too) are simply not the same value.
+func identical(_ a: Value, _ b: Value) -> Bool {
+    func all(_ xs: [Value], _ ys: [Value]) -> Bool {
+        xs.count == ys.count && zip(xs, ys).allSatisfy { identical($0, $1) }
+    }
+    switch (a, b) {
+    case (.double(let x), .double(let y)):
+        return x.bitPattern == y.bitPattern
+    case (.array(let x), .array(let y)):
+        return all(x, y)
+    case (.tuple(let x), .tuple(let y)):
+        return all(x.values, y.values)
+    case (.dictionary(let x), .dictionary(let y)):
+        return x.count == y.count && x.allSatisfy { k, v in
+            y.contains { identical(k, $0.key) && identical(v, $0.value) }
+        }
+    case (.structValue(let x), .structValue(let y)):
+        return x.type == y.type && x.values.count == y.values.count
+            && x.values.allSatisfy { k, v in y.values[k].map { identical(v, $0) } ?? false }
+    case (.enumCase(let x), .enumCase(let y)):
+        return x.type == y.type && x.caseName == y.caseName && all(x.associated, y.associated)
+    case (.byte, .int), (.int, .byte):
+        return false
+    default:
+        return a == b       // same type, structural — or different types, false
+    }
+}
+
 /// `==`/`!=` on any same-type pair (Equatable, §10); `< <= > >=` on
 /// Int/Double/String (Comparable). `x == nil` is a valid question of
 /// anything (§3a); mixing other types is a type error, not `false`.
@@ -2822,6 +2861,8 @@ private func compare(_ op: String, _ lhs: Value, _ rhs: Value) throws -> Value {
             }
         }
         return .bool(op == "==" ? lhs == rhs : lhs != rhs)
+    case "===", "!==":
+        return .bool(identical(lhs, rhs) == (op == "==="))
     default:
         let ascending: Bool
         switch (lhs, rhs) {
@@ -2991,8 +3032,10 @@ private func stringFormat(_ subject: Value,
     case .string("hex"):
         // Literal-ready, prefixed — round-trips (rounds 20–21).
         switch subject {
-        case .int:            return .string(subject.sourceString(debug: true))
-        case .double(let d):  return .string(Value.hexFloat(d))
+        // The sign is explicit since round 121 — "+0xff", "+0x0p0",
+        // "-0x0p0" — so a Double's signed zero shows; nan and inf as they are.
+        case .int(let i):     return .string((i < 0 ? "" : "+") + subject.sourceString(debug: true))
+        case .double(let d):  return .string((d.isFinite && d.sign == .plus ? "+" : "") + Value.hexFloat(d))
         default:
             throw SwiftalkError.type(".String(.hex) is a number's format")
         }

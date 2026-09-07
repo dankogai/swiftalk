@@ -6,6 +6,7 @@ indirect enum Expr {
     case array([Expr])
     case dictionary([(Expr, Expr)])
     case unaryMinus(Expr)
+    case unaryPlus(Expr)                                  // +x — the number itself (round 121)
     case binary(Character, Expr, Expr)          // + - * /
     case comparison(String, Expr, Expr)         // == != < <= > >=
     case ternary(Expr, Expr, Expr)
@@ -1197,10 +1198,11 @@ struct Parser {
 
     private mutating func parseComparison() throws -> Expr {
         let lhs = try parseCoalescing()
-        // the six comparisons, by name — not "any other .op" (round 102:
-        // += and friends are .op tokens too, and are statements)
+        // the comparisons, by name — not "any other .op" (round 102:
+        // += and friends are .op tokens too, and are statements);
+        // === and !== joined in round 121
         guard case .op(let op)? = peek,
-              ["==", "!=", "<", "<=", ">", ">="].contains(op) else { return lhs }
+              ["==", "!=", "===", "!==", "<", "<=", ">", ">="].contains(op) else { return lhs }
         pos += 1
         return .comparison(op, lhs, try parseCoalescing())
     }
@@ -1256,6 +1258,10 @@ struct Parser {
         if case .punct("-")? = peek {
             pos += 1
             return .unaryMinus(try parseUnary())
+        }
+        if case .punct("+")? = peek {
+            pos += 1
+            return .unaryPlus(try parseUnary())
         }
         if case .op("!")? = peek {
             // Prefix `!` — logical not (round 69). Postfix `!` (force

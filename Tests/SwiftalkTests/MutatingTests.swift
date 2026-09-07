@@ -104,7 +104,7 @@ struct MutatingTests {
         #expect(try eval("""
             struct H { var n: Int = 255\nlet asHex = { .n.String(.hex) } }
             H().asHex()
-            """) == .string("0xff"))
+            """) == .string("+0xff"))
         // a self member named like a format member shadows it (documented)
         #expect(throws: SwiftalkError.self) {
             try eval("struct H { var n: Int = 255\nlet hex = { .n.String(.hex) } }\nH().hex()")

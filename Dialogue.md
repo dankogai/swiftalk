@@ -1722,3 +1722,23 @@ the history. (Moved out of Design.md in round 65.)
   helper are gone; the shared bounds parser now serves Double alone;
   round 109's tests that expected `Int.random()` and `Int.random(6)`
   to be errors are back, joined by `to:` and `from:` as errors.
+* **2026-09-07, round 121 — prefix `+`, a signed `.hex`, `===` / `!==`**
+  ("Looks like prefix `+` to Int and Double are missing. I got a
+  syntax error for `+1.0`. Implement it. Also explicitly prefix `+`
+  for positive values when `.String(.hex)`. Also implement `===` and
+  `!==` where `+0 !== -0` and `nan === nan`"). Three things, one
+  theme: the sign of a number is worth spelling. Prefix `+` parses
+  beside `-` (the number itself on Int, Double, Byte; a type error
+  elsewhere) and the SION reader admits it, so `+0x0p0` re-enters.
+  `.String(.hex)` now carries the sign both ways, which is what lets
+  `-0x0p0` and `+0x0p0` tell IEEE's two zeros apart on the page; the
+  debug form and `.oct`/`.bin` are untouched — the user named `.hex`.
+  `===` is JS's `Object.is` rather than Swift's reference `===`: the
+  same type and the same bits, recursive through Arrays,
+  Dictionaries (keys too), tuples, structs, and enum payloads, and
+  never a type error — `1 === 1.0` is false where `1 == 1.0` is a
+  question with no answer. Lexed as a third `=` after `==` / `!=`,
+  parsed at `==`'s level, continuing a line as `==` does. Revised:
+  three `.hex` expectations from rounds 20–21, one from round 58, and
+  one from round 111, now signed. Found on the way: `class` is shelved (round 62), so the
+  reference-identity test stays out with it.

@@ -39,6 +39,7 @@ See [grammar.md](grammar.md) for the syntax as parsed.
 | `x.debugDescription` | debugPrint's form: quoted strings, hex numbers |
 | `x.String()` | description; `x.String(.quoted)` is source form (§3d) |
 | `x == y`, `x != y` | equality — same type required (except against `nil`); reference-ish types compare by identity |
+| `x === y`, `x !== y` | the same type and the same value, bit for bit — JS's `Object.is`: `Double.nan === Double.nan`, `+0.0 !== -0.0`, `1 !== 1.0`; recursive through containers; never a type error (round 121) |
 
 ## The conversion law (round 47)
 
@@ -92,6 +93,7 @@ annotation (`[String]`, `Int?`) — spell those out, or annotate `Any`.
 | `.bitNot()`, `.bitAnd()`, `.bitOr()`, `.bitXor()`, `.shifted(by:)` | bitwise, on an Int (rounds 105/107) | ✓ | | | | | |
 | `< <= > >=` | ✓ | ✓ | ✓ | | ✓ | | |
 | `== !=` | | | | | | | ✓ same type, or vs nil |
+| `=== !==` | | | | | | | ✓ same type and bits; any pair, never an error (round 121) |
 | `&& \|\| !` | | | | | | ✓ short-circuit | |
 | `? :` | | | | | | condition | |
 | `??` `x?` `x!` `x?.m` | | | | | | | ✓ (nil / Result) |

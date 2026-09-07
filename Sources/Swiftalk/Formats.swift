@@ -92,6 +92,7 @@ enum SIONFormat {
             return v
         case .unaryMinus(.literal(.int(let i))):    return .int(-i)
         case .unaryMinus(.literal(.double(let d))): return .double(-d)
+        case .unaryPlus(.literal(let v)):           return v            // +1, +0x0p0 (round 121)
         case .array(let elements):
             return .array(try elements.map(value(of:)))
         case .dictionary(let pairs):

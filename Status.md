@@ -163,6 +163,41 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**Prefix `+`, a signed `.hex`, and `===` / `!==`** (round 121) — `+x` is
+the number itself; `.String(.hex)` writes the sign both ways; `===` is
+the same type and the same bits, never a type error:
+
+```text
+swiftalk> +1.0
+1.0
+swiftalk> -+1
+-1
+swiftalk> [+1, -1, +0.0]
+[1, -1, 0.0]
+swiftalk> +"a"
+type error: cannot apply prefix + to String
+swiftalk> 255.String(.hex)
+"+0xff"
+swiftalk> (-0.0).String(.hex)
+"-0x0p0"
+swiftalk> Int(255.String(.hex))
+255
+swiftalk> 0.0 == -0.0
+true
+swiftalk> 0.0 === -0.0
+false
+swiftalk> Double.nan == Double.nan
+false
+swiftalk> Double.nan === Double.nan
+true
+swiftalk> 1 == 1.0
+type error: '==' is not defined between Int and Double
+swiftalk> 1 === 1.0
+false
+swiftalk> [0.0] !== [-0.0]
+true
+```
+
 **`Double.random(to:)`, `Double.random(from:to:)`** (round 119) — the
 labels on round 112's bounds, half-open; Int keeps its Range (round
 120 took back a `to:`/`from:` spelling for Int):
@@ -1551,7 +1586,7 @@ literal-ready while `radix:` is bare:
 swiftalk> "foo".String(.quoted)
 "\"foo\""
 swiftalk> 255.String(.hex)
-"0xff"
+"+0xff"
 swiftalk> 255.String(radix: 16)
 "ff"
 swiftalk> Int(255.String(.hex)) == 255

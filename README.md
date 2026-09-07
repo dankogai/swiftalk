@@ -66,7 +66,7 @@ for x in mixed {
     print("\(x.String()): \(x.Type)")         // .String() is universal (§3d)
 }
 let answer = "42".Int() ?? 0                  // failable conversion + default
-let hex    = 255.String(.hex)                 // "0xff"; radix: 16 for bare "ff"
+let hex    = 255.String(.hex)                 // "+0xff" — signed both ways; radix: 16 for bare "ff"
 let bytes  = "café".Data(.utf8)               // infallible; .Data("base64") is the literal
 let text   = bytes.String(.utf8)              // String? — bytes may not be text
 let src    = bytes.String()                   // .Data("Y2Fmw6k=") — SION; eval(src) == bytes

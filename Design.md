@@ -598,6 +598,25 @@ short-circuit on the right, precedence `!` > comparison > `&&` >
 `!` (force unwrap) coexist; position tells them apart. A lone `&` or
 `|` is a syntax error — bitwise operators are undecided.
 
+**Prefix `+`, a signed `.hex`, and `===` / `!==` — DECIDED (round 121)**
+("Looks like prefix `+` to Int and Double are missing. I got a syntax
+error for `+1.0`. Implement it. Also explicitly prefix `+` for
+positive values when `.String(.hex)`. Also implement `===` and `!==`
+where `+0 !== -0` and `nan === nan`"). Prefix `+` is Swift's: the
+number itself, on Int, Double, and Byte, a type error elsewhere; after
+an operand, `a +1` stays binary. `.String(.hex)` writes the sign both
+ways — `+0xff`, `-0x10`, `+0x0p0`, `-0x0p0` — so a Double's signed zero
+shows in the one format meant for the programmer's eye; `nan` and
+`inf` are as they were, and so are `.oct`/`.bin` and the debug form
+(OPEN: whether they should follow). `===` and `!==` are JS's
+`Object.is`, not Swift's reference identity (which the shelved
+classes give under `==` already): the same type and the same value bit
+for bit — `Double.nan === Double.nan`, `+0.0 !== -0.0`, `1 !== 1.0`,
+`Byte(1) !== 1` — recursive through containers, keys included, and
+never a type error: values of different types are simply not the same
+value, where `==` asks a question with no answer. Same precedence as
+`==`, unchained, continuing a line.
+
 **SION as a built-in — DECIDED (round 97)**. The user's spec: "`SION(string)`
 parses string to SION. `sion.String()` stringify. `SION(json:string)`
 treats the string as JSON. `sion.String(.json)` emits a JSON string.

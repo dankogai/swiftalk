@@ -24,8 +24,10 @@ separators.
 | `Int.min`, `Int.max`, `Int.bitWidth`, `Int.zero`, `Int.isSigned` | Swift's static properties (round 113): -2⁶³, 2⁶³-1, 64, 0, true |
 | `Int.random(in: 1...6)`, `Int.random(0..<3)` | a random Int from a bounded, non-empty Range — the system generator (round 109); uncalled, a Function value. The only form: a Range says `f..<t` or `f...t` itself, and `Int.min...Int.max` is the whole line (round 120 took back a `to:`/`from:` spelling; Double's is different because Range is Int-only) |
 | `i < j` etc., `==` | Comparable, Equatable |
+| `i === j`, `i !== j` | the same type and the same value — `1 !== 1.0`, `Byte(1) !== 1`; never a type error (round 121) |
+| `+i`, `-i` | prefix: the number itself / negation (`+` since round 121) |
 | `i.String()` | decimal, e.g. `"255"` |
-| `i.String(.hex)` / `.oct` / `.bin` | prefixed, literal-ready: `"0xff"`, `"-0o377"`, `"0b11"` |
+| `i.String(.hex)` / `.oct` / `.bin` | prefixed, literal-ready: `"+0xff"`, `"-0o377"`, `"0b11"` — `.hex` carries its sign both ways since round 121 |
 | `i.String(radix: n)` | bare digits, n in 2...36: `"ff"` |
 | `i.Double()` | `Double(i)` |
 | `i.debugDescription` | hex: `0xff` |
@@ -33,7 +35,7 @@ separators.
 ```swift
 9223372036854775807 + 1   // overflow: traps
 Int("0xff")               // 255
-255.String(.hex).Int()!   // 255 — prefixed forms round-trip
+255.String(.hex).Int()!   // 255 — prefixed forms round-trip ("+0xff")
 7 / 2                     // 3
 1 + 1.5                   // type error: Int ≠ Double
 ```

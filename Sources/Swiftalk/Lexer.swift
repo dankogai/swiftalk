@@ -165,7 +165,12 @@ struct Lexer {
                 pos += 1
                 if peek == "=" {
                     pos += 1
-                    tokens.append(.op(String(c) + "="))
+                    if c == "=" || c == "!", peek == "=" {
+                        pos += 1
+                        tokens.append(.op(String(c) + "=="))     // === / !== (round 121)
+                    } else {
+                        tokens.append(.op(String(c) + "="))
+                    }
                 } else if c == "=" {
                     tokens.append(.punct("="))
                 } else if c == "<" || c == ">" {
@@ -231,7 +236,7 @@ struct Lexer {
         case .punct(let p)?:
             return "+-*/%=".contains(p)
         case .op(let o)?:
-            return ["==", "!=", "<", "<=", ">", ">=", "&&", "||", "??",
+            return ["==", "!=", "===", "!==", "<", "<=", ">", ">=", "&&", "||", "??",
                     "+=", "-=", "*=", "/=", "%=", "??=", "&&=", "||=", "^^", "^^="].contains(o)
         default:
             return false

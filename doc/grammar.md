@@ -55,8 +55,8 @@ Shelved forms (`actor`, `class`, `super`) are not grammar today.
     keyword) and is division after a value, a name, or a closing
     bracket — JavaScript's rule. `//` is a comment, never an empty
     regex.
-* **Operators & punctuation**: `+ - * / %`, `+= -= *= /= %= ??= &&= ||= ^^=`, `== != < <= > >=`, `&& ^^ ||`,
-  prefix `! -`, `...` `..<`, `??`, `= : , . ; ( ) [ ] { }`. Three
+* **Operators & punctuation**: `+ - * / %`, `+= -= *= /= %= ??= &&= ||= ^^=`, `== != === !== < <= > >=`, `&& ^^ ||`,
+  prefix `! - +`, `...` `..<`, `??`, `= : , . ; ( ) [ ] { }`. Three
   spacing-sensitive rules:
   * `?` — `??` coalesces; *unspaced* `?.` chains, *unspaced* postfix
     `?` propagates; *spaced* `?` is the ternary.
@@ -180,13 +180,13 @@ ternary      = disjunction [ "?" expression ":" expression ] ;      (* spaced ?,
 disjunction  = xor { "||" xor } ;                                   (* short-circuit *)
 xor          = conjunction { "^^" conjunction } ;                   (* both sides evaluated (round 106) *)
 conjunction  = comparison { "&&" comparison } ;
-comparison   = coalescing [ ( "==" | "!=" | "<" | "<=" | ">" | ">=" ) coalescing ] ;   (* not chained *)
+comparison   = coalescing [ ( "==" | "!=" | "===" | "!==" | "<" | "<=" | ">" | ">=" ) coalescing ] ;   (* not chained *)
 coalescing   = range [ "??" coalescing ] ;                          (* right-assoc, lazy right *)
 range        = additive [ "..." [ additive ] | "..<" additive ] ;   (* a... unbounded (round 88): the bound is
                                                                    absent when ) ] } , : ; { or a newline follows *)
 additive     = multiplicative { ( "+" | "-" ) multiplicative } ;
 multiplicative = unary { ( "*" | "/" | "%" ) unary } ;      (* % is Int only (round 93) *)
-unary        = "-" unary | "!" unary | "await" unary | postfix ;
+unary        = "-" unary | "+" unary | "!" unary | "await" unary | postfix ;   (* + since round 121 *)
 postfix      = primary { suffix } ;
 suffix       = "." IDENT [ args ]                      (* member, method *)
              | "." INT                                 (* tuple element *)

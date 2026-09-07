@@ -44,9 +44,11 @@ Bool from the predicates, and labeled tuples from `modf`/`frexp`/`remquo`.
 
 Not carried over from JS: `clz32` and `imul` (Int's business — see
 `leadingZeroBitCount`).
-| `d < e` etc., `==` | Comparable, Equatable |
+| `d < e` etc., `==` | Comparable, Equatable — IEEE's: `0.0 == -0.0`, `nan != nan` |
+| `d === e`, `d !== e` | the same bits (round 121): `Double.nan === Double.nan`, `+0.0 !== -0.0`, `1.0 !== 1`; never a type error |
+| `+d`, `-d` | prefix: the number itself / negation (`+` since round 121) |
 | `d.String()` | the shortest round-tripping decimal: `0.30000000000000004` |
-| `d.String(.hex)` | hex float, `"0x1.fep7"` — re-enters as a literal |
+| `d.String(.hex)` | hex float, signed both ways: `"+0x1.fep7"`, `"-0x0p0"` — re-enters as a literal; `nan`/`inf` as they are (round 121) |
 | `d.Int()` | truncation toward zero; `nil` if unrepresentable |
 | `d.debugDescription` | hex float |
 
