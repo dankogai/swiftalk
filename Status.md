@@ -163,6 +163,39 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`??` and `!!` on Dictionaries; `!!` everywhere** (round 130) — `d0 ??
+d1` fills, `d0 !! d1` overrides, and `a !! b` is `b ?? a` on every
+value; `??=` and `!!=` in place:
+
+```text
+swiftalk> let d0 = ["a": 1, "b": 2]
+["a": 1, "b": 2]
+swiftalk> let d1 = ["b": 20, "c": 30]
+["b": 20, "c": 30]
+swiftalk> d0 ?? d1
+["a": 1, "b": 2, "c": 30]
+swiftalk> d0 !! d1
+["a": 1, "b": 20, "c": 30]
+swiftalk> (d0 !! d1) == (d1 ?? d0)
+true
+swiftalk> ["k": nil] ?? ["k": 1]
+["k": 1]
+swiftalk> var d = ["a": 1]
+["a": 1]
+swiftalk> d ??= ["a": 9, "b": 2]
+["a": 1, "b": 2]
+swiftalk> d !!= ["a": 9]
+["a": 9, "b": 2]
+swiftalk> 1 !! nil
+1
+swiftalk> nil !! 2
+2
+swiftalk> let x: Int? = 3
+3
+swiftalk> x!!
+3
+```
+
 **A Dictionary's `enumerated()` is itself** (round 129) — its pairs are
 `(key:, value:)` already, so `enumerated()` means "the pairs, keyed"
 on every conformer:

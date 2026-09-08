@@ -20,6 +20,7 @@ var x: Int? = nil   // annotate: nil alone infers nothing
 | `x ??= y`, `d["k"] ??= 0` | assigns only when the target is nil (or a Result failure); `y` is not evaluated otherwise (round 103) |
 | `if o { o + 1 }`, `while node { node = node.next }` | a bare optional variable as a condition asks "not nil?"; inside, `o` is simply itself — no shadow, writes reach the variable (round 80). Not for expressions: `if x = Int(s) { }` |
 | `nil ?? d` | `d` |
+| `a !! b` | `b ?? a` (round 130): the right side's value when it has one, else the left's — both evaluated; `x !!= y` is `x = y ?? x`, "update if provided". On Dictionaries both `??` and `!!` are per key — see [Dictionary.md](Dictionary.md) |
 | `nil?` | early-returns nil from the enclosing function (§3a/§8) |
 | `nil!` | type error: force-unwrapped nil |
 | `nil?.m` | `nil`, without evaluating the member or its arguments |

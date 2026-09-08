@@ -28,6 +28,7 @@ indirect enum Expr {
     case logicalXor(Expr, Expr)                           // a ^^ b — both sides evaluated (round 106)
     case superRef                                         // super — receiver position only (round 56)
     case coalesce(Expr, Expr)                             // a ?? b — default on nil/failure
+    case override(Expr, Expr)                             // a !! b — b ?? a, the right side's when it has one (round 130)
     case optionalMember(Expr, name: String,               // a?.b / a?.b(args) — nil skips
                         args: [(label: String?, expr: Expr)], called: Bool)
     /// `switch` is an expression (round 79, Swift 5.9's): its value is
@@ -401,6 +402,10 @@ struct Parser {
             if case .op("??=")? = peek {
                 pos += 1
                 return .compoundAssignment(target: try lvalue(from: expr), op: "?", expr: try parseExpr())
+            }
+            if case .op("!!=")? = peek {                                        // round 130
+                pos += 1
+                return .compoundAssignment(target: try lvalue(from: expr), op: "!", expr: try parseExpr())
             }
             if case .op(let o)? = peek, o == "&&=" || o == "||=" || o == "^^=" {   // rounds 104/106
                 pos += 1
@@ -1207,12 +1212,13 @@ struct Parser {
         return .comparison(op, lhs, try parseCoalescing())
     }
 
-    /// `a ?? b` — right-associative, lazy on the right (round 51).
+    /// `a ?? b` — right-associative, lazy on the right (round 51);
+    /// `a !! b` beside it, the same level (round 130).
     private mutating func parseCoalescing() throws -> Expr {
         let lhs = try parseRange()
-        guard case .op("??")? = peek else { return lhs }
+        guard case .op(let op)? = peek, op == "??" || op == "!!" else { return lhs }
         pos += 1
-        return .coalesce(lhs, try parseCoalescing())
+        return op == "??" ? .coalesce(lhs, try parseCoalescing()) : .override(lhs, try parseCoalescing())
     }
 
     private mutating func parseRange() throws -> Expr {

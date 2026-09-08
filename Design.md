@@ -664,6 +664,27 @@ seeing its unexported names and never the importer's; the program's
 call path; what a file's top level means is settled by where the
 text was written.
 
+**`??` and `!!` — DECIDED (round 130)** ("Let's implement `??` and
+`??=` on Dictionary. Also `!!` and `!!=`. `(d0 !! d1) == (d1 ?? d0)`").
+Round 126's `merge` without a function overwrote, and the user wanted
+the other direction with an operator; `+=` was rejected as
+dishonest — it is lossless on Arrays and would be lossy here — and
+`!!=` proposed as `??=`'s shouting sibling. So: **`??` on two
+Dictionaries is per key**, `d0[k] ?? d1[k]` over the keys of both —
+`d0`'s values kept, the missing filled from `d1`, a stored `nil`
+counting as absent exactly as `d[k] ??= v` has treated it since
+round 103 — which makes the right side evaluated where a Dictionary
+on the left had made it a tautology. **`!!` is defined by the user's
+own equation, on every value**: `a !! b` is `b ?? a` — the right
+side's value when it has one, both sides evaluated, left first — so
+on Dictionaries `d1` overrides and a `nil` in `d1` does not, and on
+scalars `x !!= y` is "update if provided". `merge` without a function
+stays the lossier cousin, writing `nil`s too. One lexing rule, the
+fourth spacing-sensitive one: `!!` is infix only after an operand
+with whitespace before it, so `x!!` is still two force-unwraps and
+`!!b` two nots. Same level as `??`, right-associative, continuing a
+line.
+
 **SION as a built-in — DECIDED (round 97)**. The user's spec: "`SION(string)`
 parses string to SION. `sion.String()` stringify. `SION(json:string)`
 treats the string as JSON. `sion.String(.json)` emits a JSON string.

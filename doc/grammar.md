@@ -55,9 +55,12 @@ Shelved forms (`actor`, `class`, `super`) are not grammar today.
     keyword) and is division after a value, a name, or a closing
     bracket — JavaScript's rule. `//` is a comment, never an empty
     regex.
-* **Operators & punctuation**: `+ - * / %`, `+= -= *= /= %= ??= &&= ||= ^^=`, `== != === !== < <= > >=`, `&& ^^ ||`,
-  prefix `! - +`, `...` `..<`, `??`, `= : , . ; ( ) [ ] { }`. Three
+* **Operators & punctuation**: `+ - * / %`, `+= -= *= /= %= ??= !!= &&= ||= ^^=`, `== != === !== < <= > >=`, `&& ^^ ||`,
+  prefix `! - +`, `...` `..<`, `??` `!!`, `= : , . ; ( ) [ ] { }`. Four
   spacing-sensitive rules:
+  * `!!` — infix (`a !! b`, round 130) only after an operand and with
+    whitespace before it; otherwise two `!`s: `x!!` unwraps twice,
+    `!!b` negates twice.
   * `?` — `??` coalesces; *unspaced* `?.` chains, *unspaced* postfix
     `?` propagates; *spaced* `?` is the ternary.
   * `!` — `!=` compares; `!` before an operand is logical not; `!`
@@ -181,7 +184,7 @@ disjunction  = xor { "||" xor } ;                                   (* short-cir
 xor          = conjunction { "^^" conjunction } ;                   (* both sides evaluated (round 106) *)
 conjunction  = comparison { "&&" comparison } ;
 comparison   = coalescing [ ( "==" | "!=" | "===" | "!==" | "<" | "<=" | ">" | ">=" ) coalescing ] ;   (* not chained *)
-coalescing   = range [ "??" coalescing ] ;                          (* right-assoc, lazy right *)
+coalescing   = range [ ( "??" | "!!" ) coalescing ] ;               (* right-assoc; ?? lazy right, !! eager (round 130) *)
 range        = additive [ "..." [ additive ] | "..<" additive ] ;   (* a... unbounded (round 88): the bound is
                                                                    absent when ) ] } , : ; { or a newline follows *)
 additive     = multiplicative { ( "+" | "-" ) multiplicative } ;

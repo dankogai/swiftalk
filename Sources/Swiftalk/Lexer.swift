@@ -162,6 +162,16 @@ struct Lexer {
                     tokens.append(.op(String(c) + String(c)))
                 }
             case "=", "!", "<", ">":
+                // `!!` / `!!=` (round 130): infix only where an infix can be —
+                // after an operand, with whitespace before it — so `x!!`
+                // stays two force-unwraps and `!!b` two nots.
+                if c == "!", pos + 1 < scalars.count, scalars[pos + 1] == "!",
+                   pos > 0, " \t".unicodeScalars.contains(scalars[pos - 1]),
+                   !Lexer.regexMayStart(after: tokens.last) {
+                    pos += 2
+                    if peek == "=" { pos += 1; tokens.append(.op("!!=")) } else { tokens.append(.op("!!")) }
+                    continue
+                }
                 pos += 1
                 if peek == "=" {
                     pos += 1
@@ -236,8 +246,8 @@ struct Lexer {
         case .punct(let p)?:
             return "+-*/%=".contains(p)
         case .op(let o)?:
-            return ["==", "!=", "===", "!==", "<", "<=", ">", ">=", "&&", "||", "??",
-                    "+=", "-=", "*=", "/=", "%=", "??=", "&&=", "||=", "^^", "^^="].contains(o)
+            return ["==", "!=", "===", "!==", "<", "<=", ">", ">=", "&&", "||", "??", "!!",
+                    "+=", "-=", "*=", "/=", "%=", "??=", "!!=", "&&=", "||=", "^^", "^^="].contains(o)
         default:
             return false
         }

@@ -101,7 +101,8 @@ sees that module's unexported names, never the importer's.
 | `+ - * /` | ✓ (traps on overflow, `/0`) | ✓ | `+` only | `+` only | | | |
 | `%` | ✓ remainder, the dividend's sign; `% 0` traps (round 93) | type error, as in Swift | | | | | |
 | `+= -= *= /= %=` | ✓ (round 102) — `x op= y` is `x = x op y`, the target evaluated once | ✓ | `+=` | `+=` | | | |
-| `??=` | `x ??= y` writes `y` only when `x` is nil (or a Result failure); `y` unevaluated otherwise (round 103) — any type | | | | | | |
+| `??=` | `x ??= y` writes `y` only when `x` is nil (or a Result failure); `y` unevaluated otherwise (round 103) — any type; on a Dictionary, per key (round 130) | | | | | | |
+| `!!`, `!!=` | `a !! b` is `b ?? a` — the right side's value when it has one (round 130); `x !!= y` is `x = y ?? x`; on Dictionaries per key, so `d0 !! d1` overrides with `d1` and `d0 ?? d1` fills from it. Infix only after an operand with a space before it: `x!!` is two unwraps, `!!b` two nots | | | | | | |
 | `&&= ||=` | Bool targets and Bools only; short-circuit like the operators (round 104) — the `op=` family is now every binary operator that can spell one | | | | | | |
 | `^^`, `^^=` | logical xor, Bools only, both sides evaluated; between `&&` and `||` (round 106) | | | | | | |
 | `.not()`, `.and()`, `.or()`, `.xor()` | logical, on a Bool, eager (round 106) | | | | | | |
@@ -111,7 +112,7 @@ sees that module's unexported names, never the importer's.
 | `=== !==` | | | | | | | ✓ same type and bits; any pair, never an error (round 121) |
 | `&& \|\| !` | | | | | | ✓ short-circuit | |
 | `? :` | | | | | | condition | |
-| `??` `x?` `x!` `x?.m` | | | | | | | ✓ (nil / Result) |
+| `??` `x?` `x!` `x?.m` | | | | | | | ✓ (nil / Result); `??` on two Dictionaries is per key (round 130) |
 
 Mixed arithmetic (`1 + 1.5`) is a type error — convert explicitly.
 Precedence, high to low: prefix `! -` · `* / %` · `+ -` · `... ..<` ·

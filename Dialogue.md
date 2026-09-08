@@ -1844,3 +1844,19 @@ the history. (Moved out of Design.md in round 65.)
   Dictionary, `==` to itself, `for k, v in d.enumerated()` the same
   loop as `for k, v in d`. One line in the dispatcher, before the
   eager walk.
+* **2026-09-08, round 130 — `??`, `??=`, `!!`, `!!=`** ("Let's implement
+  `??` and `??=` on Dictionary. Also `!!` and `!!=`. `(d0 !! d1) ==
+  (d1 ?? d0)`"), after two rounds of candidates. The equation turned
+  out to be the whole specification: `!!` is `??` with its operands
+  swapped, on every value, and everything else follows — a
+  Dictionary on `??`'s left coalesces per key, so a Dictionary on
+  `!!`'s right does; a stored `nil` is absent on both, as `d[k] ??=
+  v` decided in round 103; `1 !! nil` is 1 and `nil !! 2` is 2. One
+  helper takes an explicit base and fill and both operators and both
+  assignments call it with the sides in the right order. The lexer
+  got the fourth whitespace rule: `!!` between operands with a space
+  before it is the operator, `x!!` two unwraps, `!!b` two nots —
+  decided by the same "can an operand end here" question the regex
+  literal asks. A first draft made `!!` refuse a non-Dictionary right
+  side; the equation says `["a": 1] !! [1]` is `[1]`, and the
+  equation won.

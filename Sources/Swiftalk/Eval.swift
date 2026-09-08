@@ -448,7 +448,20 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
         // nil, or a Result failure — exactly when `??` would take it.
         if op == "?" {
             return try assign(target, .nil, in: env) { old in
-                try isAbsent(old) ? evaluate(expr, in: env) : old
+                if case .dictionary(let d) = old {          // d ??= defaults (round 130)
+                    return .dictionary(try coalesceDictionaries(base: d, fill: try evaluate(expr, in: env), op: "??="))
+                }
+                return try isAbsent(old) ? evaluate(expr, in: env) : old
+            }
+        }
+        if op == "!" {
+            // x !!= y is x = y ?? x (round 130): both sides evaluated
+            let rhs = try evaluate(expr, in: env)
+            return try assign(target, .nil, in: env) { old in
+                if case .dictionary(let e) = rhs {
+                    return .dictionary(try coalesceDictionaries(base: e, fill: old, op: "!!="))
+                }
+                return try isAbsent(rhs) ? old : rhs
             }
         }
         if op == "^" {
@@ -1672,15 +1685,29 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
         }
     case .coalesce(let lhs, let rhs):
         // a ?? b: default on absence or failure; the right side stays
-        // unevaluated when the left provides.
+        // unevaluated when the left provides. On Dictionaries (round
+        // 130) it is per key — d0[k] ?? d1[k] for every key of either —
+        // so the right side is evaluated, and must be a Dictionary.
         switch try evaluate(lhs, in: env) {
         case .nil:
             return try evaluate(rhs, in: env)
         case .enumCase(let ev) where ev.type === Builtins.resultType:
             return ev.caseName == "success" ? ev.associated[0] : try evaluate(rhs, in: env)
+        case .dictionary(let d):
+            return .dictionary(try coalesceDictionaries(base: d, fill: try evaluate(rhs, in: env), op: "??"))
         case let v:
             return v
         }
+    case .override(let lhs, let rhs):
+        // a !! b is b ?? a (round 130): the right side's value when it has
+        // one — both sides evaluated, left first. A Dictionary on the
+        // right is per key, and wants a Dictionary on the left.
+        let a = try evaluate(lhs, in: env)
+        let b = try evaluate(rhs, in: env)
+        if case .dictionary(let e) = b {
+            return .dictionary(try coalesceDictionaries(base: e, fill: a, op: "!!"))
+        }
+        return try isAbsent(b) ? a : b
     case .optionalMember(let receiverExpr, let name, let args, let called):
         // a?.b — nil skips the member (arguments unevaluated). Chains of
         // ?. compose; a plain `.` after a nil errors (unlike Swift's
@@ -2854,6 +2881,21 @@ private func binary(_ op: Character, _ lhs: Value, _ rhs: Value) throws -> Value
         throw SwiftalkError.type(
             "'\(op)' is not defined between \(lhs.typeName) and \(rhs.typeName)")
     }
+}
+
+/// `base ?? fill` on Dictionaries (round 130): per key, `base[k] ??
+/// fill[k]` over the keys of both — a stored nil counts as absent, as
+/// `d[k] ??= v` has treated it since round 103. `a !! b` is `b ?? a`,
+/// so its callers pass the right side as the base.
+func coalesceDictionaries(base: [Value: Value], fill: Value, op: String) throws -> [Value: Value] {
+    guard case .dictionary(let other) = fill else {
+        throw SwiftalkError.type("'\(op)' between a Dictionary and a \(fill.typeName) — a Dictionary coalesces with a Dictionary")
+    }
+    var out = base
+    for (key, value) in other where try isAbsent(out[key] ?? .nil) {
+        out[key] = value
+    }
+    return out
 }
 
 /// Swift's `merging(_:uniquingKeysWith:)` (round 126), for `.merging`
