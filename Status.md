@@ -163,6 +163,24 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**A Dictionary's `enumerated()` is itself** (round 129) — its pairs are
+`(key:, value:)` already, so `enumerated()` means "the pairs, keyed"
+on every conformer:
+
+```text
+swiftalk> let d = ["a": 1, "b": 2]
+["a": 1, "b": 2]
+swiftalk> d.enumerated()
+["a": 1, "b": 2]
+swiftalk> d.enumerated() == d
+true
+swiftalk> for k, v in d.enumerated() { print(k, v) }
+b 2
+a 1
+swiftalk> ["x", "y"].enumerated()
+[(key: 0, value: "x"), (key: 1, value: "y")]
+```
+
 **`enumerated()` is `(key:, value:)`** (round 128, revising 74) — an
 Array's numbered pairs look like a Dictionary's, so one loop over
 pairs serves both:

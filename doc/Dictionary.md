@@ -17,6 +17,7 @@ three keys), as SION allows. A homogeneous literal infers `[K: V]`
 | `d.merging(e)`, `d.merging(e) { current, new in }`, `d.merging(e, uniquingKeysWith:)` | a new Dictionary with `e`'s entries added (round 126); a shared key goes to the function, called as (current, new) — without one, **the new value wins** (Swift requires the function) |
 | `d.merge(e)`, `d.merge(e) { current, new in }` | the same, in place; returns `nil`; needs a `var` root, and the lock still holds |
 | `d.count` | entries (nil-valued ones included) |
+| `d.enumerated()` | `d` itself (round 129): its pairs are `(key:, value:)` already, so there is nothing to number — code that enumerates "any collection" gets a Dictionary's own keys |
 | `d.keys`, `d.values` | Swift's properties, as **Arrays** (round 127) — in the Dictionary's own order, aligned with each other and with `for k, v in d`; `d.keys.sorted()` for a deterministic list. Properties, not calls: `d.keys()` is an error that says so |
 | `d == e` | equality |
 | `for pair in d`, `for k, v in d` | `(key:, value:)` tuples — order unspecified; `pair.key`/`pair.value`, `.0`/`.1`, or destructure |

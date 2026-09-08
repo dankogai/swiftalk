@@ -3407,6 +3407,9 @@ private func method(on receiver: Value, name: String,
         if let base = lazyBase(receiver) {
             return .sequence(SequenceObject(kind: .enumerated(base)))
         }
+        // A Dictionary's pairs are (key:, value:) already (round 128), so
+        // enumerating it is the identity (round 129) — not (index, pair).
+        if case .dictionary = receiver { return receiver }
         var out: [Value] = []
         let it = try iterator(of: receiver)
         while let element = try it.next() {

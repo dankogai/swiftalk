@@ -1832,3 +1832,15 @@ the history. (Moved out of Design.md in round 65.)
   74), nothing positional changed: `for i, x in`, `$0`/`$1`, `.0`,
   and `{ i, x in }` are as they were. Revised: round 74's tests and
   transcripts, the Sequence, Array, and Tuple pages.
+* **2026-09-08, round 129 — a Dictionary's `enumerated()` is itself**
+  ("`dict.enumerated()` should return a stream of `(key,value)`
+  rather than `(key, (key,value))`. In other words, `dict.enumerated()`
+  should just be a no-op, returning just itself"). The consequence
+  round 128 was pointing at: once an Array's numbered pairs are
+  `(key:, value:)`, a Dictionary's pairs already are, and numbering
+  them nested a pair in a pair. Now `enumerated()` reads as "the
+  pairs, keyed" everywhere — by position where nothing has a key, by
+  the keys where everything does — and a Dictionary comes back as the
+  Dictionary, `==` to itself, `for k, v in d.enumerated()` the same
+  loop as `for k, v in d`. One line in the dispatcher, before the
+  eager walk.

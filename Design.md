@@ -79,7 +79,14 @@ labeled `(key:, value:)` since **round 128** ("Change
 `(key:value:)`"), a divergence from Swift's `offset:`/`element:`
 taken so that a Dictionary's pairs and an enumerated Array's are one
 shape: a function written over `p.key`/`p.value` serves both, and an
-Array is, after all, the Dictionary whose keys are `0..<count`. **Labels — DECIDED (round 74)**: `(x: 1, y: 2)` with
+Array is, after all, the Dictionary whose keys are `0..<count`. The
+converse closed in **round 129** ("`dict.enumerated()` should return
+a stream of `(key,value)` rather than `(key, (key,value))`… just a
+no-op, returning just itself"): a Dictionary's `enumerated()` is the
+Dictionary — its pairs are `(key:, value:)` already, and numbering
+them would nest a pair inside a pair, which no caller wants. So
+`enumerated()` means "the pairs, keyed" on every conformer: by
+position where there are no keys, by the keys where there are. **Labels — DECIDED (round 74)**: `(x: 1, y: 2)` with
 `.x`/`.y` (and `.0`/`.1` still) — labels *name positions*, so they
 are cosmetic: equality, hashing, destructuring, and the splat ignore
 them; source form keeps them; `(x: 1)` is a 1-tuple. Dictionary pairs

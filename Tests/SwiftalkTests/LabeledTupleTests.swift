@@ -47,6 +47,13 @@ struct LabeledTupleTests {
         // one shape for pairs: a loop over (key:, value:) serves a Dictionary's pairs and an enumerated Array's alike
         #expect(try eval("var out = []\nfor p in [\"a\": 1].Array() + [\"x\"].enumerated() { out.append(\"\\(p.key)=\\(p.value)\") }\nout")
             == .array([.string("a=1"), .string("0=x")]))
+        // ...and a Dictionary's enumerated() is itself (round 129): its pairs are (key:, value:) already
+        #expect(try eval("let d = [\"a\": 1, \"b\": 2]\nd.enumerated() == d") == .bool(true))
+        #expect(try eval("[\"a\": 1].enumerated().Type == Dictionary") == .bool(true))
+        #expect(try eval("var out = []\nfor k, v in [\"a\": 1].enumerated() { out.append(\"\\(k)=\\(v)\") }\nout") == .array([.string("a=1")]))
+        #expect(try eval("[\"a\": 1].enumerated().Array()[0].key") == .string("a"))
+        #expect(try eval("[\"a\": 1].enumerated().enumerated()[\"a\"]") == .int(1))
+        #expect(try eval("[:].enumerated().count") == .int(0))
         #expect(try eval("var out = []\nfor e in [\"x\"].enumerated() { out.append(\"\\(e.key)\\(e.value)\") }\nout")
             == .array([.string("0x")]))
         // ...and the positional/destructuring/splat forms still hold
