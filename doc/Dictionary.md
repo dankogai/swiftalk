@@ -14,6 +14,8 @@ three keys), as SION allows. A homogeneous literal infers `[K: V]`
 | `d.has(k)` | presence — true for a key holding nil, false for a missing key |
 | `d[k] ??= v` | set a default: writes `v` only when `d[k]` is nil (round 103) |
 | `d.remove(k)` | deletes the entry; returns the removed value or `nil`; needs a `var` root |
+| `d.merging(e)`, `d.merging(e) { current, new in }`, `d.merging(e, uniquingKeysWith:)` | a new Dictionary with `e`'s entries added (round 126); a shared key goes to the function, called as (current, new) — without one, **the new value wins** (Swift requires the function) |
+| `d.merge(e)`, `d.merge(e) { current, new in }` | the same, in place; returns `nil`; needs a `var` root, and the lock still holds |
 | `d.count` | entries (nil-valued ones included) |
 | `d == e` | equality |
 | `for pair in d`, `for k, v in d` | `(key:, value:)` tuples — order unspecified; `pair.key`/`pair.value`, `.0`/`.1`, or destructure |

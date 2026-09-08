@@ -896,6 +896,14 @@ tradition. But unlike Swift, **`T?` is not a wrapper**:
   deliberate divergence from Swift's subscript-assignment-deletes.
   Removal is explicit — **`d.remove(k)`** (round 37): mutating,
   returning the removed value (or `nil`).
+* **`d.merging(e) { current, new in }` and `d.merge(e) { }`** (round
+  126): Swift's pair, the first a new Dictionary, the second in place
+  on a `var` path — the combine function called as (current, new),
+  `uniquingKeysWith:` accepted and dropped as Swift's labels are. One
+  divergence, recorded: **the function is optional, and without it
+  the new value wins** — the spread's rule (`{...a, ...b}`), where
+  Swift insists on the function. `merge` returns `nil`, like
+  `append`; the target's lock is checked on the way back in.
 
 ## 4. Value vs reference semantics — DECIDED
 

@@ -1489,6 +1489,20 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
         let removed = d.removeValue(forKey: try evaluate(argExprs[0].expr, in: env)) ?? .nil
         try assign(target, .dictionary(d), in: env)
         return removed
+    case .method(let receiverExpr, "merge", let argExprs, true):
+        // d.merge(other) { current, new in } mutates (round 126), as
+        // remove does: the receiver must be an assignable var path.
+        guard case .dictionary(let d) = try evaluate(receiverExpr, in: env) else {
+            throw SwiftalkError.unknownMember(
+                "\(try evaluate(receiverExpr, in: env).typeName).merge()")
+        }
+        guard let target = asLValue(receiverExpr) else {
+            throw SwiftalkError.type("'.merge' mutates — call it on a var Dictionary (or use .merging)")
+        }
+        let args = try argExprs.map { (label: $0.label == "uniquingKeysWith" ? nil : $0.label,
+                                       value: try evaluate($0.expr, in: env)) }
+        try assign(target, .dictionary(try mergeDictionaries(d, try plainValues(args, for: ".merge"))), in: env)
+        return .nil
     case .method(let receiverExpr, let name, let args, let called):
         // super.method(...) (round 56): not a value's member — a
         // lookup pinned to the declaring class's superclass.
@@ -2842,6 +2856,33 @@ private func binary(_ op: Character, _ lhs: Value, _ rhs: Value) throws -> Value
     }
 }
 
+/// Swift's `merging(_:uniquingKeysWith:)` (round 126), for `.merging`
+/// and `.merge`: the other Dictionary's entries added, a shared key
+/// resolved by the combine function called as (current, new). Without
+/// one the new value wins — Swift requires the function; swiftalk's
+/// default is the spread's (a recorded divergence).
+func mergeDictionaries(_ base: [Value: Value], _ args: [Value]) throws -> [Value: Value] {
+    guard args.count == 1 || args.count == 2, case .dictionary(let other) = args[0] else {
+        throw SwiftalkError.type(".merging(dictionary) { current, new in } — a Dictionary, and optionally a function")
+    }
+    var combine: FunctionObject? = nil
+    if args.count == 2 {
+        guard case .function(let fn) = args[1] else {
+            throw SwiftalkError.type(".merging's second argument is the combine function: { current, new in }")
+        }
+        combine = fn
+    }
+    var merged = base
+    for (key, new) in other {
+        if let combine, let current = merged[key] {
+            merged[key] = try apply(combine, args: [(nil, current), (nil, new)])
+        } else {
+            merged[key] = new
+        }
+    }
+    return merged
+}
+
 /// `===`/`!==` (round 121): JS's `Object.is` — the same type and the
 /// same value, bit for bit: `Double.nan === Double.nan`, `+0.0 !== -0.0`;
 /// references by identity; containers element-wise, recursively, keys
@@ -3299,6 +3340,7 @@ private func method(on receiver: Value, name: String,
     case ("split", true):      ["separator", "whereSeparator"]                  // round 89
     case ("prefix", true), ("dropFirst", true): ["while"]                        // round 98
     case ("shifted", true): ["by"]                                               // round 105
+    case ("merging", true):    ["uniquingKeysWith"]                             // round 126
     default:                   []
     }
     let args = try plainValues(
@@ -3814,6 +3856,13 @@ private func method(on receiver: Value, name: String,
         }
         if name == "utf8" { return .array(s.utf8.map { .int(Int64($0)) }) }
         return .array(s.unicodeScalars.map { .int(Int64($0.value)) })
+    case ("merging", true):
+        // d.merging(other) { current, new in } (round 126): a new
+        // Dictionary; d.merge(...) is the in-place form, in evaluate.
+        guard case .dictionary(let d) = receiver else {
+            throw SwiftalkError.unknownMember("\(receiver.typeName).merging()")
+        }
+        return .dictionary(try mergeDictionaries(d, args))
     case ("has", true):
         // Presence, distinct from value (round 35): d.has(k) is true for
         // a key holding nil, false for a missing key — the question

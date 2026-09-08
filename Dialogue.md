@@ -1800,3 +1800,14 @@ the history. (Moved out of Design.md in round 65.)
   is how SION writes a date. Revised: the round 121/124 expectations
   (formats unsigned again) and round 37's debug-form expectations
   (signed now).
+* **2026-09-08, round 126 — `merging` and `merge`** ("implement
+  `dict0.merging(dict1){v0,v1 in ...}` and `.merge()`"). Swift's
+  pair, on Dictionary: `merging` returns a new one through the
+  ordinary member path, `merge` mutates through the same lvalue
+  write-back `remove` and `append` use, so a `let` receiver or a
+  temporary is refused and a `[String: Int]` lock still refuses a
+  String value. The combine function is called as (current, new), in
+  Swift's order, and `uniquingKeysWith:` is accepted and dropped like
+  the other Swift labels. The one decision: the function is optional
+  — without it the new value wins, the spread's rule rather than
+  Swift's insistence — recorded in the Design as a divergence.

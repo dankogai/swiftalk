@@ -163,6 +163,30 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`merging` and `merge`** (round 126) — Swift's pair on Dictionary; the
+combine function gets (current, new); without one the new value wins;
+`merge` is in place on a `var`:
+
+```text
+swiftalk> let d = ["a": 1, "b": 2]
+["a": 1, "b": 2]
+swiftalk> d.merging(["b": 30, "c": 3]) { current, new in current + new }
+["a": 1, "b": 32, "c": 3]
+swiftalk> d.merging(["b": 30])
+["a": 1, "b": 30]
+swiftalk> d.merging(["b": 30]) { $0 }
+["a": 1, "b": 2]
+swiftalk> d
+["a": 1, "b": 2]
+swiftalk> var e = ["a": 1]
+["a": 1]
+swiftalk> e.merge(["a": 5, "b": 2], uniquingKeysWith: { $0 * $1 })
+swiftalk> e
+["a": 5, "b": 2]
+swiftalk> d.merge(["z": 0])
+type error: cannot assign to let constant 'd'
+```
+
 **`.String(.sign)`** (round 125, revising 121 and 124) — a positive
 number's `+` on request, beside any number format or alone; without
 it, omitted. `debugDescription` for Int and Double is `.String(.sign,
