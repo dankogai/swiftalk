@@ -904,6 +904,13 @@ tradition. But unlike Swift, **`T?` is not a wrapper**:
   the new value wins** — the spread's rule (`{...a, ...b}`), where
   Swift insists on the function. `merge` returns `nil`, like
   `append`; the target's lock is checked on the way back in.
+* **`d.keys` and `d.values`** (round 127): Swift's properties, read
+  bare like `count`, giving Arrays rather than Swift's lazy views —
+  a view type would be one more thing, and an Array already has
+  every member a view offers. In the Dictionary's own order, the two
+  aligned with each other and with iteration, so `d.values[i]` is
+  `d[d.keys[i]]`. The called spelling is an error that names the
+  property.
 
 ## 4. Value vs reference semantics — DECIDED
 

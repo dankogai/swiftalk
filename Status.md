@@ -163,6 +163,22 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`d.keys` and `d.values`** (round 127) — Swift's properties, as Arrays,
+aligned with each other:
+
+```text
+swiftalk> let d = ["b": 2, "a": 1, "c": 3]
+["a": 1, "b": 2, "c": 3]
+swiftalk> d.keys.sorted()
+["a", "b", "c"]
+swiftalk> d.values.reduce(0) { $0 + $1 }
+6
+swiftalk> d.keys.enumerated().map { i, k in d[k] == d.values[i] }
+[true, true, true]
+swiftalk> d.keys()
+type error: .keys is a property, as in Swift — d.keys, not d.keys()
+```
+
 **`merging` and `merge`** (round 126) — Swift's pair on Dictionary; the
 combine function gets (current, new); without one the new value wins;
 `merge` is in place on a `var`:

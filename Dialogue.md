@@ -1811,3 +1811,13 @@ the history. (Moved out of Design.md in round 65.)
   the other Swift labels. The one decision: the function is optional
   — without it the new value wins, the spread's rule rather than
   Swift's insistence — recorded in the Design as a divergence.
+* **2026-09-08, round 127 — `d.keys` and `d.values`** ("Oh, we have
+  not implemented `dict.keys()` and `dict.values()`"). Swift's, and
+  as in Swift they are properties, so the spelling is `d.keys` —
+  the called form is an error that says so, since the user's own
+  message spelled it with parentheses and others will too. Arrays,
+  not views: `keys.sorted()`, `values.reduce`, a `[String]` lock —
+  everything a view would offer, without a type to explain. Both in
+  the Dictionary's own order, aligned with each other and with `for
+  k, v in d`, and the test checks the alignment rather than assuming
+  it.

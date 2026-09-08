@@ -3863,6 +3863,19 @@ private func method(on receiver: Value, name: String,
             throw SwiftalkError.unknownMember("\(receiver.typeName).merging()")
         }
         return .dictionary(try mergeDictionaries(d, args))
+    case ("keys", false), ("values", false):
+        // d.keys / d.values (round 127): Swift's properties, as Arrays —
+        // in the Dictionary's own order, aligned with each other and
+        // with `for k, v in d`.
+        guard case .dictionary(let d) = receiver else {
+            throw SwiftalkError.unknownMember("\(receiver.typeName).\(name)")
+        }
+        return .array(name == "keys" ? Array(d.keys) : Array(d.values))
+    case ("keys", true), ("values", true):
+        guard case .dictionary = receiver else {
+            throw SwiftalkError.unknownMember("\(receiver.typeName).\(name)()")
+        }
+        throw SwiftalkError.type(".\(name) is a property, as in Swift — d.\(name), not d.\(name)()")
     case ("has", true):
         // Presence, distinct from value (round 35): d.has(k) is true for
         // a key holding nil, false for a missing key — the question
