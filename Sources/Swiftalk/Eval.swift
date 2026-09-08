@@ -153,6 +153,42 @@ extension Swiftalk {
                 mutable: false, lock: TypeAnnotation(name: "Function", optional: false), value: .function(fn)))
         }
 
+        /// The REPL's `:d name` (round 131): the top-level binding is gone —
+        /// a later `let name` is a fresh declaration. Builtins are not
+        /// top-level bindings and cannot be undefined.
+        public func undefine(_ name: String) throws {
+            guard environment.removeBinding(name) != nil else {
+                throw SwiftalkError.type("':d' — no top-level binding named '\(name)'")
+            }
+        }
+
+        /// The REPL's `:r let x = ...` (round 131): one declaration — `let`
+        /// or `var`, destructuring included — whose names replace what
+        /// they had, whatever the old type or mutability. The old
+        /// bindings come back if the declaration fails.
+        public func redefine(_ source: String) throws -> Value {
+            var lexer = Lexer(source)
+            var parser = Parser(try lexer.tokenize())
+            let program = try parser.parseProgram()
+            let names: [String]
+            switch program.count == 1 ? program[0] : nil {
+            case .declaration(_, let name, _, _)?:  names = [name]
+            case .destructure(_, let pattern, _)?:  names = Parser.names(in: pattern)
+            default:
+                throw SwiftalkError.syntax("':r' takes one let or var declaration: :r let x = ...")
+            }
+            let saved = names.map { ($0, environment.removeBinding($0)) }
+            do {
+                return try eval(source)
+            } catch {
+                for (name, binding) in saved {
+                    environment.removeBinding(name)
+                    if let binding { environment.putBinding(name, binding) }
+                }
+                throw error
+            }
+        }
+
         /// The evaluator proper: lex, parse, execute in a file scope —
         /// the program's, or a module's. `eval` above wraps it in the
         /// scheduler and module contexts; the language's `eval()` (round
@@ -247,6 +283,12 @@ final class Environment {
     init(parent: Environment? = nil) {
         self.parent = parent
     }
+
+    /// The REPL's `:r` and `:d` (round 131): a binding taken out, or put
+    /// back when a redefinition fails.
+    @discardableResult
+    func removeBinding(_ name: String) -> Binding? { bindings.removeValue(forKey: name) }
+    func putBinding(_ name: String, _ binding: Binding) { bindings[name] = binding }
 
     func declare(_ name: String, _ binding: Binding) throws {
         guard bindings[name] == nil else {

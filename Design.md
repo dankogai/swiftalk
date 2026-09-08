@@ -1533,6 +1533,13 @@ there — errors, same as `await`); nonisolated escape hatches;
    relaxed mode on, echo in `.String()` source form (every echo obeys
    the round-trip law), multi-line continuation while brackets are
    open, prompts suppressed when stdin is not a TTY (pipe-friendly).
+   **Commands (round 131)**, `swift repl`'s style, a line starting with
+   `:` — three at first: `:h` help, `:r let x = ...` redefines a
+   top-level binding (the old one replaced whatever its type or
+   mutability, restored if the new declaration fails), `:d x`
+   undefines one. The REPL's business, not the language's: a script
+   has no `:r`, and `redefine`/`undefine` live on the Interpreter for
+   any embedder's REPL.
 2. *(TBD — script runner, embedding API, stdlib growth...)*
 
 ∞. **Make swiftalk self-hosting** *(added round 43; not necessarily

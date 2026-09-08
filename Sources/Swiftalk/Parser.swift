@@ -1061,7 +1061,7 @@ struct Parser {
     }
 
     /// The names a pattern binds (`_` excluded).
-    private static func names(in pattern: BindPattern) -> [String] {
+    static func names(in pattern: BindPattern) -> [String] {
         switch pattern {
         case .name("_"):        return []
         case .name(let n):      return [n]

@@ -1860,3 +1860,17 @@ the history. (Moved out of Design.md in round 65.)
   literal asks. A first draft made `!!` refuse a non-Dictionary right
   side; the equation says `["a": 1] !! [1]` is `[1]`, and the
   equation won.
+* **2026-09-09, round 131 — REPL commands `:h`, `:r`, `:d`** ("CLI:
+  implement commands like `swift repl`. Just three commands at
+  first. `:h` prints help, `:r` redefines toplevel (var|let) and `:d`
+  undefines it"). The one thing a strict `let` makes awkward at a
+  prompt is changing your mind, and that is what `:r` is for: the
+  declaration's names are taken out of the top level and the
+  declaration runs as if fresh — `var x = 1` becomes `let x = "one"`,
+  a String and immutable — with the old bindings put back if the
+  new declaration fails, so a typo costs nothing. `:d` removes a
+  binding; a builtin is not one and cannot go. Destructuring
+  declarations redefine all their names. The logic lives on the
+  Interpreter as `redefine`/`undefine`, tested there, and the CLI
+  only dispatches lines beginning with `:`; an unknown command
+  points at `:h`.

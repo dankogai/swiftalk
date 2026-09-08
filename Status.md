@@ -163,6 +163,30 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**REPL commands `:h`, `:r`, `:d`** (round 131) — `swift repl`'s style;
+`:r` replaces a top-level binding whatever its type or mutability, `:d`
+removes one:
+
+```text
+swiftalk> var x = 1
+1
+swiftalk> x = "one"
+type error: cannot assign String to 'x' of type Int
+swiftalk> :r let x = "one"
+"one"
+swiftalk> x.Type == String
+true
+swiftalk> x = "two"
+type error: cannot assign to let constant 'x'
+swiftalk> :d x
+swiftalk> x
+type error: undefined variable 'x'
+swiftalk> :h
+:h              this help
+:r let x = ...  redefine a top-level let or var — the old binding is replaced, whatever its type or mutability
+:d x            undefine a top-level binding
+```
+
 **`??` and `!!` on Dictionaries; `!!` everywhere** (round 130) — `d0 ??
 d1` fills, `d0 !! d1` overrides, and `a !! b` is `b ?? a` on every
 value; `??=` and `!!=` in place:

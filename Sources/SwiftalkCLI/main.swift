@@ -102,6 +102,38 @@ let nextLine: (_ continued: Bool) -> LineEditor.ReadResult = { continued in
     return editor.readLine(prompt: continued ? "  " : "swiftalk> ")
 }
 
+/// REPL commands (round 131), `swift repl`'s style: a line starting
+/// with `:`. Three for now.
+let help = """
+    :h              this help
+    :r let x = ...  redefine a top-level let or var — the old binding is replaced, whatever its type or mutability
+    :d x            undefine a top-level binding
+    """
+@MainActor func runCommand(_ line: String) {
+    let parts = line.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
+    let command = String(parts[0])
+    let rest = parts.count > 1 ? String(parts[1]).trimmed : ""
+    do {
+        switch command {
+        case ":h":
+            print(help)
+        case ":r":
+            guard !rest.isEmpty else { print("usage: :r let x = ..."); return }
+            let value = try interpreter.redefine(rest)
+            if value != .nil { print(value.sourceString()) }
+        case ":d":
+            guard !rest.isEmpty, !rest.contains(" ") else { print("usage: :d name"); return }
+            try interpreter.undefine(rest)
+        default:
+            print("unknown command \(command) — :h for help")
+        }
+    } catch let error as Swiftalk.Error {
+        print(error.description)
+    } catch {
+        print("error: \(error)")
+    }
+}
+
 var buffer = ""
 loop: while true {
     switch nextLine(!buffer.isEmpty) {
@@ -117,6 +149,11 @@ loop: while true {
             continue
         }
         if Swiftalk.needsMoreInput(buffer) {
+            continue
+        }
+        if buffer.trimmed.hasPrefix(":") {             // a REPL command (round 131)
+            runCommand(buffer.trimmed)
+            buffer = ""
             continue
         }
         do {
