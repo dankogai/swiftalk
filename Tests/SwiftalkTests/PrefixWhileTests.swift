@@ -35,8 +35,8 @@ struct PrefixWhileTests {
                             .array([55, 89, 144].map { .int($0) })]))
         // composes with the rest of the lazy world
         #expect(try eval("(3...).enumerated().prefix { i, x in i < 2 }.Array()")
-                == .array([.tuple([.int(0), .int(3)], labels: ["offset", "element"]),
-                           .tuple([.int(1), .int(4)], labels: ["offset", "element"])]))
+                == .array([.tuple([.int(0), .int(3)], labels: ["key", "value"]),
+                           .tuple([.int(1), .int(4)], labels: ["key", "value"])]))
         #expect(try eval("(0...).map { $0 * 2 }.dropFirst { $0 < 5 }.prefix { $0 < 11 }.Array()")
                 == .array([6, 8, 10].map { .int($0) }))
     }

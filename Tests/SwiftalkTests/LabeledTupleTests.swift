@@ -35,15 +35,19 @@ struct LabeledTupleTests {
         #expect(try eval(t.sourceString()) == t)
     }
 
-    @Test("Dictionary pairs are (key:, value:); enumerated is (offset:, element:)")
+    @Test("Dictionary pairs are (key:, value:); enumerated is (key:, value:) too (round 128, né offset/element)")
     func builtinLabels() throws {
         #expect(try eval("var s = 0\nfor pair in [\"a\": 40, \"b\": 2] { s = s + pair.value }\ns") == .int(42))
         #expect(try eval("[\"a\": 1].map { $ }") == .array([.array([.string("a"), .int(1)])]))
         #expect(try eval("[\"a\": 1].Array()[0].key") == .string("a"))
         #expect(try eval("[\"a\": 1].Array()[0].String()") == .string("(key: \"a\", value: 1)"))
-        #expect(try eval("[\"x\", \"y\"].enumerated()[1].offset") == .int(1))
-        #expect(try eval("[\"x\", \"y\"].enumerated()[1].element") == .string("y"))
-        #expect(try eval("var out = []\nfor e in [\"x\"].enumerated() { out.append(\"\\(e.offset)\\(e.element)\") }\nout")
+        #expect(try eval("[\"x\", \"y\"].enumerated()[1].key") == .int(1))
+        #expect(try eval("[\"x\", \"y\"].enumerated()[1].value") == .string("y"))
+        #expect(throws: SwiftalkError.self) { try eval("[\"x\"].enumerated()[0].offset") }
+        // one shape for pairs: a loop over (key:, value:) serves a Dictionary's pairs and an enumerated Array's alike
+        #expect(try eval("var out = []\nfor p in [\"a\": 1].Array() + [\"x\"].enumerated() { out.append(\"\\(p.key)=\\(p.value)\") }\nout")
+            == .array([.string("a=1"), .string("0=x")]))
+        #expect(try eval("var out = []\nfor e in [\"x\"].enumerated() { out.append(\"\\(e.key)\\(e.value)\") }\nout")
             == .array([.string("0x")]))
         // ...and the positional/destructuring/splat forms still hold
         #expect(try eval("[\"a\": 1].map { k, v in \"\\(k)\\(v)\" }") == .array([.string("a1")]))

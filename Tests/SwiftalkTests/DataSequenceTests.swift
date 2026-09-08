@@ -15,7 +15,7 @@ struct DataSequenceTests {
         #expect(try eval(d + "d.contains { $0 > 200 }") == .bool(false))
         #expect(try eval(d + "d.sorted()") == .array([33, 104, 169, 195].map { .int($0) }))
         #expect(try eval(d + "d.reversed()") == .array([33, 169, 195, 104].map { .int($0) }))
-        #expect(try eval(d + "d.enumerated().prefix(1)") == .array([.tuple([.int(0), .int(104)], labels: ["offset", "element"])]))
+        #expect(try eval(d + "d.enumerated().prefix(1)") == .array([.tuple([.int(0), .int(104)], labels: ["key", "value"])]))
         #expect(try eval(d + "d.Array()") == .array([104, 195, 169, 33].map { .int($0) }))
         #expect(try eval(d + "Tuple(d)") == .tuple([104, 195, 169, 33].map { .int($0) }))
         #expect(try eval("Data.conforms(to: Sequence)") == .bool(true))

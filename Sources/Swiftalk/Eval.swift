@@ -1264,7 +1264,7 @@ extension SequenceObject {
             return ValueIterator {
                 guard let element = try it.next() else { return nil }
                 defer { index += 1 }
-                return .tuple([.int(index), element], labels: ["offset", "element"])
+                return .tuple([.int(index), element], labels: ["key", "value"])     // round 128
             }
         case .mapped(let base, let fn):
             let it = base.makeIterator()
@@ -3410,7 +3410,10 @@ private func method(on receiver: Value, name: String,
         var out: [Value] = []
         let it = try iterator(of: receiver)
         while let element = try it.next() {
-            out.append(.tuple([.int(Int64(out.count)), element], labels: ["offset", "element"]))
+            // (key:, value:), not Swift's (offset:, element:) — round 128: an
+            // enumerated Array reads like a Dictionary, so code over pairs
+            // serves both
+            out.append(.tuple([.int(Int64(out.count)), element], labels: ["key", "value"]))
         }
         return .array(out)
     case ("prefix", true):

@@ -72,13 +72,18 @@ would read as annotations; label patterns keep their parentheses). **A tuple is 
 and declared parameters bind to them with arity checked against
 them (`{ t in }` given a 2-tuple is an error; wrap as `((1, 2),)` to
 pass a tuple whole). Builtins are exempt (`print((1, 2))` prints the
-tuple). **`.enumerated()`** (round 73) yields `(offset:, element:)`
-tuples — lazily on a Sequence value, as an Array on the eager
-conformers. **Labels — DECIDED (round 74)**: `(x: 1, y: 2)` with
+tuple). **`.enumerated()`** (round 73) yields index/element tuples —
+lazily on a Sequence value, as an Array on the eager conformers —
+labeled `(key:, value:)` since **round 128** ("Change
+`.enumerated()`'s tuple tags from `(offset:element)` to
+`(key:value:)`"), a divergence from Swift's `offset:`/`element:`
+taken so that a Dictionary's pairs and an enumerated Array's are one
+shape: a function written over `p.key`/`p.value` serves both, and an
+Array is, after all, the Dictionary whose keys are `0..<count`. **Labels — DECIDED (round 74)**: `(x: 1, y: 2)` with
 `.x`/`.y` (and `.0`/`.1` still) — labels *name positions*, so they
 are cosmetic: equality, hashing, destructuring, and the splat ignore
 them; source form keeps them; `(x: 1)` is a 1-tuple. Dictionary pairs
-are `(key:, value:)`, enumerated `(offset:, element:)`. **Labeled
+are `(key:, value:)`, and enumerated too (round 128). **Labeled
 destructuring — DECIDED (round 75)**: `let (x: a, y: b) = t` binds by
 label (patterns reorder freely), an unlabeled element by position,
 arity rigid, a missing label an error — in `let`/`var`, `if let`,

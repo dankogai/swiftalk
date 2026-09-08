@@ -13,7 +13,7 @@ struct UnboundedRangeTests {
         #expect(try eval("(0...).map { $0 * $0 }.prefix(4)") == .array([0, 1, 4, 9].map { .int($0) }))
         #expect(try eval("(0...).filter { $0 / 2 * 2 == $0 }.prefix(3)") == .array([0, 2, 4].map { .int($0) }))
         #expect(try eval("(0...).enumerated().prefix(1)")
-                == .array([.tuple([.int(0), .int(0)], labels: ["offset", "element"])]))
+                == .array([.tuple([.int(0), .int(0)], labels: ["key", "value"])]))
         #expect(try eval("var s = 0\nfor i in 10... { if i > 12 { break }; s = s + i }\ns") == .int(33))
         #expect(try eval("switch 42 { case 40...: \"big\" default: \"small\" }") == .string("big"))
         #expect(try eval("(3...) == (3...)") == .bool(true))

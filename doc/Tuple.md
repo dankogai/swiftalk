@@ -31,10 +31,11 @@ source form round-trips.
 
 **Labels are cosmetic**: equality, hashing, destructuring, and the
 argument splat all ignore them — `(x: 1, y: 2) == (1, 2)`. Source
-form keeps them. Dictionaries hand out `(key:, value:)` tuples and
-`enumerated()` gives `(offset:, element:)`, as Swift names them — so
-`pair.key`, `pair.value`, `e.offset`, `e.element` read, while `.0`,
-destructuring, and `{ k, v in }` all still work.
+form keeps them. Dictionaries hand out `(key:, value:)` tuples and so
+does `enumerated()` — the index is the `key` (round 128; Swift names
+them `offset:`/`element:`) — so `pair.key`, `pair.value` read on both,
+one function over pairs serves both, while `.0`, destructuring, and
+`{ k, v in }` all still work.
 
 ```swift
 let t = (1, "one", 2.0)
@@ -50,5 +51,5 @@ for _ in 1...10 { (a, b) = (b, a + b) }   // a == 55
 
 ```swift
 for (value: v, key: k) in years { ... }     // by label, any order
-let (element: x, offset: i) = xs.enumerated()[0]
+let (value: x, key: i) = xs.enumerated()[0]
 ```

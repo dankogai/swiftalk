@@ -1821,3 +1821,14 @@ the history. (Moved out of Design.md in round 65.)
   the Dictionary's own order, aligned with each other and with `for
   k, v in d`, and the test checks the alignment rather than assuming
   it.
+* **2026-09-08, round 128 — `enumerated()` is `(key:, value:)`**
+  ("Change `.enumerated()`'s tuple tags from `(offset:element)` to
+  `(key:value:)`"), revising round 74's labels. A divergence from
+  Swift, and a small one with a large reason: an Array is the
+  Dictionary whose keys are `0..<count`, so its numbered pairs should
+  look like a Dictionary's — one function over `p.key`/`p.value`
+  now serves `d.Array()` and `xs.enumerated()` alike, and labeled
+  destructuring reads the same on both. Labels being cosmetic (round
+  74), nothing positional changed: `for i, x in`, `$0`/`$1`, `.0`,
+  and `{ i, x in }` are as they were. Revised: round 74's tests and
+  transcripts, the Sequence, Array, and Tuple pages.

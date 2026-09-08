@@ -35,7 +35,7 @@ struct LabeledDestructuringTests {
             """) == .int(42))
         #expect(try eval("""
             var out = []
-            for (element: x, offset: i) in ["p", "q"].enumerated() { out.append("\\(i)\\(x)") }
+            for (value: x, key: i) in ["p", "q"].enumerated() { out.append("\\(i)\\(x)") }
             out
             """) == .array([.string("0p"), .string("1q")]))
         // assignment by label — the swap, spelled by name

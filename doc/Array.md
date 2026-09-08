@@ -30,7 +30,7 @@ Arrays are dense — a sparse array is a Dictionary.
 | `a.reversed()` | a new Array (round 84) |
 | `a.prefix { }`, `a.dropFirst { }` | the leading elements while the predicate holds / from its first miss on (round 88) |
 | `a.joined()`, `a.joined(", ")`, `a.joined(separator:)` | Strings concatenate into a String; Arrays flatten into an Array (`[[1], [2]].joined([0])`); a mix is a type error (round 84) |
-| `a.enumerated()` | an Array of `(index, element)` tuples (round 73) |
+| `a.enumerated()` | an Array of `(key:, value:)` tuples — the index as `key` (round 73; labels round 128, a divergence from Swift's `offset:`/`element:` so a Dictionary's pairs and an Array's look alike) |
 | `a.String()`, `a.String(.pretty)` | source form; `.pretty` puts each element on its own line, nested two spaces a level (round 117); `.String(.json, .pretty)` likewise for JSON |
 | `a.Array()` | `a` |
 | `for x in a` | iteration |

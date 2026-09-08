@@ -163,6 +163,26 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`enumerated()` is `(key:, value:)`** (round 128, revising 74) — an
+Array's numbered pairs look like a Dictionary's, so one loop over
+pairs serves both:
+
+```text
+swiftalk> ["x", "y"].enumerated()
+[(key: 0, value: "x"), (key: 1, value: "y")]
+swiftalk> ["x", "y"].enumerated()[1].value
+"y"
+swiftalk> for p in ["a": 1].Array() + ["x", "y"].enumerated() { print(p.key, p.value) }
+a 1
+0 x
+1 y
+swiftalk> for (value: x, key: i) in ["p", "q"].enumerated() { print(i, x) }
+0 p
+1 q
+swiftalk> ["x"].enumerated()[0].offset
+unknown member: Tuple.offset
+```
+
 **`d.keys` and `d.values`** (round 127) — Swift's properties, as Arrays,
 aligned with each other:
 
@@ -1376,8 +1396,8 @@ type error: the tuple has no element labeled 'z'
 ```
 
 **Labeled tuples** are in (round 74) — labels name positions and are
-otherwise cosmetic; Dictionary pairs are `(key:, value:)`, `enumerated()`
-gives `(offset:, element:)`:
+otherwise cosmetic; Dictionary pairs are `(key:, value:)`, and so are
+`enumerated()`'s since round 128 (`(offset:, element:)` until then):
 
 ```text
 swiftalk> let p = (x: 1, y: 2)
@@ -1397,7 +1417,7 @@ swiftalk> q
 swiftalk> for pair in ["a": 1] { print(pair.key, pair.value) }
 a 1
 swiftalk> ["x", "y"].enumerated()
-[(offset: 0, element: "x"), (offset: 1, element: "y")]
+[(key: 0, value: "x"), (key: 1, value: "y")]
 swiftalk> p.z
 unknown member: Tuple.z
 ```
@@ -1413,15 +1433,15 @@ swiftalk> d.map { "\($0)=\($1)" }        // $0 is k, $1 is v
 ["k=7"]
 swiftalk> d.map { $ }                     // $ is the rigid Array
 [["k", 7]]
-swiftalk> ["a", "b"].enumerated()       // (offset:, element:) since round 74
-[(offset: 0, element: "a"), (offset: 1, element: "b")]
+swiftalk> ["a", "b"].enumerated()       // labeled since round 74; (key:, value:) since 128
+[(key: 0, value: "a"), (key: 1, value: "b")]
 swiftalk> for i, x in ["a", "b"].enumerated() { print(i, x) }
 0 a
 1 b
 swiftalk> let naturals = Sequence { var n = 10; while true { yield n; n = n + 1 } }
 Sequence { ... }
 swiftalk> naturals.enumerated().prefix(2)  // lazy — infinite is fine
-[(offset: 0, element: 10), (offset: 1, element: 11)]
+[(key: 0, value: 10), (key: 1, value: 11)]
 swiftalk> let g = { t in t.count }
 { t in ... }
 swiftalk> g((1, 2))                       // a 2-tuple is two arguments
