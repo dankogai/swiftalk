@@ -185,10 +185,12 @@ swiftalk> var d = ["a": 1, "b": 2, "c": 3]
 swiftalk> d.delete(Set("a", "c"))
 swiftalk> d
 ["b": 2]
-swiftalk> Set("one")
+swiftalk> Set(3)
+Set([3])
+swiftalk> Set("one")          // one Sequence: its elements — graphemes here
 Set(["e", "n", "o"])
-swiftalk> Set(["one"]) == Set("one", "two") - Set("two")
-false
+swiftalk> Set(["one"])       // the one-element Set of a String
+Set(["one"])
 ```
 
 **`Set`** (round 132) — unordered, unique, Swift's names; `Set([...])` is
