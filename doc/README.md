@@ -99,7 +99,7 @@ sees that module's unexported names, never the importer's.
 
 | Operator | Int | Double | String | Array | Date | Bool | any |
 |---|---|---|---|---|---|---|---|
-| `+ - * /` | ✓ (traps on overflow, `/0`) | ✓ | `+` only | `+` only | | | |
+| `+ - * /` | ✓ (traps on overflow, `/0`) | ✓ | `+` only | `+` only; on Sets `+` is union and `-` subtraction (round 133) | | | |
 | `%` | ✓ remainder, the dividend's sign; `% 0` traps (round 93) | type error, as in Swift | | | | | |
 | `+= -= *= /= %=` | ✓ (round 102) — `x op= y` is `x = x op y`, the target evaluated once | ✓ | `+=` | `+=` | | | |
 | `??=` | `x ??= y` writes `y` only when `x` is nil (or a Result failure); `y` unevaluated otherwise (round 103) — any type; on a Dictionary, per key (round 130) | | | | | | |

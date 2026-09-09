@@ -706,7 +706,19 @@ subscript. **`d.keys` is a Set** — the user's own motivation — revising
 round 127's Array: `d0 == d1` now implies `d0.keys == d1.keys`;
 `values` stays an Array. A Set is not a SION value (no literal) and
 writes to JSON and property lists as a sorted array, lossy as Data's
-base64 is. OPEN: `first`/`min`/`max`, a Set in SION.
+base64 is. OPEN: `first`/`min`/`max`, a Set in SION. **Round 133**
+("Unlike Dictionary, Set is 'keys only'"): so `merge` takes no
+function — nothing collides — and `??`/`!!` get no Set meaning of
+their own, "keep mine" and "take theirs" being the same union; the
+operators are **`+` for union and `-` for subtraction**, both sides
+Sets, `+=`/`-=` following by round 104's rule, with `merge` and
+`delete` as their in-place methods (a Set or any Sequence on the
+right). `delete` reached Dictionary too, by the user's spelling
+`d0.delete(d1)`: the listed keys removed. And `Set(a, b, ...)` lists
+its elements when given two or more, and a single non-Sequence is
+the singleton (`Set(3)`); a single Sequence stays Swift's
+`Set(sequence)`, so `Set("one")` is graphemes and `Set(["one"])` the
+singleton — the one edge, recorded, not hidden.
 
 **SION as a built-in — DECIDED (round 97)**. The user's spec: "`SION(string)`
 parses string to SION. `sion.String()` stringify. `SION(json:string)`

@@ -26,7 +26,9 @@ struct SetTests {
         #expect(try eval("Set.conforms(to: Hashable)") == .bool(true))
         #expect(try eval("[Set([1]): \"one\"][Set([1])]") == .string("one"))              // a Set is a key
         #expect(throws: SwiftalkError.self) { try eval("Set(0...)") }                        // finite only
-        #expect(throws: SwiftalkError.self) { try eval("Set(1)") }
+        #expect(try eval("Set(1)") == .set([.int(1)]))                                        // one non-Sequence argument: the singleton (round 133)
+        #expect(try eval("Set(Set(1))") == .set([.int(1)]))
+        #expect(try eval("Set([1]) == Set(1)") == .bool(true))
     }
 
     @Test("members: count, contains, insert, remove, iteration, map → Array, filter → Set, sorted → Array")
@@ -79,6 +81,31 @@ struct SetTests {
         #expect(throws: SwiftalkError.self) { try eval("[1].union([2])") }
         #expect(throws: SwiftalkError.self) { try eval("Set([1]).union(1)") }
         #expect(throws: SwiftalkError.self) { try eval("Set([1]).isSubset(within: Set([1]))") }
+    }
+
+    @Test("keys only (round 133): s0 + s1 is union, s0 - s1 subtraction, += and -= follow; merge/delete in place, no function; Set(a, b, ...) lists elements")
+    func keysOnly() throws {
+        #expect(try eval("Set(\"one\", \"two\") + Set(\"two\", \"three\") == Set(\"one\", \"two\", \"three\")") == .bool(true))
+        #expect(try eval("Set(\"one\", \"two\") - Set(\"two\", \"three\") == Set(\"one\")") == .bool(false))      // Set("one") is graphemes: {"o","n","e"}
+        #expect(try eval("Set(\"one\", \"two\") - Set(\"two\", \"three\") == Set([\"one\"])") == .bool(true))
+        #expect(try eval("Set(1, 2) + Set(2, 3)") == .set([.int(1), .int(2), .int(3)]))
+        #expect(try eval("Set(1, 2) - Set(2, 3)") == .set([.int(1)]))
+        #expect(try eval("var s = Set(1, 2)\ns += Set(3)\ns -= Set(1)\ns") == .set([.int(2), .int(3)]))
+        #expect(try eval("var s = Set(1, 2)\ns.merge(Set(2, 3))\ns") == .set([.int(1), .int(2), .int(3)]))
+        #expect(try eval("var s = Set(1, 2)\ns.merge([3, 4])\ns.count") == .int(4))                          // any Sequence
+        #expect(try eval("var s = Set(1, 2)\ns.merge(Set(2, 3)) == nil") == .bool(true))
+        #expect(try eval("var s = Set(1, 2, 3)\ns.delete(Set(2, 9))\ns") == .set([.int(1), .int(3)]))
+        #expect(try eval("var s = Set(1, 2, 3)\ns.delete(1...2)\ns") == .set([.int(3)]))
+        #expect(try eval("var d = [\"a\": 1, \"b\": 2, \"c\": 3]\nd.delete(Set(\"a\", \"z\"))\nd.keys") == .set([.string("b"), .string("c")]))
+        #expect(try eval("var d = [\"a\": 1, \"b\": 2]\nd.delete([\"b\": 0])\nd") == .dictionary([.string("a"): .int(1)]))
+        #expect(try eval("var d = [\"a\": 1, \"b\": 2]\nd.delete([\"a\"])\nd.count") == .int(1))
+        #expect(try eval("Set([1]) ?? Set([2])") == .set([.int(1)]))                                        // ?? / !! not special on Sets: the general rule
+        #expect(try eval("Set([1]) !! Set([2])") == .set([.int(2)]))
+        #expect(throws: SwiftalkError.self) { try eval("let s = Set(1)\ns.merge(Set(2))") }
+        #expect(throws: SwiftalkError.self) { try eval("Set(1, 2) + [3]") }                                  // a Set and an Array
+        #expect(throws: SwiftalkError.self) { try eval("Set(1, 2) * Set(3)") }
+        #expect(throws: SwiftalkError.self) { try eval("var s = Set(1)\ns.merge(Set(2), Set(3))") }
+        #expect(throws: SwiftalkError.self) { try eval("var a = [1]\na.delete([1])") }
     }
 
     @Test("type discipline: Set<Int> annotations, inference, locks; JSON writes a sorted array")

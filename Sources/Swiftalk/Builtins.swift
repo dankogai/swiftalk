@@ -142,10 +142,16 @@ enum Builtins {
         "Set": type("Set") { args in
             // Set(), Set(set), Set(anySequence) — an Array, Range, String,
             // Data, a Dictionary's pairs; finite (round 132)
+            // Set("one", "two") — two or more arguments are the elements
+            // (round 133; that form arrives through convert's "Set" arm).
+            // One argument: a Sequence's elements (Swift's), else the
+            // one-element Set — so Set(3) is {3} and Set("one") graphemes.
             switch args.first {
             case nil:          return .set([])
             case .set(let s)?: return .set(s)
-            case let v?:       return .set(Set(try collect(v)))
+            case let v? where conformance["Sequence"]!.contains(v.typeName):
+                               return .set(Set(try collect(v)))
+            case let v?:       return .set([v])
             }
         },
         "Range": type("Range") { args in

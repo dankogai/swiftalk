@@ -1894,3 +1894,22 @@ the history. (Moved out of Design.md in round 65.)
   on the way: `filter` had its own reshaping switch beside the shared
   `reshape`, so a Set's filter came back an Array until the switch
   learned the case.
+* **2026-09-10, round 133 — Set is keys only: `+`, `-`, `merge`,
+  `delete`** ("Unlike Dictionary, Set is 'keys only' so:
+  `s0.merge(s1)` needs no trailing `{}`… `s0 ?? s1` makes no
+  difference from `s0 !! s1` so let's NOT implement `??` and `!!`.
+  Instead simple `s0 + s1`… And `s0 - s1`. The corresponding method
+  is `d0.delete(d1)`"). Right on each count: with no values to
+  collide there is nothing for a combine function to decide, and
+  the two coalescing directions collapse into one union — so `+`
+  is union, `-` subtraction, `+=`/`-=` come free, `merge` and
+  `delete` are their in-place names, and `??`/`!!` keep only the
+  general rule on Sets. `delete` went to Dictionary too, reading
+  the user's `d0.delete(d1)` literally: the listed keys go. The
+  user's examples spelled `Set("one", "two")`, so two or more
+  arguments now list elements — through `convert`, where a type
+  call with extra arguments lands — and a single non-Sequence
+  argument is the singleton, since `s += Set(3)` failing beside
+  `Set(1, 2)` working was a trap the first transcript walked into;
+  a single Sequence stays Swift's constructor, so the `Set("one")`
+  edge is in the docs rather than papered over.

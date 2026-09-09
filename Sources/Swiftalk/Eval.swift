@@ -1573,16 +1573,49 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
     case .method(let receiverExpr, "merge", let argExprs, true):
         // d.merge(other) { current, new in } mutates (round 126), as
         // remove does: the receiver must be an assignable var path.
-        guard case .dictionary(let d) = try evaluate(receiverExpr, in: env) else {
-            throw SwiftalkError.unknownMember(
-                "\(try evaluate(receiverExpr, in: env).typeName).merge()")
-        }
+        // s.merge(other) on a Set (round 133): keys only, no function —
+        // the in-place `+`.
+        let container = try evaluate(receiverExpr, in: env)
         guard let target = asLValue(receiverExpr) else {
-            throw SwiftalkError.type("'.merge' mutates — call it on a var Dictionary (or use .merging)")
+            throw SwiftalkError.type("'.merge' mutates — call it on a var \(container.typeName)")
         }
         let args = try argExprs.map { (label: $0.label == "uniquingKeysWith" ? nil : $0.label,
                                        value: try evaluate($0.expr, in: env)) }
-        try assign(target, .dictionary(try mergeDictionaries(d, try plainValues(args, for: ".merge"))), in: env)
+        switch container {
+        case .dictionary(let d):
+            try assign(target, .dictionary(try mergeDictionaries(d, try plainValues(args, for: ".merge"))), in: env)
+        case .set(var s):
+            let values = try plainValues(args, for: ".merge")
+            guard values.count == 1 else { throw SwiftalkError.type("Set.merge takes one Set, or any Sequence") }
+            s.formUnion(try setElements(values[0]))
+            try assign(target, .set(s), in: env)
+        default:
+            throw SwiftalkError.unknownMember("\(container.typeName).merge()")
+        }
+        return .nil
+    case .method(let receiverExpr, "delete", let argExprs, true):
+        // s.delete(other) (round 133): the in-place `-` — every element
+        // of other removed; on a Dictionary, the keys listed (a Set, an
+        // Array, or another Dictionary's keys) removed.
+        let container = try evaluate(receiverExpr, in: env)
+        guard let target = asLValue(receiverExpr) else {
+            throw SwiftalkError.type("'.delete' mutates — call it on a var \(container.typeName)")
+        }
+        let values = try plainValues(try argExprs.map { (label: $0.label, value: try evaluate($0.expr, in: env)) },
+                                     for: ".delete")
+        guard values.count == 1 else { throw SwiftalkError.type(".delete takes one Set, or any Sequence") }
+        switch container {
+        case .set(var s):
+            s.subtract(try setElements(values[0]))
+            try assign(target, .set(s), in: env)
+        case .dictionary(var d):
+            let keys: Set<Value>
+            if case .dictionary(let other) = values[0] { keys = Set(other.keys) } else { keys = try setElements(values[0]) }
+            for key in keys { d.removeValue(forKey: key) }
+            try assign(target, .dictionary(d), in: env)
+        default:
+            throw SwiftalkError.unknownMember("\(container.typeName).delete()")
+        }
         return .nil
     case .method(let receiverExpr, let name, let args, let called):
         // super.method(...) (round 56): not a value's member — a
@@ -2955,10 +2988,21 @@ private func binary(_ op: Character, _ lhs: Value, _ rhs: Value) throws -> Value
         return .string(a + b)
     case (.array(let a), .array(let b)) where op == "+":
         return .array(a + b)
+    case (.set(let a), .set(let b)) where op == "+":
+        return .set(a.union(b))                 // round 133: keys only, so + is union…
+    case (.set(let a), .set(let b)) where op == "-":
+        return .set(a.subtracting(b))           // …and - is subtraction
     default:
         throw SwiftalkError.type(
             "'\(op)' is not defined between \(lhs.typeName) and \(rhs.typeName)")
     }
+}
+
+/// The other side of a Set operation (rounds 132–133): a Set as it is,
+/// anything else a finite Sequence's elements.
+func setElements(_ value: Value) throws -> Set<Value> {
+    if case .set(let s) = value { return s }
+    return Set(try collect(value))
 }
 
 /// `base ?? fill` on Dictionaries (round 130): per key, `base[k] ??
@@ -3154,6 +3198,13 @@ func convert(_ typeName: String, subject: Value?,
             throw SwiftalkError.type("Regex(pattern, flags) takes two Strings")
         }
         return .regex(try RegexObject(pattern: pattern, flags: flags))
+    case "Set":
+        // Set(a, b, ...) (round 133): the arguments are the elements —
+        // unlabeled, as a list is
+        guard let subject, extra.allSatisfy({ $0.label == nil }) else {
+            throw SwiftalkError.type("Set(a, b, ...) takes unlabeled elements")
+        }
+        return .set(Set([subject] + extra.map(\.value)))
     case "Sequence":
         // state.Sequence { next } == Sequence(state) { next } — the law's
         // bonus: trailing-closure generator construction.
@@ -4011,8 +4062,7 @@ private func method(on receiver: Value, name: String,
         guard args.count == 1 else {
             throw SwiftalkError.type(".\(name) takes one argument: a Set, or any Sequence")
         }
-        let other: Set<Value>
-        if case .set(let o) = args[0] { other = o } else { other = Set(try collect(args[0])) }
+        let other = try setElements(args[0])
         switch name {
         case "union":               return .set(s.union(other))
         case "intersection":        return .set(s.intersection(other))

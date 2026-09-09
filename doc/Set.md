@@ -14,11 +14,16 @@ annotation is Swift's generic spelling, `Set<Int>`, `Set<String>?`,
 |---|---|
 | `Set()` | the empty Set |
 | `Set(seq)` | the distinct elements of any finite Sequence — an Array, a Range, a String's graphemes, a Data's bytes, a Dictionary's `(key:, value:)` pairs; `Set(0...)` is an error |
+| `Set(a, b, ...)`, `Set(x)` | two or more arguments are the elements (round 133): `Set("one", "two")`; one argument that is not a Sequence is the one-element Set, `Set(3)`. Mind the one Sequence: `Set("one")` is a String's graphemes, `Set(["one"])` the one-element Set |
 | `xs.Set()` | the same, by the conversion law (§3d) |
 | `s.count` | elements |
 | `s.contains(x)`, `s.contains { }` | membership / a predicate |
 | `s.insert(x)` | adds `x`; `true` when it was new; needs a `var` root |
 | `s.remove(x)` | removes `x`; the removed value or `nil`; needs a `var` root |
+| `s0 + s1`, `s0 += s1` | **union** (round 133) — a Set is keys only, so there is no collision to resolve: `Set("one", "two") + Set("two", "three") == Set("one", "two", "three")`. Both sides Sets |
+| `s0 - s1`, `s0 -= s1` | **subtraction**: `Set("one", "two") - Set("two", "three") == Set(["one"])` |
+| `s.merge(t)` | the in-place `+`, with no function (there is nothing to combine); `t` a Set or any Sequence; returns `nil`; needs a `var` root |
+| `s.delete(t)` | the in-place `-`: every element of `t` removed; `t` a Set or any Sequence; returns `nil`; needs a `var` root |
 | `s == t` | equality — order is not a property a Set has |
 | `s.union(t)`, `s.intersection(t)`, `s.subtracting(t)`, `s.symmetricDifference(t)` | new Sets; `t` a Set or any finite Sequence, as Swift's take |
 | `s.isSubset(of: t)`, `s.isSuperset(of: t)`, `s.isStrictSubset(of: t)`, `s.isStrictSuperset(of: t)`, `s.isDisjoint(with: t)` | Bools; the labels optional, as Swift's labels are elsewhere |
@@ -33,7 +38,10 @@ annotation is Swift's generic spelling, `Set<Int>`, `Set<String>?`,
 | `d.keys` | a Dictionary's keys are a Set (round 132, revising 127): `d0 == d1` implies `d0.keys == d1.keys`, which no Array could promise |
 | `[s: v]` | a Set is Hashable, so it is a Dictionary key |
 
-No subscript: a Set has no positions. What is not here: `first`,
+No subscript: a Set has no positions. **No `??` or `!!` of their own**
+(round 133): a Set is keys only, so "keep mine" and "take theirs"
+would be the same union — `+` is that; the general rule still applies
+(`s0 ?? s1` is `s0`, `s0 !! s1` is `s1`). What is not here: `first`,
 `min`/`max`, `popFirst` — OPEN, along with `Set` in SION.
 
 ```swift

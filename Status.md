@@ -163,6 +163,34 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**Set is keys only: `+`, `-`, `merge`, `delete`** (round 133) — union
+and subtraction as operators, their in-place methods without a
+combine function, `Set(a, b, ...)` listing elements:
+
+```text
+swiftalk> Set("one", "two") + Set("two", "three")
+Set(["one", "three", "two"])
+swiftalk> Set("one", "two") - Set("two", "three")
+Set(["one"])
+swiftalk> var s = Set(1, 2)
+Set([1, 2])
+swiftalk> s += Set(3)
+Set([1, 2, 3])
+swiftalk> s.merge([4, 5])
+swiftalk> s.delete(Set(1, 2))
+swiftalk> s
+Set([3, 4, 5])
+swiftalk> var d = ["a": 1, "b": 2, "c": 3]
+["a": 1, "b": 2, "c": 3]
+swiftalk> d.delete(Set("a", "c"))
+swiftalk> d
+["b": 2]
+swiftalk> Set("one")
+Set(["e", "n", "o"])
+swiftalk> Set(["one"]) == Set("one", "two") - Set("two")
+false
+```
+
 **`Set`** (round 132) — unordered, unique, Swift's names; `Set([...])` is
 the source form, `Set<T>` the annotation; `d.keys` is a Set now:
 
