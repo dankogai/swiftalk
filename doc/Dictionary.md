@@ -14,7 +14,7 @@ three keys), as SION allows. A homogeneous literal infers `[K: V]`
 | `d.has(k)` | presence — true for a key holding nil, false for a missing key |
 | `d[k] ??= v` | set a default: writes `v` only when `d[k]` is nil (round 103) |
 | `d.remove(k)` | deletes the entry; returns the removed value or `nil`; needs a `var` root |
-| `d.delete(keys)` | removes every listed key (round 133): a Set or Array of keys, or another Dictionary's keys; returns `nil`; needs a `var` root |
+| `d.subtract(keys)` | removes every listed key (round 133, as `delete`; Swift's Set name since 135): a Set or Array of keys, or another Dictionary's keys; returns `nil`; needs a `var` root |
 | `d0 ?? d1`, `d0 ??= d1` | **fill in**: `d0`'s values kept, missing ones taken from `d1` — per key, `d0[k] ?? d1[k]`, so a stored `nil` is filled (round 130); `??=` in place on a `var` |
 | `d0 !! d1`, `d0 !!= d1` | **override**: `d1`'s values win where it has one — `(d0 !! d1) == (d1 ?? d0)` by definition, so a `nil` in `d1` does not override (round 130); `!!=` in place. `merge` without a function is the lossier cousin: it writes `nil`s too |
 | `d.merging(e)`, `d.merging(e) { current, new in }`, `d.merging(e, uniquingKeysWith:)` | a new Dictionary with `e`'s entries added (round 126); a shared key goes to the function, called as (current, new) — without one, **the new value wins** (Swift requires the function) |

@@ -100,6 +100,7 @@ sees that module's unexported names, never the importer's.
 | Operator | Int | Double | String | Array | Date | Bool | any |
 |---|---|---|---|---|---|---|---|
 | `+ - * /` | ✓ (traps on overflow, `/0`) | ✓ | `+` only | `+` only; on Sets `+` is union and `-` subtraction (round 133) | | | |
+| `\| & ^`, `\|= &= ^=` | | | | Sets only (round 135): union, intersection, symmetric difference — `s.union(t) == s \| t` | | | |
 | `%` | ✓ remainder, the dividend's sign; `% 0` traps (round 93) | type error, as in Swift | | | | | |
 | `+= -= *= /= %=` | ✓ (round 102) — `x op= y` is `x = x op y`, the target evaluated once | ✓ | `+=` | `+=` | | | |
 | `??=` | `x ??= y` writes `y` only when `x` is nil (or a Result failure); `y` unevaluated otherwise (round 103) — any type; on a Dictionary, per key (round 130) | | | | | | |
@@ -117,5 +118,7 @@ sees that module's unexported names, never the importer's.
 
 Mixed arithmetic (`1 + 1.5`) is a type error — convert explicitly.
 Precedence, high to low: prefix `! -` · `* / %` · `+ -` · `... ..<` ·
-`??` · comparison · `&&` · `^^` · `||` · `? :`. A lone `&` or `|` is a
-syntax error — bitwise operators are undecided.
+`??` · comparison · `&&` · `^^` · `||` · `? :`. A lone `&`, `|`, or `^`
+is a Set operator (round 135) — `&` at `*`'s level, `|` and `^` at
+`+`'s — and a type error on anything else; bitwise operations are
+methods on Int.

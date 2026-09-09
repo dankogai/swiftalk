@@ -52,7 +52,7 @@ struct LogicalTests {
         #expect(try eval("let x: Bool? = false\n!(x == nil)") == .bool(true))
     }
 
-    @Test("a lone & or | is a syntax error, not a bitwise operator")
+    @Test("a lone & or | is not a bitwise operator: a type error off Sets (a syntax error until round 135)")
     func loneBars() throws {
         #expect(throws: SwiftalkError.self) { try eval("1 & 2") }
         #expect(throws: SwiftalkError.self) { try eval("true | false") }

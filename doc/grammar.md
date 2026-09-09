@@ -55,7 +55,7 @@ Shelved forms (`actor`, `class`, `super`) are not grammar today.
     keyword) and is division after a value, a name, or a closing
     bracket — JavaScript's rule. `//` is a comment, never an empty
     regex.
-* **Operators & punctuation**: `+ - * / %`, `+= -= *= /= %= ??= !!= &&= ||= ^^=`, `== != === !== < <= > >=`, `&& ^^ ||`,
+* **Operators & punctuation**: `+ - * / %`, `| & ^` (Sets), `+= -= *= /= %= |= &= ^= ??= !!= &&= ||= ^^=`, `== != === !== < <= > >=`, `&& ^^ ||`,
   prefix `! - +`, `...` `..<`, `??` `!!`, `= : , . ; ( ) [ ] { }`. Four
   spacing-sensitive rules:
   * `!!` — infix (`a !! b`, round 130) only after an operand and with
@@ -67,7 +67,9 @@ Shelved forms (`actor`, `class`, `super`) are not grammar today.
     after one is force-unwrap.
   * `.` — digits directly after `.` are a tuple index (`t.0.1`), never
     a Double.
-  * A lone `&` or `|` is a syntax error.
+  * A lone `&`, `|`, or `^` is a Set operator (round 135) — `&` at the
+    multiplicative level, `|` and `^` at the additive — with `&=` `|=`
+    `^=`; doubled, they are the Bool operators.
 
 ## Program and statements
 

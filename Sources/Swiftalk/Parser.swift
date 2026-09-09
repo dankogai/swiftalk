@@ -128,7 +128,7 @@ enum Stmt {
     /// target is evaluated once, read, combined, written. `??=` (round
     /// 103) rides the same statement with op "?": the right side is
     /// evaluated only when the target is absent, as `??` does.
-    case compoundAssignment(target: LValue, op: Character, expr: Expr)
+    case compoundAssignment(target: LValue, op: String, expr: Expr)     // "+", "??", "&&", "|", … (round 135: a String)
     case expression(Expr)
     case returnS(Expr?)
     case yieldS(Expr?)
@@ -396,21 +396,12 @@ struct Parser {
             return .continueS
         default:
             let expr = try parseExpr()
-            if case .op(let o)? = peek, o.count == 2, o.hasSuffix("="), let op = o.first, "+-*/%".contains(op) {
+            // `x op= y` for every binary operator that can spell one (rounds
+            // 102–106, 130, 135): the operator is the token without its `=`.
+            if case .op(let o)? = peek, o.hasSuffix("="),
+               ["+=", "-=", "*=", "/=", "%=", "??=", "!!=", "&&=", "||=", "^^=", "&=", "|=", "^="].contains(o) {
                 pos += 1
-                return .compoundAssignment(target: try lvalue(from: expr), op: op, expr: try parseExpr())
-            }
-            if case .op("??=")? = peek {
-                pos += 1
-                return .compoundAssignment(target: try lvalue(from: expr), op: "?", expr: try parseExpr())
-            }
-            if case .op("!!=")? = peek {                                        // round 130
-                pos += 1
-                return .compoundAssignment(target: try lvalue(from: expr), op: "!", expr: try parseExpr())
-            }
-            if case .op(let o)? = peek, o == "&&=" || o == "||=" || o == "^^=" {   // rounds 104/106
-                pos += 1
-                return .compoundAssignment(target: try lvalue(from: expr), op: o.first!, expr: try parseExpr())
+                return .compoundAssignment(target: try lvalue(from: expr), op: String(o.dropLast()), expr: try parseExpr())
             }
             guard case .punct("=")? = peek else {
                 return .expression(expr)
@@ -1259,20 +1250,32 @@ struct Parser {
 
     private mutating func parseAdditive() throws -> Expr {
         var lhs = try parseMultiplicative()
-        while case .punct(let op)? = peek, op == "+" || op == "-" {
-            pos += 1
-            lhs = .binary(op, lhs, try parseMultiplicative())
+        while true {
+            if case .punct(let op)? = peek, op == "+" || op == "-" {
+                pos += 1
+                lhs = .binary(op, lhs, try parseMultiplicative())
+            } else if case .op(let o)? = peek, o == "|" || o == "^" {          // Set union / symmetric difference (round 135), Swift's level
+                pos += 1
+                lhs = .binary(Character(o), lhs, try parseMultiplicative())
+            } else {
+                return lhs
+            }
         }
-        return lhs
     }
 
     private mutating func parseMultiplicative() throws -> Expr {
         var lhs = try parseUnary()
-        while case .punct(let op)? = peek, op == "*" || op == "/" || op == "%" {
-            pos += 1
-            lhs = .binary(op, lhs, try parseUnary())
+        while true {
+            if case .punct(let op)? = peek, op == "*" || op == "/" || op == "%" {
+                pos += 1
+                lhs = .binary(op, lhs, try parseUnary())
+            } else if case .op("&")? = peek {                                    // Set intersection (round 135), Swift's level
+                pos += 1
+                lhs = .binary("&", lhs, try parseUnary())
+            } else {
+                return lhs
+            }
         }
-        return lhs
     }
 
     private mutating func parseUnary() throws -> Expr {

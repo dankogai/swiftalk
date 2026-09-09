@@ -163,6 +163,38 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**Set operators `|`, `&`, `^`** (round 135) — Swift's SetAlgebra spelled
+as operators, Swift's precedence (`&` with `*`, `|` and `^` with `+`);
+`|=`, `&=`, `^=`; `delete` renamed `subtract`; off Sets a type error:
+
+```text
+swiftalk> let a = Set(1, 2, 3)
+Set(1, 2, 3)
+swiftalk> let b = Set(3, 4)
+Set(3, 4)
+swiftalk> a | b
+Set(1, 2, 3, 4)
+swiftalk> a & b
+Set(3)
+swiftalk> a - b
+Set(1, 2)
+swiftalk> a ^ b
+Set(1, 2, 4)
+swiftalk> a | b & Set(4, 5)
+Set(1, 2, 3, 4)
+swiftalk> var s = Set(1, 2)
+Set(1, 2)
+swiftalk> s |= Set(3)
+Set(1, 2, 3)
+swiftalk> s ^= Set(3, 4)
+Set(1, 2, 4)
+swiftalk> s.subtract(Set(1))
+swiftalk> s
+Set(2, 4)
+swiftalk> 1 | 2
+type error: '|' is a Set operator — not defined between Int and Int; Bools use '||', Ints .bitAnd/.bitOr/.bitXor
+```
+
 **A Set prints as `Set(e0, e1, ...)`** (round 134, revising 132) — the
 constructor as written; a lone Sequence element keeps its brackets so
 the text re-enters:
@@ -190,9 +222,9 @@ Set(
 )
 ```
 
-**Set is keys only: `+`, `-`, `merge`, `delete`** (round 133) — union
-and subtraction as operators, their in-place methods without a
-combine function, `Set(a, b, ...)` listing elements:
+**Set is keys only: `+`, `-`, `merge`, `subtract`** (round 133; `delete`
+until round 135) — union and subtraction as operators, their in-place
+methods without a combine function, `Set(a, b, ...)` listing elements:
 
 ```text
 swiftalk> Set("one", "two") + Set("two", "three")
@@ -204,12 +236,12 @@ Set(1, 2)
 swiftalk> s += Set(3)
 Set(1, 2, 3)
 swiftalk> s.merge([4, 5])
-swiftalk> s.delete(Set(1, 2))
+swiftalk> s.subtract(Set(1, 2))
 swiftalk> s
 Set(3, 4, 5)
 swiftalk> var d = ["a": 1, "b": 2, "c": 3]
 ["a": 1, "b": 2, "c": 3]
-swiftalk> d.delete(Set("a", "c"))
+swiftalk> d.subtract(Set("a", "c"))
 swiftalk> d
 ["b": 2]
 swiftalk> Set(3)

@@ -608,7 +608,9 @@ string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bar
 short-circuit on the right, precedence `!` > comparison > `&&` >
 `||` > ternary, with `??` above comparison. Prefix `!` and postfix
 `!` (force unwrap) coexist; position tells them apart. A lone `&` or
-`|` is a syntax error — bitwise operators are undecided.
+`|` is a syntax error — bitwise operators are undecided. *(Round 135:
+a lone `&`, `|`, or `^` is a Set operator now, a type error elsewhere
+— bitwise stayed methods, per round 105, so the symbols were free.)*
 
 **Prefix `+`, a signed `.hex`, and `===` / `!==` — DECIDED (round 121)**
 ("Looks like prefix `+` to Int and Double are missing. I got a syntax
@@ -719,7 +721,17 @@ operators are **`+` for union and `-` for subtraction**, both sides
 Sets, `+=`/`-=` following by round 104's rule, with `merge` and
 `delete` as their in-place methods (a Set or any Sequence on the
 right). `delete` reached Dictionary too, by the user's spelling
-`d0.delete(d1)`: the listed keys removed. And `Set(a, b, ...)` lists
+`d0.delete(d1)`: the listed keys removed. **Round 135** ("More
+operators to Set: `s.union(t) == s | t`, `s.intersection(t) == s &
+t`, `s.subtracting(t) == s - t` — rename `.delete()` to `.subtract()`
+as well — `s.symmetricDifference(t) == s ^ t`") spelled Swift's
+SetAlgebra as operators: `|`, `&`, `^` beside `+` and `-`, at Swift's
+levels (`&` with `*`, `|` and `^` with `+`), `|=` `&=` `^=` by round
+104's rule, and a type error off Sets — the three symbols had stayed
+free precisely because round 105 made bitwise operations methods.
+`delete` became `subtract`, Swift's mutating name, on Dictionary too.
+Compound assignment now carries its operator as a String, the doubled
+and single forms no longer sharing a character. And `Set(a, b, ...)` lists
 its elements when given two or more, and a single non-Sequence is
 the singleton (`Set(3)`); a single Sequence stays Swift's
 `Set(sequence)`, so `Set("one")` is graphemes and `Set(["one"])` the

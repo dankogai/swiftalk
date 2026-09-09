@@ -488,7 +488,7 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
         // the value written, as an assignment's is. `??=` (round 103):
         // the right side is evaluated only when the target is absent —
         // nil, or a Result failure — exactly when `??` would take it.
-        if op == "?" {
+        if op == "??" {
             return try assign(target, .nil, in: env) { old in
                 if case .dictionary(let d) = old {          // d ??= defaults (round 130)
                     return .dictionary(try coalesceDictionaries(base: d, fill: try evaluate(expr, in: env), op: "??="))
@@ -496,7 +496,7 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
                 return try isAbsent(old) ? evaluate(expr, in: env) : old
             }
         }
-        if op == "!" {
+        if op == "!!" {
             // x !!= y is x = y ?? x (round 130): both sides evaluated
             let rhs = try evaluate(expr, in: env)
             return try assign(target, .nil, in: env) { old in
@@ -506,7 +506,7 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
                 return try isAbsent(rhs) ? old : rhs
             }
         }
-        if op == "^" {
+        if op == "^^" {
             // ^^= (round 106): Bools only, both sides evaluated
             let rhs = try evaluate(expr, in: env)
             return try assign(target, .nil, in: env) { old in
@@ -516,15 +516,15 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
                 return .bool(a != b)
             }
         }
-        if op == "&" || op == "|" {
+        if op == "&&" || op == "||" {
             // &&= / ||= (round 104): Bools only, short-circuit like the
             // operators — the right side is evaluated only when it decides
-            let name = op == "&" ? "&&=" : "||="
+            let name = op + "="
             return try assign(target, .nil, in: env) { old in
                 guard case .bool(let flag) = old else {
                     throw SwiftalkError.type("'\(name)' takes a Bool target, not \(old.typeName) — nothing is truthy (§3b)")
                 }
-                if (op == "&") != flag { return old }           // false &&= _, true ||= _: decided
+                if (op == "&&") != flag { return old }          // false &&= _, true ||= _: decided
                 let rhs = try evaluate(expr, in: env)         // once
                 guard case .bool = rhs else {
                     throw SwiftalkError.type("'\(name)' takes a Bool — nothing is truthy (§3b)")
@@ -533,7 +533,7 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             }
         }
         let rhs = try evaluate(expr, in: env)
-        return try assign(target, rhs, in: env) { old in try binary(op, old, rhs) }
+        return try assign(target, rhs, in: env) { old in try binary(Character(op), old, rhs) }
     case .assignment(let target, let expr):
         let value = try evaluate(expr, in: env)
         if relaxed {
@@ -1593,17 +1593,18 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
             throw SwiftalkError.unknownMember("\(container.typeName).merge()")
         }
         return .nil
-    case .method(let receiverExpr, "delete", let argExprs, true):
-        // s.delete(other) (round 133): the in-place `-` — every element
-        // of other removed; on a Dictionary, the keys listed (a Set, an
-        // Array, or another Dictionary's keys) removed.
+    case .method(let receiverExpr, "subtract", let argExprs, true):
+        // s.subtract(other) (round 133 as `delete`, Swift's name since
+        // 135): the in-place `-` — every element of other removed; on a
+        // Dictionary, the keys listed (a Set, an Array, or another
+        // Dictionary's keys) removed.
         let container = try evaluate(receiverExpr, in: env)
         guard let target = asLValue(receiverExpr) else {
-            throw SwiftalkError.type("'.delete' mutates — call it on a var \(container.typeName)")
+            throw SwiftalkError.type("'.subtract' mutates — call it on a var \(container.typeName)")
         }
         let values = try plainValues(try argExprs.map { (label: $0.label, value: try evaluate($0.expr, in: env)) },
-                                     for: ".delete")
-        guard values.count == 1 else { throw SwiftalkError.type(".delete takes one Set, or any Sequence") }
+                                     for: ".subtract")
+        guard values.count == 1 else { throw SwiftalkError.type(".subtract takes one Set, or any Sequence") }
         switch container {
         case .set(var s):
             s.subtract(try setElements(values[0]))
@@ -1614,7 +1615,7 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
             for key in keys { d.removeValue(forKey: key) }
             try assign(target, .dictionary(d), in: env)
         default:
-            throw SwiftalkError.unknownMember("\(container.typeName).delete()")
+            throw SwiftalkError.unknownMember("\(container.typeName).subtract()")
         }
         return .nil
     case .method(let receiverExpr, let name, let args, let called):
@@ -2938,6 +2939,14 @@ func run(_ fn: FunctionObject, ordered: [Value]) throws -> (result: Value, local
 /// Same-type arithmetic only (Design.md §3): `1 + 1.5` is a type error,
 /// Int overflow traps (§3b), and `+` concatenates Strings and Arrays.
 private func binary(_ op: Character, _ lhs: Value, _ rhs: Value) throws -> Value {
+    // `|`, `&`, `^` are Set operators (round 135) — on anything else a
+    // type error, before the numeric switches that know only arithmetic
+    if "|&^".contains(op) {
+        guard case .set = lhs, case .set = rhs else {
+            throw SwiftalkError.type(
+                "'\(op)' is a Set operator — not defined between \(lhs.typeName) and \(rhs.typeName); Bools use '\(op)\(op)', Ints .bitAnd/.bitOr/.bitXor")
+        }
+    }
     switch (lhs, rhs) {
     case (.byte(let a), .byte(let b)):
         // Byte op Byte is a Byte (round 116) — UInt8's, trapping
@@ -2988,10 +2997,14 @@ private func binary(_ op: Character, _ lhs: Value, _ rhs: Value) throws -> Value
         return .string(a + b)
     case (.array(let a), .array(let b)) where op == "+":
         return .array(a + b)
-    case (.set(let a), .set(let b)) where op == "+":
-        return .set(a.union(b))                 // round 133: keys only, so + is union…
+    case (.set(let a), .set(let b)) where op == "+" || op == "|":
+        return .set(a.union(b))                 // round 133: keys only, so + is union (| too, round 135)…
     case (.set(let a), .set(let b)) where op == "-":
         return .set(a.subtracting(b))           // …and - is subtraction
+    case (.set(let a), .set(let b)) where op == "&":
+        return .set(a.intersection(b))          // round 135: Swift's SetAlgebra spelled as operators
+    case (.set(let a), .set(let b)) where op == "^":
+        return .set(a.symmetricDifference(b))
     default:
         throw SwiftalkError.type(
             "'\(op)' is not defined between \(lhs.typeName) and \(rhs.typeName)")

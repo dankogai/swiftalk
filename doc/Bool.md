@@ -30,8 +30,8 @@ true ? "y" : "n"    // "y"
 
 Precedence is Swift's: `!` tightest, then comparison, `&&`, `||`, the
 ternary loosest; `??` binds tighter than comparison. `1 && true` is a
-type error. A lone `&` or `|` is a syntax error — bitwise operators
-are undecided.
+type error. A lone `&` or `|` is a Set operator (round 135), a type
+error on Bools — `&&` and `||` are the Bool operators.
 
 ```swift
 false && probe()          // probe never runs

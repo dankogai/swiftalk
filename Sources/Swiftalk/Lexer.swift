@@ -100,14 +100,17 @@ struct Lexer {
                     pos += 1
                     tokens.append(.punct("/"))
                 }
-            case "^":
-                // ^^ is logical xor, ^^= its assignment (round 106); a lone
-                // ^ is not an operator — bitwise xor is a method (round 105)
-                guard pos + 1 < scalars.count, scalars[pos + 1] == "^" else {
-                    throw SwiftalkError.syntax("'^' is not an operator — '^^' is xor on Bools, '.xor()' on Ints")
-                }
-                pos += 2
-                if peek == "=" { pos += 1; tokens.append(.op("^^=")) } else { tokens.append(.op("^^")) }
+            case "^", "&", "|":
+                // Doubled: `&&` `||` (round 69), `^^` (round 106), and their
+                // `=` forms. Single (round 135): Set operators — `&`
+                // intersection, `|` union, `^` symmetric difference — with
+                // `&=` `|=` `^=`; on anything else a type error, not a
+                // syntax error. Bitwise stays methods (round 105).
+                pos += 1
+                let doubled = peek == c
+                if doubled { pos += 1 }
+                let text = doubled ? String(c) + String(c) : String(c)
+                if peek == "=" { pos += 1; tokens.append(.op(text + "=")) } else { tokens.append(.op(text)) }
             case "[", "(", "{":
                 brackets.append(c)
                 pos += 1
@@ -146,20 +149,6 @@ struct Lexer {
                     tokens.append(.op("?"))
                 } else {
                     tokens.append(.punct("?"))
-                }
-            case "&", "|":
-                // `&&` / `||` (round 69). A lone `&` or `|` is nothing yet
-                // — bitwise operators are undecided.
-                pos += 1
-                guard peek == c else {
-                    throw SwiftalkError.syntax("unexpected '\(c)' — did you mean '\(c)\(c)'?")
-                }
-                pos += 1
-                if peek == "=" {                            // &&= ||= (round 104)
-                    pos += 1
-                    tokens.append(.op(String(c) + String(c) + "="))
-                } else {
-                    tokens.append(.op(String(c) + String(c)))
                 }
             case "=", "!", "<", ">":
                 // `!!` / `!!=` (round 130): infix only where an infix can be —
@@ -247,7 +236,8 @@ struct Lexer {
             return "+-*/%=".contains(p)
         case .op(let o)?:
             return ["==", "!=", "===", "!==", "<", "<=", ">", ">=", "&&", "||", "??", "!!",
-                    "+=", "-=", "*=", "/=", "%=", "??=", "!!=", "&&=", "||=", "^^", "^^="].contains(o)
+                    "+=", "-=", "*=", "/=", "%=", "??=", "!!=", "&&=", "||=", "^^", "^^=",
+                    "&", "|", "^", "&=", "|=", "^="].contains(o)
         default:
             return false
         }

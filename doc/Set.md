@@ -23,10 +23,18 @@ annotation is Swift's generic spelling, `Set<Int>`, `Set<String>?`,
 | `s.contains(x)`, `s.contains { }` | membership / a predicate |
 | `s.insert(x)` | adds `x`; `true` when it was new; needs a `var` root |
 | `s.remove(x)` | removes `x`; the removed value or `nil`; needs a `var` root |
-| `s0 + s1`, `s0 += s1` | **union** (round 133) — a Set is keys only, so there is no collision to resolve: `Set("one", "two") + Set("two", "three") == Set("one", "two", "three")`. Both sides Sets |
-| `s0 - s1`, `s0 -= s1` | **subtraction**: `Set("one", "two") - Set("two", "three") == Set(["one"])` |
-| `s.merge(t)` | the in-place `+`, with no function (there is nothing to combine); `t` a Set or any Sequence; returns `nil`; needs a `var` root |
-| `s.delete(t)` | the in-place `-`: every element of `t` removed; `t` a Set or any Sequence; returns `nil`; needs a `var` root |
+| `s \| t`, `s + t` | **union** — `s.union(t)` (rounds 133/135); a Set is keys only, so there is no collision to resolve: `Set("one", "two") + Set("two", "three") == Set("one", "two", "three")`. Both sides Sets |
+| `s & t` | **intersection** — `s.intersection(t)` (round 135) |
+| `s - t` | **subtraction** — `s.subtracting(t)`: `Set("one", "two") - Set("two", "three") == Set(["one"])` |
+| `s ^ t` | **symmetric difference** — `s.symmetricDifference(t)` (round 135) |
+| `s \|= t`, `s += t`, `s &= t`, `s -= t`, `s ^= t` | in place, on a `var` path |
+| `s.merge(t)` | the in-place `+`/`\|`, with no function (there is nothing to combine); `t` a Set or any Sequence; returns `nil`; needs a `var` root |
+| `s.subtract(t)` | the in-place `-` (Swift's name; `delete` in round 133): every element of `t` removed; `t` a Set or any Sequence; returns `nil`; needs a `var` root |
+
+Precedence is Swift's: `&` binds with `* / %`, `|` and `^` with `+ -`,
+so `a | b & c` is `a | (b & c)`. Off Sets the three are type errors —
+bitwise operations stay methods (`bitAnd`, `bitOr`, `bitXor`), and
+`&&`, `||`, `^^` are the Bool operators.
 | `s == t` | equality — order is not a property a Set has |
 | `s.union(t)`, `s.intersection(t)`, `s.subtracting(t)`, `s.symmetricDifference(t)` | new Sets; `t` a Set or any finite Sequence, as Swift's take |
 | `s.isSubset(of: t)`, `s.isSuperset(of: t)`, `s.isStrictSubset(of: t)`, `s.isStrictSuperset(of: t)`, `s.isDisjoint(with: t)` | Bools; the labels optional, as Swift's labels are elsewhere |

@@ -1924,3 +1924,20 @@ the history. (Moved out of Design.md in round 65.)
   String, Range, Dictionary, Set, Data, tuple, or Sequence prints
   `Set([x])` — `Set(["one"])`, `Set([[1, 2]])` — and the tests
   re-enter each of those. `.pretty` follows: `Set(\n  1,\n  2\n)`.
+* **2026-09-10, round 135 — `|`, `&`, `^` on Sets; `subtract`** ("More
+  operators to Set: `s.union(t) == s | t`, `s.intersection(t) == s &
+  t`, `s.subtracting(t) == s - t` — rename `.delete()` to
+  `.subtract()` as well — `s.symmetricDifference(t) == s ^ t`"). The
+  three symbols were free because round 105 sent bitwise operations
+  to methods, and round 69's "a lone `&` or `|` is a syntax error"
+  was a placeholder waiting for a meaning; this is it. Swift's
+  precedence — `&` with the multiplicative operators, `|` and `^`
+  with the additive — so `a | b & c` reads as in Swift; `|=` `&=` `^=`
+  fall out of round 104's rule; off Sets the three are type errors,
+  with `&&`/`||`/`^^` untouched on Bools. `delete` was a name of mine
+  from round 133 and `subtract` is Swift's; renamed on Dictionary
+  too. Under the hood, compound assignment had been carrying its
+  operator as one Character, with `^^=` as `^` and `&&=` as `&` —
+  impossible once `^=` and `&=` exist — so it carries the operator's
+  text now. Round 133's `+` stays beside `|`, two spellings of union;
+  OPEN whether `+` should go.

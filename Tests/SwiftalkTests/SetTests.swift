@@ -93,7 +93,7 @@ struct SetTests {
         #expect(throws: SwiftalkError.self) { try eval("Set([1]).isSubset(within: Set([1]))") }
     }
 
-    @Test("keys only (round 133): s0 + s1 is union, s0 - s1 subtraction, += and -= follow; merge/delete in place, no function; Set(a, b, ...) lists elements")
+    @Test("keys only (round 133): s0 + s1 is union, s0 - s1 subtraction, += and -= follow; merge/subtract in place, no function; Set(a, b, ...) lists elements")
     func keysOnly() throws {
         #expect(try eval("Set(\"one\", \"two\") + Set(\"two\", \"three\") == Set(\"one\", \"two\", \"three\")") == .bool(true))
         #expect(try eval("Set(\"one\", \"two\") - Set(\"two\", \"three\") == Set(\"one\")") == .bool(false))      // Set("one") is graphemes: {"o","n","e"}
@@ -104,18 +104,48 @@ struct SetTests {
         #expect(try eval("var s = Set(1, 2)\ns.merge(Set(2, 3))\ns") == .set([.int(1), .int(2), .int(3)]))
         #expect(try eval("var s = Set(1, 2)\ns.merge([3, 4])\ns.count") == .int(4))                          // any Sequence
         #expect(try eval("var s = Set(1, 2)\ns.merge(Set(2, 3)) == nil") == .bool(true))
-        #expect(try eval("var s = Set(1, 2, 3)\ns.delete(Set(2, 9))\ns") == .set([.int(1), .int(3)]))
-        #expect(try eval("var s = Set(1, 2, 3)\ns.delete(1...2)\ns") == .set([.int(3)]))
-        #expect(try eval("var d = [\"a\": 1, \"b\": 2, \"c\": 3]\nd.delete(Set(\"a\", \"z\"))\nd.keys") == .set([.string("b"), .string("c")]))
-        #expect(try eval("var d = [\"a\": 1, \"b\": 2]\nd.delete([\"b\": 0])\nd") == .dictionary([.string("a"): .int(1)]))
-        #expect(try eval("var d = [\"a\": 1, \"b\": 2]\nd.delete([\"a\"])\nd.count") == .int(1))
+        #expect(try eval("var s = Set(1, 2, 3)\ns.subtract(Set(2, 9))\ns") == .set([.int(1), .int(3)]))
+        #expect(try eval("var s = Set(1, 2, 3)\ns.subtract(1...2)\ns") == .set([.int(3)]))
+        #expect(try eval("var d = [\"a\": 1, \"b\": 2, \"c\": 3]\nd.subtract(Set(\"a\", \"z\"))\nd.keys") == .set([.string("b"), .string("c")]))
+        #expect(try eval("var d = [\"a\": 1, \"b\": 2]\nd.subtract([\"b\": 0])\nd") == .dictionary([.string("a"): .int(1)]))
+        #expect(try eval("var d = [\"a\": 1, \"b\": 2]\nd.subtract([\"a\"])\nd.count") == .int(1))
         #expect(try eval("Set([1]) ?? Set([2])") == .set([.int(1)]))                                        // ?? / !! not special on Sets: the general rule
         #expect(try eval("Set([1]) !! Set([2])") == .set([.int(2)]))
         #expect(throws: SwiftalkError.self) { try eval("let s = Set(1)\ns.merge(Set(2))") }
         #expect(throws: SwiftalkError.self) { try eval("Set(1, 2) + [3]") }                                  // a Set and an Array
         #expect(throws: SwiftalkError.self) { try eval("Set(1, 2) * Set(3)") }
         #expect(throws: SwiftalkError.self) { try eval("var s = Set(1)\ns.merge(Set(2), Set(3))") }
-        #expect(throws: SwiftalkError.self) { try eval("var a = [1]\na.delete([1])") }
+        #expect(throws: SwiftalkError.self) { try eval("var a = [1]\na.subtract([1])") }
+        #expect(throws: SwiftalkError.self) { try eval("var s = Set(1)\ns.delete(Set(1))") }             // round 133's name is gone
+    }
+
+    @Test("operators (round 135): | union, & intersection, ^ symmetric difference, - subtraction; |= &= ^= -=; Swift's precedence")
+    func operators() throws {
+        let s = "let a = Set(1, 2, 3)\nlet b = Set(3, 4)\n"
+        #expect(try eval(s + "a | b == a.union(b)") == .bool(true))
+        #expect(try eval(s + "a & b == a.intersection(b)") == .bool(true))
+        #expect(try eval(s + "a - b == a.subtracting(b)") == .bool(true))
+        #expect(try eval(s + "a ^ b == a.symmetricDifference(b)") == .bool(true))
+        #expect(try eval(s + "a | b") == .set([.int(1), .int(2), .int(3), .int(4)]))
+        #expect(try eval(s + "a & b") == .set([.int(3)]))
+        #expect(try eval(s + "a ^ b") == .set([.int(1), .int(2), .int(4)]))
+        #expect(try eval(s + "a + b == a | b") == .bool(true))                                 // round 133's + stays
+        #expect(try eval(s + "a | b & Set(4, 5)") == .set([.int(1), .int(2), .int(3), .int(4)]))  // & binds tighter, as Swift's
+        #expect(try eval(s + "(a | b) & Set(4, 5)") == .set([.int(4)]))
+        #expect(try eval(s + "a ^ b - Set(4)") == .set([.int(1), .int(2)]))                    // ^ and - at one level, left to right
+        #expect(try eval(s + "a & b == Set(3)") == .bool(true))                                // comparison is looser
+        #expect(try eval("var s = Set(1, 2)\ns |= Set(3)\ns &= Set(2, 3, 9)\ns ^= Set(3, 4)\ns") == .set([.int(2), .int(4)]))
+        #expect(try eval("var s = Set(1, 2)\ns -= Set(1)\ns") == .set([.int(2)]))
+        #expect(try eval("var t = (s: Set(1), n: 0)\nt.s |= Set(2)\nt.s.count") == .int(2))
+        #expect(try eval("let b = true\nb && !b || b ^^ b") == .bool(false))                    // the doubled forms are untouched
+        #expect(try eval("var f = false\nf ||= true\nf &&= true\nf ^^= true\nf") == .bool(false))
+        #expect(try eval("0xff.bitAnd(0x0f)") == .int(15))                                       // bitwise stays methods
+        #expect(throws: SwiftalkError.self) { try eval("1 | 2") }                               // a type error now, not a syntax error
+        #expect(throws: SwiftalkError.self) { try eval("1 & 2") }
+        #expect(throws: SwiftalkError.self) { try eval("1 ^ 2") }
+        #expect(throws: SwiftalkError.self) { try eval("true | false") }
+        #expect(throws: SwiftalkError.self) { try eval("Set(1) | [2]") }
+        #expect(throws: SwiftalkError.self) { try eval("let s = Set(1)\ns |= Set(2)") }
     }
 
     @Test("type discipline: Set<Int> annotations, inference, locks; JSON writes a sorted array")
