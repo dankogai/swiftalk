@@ -3527,7 +3527,7 @@ private func method(on receiver: Value, name: String,
     case ("merging", true):    ["uniquingKeysWith"]                             // round 126
     case ("isSubset", true), ("isSuperset", true), ("isStrictSubset", true), ("isStrictSuperset", true): ["of"]   // round 132
     case ("isDisjoint", true): ["with"]
-    case ("normalize", true):  ["with"]                                         // round 137
+    case ("normalized", true), ("isNormalized", true): ["with"]                 // rounds 137–138
     default:                   []
     }
     let args = try plainValues(
@@ -4043,15 +4043,21 @@ private func method(on receiver: Value, name: String,
         case "leadingZeroBitCount": return .int(Int64(a.leadingZeroBitCount))
         default:                    return .int(Int64(a.trailingZeroBitCount))
         }
-    case ("normalize", true):
-        // s.normalize(with: .nfc) (round 137): UAX #15, Foundation-free
+    case ("normalized", true), ("isNormalized", true):
+        // s.normalized(with: .nfc) (round 137; Swift's -ed, round 138 —
+        // it does not mutate): UAX #15, Foundation-free. s.isNormalized(.nfc)
+        // asks whether normalizing would change anything.
         guard case .string(let s) = receiver else {
-            throw SwiftalkError.unknownMember("\(receiver.typeName).normalize()")
+            throw SwiftalkError.unknownMember("\(receiver.typeName).\(name)()")
         }
-        guard args.count == 1, case .string(let name) = args[0], let form = UnicodeNormalization.Form(rawValue: name) else {
-            throw SwiftalkError.type(".normalize(with:) takes one form: .nfc, .nfd, .nfkc, or .nfkd")
+        guard args.count == 1, case .string(let formName) = args[0], let form = UnicodeNormalization.Form(rawValue: formName) else {
+            throw SwiftalkError.type(".\(name)(with:) takes one form: .nfc, .nfd, .nfkc, or .nfkd")
         }
-        return .string(UnicodeNormalization.normalize(s, form))
+        let normalized = UnicodeNormalization.normalize(s, form)
+        // scalar for scalar: Swift's String == is canonical equivalence,
+        // which would call "e\u{301}" NFC-normalized already
+        return name == "normalized" ? .string(normalized)
+                                    : .bool(normalized.unicodeScalars.elementsEqual(s.unicodeScalars))
     case ("escaped", true), ("unescaped", true):
         // "Dan = 弾".escaped() == "Dan = \u{5f3e}"; unescaped reads it back (round 137)
         guard case .string(let s) = receiver else {

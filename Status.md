@@ -222,22 +222,26 @@ Set(
 )
 ```
 
-**Unicode normalization; `escaped` / `unescaped`** (round 137) — NFC,
-NFD, NFKC, NFKD by the UCD's tables, Foundation-free; non-ASCII as
-`\u{hex}` and back:
+**Unicode normalization; `escaped` / `unescaped`** (round 137; `normalized`
+and `isNormalized` since 138) — NFC, NFD, NFKC, NFKD by the UCD's
+tables, Foundation-free; non-ASCII as `\u{hex}` and back:
 
 ```text
 swiftalk> let e = "e\u{301}"
 "é"
 swiftalk> e.count
 1
-swiftalk> e.normalize(with: .nfc).unicodeScalars
+swiftalk> e.normalized(with: .nfc).unicodeScalars
 [233]
-swiftalk> e.normalize(with: .nfc) == "\u{e9}"
+swiftalk> e == "\u{e9}"          // String == is canonical equivalence, as Swift's is
 true
-swiftalk> "ﬁ①".normalize(with: .nfkc)
+swiftalk> e.isNormalized(.nfd)
+true
+swiftalk> e.isNormalized(.nfc)
+false
+swiftalk> "ﬁ①".normalized(with: .nfkc)
 "fi1"
-swiftalk> "한".normalize(.nfd).unicodeScalars
+swiftalk> "한".normalized(.nfd).unicodeScalars
 [4370, 4449, 4523]
 swiftalk> "Dan = 弾".escaped()
 "Dan = \\u{5f3e}"

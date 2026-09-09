@@ -72,7 +72,7 @@ let text   = bytes.String(.utf8)              // String? — bytes may not be te
 let src    = bytes.String()                   // .Data("Y2Fmw6k=") — SION
 eval(src) == bytes                            // true — eval() is the language's own (round 122)
 Set([3, 1, 2, 1]) == Set(1...3)               // true — Set (round 132): unordered, unique; Set<Int> annotates
-"e\u{301}".normalize(with: .nfc) == "é"        // true — NFC/NFD/NFKC/NFKD, Foundation-free (round 137)
+"e\u{301}".normalized(with: .nfc) == "é"       // true — NFC/NFD/NFKC/NFKD, Foundation-free (round 137); .isNormalized(.nfc) asks
 "Dan = 弾".escaped()                           // "Dan = \u{5f3e}"; .unescaped() reads it back
 
 // SION is built in (round 97): the same values, three formats

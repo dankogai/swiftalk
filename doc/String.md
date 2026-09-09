@@ -16,7 +16,8 @@ view (§11). `"..."` literals with `\(interpolation)`, escapes `\" \\
 | `s.String(.quoted)` | source form, escaped: `"\"hi\""` — `eval` re-enters it |
 | `s.Int()`, `s.Double()`, `s.Bool()` | failable parses (see those pages) |
 | `s.Data(.utf8)` | UTF-8 bytes, infallible (round 97; the bare `s.Data()` decodes base64) |
-| `s.normalize(with: .nfc)`, `.nfd`, `.nfkc`, `.nfkd` | Unicode normalization (round 137), UAX #15, Foundation-free — the UCD's tables in the core, Unicode 17.0; the `with:` label optional. `"e\u{301}".normalize(with: .nfc) == "é"`, `"ﬁ①".normalize(with: .nfkc) == "fi1"` |
+| `s.normalized(with: .nfc)`, `.nfd`, `.nfkc`, `.nfkd` | Unicode normalization (round 137; Swift's `-ed` since 138 — it does not mutate), UAX #15, Foundation-free — the UCD's tables in the core, Unicode 17.0; the `with:` label optional. `"e\u{301}".normalized(with: .nfc) == "é"`, `"ﬁ①".normalized(with: .nfkc) == "fi1"` |
+| `s.isNormalized(.nfc)` | would normalizing change anything, scalar for scalar? `"é".isNormalized(.nfc)` is true, `.isNormalized(.nfd)` false (round 138). Note `==` on Strings is canonical equivalence, as Swift's: `"e\u{301}" == "é"` is true — compare `.unicodeScalars` to tell the forms apart |
 | `s.escaped()` | every non-ASCII scalar as `\u{hex}` and a backslash as `\\`, the rest untouched: `"Dan = 弾".escaped() == "Dan = \u{5f3e}"` — ASCII text that is a string literal's body (round 137) |
 | `s.unescaped()` | the opposite, reading the literal escapes — `\u{…}`, `\\`, `\n`, `\t`, `\r`, `\0`, `\"`, `\'` — an unknown one is an error |
 | `s.unicodeScalars`, `s.utf32` | the Unicode scalar values, as `[Int]` (round 114) |

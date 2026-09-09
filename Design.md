@@ -745,7 +745,12 @@ Swift Foundation's `precomposedStringWithCanonicalMapping` and friends
 are too cumbersome. `.normalize(with: .nfc)`, maybe? Also implement
 `.escaped()` which escapes non-ASCII range codepoints… `.unescaped()`
 does the opposite"). One method, four forms, the `with:` label
-optional as Swift's labels are. **Foundation-free, by tables**: the
+optional as Swift's labels are — **`normalized`, from round 138**
+("rename `.normalize()` to `.normalized()` since it does not mutate.
+Swift's naming conventions apply"), Swift's rule that a non-mutating
+method is the past participle (`sorted`, `reversed`), with
+**`isNormalized(.nfc)`** beside it answering whether normalizing would
+change anything. **Foundation-free, by tables**: the
 standard library keeps its normalizer private and exposes only the
 combining class, so the core carries the UCD's decomposition mappings
 (Unicode 17.0: 2,081 canonical, 3,833 compatibility, the

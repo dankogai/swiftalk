@@ -6,26 +6,43 @@ import Foundation
 
 @Suite("Unicode normalization and escapes (round 137)")
 struct NormalizationTests {
-    @Test("normalize(with:) — nfc, nfd, nfkc, nfkd; the with: label optional")
+    @Test("normalized(with:) — nfc, nfd, nfkc, nfkd; the with: label optional (named normalize until round 138)")
     func forms() throws {
-        #expect(try eval("\"e\\u{301}\".normalize(with: .nfc) == \"\\u{e9}\"") == .bool(true))
-        #expect(try eval("\"\\u{e9}\".normalize(with: .nfd).unicodeScalars") == .array([.int(0x65), .int(0x301)]))
-        #expect(try eval("\"\\u{e9}\".normalize(.nfd).count") == .int(1))                     // one grapheme still
-        #expect(try eval("\"ﬁ\".normalize(with: .nfkc)") == .string("fi"))
-        #expect(try eval("\"ﬁ\".normalize(with: .nfc)") == .string("ﬁ"))                       // canonical leaves the ligature
-        #expect(try eval("\"①\".normalize(with: .nfkd)") == .string("1"))
-        #expect(try eval("\"한\".normalize(with: .nfd).unicodeScalars") == .array([.int(0x1112), .int(0x1161), .int(0x11AB)]))
-        #expect(try eval("\"\\u{1112}\\u{1161}\\u{11AB}\".normalize(with: .nfc)") == .string("한"))
-        #expect(try eval("\"\\u{212B}\".normalize(with: .nfc) == \"\\u{c5}\"") == .bool(true))   // ANGSTROM SIGN: a singleton, never re-composed
-        #expect(try eval("\"\\u{1E0B}\\u{323}\".normalize(with: .nfc) == \"\\u{1E0D}\\u{307}\"") == .bool(true))   // reordering, then composition
-        #expect(try eval("\"\\u{958}\".normalize(with: .nfc) == \"\\u{915}\\u{93C}\"") == .bool(true))            // a composition exclusion stays apart
-        #expect(try eval("\"\\u{FB01}\\u{2460}\\u{F900}\".normalize(with: .nfkc) == \"fi1\\u{8C48}\"") == .bool(true))
-        #expect(try eval("\"\".normalize(with: .nfc)") == .string(""))
-        #expect(try eval("\"abc\".normalize(with: .nfkd)") == .string("abc"))
-        #expect(try eval("\"弾\".normalize(with: .nfc) == \"弾\"") == .bool(true))
-        #expect(throws: SwiftalkError.self) { try eval("\"a\".normalize(with: .nfz)") }
-        #expect(throws: SwiftalkError.self) { try eval("\"a\".normalize()") }
-        #expect(throws: SwiftalkError.self) { try eval("1.normalize(with: .nfc)") }
+        #expect(try eval("\"e\\u{301}\".normalized(with: .nfc) == \"\\u{e9}\"") == .bool(true))
+        #expect(try eval("\"\\u{e9}\".normalized(with: .nfd).unicodeScalars") == .array([.int(0x65), .int(0x301)]))
+        #expect(try eval("\"\\u{e9}\".normalized(.nfd).count") == .int(1))                     // one grapheme still
+        #expect(try eval("\"ﬁ\".normalized(with: .nfkc)") == .string("fi"))
+        #expect(try eval("\"ﬁ\".normalized(with: .nfc)") == .string("ﬁ"))                       // canonical leaves the ligature
+        #expect(try eval("\"①\".normalized(with: .nfkd)") == .string("1"))
+        #expect(try eval("\"한\".normalized(with: .nfd).unicodeScalars") == .array([.int(0x1112), .int(0x1161), .int(0x11AB)]))
+        #expect(try eval("\"\\u{1112}\\u{1161}\\u{11AB}\".normalized(with: .nfc)") == .string("한"))
+        #expect(try eval("\"\\u{212B}\".normalized(with: .nfc) == \"\\u{c5}\"") == .bool(true))   // ANGSTROM SIGN: a singleton, never re-composed
+        #expect(try eval("\"\\u{1E0B}\\u{323}\".normalized(with: .nfc) == \"\\u{1E0D}\\u{307}\"") == .bool(true))   // reordering, then composition
+        #expect(try eval("\"\\u{958}\".normalized(with: .nfc) == \"\\u{915}\\u{93C}\"") == .bool(true))            // a composition exclusion stays apart
+        #expect(try eval("\"\\u{FB01}\\u{2460}\\u{F900}\".normalized(with: .nfkc) == \"fi1\\u{8C48}\"") == .bool(true))
+        #expect(try eval("\"\".normalized(with: .nfc)") == .string(""))
+        #expect(try eval("\"abc\".normalized(with: .nfkd)") == .string("abc"))
+        #expect(try eval("\"弾\".normalized(with: .nfc) == \"弾\"") == .bool(true))
+        #expect(throws: SwiftalkError.self) { try eval("\"a\".normalized(with: .nfz)") }
+        #expect(throws: SwiftalkError.self) { try eval("\"a\".normalized()") }
+        #expect(throws: SwiftalkError.self) { try eval("1.normalized(with: .nfc)") }
+        #expect(throws: SwiftalkError.self) { try eval("\"a\".normalize(with: .nfc)") }        // round 137's name is gone
+    }
+
+    @Test("isNormalized(.form): would normalizing change anything? (round 138)")
+    func isNormalized() throws {
+        #expect(try eval("\"\\u{e9}\".isNormalized(.nfc)") == .bool(true))
+        #expect(try eval("\"\\u{e9}\".isNormalized(.nfd)") == .bool(false))
+        #expect(try eval("\"e\\u{301}\".isNormalized(.nfd)") == .bool(true))
+        #expect(try eval("\"e\\u{301}\".isNormalized(with: .nfc)") == .bool(false))
+        #expect(try eval("\"ﬁ\".isNormalized(.nfc) && !\"ﬁ\".isNormalized(.nfkc)") == .bool(true))
+        #expect(try eval("\"abc\".isNormalized(.nfkd)") == .bool(true))
+        #expect(try eval("\"\".isNormalized(.nfc)") == .bool(true))
+        #expect(try eval("\"\\u{212B}\".isNormalized(.nfc)") == .bool(false))                 // a singleton is never normalized
+        #expect(try eval("let s = \"\\u{1E0B}\\u{323}\"\ns.normalized(.nfc).isNormalized(.nfc)") == .bool(true))
+        #expect(throws: SwiftalkError.self) { try eval("\"a\".isNormalized(.nfz)") }
+        #expect(throws: SwiftalkError.self) { try eval("\"a\".isNormalized()") }
+        #expect(throws: SwiftalkError.self) { try eval("1.isNormalized(.nfc)") }
     }
 
     #if canImport(Foundation)

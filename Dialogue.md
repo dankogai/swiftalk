@@ -1968,3 +1968,17 @@ the history. (Moved out of Design.md in round 65.)
   the smaller half and the one with a design point: `escaped` doubles
   a backslash too, or the pair would not round-trip, and `unescaped`
   reads exactly a literal's escapes and no more.
+* **2026-09-10, round 138 — `normalized`, `isNormalized`** ("Add
+  `.isNormalized(.nfc)` too. And rename `.normalize()` to
+  `.normalized()` since it does not mutate. Swift's naming
+  conventions apply"). Right: `sorted`, `reversed`, `normalized` —
+  the participle for the copy, the verb for the mutation, and there
+  is no mutating form here. `isNormalized` is the question version,
+  computed the honest way (normalize and compare) rather than by the
+  quick-check tables, which would be more data for a saving no script
+  will notice. The comparison is scalar for scalar, and it had to be:
+  the first transcript said `"e\u{301}".isNormalized(.nfc)` was true,
+  because Swift's `String ==` is canonical equivalence — a fact that
+  holds for swiftalk's `==` too, and is now written on the String
+  page. Round 137's name is gone; its tests and transcript
+  say `normalized`.
