@@ -139,6 +139,15 @@ enum Builtins {
             case let v?: throw SwiftalkError.type("cannot convert \(v.typeName) to Dictionary")
             }
         },
+        "Set": type("Set") { args in
+            // Set(), Set(set), Set(anySequence) — an Array, Range, String,
+            // Data, a Dictionary's pairs; finite (round 132)
+            switch args.first {
+            case nil:          return .set([])
+            case .set(let s)?: return .set(s)
+            case let v?:       return .set(Set(try collect(v)))
+            }
+        },
         "Range": type("Range") { args in
             switch args.first {
             case .range(let l, let u, let c)?: return .range(from: l, to: u, closed: c)
@@ -276,7 +285,7 @@ enum Builtins {
     ]
 
     private static let allTypeNames: Set<String> =
-        ["Nil", "Bool", "Int", "Double", "String", "Array", "Dictionary",
+        ["Nil", "Bool", "Int", "Double", "String", "Array", "Dictionary", "Set",
          "Range", "Function", "Sequence", "Data", "Date", "Task", "Tuple", "Regex", "Byte"]
 
     /// Who conforms to what (§10, rounds 26/38/41): built-ins conform
@@ -284,7 +293,7 @@ enum Builtins {
     /// dictionary keys), Comparable is Int/Double/String, Sequence is
     /// the iterables (lazy Sequences included).
     static let conformance: [String: Set<String>] = [
-        "Sequence":   ["String", "Array", "Dictionary", "Range", "Sequence", "Tuple", "Data"],   // Data since round 115
+        "Sequence":   ["String", "Array", "Dictionary", "Set", "Range", "Sequence", "Tuple", "Data"],   // Data since round 115, Set 132
         "Equatable":  allTypeNames,
         "Hashable":   allTypeNames,
         "Comparable": ["Int", "Double", "String", "Date", "Byte"],

@@ -685,6 +685,29 @@ with whitespace before it, so `x!!` is still two force-unwraps and
 `!!b` two nots. Same level as `??`, right-associative, continuing a
 line.
 
+**`Set` — DECIDED (round 132)** ("Let's implement Set. We already have
+Dictionary and Array but unlike Array, Set is unordered so
+`dict0.keys()` may not equal `dict1.keys()` even if `dict0 ==
+dict1`"). Swift's, the third collection: unordered, unique, any value
+an element since every value is Hashable, a COW value like the other
+two. **No literal** — Swift has none, and `[...]` is spoken for — so
+`Set([...])` constructs from any finite Sequence and *is* the source
+form, elements sorted by their source form, which makes two equal
+Sets print alike and keeps the round-trip law. **The annotation is
+Swift's generic spelling**, `Set<Int>`, parsed for any name (`[T]`
+and `[K: V]` stay Array's and Dictionary's); inference and locks
+treat the element as an Array's. Members are Swift's names: `insert`
+(a Bool, new or not) and `remove` mutate on a `var` path like
+`append`; `union`/`intersection`/`subtracting`/`symmetricDifference`
+and the five `is…` predicates take a Set or any Sequence; `filter`
+gives a Set and `map` an Array, as Swift's do; a slice or
+`enumerated()` is an Array, an order having been imposed; no
+subscript. **`d.keys` is a Set** — the user's own motivation — revising
+round 127's Array: `d0 == d1` now implies `d0.keys == d1.keys`;
+`values` stays an Array. A Set is not a SION value (no literal) and
+writes to JSON and property lists as a sorted array, lossy as Data's
+base64 is. OPEN: `first`/`min`/`max`, a Set in SION.
+
 **SION as a built-in — DECIDED (round 97)**. The user's spec: "`SION(string)`
 parses string to SION. `sion.String()` stringify. `SION(json:string)`
 treats the string as JSON. `sion.String(.json)` emits a JSON string.
@@ -940,10 +963,11 @@ tradition. But unlike Swift, **`T?` is not a wrapper**:
 * **`d.keys` and `d.values`** (round 127): Swift's properties, read
   bare like `count`, giving Arrays rather than Swift's lazy views —
   a view type would be one more thing, and an Array already has
-  every member a view offers. In the Dictionary's own order, the two
-  aligned with each other and with iteration, so `d.values[i]` is
-  `d[d.keys[i]]`. The called spelling is an error that names the
-  property.
+  every member a view offers. **Revised in round 132**: `keys` is a
+  Set, once there was one — a key list has no order to promise, and
+  `d0 == d1` should give `d0.keys == d1.keys`; `values` stays an
+  Array in the Dictionary's own order, the one `for k, v in d`
+  walks. The called spelling is an error that names the property.
 
 ## 4. Value vs reference semantics — DECIDED
 

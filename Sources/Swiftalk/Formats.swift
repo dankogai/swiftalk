@@ -119,6 +119,19 @@ enum SIONFormat {
     }
 }
 
+/// A Set has no form in JSON or property lists, so it is written as an
+/// array, sorted by source form (round 132) — lossy and deterministic,
+/// as a Data's base64 is. Recursive, so nested Sets follow.
+func setsAsArrays(_ value: Value) -> Value {
+    switch value {
+    case .set(let s):
+        return .array(s.map { (key: $0.sourceString(), value: setsAsArrays($0)) }.sorted { $0.key < $1.key }.map(\.value))
+    case .array(let a):      return .array(a.map(setsAsArrays))
+    case .dictionary(let d): return .dictionary(Dictionary(uniqueKeysWithValues: d.map { ($0.key, setsAsArrays($0.value)) }))
+    default:                 return value
+    }
+}
+
 // MARK: - JSON
 
 enum JSONFormat {
@@ -129,7 +142,7 @@ enum JSONFormat {
     /// 117) lays it out one member per line, two spaces a level.
     static func emit(_ value: Value, pretty: Bool = false) throws -> String {
         var out = ""
-        try write(value, depth: pretty ? 0 : nil, into: &out)
+        try write(setsAsArrays(value), depth: pretty ? 0 : nil, into: &out)
         return out
     }
 
@@ -413,7 +426,8 @@ enum PlistXML {
 
         """
 
-    static func emit(_ value: Value) throws -> String {
+    static func emit(_ rawValue: Value) throws -> String {
+        let value = setsAsArrays(rawValue)           // a Set writes as an array (round 132)
         var out = header
         try write(value, depth: 0, into: &out)
         out += "</plist>\n"
@@ -630,7 +644,8 @@ enum PlistXML {
 enum PlistBinary {
     /// `x.Data(.propertyList)`: Apple's bplist00 — an object table,
     /// an offset table, a 32-byte trailer. No uniquing; big-endian.
-    static func emit(_ value: Value) throws -> [UInt8] {
+    static func emit(_ rawValue: Value) throws -> [UInt8] {
+        let value = setsAsArrays(rawValue)           // a Set writes as an array (round 132)
         var objects: [Value] = []
         func flatten(_ v: Value) throws -> Int {
             let index = objects.count

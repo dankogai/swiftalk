@@ -163,6 +163,44 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**`Set`** (round 132) — unordered, unique, Swift's names; `Set([...])` is
+the source form, `Set<T>` the annotation; `d.keys` is a Set now:
+
+```text
+swiftalk> var s = Set([3, 1, 2, 1])
+Set([1, 2, 3])
+swiftalk> s == Set(1...3)
+true
+swiftalk> s.insert(4)
+true
+swiftalk> s.insert(1)
+false
+swiftalk> s.remove(2)
+2
+swiftalk> s
+Set([1, 3, 4])
+swiftalk> s.union([9]).subtracting(Set([1]))
+Set([3, 4, 9])
+swiftalk> s.isSubset(of: 1...9)
+true
+swiftalk> s.filter { $0 > 1 }
+Set([3, 4])
+swiftalk> s.sorted()
+[1, 3, 4]
+swiftalk> let d0 = ["a": 1, "b": 2]
+["a": 1, "b": 2]
+swiftalk> let d1 = ["b": 2, "a": 1]
+["a": 1, "b": 2]
+swiftalk> d0.keys == d1.keys
+true
+swiftalk> d0.keys
+Set(["a", "b"])
+swiftalk> let t: Set<Int> = Set(["x"])
+type error: cannot assign String to an element of 't' of type Int
+swiftalk> eval(s.String()) == s
+true
+```
+
 **REPL commands `:h`, `:r`, `:d`** (round 131) — `swift repl`'s style;
 `:r` replaces a top-level binding whatever its type or mutability, `:d`
 removes one:

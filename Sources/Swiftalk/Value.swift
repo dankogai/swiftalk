@@ -17,6 +17,7 @@ extension Swiftalk {
         case string(String)
         indirect case array([Value])
         indirect case dictionary([Value: Value])
+        indirect case set(Set<Value>)                         // round 132: unordered, unique, Hashable elements
         case function(FunctionObject)
         /// `Range<I>` (round 38): lazy, first-class, integer-only —
         /// `I` is Int today, BigInt someday, never Double (a deliberate
@@ -376,6 +377,7 @@ extension Value {
         case .string:     return "String"
         case .array:      return "Array"
         case .dictionary: return "Dictionary"
+        case .set: return "Set"
         case .function:   return "Function"
         case .range:      return "Range"
         case .sequence:   return "Sequence"
@@ -516,6 +518,12 @@ extension Value {
                 }.joined(separator: ", ") + ")"
             }
             return out
+        case .set(let s):
+            // No literal of its own (Swift has none), so the constructor
+            // over the elements, sorted by source form: deterministic,
+            // and it re-enters (round 132).
+            if s.isEmpty { return "Set()" }
+            return "Set([" + s.map { $0.sourceString(debug: debug, seen: seen) }.sorted().joined(separator: ", ") + "])"
         case .dictionary(let d):
             if d.isEmpty { return "[:]" }
             // Deterministic output: order entries by their key's source form.
@@ -547,6 +555,13 @@ extension Value {
             if a.isEmpty { return "[]" }
             return "[\n" + a.map { pad + $0.prettyString(depth: depth + 1) }.joined(separator: ",\n")
                 + "\n" + close + "]"
+        case .set(let s):
+            if s.isEmpty { return "Set()" }
+            let body = s.map { (key: $0.sourceString(), text: $0.prettyString(depth: depth + 1)) }
+                .sorted { $0.key < $1.key }
+                .map { pad + $0.text }
+                .joined(separator: ",\n")
+            return "Set([\n" + body + "\n" + close + "])"
         case .dictionary(let d):
             if d.isEmpty { return "[:]" }
             let body = d
@@ -638,6 +653,7 @@ extension Swiftalk.Value {
         case (.string(let a), .string(let b)): return a == b
         case (.array(let a), .array(let b)): return a == b
         case (.dictionary(let a), .dictionary(let b)): return a == b
+        case (.set(let a), .set(let b)): return a == b
         case (.function(let a), .function(let b)): return a == b
         case (.range(let a, let b, let c), .range(let d, let e, let f)): return a == d && b == e && c == f
         case (.sequence(let a), .sequence(let b)): return a == b
@@ -674,6 +690,7 @@ extension Swiftalk.Value {
         case .tuple(let t): hasher.combine(15); hasher.combine(t)
         case .actor(let a): hasher.combine(16); hasher.combine(a)
         case .regex(let r): hasher.combine(17); hasher.combine(r)
+        case .set(let s): hasher.combine(18); hasher.combine(s)
         }
     }
 }

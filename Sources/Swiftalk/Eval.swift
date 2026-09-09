@@ -380,7 +380,7 @@ func typeMatches(_ value: Value, _ lockName: String) -> Bool {
 }
 
 private let knownTypeNames: Set<String> =
-    ["Nil", "Bool", "Int", "Double", "String", "Array", "Dictionary", "Function",
+    ["Nil", "Bool", "Int", "Double", "String", "Array", "Dictionary", "Set", "Function",
      "Range", "Sequence", "Data", "Date", "Task", "Tuple", "Regex", "Byte",
      // Round 59: annotation vocabulary — Any admits everything,
      // Primitives/SION admit their rosters. Not (yet) values.
@@ -1165,6 +1165,9 @@ func iterator(of sequence: Value) throws -> ValueIterator {
     case .string(let s):
         var it = s.makeIterator()
         return ValueIterator { it.next().map { .string(String($0)) } }
+    case .set(let s):
+        var it = s.makeIterator()          // the Set's own order, like a Dictionary's
+        return ValueIterator { it.next() }
     case .dictionary(let d):
         var it = d.makeIterator()
         // Dictionary pairs are (key:, value:) tuples (rounds 70/74)
@@ -1259,6 +1262,8 @@ private func reshape(_ kept: [Value], like receiver: Value) -> Value {
             if case .tuple(let kv) = pair, kv.count == 2 { d[kv[0]] = kv[1] }
         }
         return .dictionary(d)
+    case .set:
+        return .set(Set(kept))             // a Set's filter is a Set (round 132), as Swift's
     default:
         return .array(kept)
     }
@@ -1531,19 +1536,40 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
     case .method(let receiverExpr, "remove", let argExprs, true):
         // d.remove(k) mutates (round 37): the receiver must be an
         // assignable var path; the removed value (or nil) comes back.
+        // s.remove(x) on a Set likewise (round 132).
         guard argExprs.count == 1, argExprs[0].label == nil else {
             throw SwiftalkError.type(".remove(key) takes exactly one unlabeled argument")
         }
-        guard case .dictionary(var d) = try evaluate(receiverExpr, in: env) else {
-            throw SwiftalkError.unknownMember(
-                "\(try evaluate(receiverExpr, in: env).typeName).remove()")
+        let container = try evaluate(receiverExpr, in: env)
+        guard let target = asLValue(receiverExpr) else {
+            throw SwiftalkError.type("cannot mutate an immutable \(container.typeName) — bind it to a var first")
+        }
+        switch container {
+        case .dictionary(var d):
+            let removed = d.removeValue(forKey: try evaluate(argExprs[0].expr, in: env)) ?? .nil
+            try assign(target, .dictionary(d), in: env)
+            return removed
+        case .set(var s):
+            let removed = s.remove(try evaluate(argExprs[0].expr, in: env)) ?? .nil
+            try assign(target, .set(s), in: env)
+            return removed
+        default:
+            throw SwiftalkError.unknownMember("\(container.typeName).remove()")
+        }
+    case .method(let receiverExpr, "insert", let argExprs, true):
+        // s.insert(x) mutates a Set (round 132): true when x was new.
+        guard argExprs.count == 1, argExprs[0].label == nil else {
+            throw SwiftalkError.type(".insert(x) takes exactly one unlabeled argument")
+        }
+        guard case .set(var s) = try evaluate(receiverExpr, in: env) else {
+            throw SwiftalkError.unknownMember("\(try evaluate(receiverExpr, in: env).typeName).insert()")
         }
         guard let target = asLValue(receiverExpr) else {
-            throw SwiftalkError.type("cannot mutate an immutable Dictionary — bind it to a var first")
+            throw SwiftalkError.type("'.insert' mutates — call it on a var Set")
         }
-        let removed = d.removeValue(forKey: try evaluate(argExprs[0].expr, in: env)) ?? .nil
-        try assign(target, .dictionary(d), in: env)
-        return removed
+        let inserted = s.insert(try evaluate(argExprs[0].expr, in: env)).inserted
+        try assign(target, .set(s), in: env)
+        return .bool(inserted)
     case .method(let receiverExpr, "merge", let argExprs, true):
         // d.merge(other) { current, new in } mutates (round 126), as
         // remove does: the receiver must be an assignable var path.
@@ -2482,6 +2508,11 @@ func checkValue(_ value: Value, against lock: TypeAnnotation, context: String) t
             try checkValue(element, against: lock.parameters[0], context: "\(context)[\(index)]")
         }
     }
+    if lock.name == "Set", lock.parameters.count == 1, case .set(let s) = value {
+        for element in s {
+            try checkValue(element, against: lock.parameters[0], context: "an element of \(context)")
+        }
+    }
     if lock.name == "Dictionary", lock.parameters.count == 2, case .dictionary(let d) = value {
         for (key, val) in d {
             try checkValue(key, against: lock.parameters[0], context: "a key of \(context)")
@@ -2521,6 +2552,11 @@ func inferLock(_ value: Value, for name: String) throws -> TypeAnnotation {
         guard let element else { return TypeAnnotation(name: "Array", optional: false, parameters: [TypeAnnotation(name: "Any", optional: true)]) }
         let elementLock = sawNil ? TypeAnnotation(name: element.name, optional: true, parameters: element.parameters) : element
         return TypeAnnotation(name: "Array", optional: false, parameters: [elementLock])
+    case .set(let s):
+        // as an Array's element (round 132): homogeneous, a nil making it optional
+        guard !s.isEmpty else { return TypeAnnotation(name: "Set", optional: false) }
+        let elements = try inferLock(.array(Array(s)), for: name)
+        return TypeAnnotation(name: "Set", optional: false, parameters: elements.parameters)
     case .dictionary(let d):
         guard !d.isEmpty else { return TypeAnnotation(name: "Dictionary", optional: false) }
         var key: TypeAnnotation? = nil
@@ -3425,6 +3461,8 @@ private func method(on receiver: Value, name: String,
     case ("prefix", true), ("dropFirst", true): ["while"]                        // round 98
     case ("shifted", true): ["by"]                                               // round 105
     case ("merging", true):    ["uniquingKeysWith"]                             // round 126
+    case ("isSubset", true), ("isSuperset", true), ("isStrictSubset", true), ("isStrictSuperset", true): ["of"]   // round 132
+    case ("isDisjoint", true): ["with"]
     default:                   []
     }
     let args = try plainValues(
@@ -3467,6 +3505,7 @@ private func method(on receiver: Value, name: String,
         case .array(let a):      return .int(Int64(a.count))
         case .string(let s):     return .int(Int64(s.count))   // graphemes (§11)
         case .dictionary(let d): return .int(Int64(d.count))
+        case .set(let s):        return .int(Int64(s.count))
         case .range(let lower, let upper, let closed):
             guard let upper else {
                 throw SwiftalkError.type(
@@ -3617,8 +3656,8 @@ private func method(on receiver: Value, name: String,
             if keep { kept.append(element) }
         }
         switch receiver {
-        case .data:
-            return reshape(kept, like: receiver)          // Data.filter gives back a Data (round 115)
+        case .data, .set:
+            return reshape(kept, like: receiver)          // Data.filter gives back a Data (round 115), Set a Set (round 132)
         case .string:
             // Swift-compatible: String.filter gives back a String.
             return .string(kept.map { if case .string(let s) = $0 { s } else { "" } }.joined())
@@ -3954,13 +3993,37 @@ private func method(on receiver: Value, name: String,
         }
         return .dictionary(try mergeDictionaries(d, args))
     case ("keys", false), ("values", false):
-        // d.keys / d.values (round 127): Swift's properties, as Arrays —
-        // in the Dictionary's own order, aligned with each other and
-        // with `for k, v in d`.
+        // d.keys / d.values (round 127): Swift's properties. keys is a Set
+        // since round 132 — unordered and unique, so d0.keys == d1.keys
+        // whenever d0 == d1; values an Array in the Dictionary's own order.
         guard case .dictionary(let d) = receiver else {
             throw SwiftalkError.unknownMember("\(receiver.typeName).\(name)")
         }
-        return .array(name == "keys" ? Array(d.keys) : Array(d.values))
+        return name == "keys" ? .set(Set(d.keys)) : .array(Array(d.values))
+    case ("union", true), ("intersection", true), ("subtracting", true), ("symmetricDifference", true),
+         ("isSubset", true), ("isSuperset", true), ("isStrictSubset", true), ("isStrictSuperset", true),
+         ("isDisjoint", true):
+        // Set algebra (round 132): Swift's names; the other side a Set or
+        // any finite Sequence, as Swift's take a sequence.
+        guard case .set(let s) = receiver else {
+            throw SwiftalkError.unknownMember("\(receiver.typeName).\(name)()")
+        }
+        guard args.count == 1 else {
+            throw SwiftalkError.type(".\(name) takes one argument: a Set, or any Sequence")
+        }
+        let other: Set<Value>
+        if case .set(let o) = args[0] { other = o } else { other = Set(try collect(args[0])) }
+        switch name {
+        case "union":               return .set(s.union(other))
+        case "intersection":        return .set(s.intersection(other))
+        case "subtracting":         return .set(s.subtracting(other))
+        case "symmetricDifference": return .set(s.symmetricDifference(other))
+        case "isSubset":            return .bool(s.isSubset(of: other))
+        case "isSuperset":          return .bool(s.isSuperset(of: other))
+        case "isStrictSubset":      return .bool(s.isStrictSubset(of: other))
+        case "isStrictSuperset":    return .bool(s.isStrictSuperset(of: other))
+        default:                    return .bool(s.isDisjoint(with: other))
+        }
     case ("keys", true), ("values", true):
         guard case .dictionary = receiver else {
             throw SwiftalkError.unknownMember("\(receiver.typeName).\(name)()")

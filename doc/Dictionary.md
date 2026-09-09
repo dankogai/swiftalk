@@ -20,7 +20,8 @@ three keys), as SION allows. A homogeneous literal infers `[K: V]`
 | `d.merge(e)`, `d.merge(e) { current, new in }` | the same, in place; returns `nil`; needs a `var` root, and the lock still holds |
 | `d.count` | entries (nil-valued ones included) |
 | `d.enumerated()` | `d` itself (round 129): its pairs are `(key:, value:)` already, so there is nothing to number — code that enumerates "any collection" gets a Dictionary's own keys |
-| `d.keys`, `d.values` | Swift's properties, as **Arrays** (round 127) — in the Dictionary's own order, aligned with each other and with `for k, v in d`; `d.keys.sorted()` for a deterministic list. Properties, not calls: `d.keys()` is an error that says so |
+| `d.keys` | a **Set** of the keys (round 132, revising 127's Array): unordered and unique, so `d0 == d1` implies `d0.keys == d1.keys`; `d.keys.sorted()` for a list. A property, not a call: `d.keys()` is an error that says so |
+| `d.values` | an **Array** of the values, in the Dictionary's own order — the order `for k, v in d` walks (round 127) |
 | `d == e` | equality |
 | `for pair in d`, `for k, v in d` | `(key:, value:)` tuples — order unspecified; `pair.key`/`pair.value`, `.0`/`.1`, or destructure |
 | `d.map { k, v in }`, `d.map { "\($0)=\($1)" }` | an **Array** of results — the `(key, value)` pair is the argument list: `k`/`v`, or `$0`/`$1` (`$` is `[k, v]`) |

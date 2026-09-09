@@ -3,7 +3,7 @@
 Lazy by default (round 41) — unlike Swift's opt-in `.lazy`. Two ways
 to make one, and `map`/`filter` on either **defer** until something
 pulls. `Sequence` is also the protocol that Array, String,
-Dictionary, and Range conform to (§10).
+Dictionary, Set, Range, Tuple, and Data conform to (§10).
 
 | Constructor | Meaning |
 |---|---|

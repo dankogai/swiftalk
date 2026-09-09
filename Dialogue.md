@@ -1874,3 +1874,23 @@ the history. (Moved out of Design.md in round 65.)
   Interpreter as `redefine`/`undefine`, tested there, and the CLI
   only dispatches lines beginning with `:`; an unknown command
   points at `:h`.
+* **2026-09-10, round 132 — `Set`** ("Let's implement Set. We already
+  have Dictionary and Array but unlike Array, Set is unordered so
+  `dict0.keys()` may not equal `dict1.keys()` even if `dict0 ==
+  dict1`"). The third collection, and the argument for it was the
+  bug round 127 had built in: a key list as an Array promises an
+  order a Dictionary does not have. Swift's Set, then — unordered,
+  unique, any value an element — with Swift's names throughout:
+  `insert`/`remove` mutating on a `var` path like `append`, the four
+  algebra members and five predicates taking a Set or any Sequence,
+  `filter` a Set and `map` an Array. Two spellings were the real
+  decisions: no literal, so `Set([...])` is both the constructor and
+  the source form with elements sorted by their source form (equal
+  Sets print alike; `eval(s.String()) == s`); and `Set<Int>` for the
+  annotation, Swift's generic syntax parsed for any name. `d.keys` is
+  a Set now, revising round 127 — `d0 == d1` implies `d0.keys ==
+  d1.keys`; `values` stays an Array. JSON and property lists write a
+  Set as a sorted array; SION refuses it, having no literal. Found
+  on the way: `filter` had its own reshaping switch beside the shared
+  `reshape`, so a Set's filter came back an Array until the switch
+  learned the case.

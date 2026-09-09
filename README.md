@@ -71,6 +71,7 @@ let bytes  = "café".Data(.utf8)               // infallible; .Data("base64") is
 let text   = bytes.String(.utf8)              // String? — bytes may not be text
 let src    = bytes.String()                   // .Data("Y2Fmw6k=") — SION
 eval(src) == bytes                            // true — eval() is the language's own (round 122)
+Set([3, 1, 2, 1]) == Set(1...3)               // true — Set (round 132): unordered, unique; Set<Int> annotates
 
 // SION is built in (round 97): the same values, three formats
 let doc: SION = SION("[\"n\": 42, \"when\": .Date(0x0p+0)]")   // any SION text, comments and all

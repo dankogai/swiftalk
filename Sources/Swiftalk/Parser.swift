@@ -77,7 +77,8 @@ struct TypeAnnotation: Equatable {
         switch (name, parameters.count) {
         case ("Array", 1):      base = "[\(parameters[0].display)]"
         case ("Dictionary", 2): base = "[\(parameters[0].display): \(parameters[1].display)]"
-        default:                base = name
+        case (_, 0):            base = name
+        default:                base = name + "<" + parameters.map(\.display).joined(separator: ", ") + ">"   // Set<Int> (round 132)
         }
         return optional ? base + "?" : base
     }
@@ -759,12 +760,26 @@ struct Parser {
         guard case .identifier(let typeName)? = advance(), !keywords.contains(typeName) else {
             throw SwiftalkError.syntax("expected a type name after ':'")
         }
+        // Swift's generic spelling, `Set<Int>` (round 132) — for any name;
+        // `[T]` and `[K: V]` stay the spellings for Array and Dictionary.
+        var parameters: [TypeAnnotation] = []
+        if case .op("<")? = peek {
+            pos += 1
+            parameters.append(try parseTypeAnnotation())
+            while case .punct(",")? = peek {
+                pos += 1
+                parameters.append(try parseTypeAnnotation())
+            }
+            guard case .op(">")? = advance() else {
+                throw SwiftalkError.syntax("expected '>' after the type parameters of \(typeName)")
+            }
+        }
         var optional = false
         if peek == .punct("?") || peek == .op("?") {
             pos += 1
             optional = true
         }
-        return TypeAnnotation(name: typeName, optional: optional)
+        return TypeAnnotation(name: typeName, optional: optional, parameters: parameters)
     }
 
     /// Does a `{` at `index` open a willSet/didSet observer block?

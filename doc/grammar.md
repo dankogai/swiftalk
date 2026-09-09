@@ -98,7 +98,7 @@ lvalue       = IDENT
              | "." IDENT                              (* implicit self *)
              | "(" [ IDENT ":" ] lvalue { "," [ IDENT ":" ] lvalue } ")" ;
 
-type         = IDENT [ "?" ]
+type         = IDENT [ "<" type { "," type } ">" ] [ "?" ]          (* Set<Int> (round 132) *)
              | "[" type "]" [ "?" ]
              | "[" type ":" type "]" [ "?" ] ;
 
