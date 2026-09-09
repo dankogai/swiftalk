@@ -23,12 +23,12 @@ annotation is Swift's generic spelling, `Set<Int>`, `Set<String>?`,
 | `s.contains(x)`, `s.contains { }` | membership / a predicate |
 | `s.insert(x)` | adds `x`; `true` when it was new; needs a `var` root |
 | `s.remove(x)` | removes `x`; the removed value or `nil`; needs a `var` root |
-| `s \| t`, `s + t` | **union** — `s.union(t)` (rounds 133/135); a Set is keys only, so there is no collision to resolve: `Set("one", "two") + Set("two", "three") == Set("one", "two", "three")`. Both sides Sets |
+| `s \| t` | **union** — `s.union(t)` (round 135; round 133's `+` was removed in 136: one spelling); a Set is keys only, so there is no collision to resolve: `Set("one", "two") \| Set("two", "three") == Set("one", "two", "three")`. Both sides Sets |
 | `s & t` | **intersection** — `s.intersection(t)` (round 135) |
 | `s - t` | **subtraction** — `s.subtracting(t)`: `Set("one", "two") - Set("two", "three") == Set(["one"])` |
 | `s ^ t` | **symmetric difference** — `s.symmetricDifference(t)` (round 135) |
-| `s \|= t`, `s += t`, `s &= t`, `s -= t`, `s ^= t` | in place, on a `var` path |
-| `s.merge(t)` | the in-place `+`/`\|`, with no function (there is nothing to combine); `t` a Set or any Sequence; returns `nil`; needs a `var` root |
+| `s \|= t`, `s &= t`, `s -= t`, `s ^= t` | in place, on a `var` path |
+| `s.merge(t)` | the in-place `\|`, with no function (there is nothing to combine); `t` a Set or any Sequence; returns `nil`; needs a `var` root |
 | `s.subtract(t)` | the in-place `-` (Swift's name; `delete` in round 133): every element of `t` removed; `t` a Set or any Sequence; returns `nil`; needs a `var` root |
 
 Precedence is Swift's: `&` binds with `* / %`, `|` and `^` with `+ -`,
@@ -51,7 +51,7 @@ bitwise operations stay methods (`bitAnd`, `bitOr`, `bitXor`), and
 
 No subscript: a Set has no positions. **No `??` or `!!` of their own**
 (round 133): a Set is keys only, so "keep mine" and "take theirs"
-would be the same union — `+` is that; the general rule still applies
+would be the same union — `\|` is that; the general rule still applies
 (`s0 ?? s1` is `s0`, `s0 !! s1` is `s1`). What is not here: `first`,
 `min`/`max`, `popFirst` — OPEN, along with `Set` in SION.
 

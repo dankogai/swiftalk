@@ -93,14 +93,16 @@ struct SetTests {
         #expect(throws: SwiftalkError.self) { try eval("Set([1]).isSubset(within: Set([1]))") }
     }
 
-    @Test("keys only (round 133): s0 + s1 is union, s0 - s1 subtraction, += and -= follow; merge/subtract in place, no function; Set(a, b, ...) lists elements")
+    @Test("keys only (round 133): s0 | s1 is union (+ until round 136), s0 - s1 subtraction; merge/subtract in place, no function; Set(a, b, ...) lists elements")
     func keysOnly() throws {
-        #expect(try eval("Set(\"one\", \"two\") + Set(\"two\", \"three\") == Set(\"one\", \"two\", \"three\")") == .bool(true))
+        #expect(try eval("Set(\"one\", \"two\") | Set(\"two\", \"three\") == Set(\"one\", \"two\", \"three\")") == .bool(true))
+        #expect(throws: SwiftalkError.self) { try eval("Set(1) + Set(2)") }                                  // round 136: | is enough
+        #expect(throws: SwiftalkError.self) { try eval("var s = Set(1)\ns += Set(2)") }
         #expect(try eval("Set(\"one\", \"two\") - Set(\"two\", \"three\") == Set(\"one\")") == .bool(false))      // Set("one") is graphemes: {"o","n","e"}
         #expect(try eval("Set(\"one\", \"two\") - Set(\"two\", \"three\") == Set([\"one\"])") == .bool(true))
-        #expect(try eval("Set(1, 2) + Set(2, 3)") == .set([.int(1), .int(2), .int(3)]))
+        #expect(try eval("Set(1, 2) | Set(2, 3)") == .set([.int(1), .int(2), .int(3)]))
         #expect(try eval("Set(1, 2) - Set(2, 3)") == .set([.int(1)]))
-        #expect(try eval("var s = Set(1, 2)\ns += Set(3)\ns -= Set(1)\ns") == .set([.int(2), .int(3)]))
+        #expect(try eval("var s = Set(1, 2)\ns |= Set(3)\ns -= Set(1)\ns") == .set([.int(2), .int(3)]))
         #expect(try eval("var s = Set(1, 2)\ns.merge(Set(2, 3))\ns") == .set([.int(1), .int(2), .int(3)]))
         #expect(try eval("var s = Set(1, 2)\ns.merge([3, 4])\ns.count") == .int(4))                          // any Sequence
         #expect(try eval("var s = Set(1, 2)\ns.merge(Set(2, 3)) == nil") == .bool(true))
@@ -129,7 +131,6 @@ struct SetTests {
         #expect(try eval(s + "a | b") == .set([.int(1), .int(2), .int(3), .int(4)]))
         #expect(try eval(s + "a & b") == .set([.int(3)]))
         #expect(try eval(s + "a ^ b") == .set([.int(1), .int(2), .int(4)]))
-        #expect(try eval(s + "a + b == a | b") == .bool(true))                                 // round 133's + stays
         #expect(try eval(s + "a | b & Set(4, 5)") == .set([.int(1), .int(2), .int(3), .int(4)]))  // & binds tighter, as Swift's
         #expect(try eval(s + "(a | b) & Set(4, 5)") == .set([.int(4)]))
         #expect(try eval(s + "a ^ b - Set(4)") == .set([.int(1), .int(2)]))                    // ^ and - at one level, left to right

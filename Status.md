@@ -222,18 +222,19 @@ Set(
 )
 ```
 
-**Set is keys only: `+`, `-`, `merge`, `subtract`** (round 133; `delete`
-until round 135) — union and subtraction as operators, their in-place
-methods without a combine function, `Set(a, b, ...)` listing elements:
+**Set is keys only: `|`, `-`, `merge`, `subtract`** (round 133; `+` for
+union until round 136, `delete` until 135) — union and subtraction as
+operators, their in-place methods without a combine function,
+`Set(a, b, ...)` listing elements:
 
 ```text
-swiftalk> Set("one", "two") + Set("two", "three")
+swiftalk> Set("one", "two") | Set("two", "three")
 Set("one", "three", "two")
 swiftalk> Set("one", "two") - Set("two", "three")
 Set(["one"])
 swiftalk> var s = Set(1, 2)
 Set(1, 2)
-swiftalk> s += Set(3)
+swiftalk> s |= Set(3)
 Set(1, 2, 3)
 swiftalk> s.merge([4, 5])
 swiftalk> s.subtract(Set(1, 2))
@@ -250,6 +251,8 @@ swiftalk> Set("one")          // one Sequence: its elements — graphemes here
 Set("e", "n", "o")
 swiftalk> Set(["one"])       // the one-element Set of a String
 Set(["one"])
+swiftalk> Set(1) + Set(2)      // round 136: | is enough
+type error: '+' is not defined between Set and Set
 ```
 
 **`Set`** (round 132) — unordered, unique, Swift's names; `Set(…)` is

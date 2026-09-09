@@ -717,8 +717,10 @@ base64 is. OPEN: `first`/`min`/`max`, a Set in SION. **Round 133**
 ("Unlike Dictionary, Set is 'keys only'"): so `merge` takes no
 function — nothing collides — and `??`/`!!` get no Set meaning of
 their own, "keep mine" and "take theirs" being the same union; the
-operators are **`+` for union and `-` for subtraction**, both sides
-Sets, `+=`/`-=` following by round 104's rule, with `merge` and
+operators were **`+` for union and `-` for subtraction** (round 136
+removed `+`: "`|` is enough" — one spelling, and `+` had read as
+concatenation everywhere else), both sides Sets, `-=` following by
+round 104's rule, with `merge` and
 `delete` as their in-place methods (a Set or any Sequence on the
 right). `delete` reached Dictionary too, by the user's spelling
 `d0.delete(d1)`: the listed keys removed. **Round 135** ("More

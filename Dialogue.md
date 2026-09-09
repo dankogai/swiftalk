@@ -1941,3 +1941,10 @@ the history. (Moved out of Design.md in round 65.)
   impossible once `^=` and `&=` exist — so it carries the operator's
   text now. Round 133's `+` stays beside `|`, two spellings of union;
   OPEN whether `+` should go.
+* **2026-09-10, round 136 — no `+` on Sets** ("Remove `+` on Set. `|`
+  is enough"), closing round 135's OPEN and revising 133. One
+  spelling per operation, and `+` on Array and String means
+  concatenation, which a union is not; `|` is the word Swift's
+  SetAlgebra descends from. `+` and `+=` on two Sets are type errors
+  again; `-` and `-=` stay, having no rival. Round 133's transcript
+  and tests say `|` now.

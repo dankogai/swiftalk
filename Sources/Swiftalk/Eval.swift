@@ -2997,8 +2997,8 @@ private func binary(_ op: Character, _ lhs: Value, _ rhs: Value) throws -> Value
         return .string(a + b)
     case (.array(let a), .array(let b)) where op == "+":
         return .array(a + b)
-    case (.set(let a), .set(let b)) where op == "+" || op == "|":
-        return .set(a.union(b))                 // round 133: keys only, so + is union (| too, round 135)…
+    case (.set(let a), .set(let b)) where op == "|":
+        return .set(a.union(b))                 // union: `|` (round 135; round 133's `+` removed in 136)…
     case (.set(let a), .set(let b)) where op == "-":
         return .set(a.subtracting(b))           // …and - is subtraction
     case (.set(let a), .set(let b)) where op == "&":
