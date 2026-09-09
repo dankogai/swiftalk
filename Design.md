@@ -739,6 +739,31 @@ the singleton (`Set(3)`); a single Sequence stays Swift's
 `Set(sequence)`, so `Set("one")` is graphemes and `Set(["one"])` the
 singleton — the one edge, recorded, not hidden.
 
+**Unicode normalization, `escaped`/`unescaped` — DECIDED (round 137)**
+("implement Unicode normalization on String. NFC, NFD, NFKC and NFKD.
+Swift Foundation's `precomposedStringWithCanonicalMapping` and friends
+are too cumbersome. `.normalize(with: .nfc)`, maybe? Also implement
+`.escaped()` which escapes non-ASCII range codepoints… `.unescaped()`
+does the opposite"). One method, four forms, the `with:` label
+optional as Swift's labels are. **Foundation-free, by tables**: the
+standard library keeps its normalizer private and exposes only the
+combining class, so the core carries the UCD's decomposition mappings
+(Unicode 17.0: 2,081 canonical, 3,833 compatibility, the
+Full_Composition_Exclusion ranges) as text parsed on first use — some
+77 KB of generated source, `Tools/gen-unicode-tables.py` regenerating
+it from the UCD — with Hangul by algorithm and canonical ordering and
+composition per UAX #15. Verified against Foundation in the test
+target, and against the UCD's own `NormalizationTest.txt` (18,000
+lines, Parts 0–3) when the file is supplied. The alternative — an
+embedder-supplied normalizer, as `moduleLoader` supplies URL fetching
+— was rejected: a String method that works only when something is
+installed is not a String method. **`escaped()`** writes every
+non-ASCII scalar as `\u{hex}` and doubles a backslash, leaving the rest
+of ASCII as it is (a newline stays a newline), so the text is a string
+literal's body; **`unescaped()`** reads a literal's escapes back,
+`\u{}` and the seven short ones, and refuses anything else rather than
+guessing.
+
 **SION as a built-in — DECIDED (round 97)**. The user's spec: "`SION(string)`
 parses string to SION. `sion.String()` stringify. `SION(json:string)`
 treats the string as JSON. `sion.String(.json)` emits a JSON string.

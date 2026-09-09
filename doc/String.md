@@ -16,6 +16,9 @@ view (§11). `"..."` literals with `\(interpolation)`, escapes `\" \\
 | `s.String(.quoted)` | source form, escaped: `"\"hi\""` — `eval` re-enters it |
 | `s.Int()`, `s.Double()`, `s.Bool()` | failable parses (see those pages) |
 | `s.Data(.utf8)` | UTF-8 bytes, infallible (round 97; the bare `s.Data()` decodes base64) |
+| `s.normalize(with: .nfc)`, `.nfd`, `.nfkc`, `.nfkd` | Unicode normalization (round 137), UAX #15, Foundation-free — the UCD's tables in the core, Unicode 17.0; the `with:` label optional. `"e\u{301}".normalize(with: .nfc) == "é"`, `"ﬁ①".normalize(with: .nfkc) == "fi1"` |
+| `s.escaped()` | every non-ASCII scalar as `\u{hex}` and a backslash as `\\`, the rest untouched: `"Dan = 弾".escaped() == "Dan = \u{5f3e}"` — ASCII text that is a string literal's body (round 137) |
+| `s.unescaped()` | the opposite, reading the literal escapes — `\u{…}`, `\\`, `\n`, `\t`, `\r`, `\0`, `\"`, `\'` — an unknown one is an error |
 | `s.unicodeScalars`, `s.utf32` | the Unicode scalar values, as `[Int]` (round 114) |
 | `s.utf8` | the UTF-8 bytes, as `[Int]` (round 114). There is no `.utf16` (§11) |
 | `String.fromCodePoint(0x1F600, ...)` | a String from scalar values — JS's name, Swift's `String(UnicodeScalar)`; a surrogate or an out-of-range Int is an error; uncalled, a Function value (round 114) |

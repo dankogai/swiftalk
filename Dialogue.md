@@ -1948,3 +1948,23 @@ the history. (Moved out of Design.md in round 65.)
   SetAlgebra descends from. `+` and `+=` on two Sets are type errors
   again; `-` and `-=` stay, having no rival. Round 133's transcript
   and tests say `|` now.
+* **2026-09-10, round 137 — normalization and escapes** ("implement
+  Unicode normalization on String. NFC, NFD, NFKC and NFKD. Swift
+  Foundation's `precomposedStringWithCanonicalMapping` and friends
+  are too cumbersome. `.normalize(with:.nfc)`, maybe? Also implement
+  `.escaped()` and which escapes non-ASCII range codepoints. `"Dan =
+  弾".escaped() == "Dan = \u{5f3e}"`. `.unescaped()` does the
+  oposite"). The interesting question was where the data comes
+  from: the standard library has a normalizer but keeps it behind
+  an SPI this toolchain does not export, and Foundation is what the
+  core has stayed free of. So the UCD's tables come along —
+  generated, 77 KB, parsed once — and the algorithm is UAX #15 by the
+  book: recursive decomposition with Hangul by arithmetic, canonical
+  ordering as a stable sort of each non-starter run, composition
+  with the blocked-character rule and the exclusion set, the
+  combining classes from the standard library. It passed the UCD's
+  conformance file on the first full run, and agrees with Foundation
+  on the awkward cases the test keeps. `escaped()`/`unescaped()` are
+  the smaller half and the one with a design point: `escaped` doubles
+  a backslash too, or the pair would not round-trip, and `unescaped`
+  reads exactly a literal's escapes and no more.

@@ -3527,6 +3527,7 @@ private func method(on receiver: Value, name: String,
     case ("merging", true):    ["uniquingKeysWith"]                             // round 126
     case ("isSubset", true), ("isSuperset", true), ("isStrictSubset", true), ("isStrictSuperset", true): ["of"]   // round 132
     case ("isDisjoint", true): ["with"]
+    case ("normalize", true):  ["with"]                                         // round 137
     default:                   []
     }
     let args = try plainValues(
@@ -4042,6 +4043,22 @@ private func method(on receiver: Value, name: String,
         case "leadingZeroBitCount": return .int(Int64(a.leadingZeroBitCount))
         default:                    return .int(Int64(a.trailingZeroBitCount))
         }
+    case ("normalize", true):
+        // s.normalize(with: .nfc) (round 137): UAX #15, Foundation-free
+        guard case .string(let s) = receiver else {
+            throw SwiftalkError.unknownMember("\(receiver.typeName).normalize()")
+        }
+        guard args.count == 1, case .string(let name) = args[0], let form = UnicodeNormalization.Form(rawValue: name) else {
+            throw SwiftalkError.type(".normalize(with:) takes one form: .nfc, .nfd, .nfkc, or .nfkd")
+        }
+        return .string(UnicodeNormalization.normalize(s, form))
+    case ("escaped", true), ("unescaped", true):
+        // "Dan = 弾".escaped() == "Dan = \u{5f3e}"; unescaped reads it back (round 137)
+        guard case .string(let s) = receiver else {
+            throw SwiftalkError.unknownMember("\(receiver.typeName).\(name)()")
+        }
+        guard args.isEmpty else { throw SwiftalkError.type(".\(name)() takes no arguments") }
+        return .string(name == "escaped" ? StringEscapes.escaped(s) : try StringEscapes.unescaped(s))
     case ("unicodeScalars", false), ("utf32", false), ("utf8", false):
         // the scalar and byte views (round 114; §11 — no .utf16), as [Int]
         guard case .string(let s) = receiver else {

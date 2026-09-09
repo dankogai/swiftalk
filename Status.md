@@ -222,6 +222,33 @@ Set(
 )
 ```
 
+**Unicode normalization; `escaped` / `unescaped`** (round 137) — NFC,
+NFD, NFKC, NFKD by the UCD's tables, Foundation-free; non-ASCII as
+`\u{hex}` and back:
+
+```text
+swiftalk> let e = "e\u{301}"
+"é"
+swiftalk> e.count
+1
+swiftalk> e.normalize(with: .nfc).unicodeScalars
+[233]
+swiftalk> e.normalize(with: .nfc) == "\u{e9}"
+true
+swiftalk> "ﬁ①".normalize(with: .nfkc)
+"fi1"
+swiftalk> "한".normalize(.nfd).unicodeScalars
+[4370, 4449, 4523]
+swiftalk> "Dan = 弾".escaped()
+"Dan = \\u{5f3e}"
+swiftalk> "Dan = \\u{5f3e}".unescaped()
+"Dan = 弾"
+swiftalk> "☃ \\ 弾".escaped().unescaped() == "☃ \\ 弾"
+true
+swiftalk> "\\q".unescaped()
+type error: unescaped: unknown escape \q
+```
+
 **Set is keys only: `|`, `-`, `merge`, `subtract`** (round 133; `+` for
 union until round 136, `delete` until 135) — union and subtraction as
 operators, their in-place methods without a combine function,
