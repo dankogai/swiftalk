@@ -3516,7 +3516,7 @@ private func method(on receiver: Value, name: String,
     // dropped — sorted(by:), contains(where:), joined(separator:),
     // split(whereSeparator:) — the bare spelling works too.
     let swiftLabels: Set<String> = switch (name, called) {
-    case ("sorted", true):     ["by"]
+    case ("sorted", true), ("min", true), ("max", true): ["by"]                  // min/max round 139
     case ("contains", true):   ["where"]
     case ("joined", true):     ["separator"]
     case ("firstMatch", true), ("wholeMatch", true), ("matches", true): ["of"]   // round 86
@@ -3747,6 +3747,48 @@ private func method(on receiver: Value, name: String,
             accumulator = try apply(fn, args: [(nil, accumulator), (nil, element)])
         }
         return accumulator
+    case ("first", false):
+        // Swift's first (round 139), on every conformer: the first element
+        // or nil — one pull, so an infinite Sequence answers too; a Set's
+        // or Dictionary's "first" is in its own order.
+        return try iterator(of: receiver).next() ?? .nil
+    case ("min", true), ("max", true):
+        // Swift's min() / max() / min(by:) (round 139): nil when empty;
+        // bare, the elements must be Comparable — `<` decides, and its
+        // type error is the answer for anything else; with a Function,
+        // areInIncreasingOrder. Drained, so finite only.
+        let elements = try collect(receiver)
+        let less: (Value, Value) throws -> Bool
+        switch args.count {
+        case 0:
+            // every element must be Comparable, a lone one included —
+            // "applies only when its elements are Comparable. Error if not"
+            if let odd = elements.first(where: { !Builtins.conformance["Comparable"]!.contains($0.typeName) }) {
+                throw SwiftalkError.type(".\(name)() needs Comparable elements — a \(odd.typeName) is not; give it a Function (a, b) -> Bool")
+            }
+            less = { a, b in
+                guard case .bool(let ascending) = try compare("<", a, b) else { return false }
+                return ascending
+            }
+        case 1:
+            guard case .function(let fn) = args[0] else {
+                throw SwiftalkError.type(".\(name) takes no argument, or one Function (a, b) -> Bool")
+            }
+            less = { a, b in
+                guard case .bool(let ascending) = try apply(fn, args: [(nil, a), (nil, b)]) else {
+                    throw SwiftalkError.type("the .\(name) Function must return a Bool")
+                }
+                return ascending
+            }
+        default:
+            throw SwiftalkError.type(".\(name) takes no argument, or one Function (a, b) -> Bool")
+        }
+        guard var best = elements.first else { return .nil }
+        for candidate in elements.dropFirst() {
+            // Swift's: min keeps the first of equals, max the last
+            if name == "min" ? try less(candidate, best) : !(try less(candidate, best)) { best = candidate }
+        }
+        return best
     case ("sorted", true):
         // Swift's sorted() / sorted(by:) (round 83): always an Array —
         // a String's graphemes, a Dictionary's (key:, value:) pairs, a

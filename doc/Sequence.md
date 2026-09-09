@@ -20,6 +20,8 @@ Dictionary, Set, Range, Tuple, and Data conform to (§10).
 | `s.Array()` | everything (do not ask an infinite one) |
 | `s.reduce(init) { }` | fold (consumes the whole sequence) |
 | `s.sorted()`, `s.sorted { a, b in }` | an Array, drained — finite only; bare needs Comparable elements (round 83) |
+| `s.first` | the first element, or `nil` — one pull, so an infinite Sequence answers (round 139); a property, as Swift's |
+| `s.min()`, `s.max()`, `s.min { a, b in }`, `s.max(by:)` | the least / greatest, or `nil` when empty — drained, finite only (round 139). Bare, the elements must be Comparable (Int, Double, String, Date, Byte): tuples, pairs, Arrays, Bools are `<`'s type error; with a Function, Swift's areInIncreasingOrder — `min` keeps the first of equals, `max` the last |
 | `s.contains(x)`, `s.contains { }` | equality / predicate; short-circuits — an infinite Sequence answers on the first hit (round 83) |
 | `s.reversed()` | an Array, drained — finite only (round 84) |
 | `s.prefix { }`, `s.dropFirst { }` | **lazy** — another Sequence; the predicate is asked until its first miss and never again (round 88). `(0...)` is a lazy base too |

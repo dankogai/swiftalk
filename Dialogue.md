@@ -1982,3 +1982,17 @@ the history. (Moved out of Design.md in round 65.)
   holds for swiftalk's `==` too, and is now written on the String
   page. Round 137's name is gone; its tests and transcript
   say `normalized`.
+* **2026-09-10, round 139 — `first`, `min()`, `max()`** ("Let's
+  implement Sequences' `first`, `min`, and `max`. No reason to limit
+  it to Set. `min` and `max` applies only when its elements are
+  Comparable. Error if not"). Three members on the one iterator, so
+  every conformer has them at once. `first` is a property as in
+  Swift and pulls one element, which is why `(0...).first` is `0`
+  and not an error; `min()`/`max()` drain and so refuse the infinite,
+  like `sorted()`. Comparability is `<`'s business already — round
+  83's `sorted()` set the precedent — so a Set of tuples or a
+  Dictionary's pairs fail with `<`'s own type error, and a Function
+  argument is the way around it, `by:` optional. One detail copied
+  from Swift on purpose: `min` keeps the first of equal elements and
+  `max` the last. Closes the OPEN the Set page had carried since
+  round 132; `last` is the one left open.

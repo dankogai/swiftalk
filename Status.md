@@ -222,6 +222,32 @@ Set(
 )
 ```
 
+**`first`, `min()`, `max()`** (round 139) — on every Sequence conformer;
+`first` pulls once, `min`/`max` need Comparable elements or a Function:
+
+```text
+swiftalk> [3, 1, 2].first
+3
+swiftalk> [3, 1, 2].min()
+1
+swiftalk> "hello".max()
+"o"
+swiftalk> Set(3, 1, 2).min()
+1
+swiftalk> (0...).first
+0
+swiftalk> [].min() == nil
+true
+swiftalk> ["bb", "a", "ccc"].max { $0.count < $1.count }
+"ccc"
+swiftalk> ["a": 3, "b": 1].min { $0.value < $1.value }
+(key: "b", value: 1)
+swiftalk> [(1, 2), (3, 4)].min()
+type error: '<' is not defined between Tuple and Tuple
+swiftalk> [1, "a"].max()
+type error: '<' is not defined between String and Int
+```
+
 **Unicode normalization; `escaped` / `unescaped`** (round 137; `normalized`
 and `isNormalized` since 138) — NFC, NFD, NFKC, NFKD by the UCD's
 tables, Foundation-free; non-ASCII as `\u{hex}` and back:

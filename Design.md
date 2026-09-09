@@ -713,7 +713,8 @@ subscript. **`d.keys` is a Set** — the user's own motivation — revising
 round 127's Array: `d0 == d1` now implies `d0.keys == d1.keys`;
 `values` stays an Array. A Set is not a SION value (no literal) and
 writes to JSON and property lists as a sorted array, lossy as Data's
-base64 is. OPEN: `first`/`min`/`max`, a Set in SION. **Round 133**
+base64 is. OPEN: a Set in SION (`first`/`min`/`max` came in round
+139, on every Sequence). **Round 133**
 ("Unlike Dictionary, Set is 'keys only'"): so `merge` takes no
 function — nothing collides — and `??`/`!!` get no Set meaning of
 their own, "keep mine" and "take theirs" being the same union; the
@@ -768,6 +769,21 @@ of ASCII as it is (a newline stays a newline), so the text is a string
 literal's body; **`unescaped()`** reads a literal's escapes back,
 `\u{}` and the seven short ones, and refuses anything else rather than
 guessing.
+
+**`first`, `min()`, `max()` — DECIDED (round 139)** ("Let's implement
+Sequences' `first`, `min`, and `max`. No reason to limit it to Set.
+`min` and `max` applies only when its elements are Comparable. Error
+if not"). Swift's three, on every conformer through the one
+`iterator(of:)`: `first` a property (Swift's), one pull, so an
+infinite Sequence answers and a Set's or Dictionary's first is in its
+own order; `min()`/`max()` methods (Swift's), drained so finite only,
+`nil` when empty, and bare they let `<` decide — Int, Double, String,
+Date, Byte compare, and anything else is `<`'s type error, as the
+user asked and as `sorted()` has done since round 83. With a Function
+they take Swift's areInIncreasingOrder, `by:` optional as the labels
+are; `min` keeps the first of equals and `max` the last, as Swift's
+do. Not added: `last` — O(n) on a lazy Sequence and undefined on an
+infinite one — OPEN.
 
 **SION as a built-in — DECIDED (round 97)**. The user's spec: "`SION(string)`
 parses string to SION. `sion.String()` stringify. `SION(json:string)`

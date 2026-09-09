@@ -26,6 +26,8 @@ Arrays are dense — a sparse array is a Dictionary.
 | `a.dropFirst(n)`, `a.dropLast(n)` | all but the first / last n; `n` defaults to 1 (round 89) |
 | `a.split(x)`, `a.split { }`, `a.split(separator:)`, `a.split(whereSeparator:)` | pieces between separators, as Arrays; empty pieces omitted, as Swift's (round 89) |
 | `a.sorted()`, `a.sorted { a, b in }`, `a.sorted(by:)` | a new Array; bare needs Comparable elements (Int, Double, String, Date) — mixed is `<`'s type error (round 83) |
+| `a.first` | the first element or `nil` (round 139) |
+| `a.min()`, `a.max()`, `a.min(by:)` | the least / greatest or `nil`; bare needs Comparable elements, else a type error (round 139) |
 | `a.contains(x)`, `a.contains { }`, `a.contains(where:)` | equality (everything is Equatable) / predicate (round 83) |
 | `a.reversed()` | a new Array (round 84) |
 | `a.prefix { }`, `a.dropFirst { }` | the leading elements while the predicate holds / from its first miss on (round 88) |

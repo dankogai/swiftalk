@@ -42,6 +42,7 @@ bitwise operations stay methods (`bitAnd`, `bitOr`, `bitXor`), and
 | `s.map { }` | an **Array** (Swift-compatible) |
 | `s.filter { }` | a **Set** (Swift-compatible) |
 | `s.sorted()`, `s.sorted { }` | an Array — the way to a deterministic order |
+| `s.first`, `s.min()`, `s.max()` | Sequence's (round 139): `first` is *some* element, the Set's own order being unspecified; `min`/`max` need Comparable elements |
 | `s.reduce(init) { }`, `s.enumerated()`, `s.prefix(n)`, … | every Sequence member; slices and `enumerated()` are Arrays, an order having been imposed |
 | `Array(s)`, `s.Array()` | the elements, in the Set's own order |
 | `s.String()`, `s.String(.pretty)` | `Set(1, 2)`, sorted — re-enters; `Set(["one"])`, `Set([[1, 2]])` for a lone Sequence element (round 134) |
@@ -52,8 +53,8 @@ bitwise operations stay methods (`bitAnd`, `bitOr`, `bitXor`), and
 No subscript: a Set has no positions. **No `??` or `!!` of their own**
 (round 133): a Set is keys only, so "keep mine" and "take theirs"
 would be the same union — `\|` is that; the general rule still applies
-(`s0 ?? s1` is `s0`, `s0 !! s1` is `s1`). What is not here: `first`,
-`min`/`max`, `popFirst` — OPEN, along with `Set` in SION.
+(`s0 ?? s1` is `s0`, `s0 !! s1` is `s1`). What is not here: `popFirst`
+— OPEN, along with `Set` in SION.
 
 ```swift
 var seen = Set<String>()          // or Set()
