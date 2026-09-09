@@ -163,42 +163,70 @@ swiftalk> /(/
 syntax error: invalid regex /(/: expected ')'
 ```
 
+**A Set prints as `Set(e0, e1, ...)`** (round 134, revising 132) — the
+constructor as written; a lone Sequence element keeps its brackets so
+the text re-enters:
+
+```text
+swiftalk> Set([0, 1]) == Set(0, 1)
+true
+swiftalk> Set([0, 1]).String()
+"Set(0, 1)"
+swiftalk> Set(["one"])
+Set(["one"])
+swiftalk> Set([[1, 2]])
+Set([[1, 2]])
+swiftalk> Set([1, 2], [3])
+Set([1, 2], [3])
+swiftalk> print(Set([1, 2], [3]).String(.pretty))
+Set(
+  [
+    1,
+    2
+  ],
+  [
+    3
+  ]
+)
+```
+
 **Set is keys only: `+`, `-`, `merge`, `delete`** (round 133) — union
 and subtraction as operators, their in-place methods without a
 combine function, `Set(a, b, ...)` listing elements:
 
 ```text
 swiftalk> Set("one", "two") + Set("two", "three")
-Set(["one", "three", "two"])
+Set("one", "three", "two")
 swiftalk> Set("one", "two") - Set("two", "three")
 Set(["one"])
 swiftalk> var s = Set(1, 2)
-Set([1, 2])
+Set(1, 2)
 swiftalk> s += Set(3)
-Set([1, 2, 3])
+Set(1, 2, 3)
 swiftalk> s.merge([4, 5])
 swiftalk> s.delete(Set(1, 2))
 swiftalk> s
-Set([3, 4, 5])
+Set(3, 4, 5)
 swiftalk> var d = ["a": 1, "b": 2, "c": 3]
 ["a": 1, "b": 2, "c": 3]
 swiftalk> d.delete(Set("a", "c"))
 swiftalk> d
 ["b": 2]
 swiftalk> Set(3)
-Set([3])
+Set(3)
 swiftalk> Set("one")          // one Sequence: its elements — graphemes here
-Set(["e", "n", "o"])
+Set("e", "n", "o")
 swiftalk> Set(["one"])       // the one-element Set of a String
 Set(["one"])
 ```
 
-**`Set`** (round 132) — unordered, unique, Swift's names; `Set([...])` is
-the source form, `Set<T>` the annotation; `d.keys` is a Set now:
+**`Set`** (round 132) — unordered, unique, Swift's names; `Set(…)` is
+the source form (round 134), `Set<T>` the annotation; `d.keys` is a Set
+now:
 
 ```text
 swiftalk> var s = Set([3, 1, 2, 1])
-Set([1, 2, 3])
+Set(1, 2, 3)
 swiftalk> s == Set(1...3)
 true
 swiftalk> s.insert(4)
@@ -208,13 +236,13 @@ false
 swiftalk> s.remove(2)
 2
 swiftalk> s
-Set([1, 3, 4])
+Set(1, 3, 4)
 swiftalk> s.union([9]).subtracting(Set([1]))
-Set([3, 4, 9])
+Set(3, 4, 9)
 swiftalk> s.isSubset(of: 1...9)
 true
 swiftalk> s.filter { $0 > 1 }
-Set([3, 4])
+Set(3, 4)
 swiftalk> s.sorted()
 [1, 3, 4]
 swiftalk> let d0 = ["a": 1, "b": 2]
@@ -224,7 +252,7 @@ swiftalk> let d1 = ["b": 2, "a": 1]
 swiftalk> d0.keys == d1.keys
 true
 swiftalk> d0.keys
-Set(["a", "b"])
+Set("a", "b")
 swiftalk> let t: Set<Int> = Set(["x"])
 type error: cannot assign String to an element of 't' of type Int
 swiftalk> eval(s.String()) == s

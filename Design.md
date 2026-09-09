@@ -691,9 +691,14 @@ Dictionary and Array but unlike Array, Set is unordered so
 dict1`"). Swift's, the third collection: unordered, unique, any value
 an element since every value is Hashable, a COW value like the other
 two. **No literal** — Swift has none, and `[...]` is spoken for — so
-`Set([...])` constructs from any finite Sequence and *is* the source
-form, elements sorted by their source form, which makes two equal
-Sets print alike and keeps the round-trip law. **The annotation is
+`Set([...])` constructs from any finite Sequence and the constructor
+*is* the source form, elements sorted by their source form, which
+makes two equal Sets print alike and keeps the round-trip law —
+written `Set(1, 2)` since **round 134** ("`set.String()` should yield
+`Set(elem0, elem1, ...)`, not `Set([elem0, elem1, ...])`"), the
+variadic form round 133 added, with one guard for the law: a
+one-element Set whose element is a Sequence prints `Set([x])`, since
+`Set(x)` would spread it. **The annotation is
 Swift's generic spelling**, `Set<Int>`, parsed for any name (`[T]`
 and `[K: V]` stay Array's and Dictionary's); inference and locks
 treat the element as an Array's. Members are Swift's names: `insert`

@@ -3,10 +3,13 @@
 Swift's `Set` (round 132): an unordered collection of unique, Hashable
 elements — and every swiftalk value is Hashable, so a Set holds
 anything, Sets included. A **COW value** (§4), like Array and
-Dictionary. There is no literal (Swift has none either): `Set([...])`
-is the spelling, and the source form — `Set([1, 2, 3])`, elements
-sorted by their source form, so two equal Sets print the same and
-`eval(s.String()) == s`. A homogeneous Set infers `Set<T>`; the
+Dictionary. There is no literal (Swift has none either): `Set(...)`
+is the spelling, and the source form — `Set(1, 2, 3)`, the elements
+as arguments, sorted by their source form, so two equal Sets print
+the same and `eval(s.String()) == s` (round 134; round 132 wrote
+`Set([1, 2, 3])`). One exception keeps that law: a one-element Set
+whose element is a Sequence prints `Set([x])`, since `Set(x)` would
+spread it. A homogeneous Set infers `Set<T>`; the
 annotation is Swift's generic spelling, `Set<Int>`, `Set<String>?`,
 `Set<Set<Int>>`.
 
@@ -33,7 +36,7 @@ annotation is Swift's generic spelling, `Set<Int>`, `Set<String>?`,
 | `s.sorted()`, `s.sorted { }` | an Array — the way to a deterministic order |
 | `s.reduce(init) { }`, `s.enumerated()`, `s.prefix(n)`, … | every Sequence member; slices and `enumerated()` are Arrays, an order having been imposed |
 | `Array(s)`, `s.Array()` | the elements, in the Set's own order |
-| `s.String()`, `s.String(.pretty)` | `Set([1, 2])`, sorted — re-enters |
+| `s.String()`, `s.String(.pretty)` | `Set(1, 2)`, sorted — re-enters; `Set(["one"])`, `Set([[1, 2]])` for a lone Sequence element (round 134) |
 | `s.String(.json)`, `s.String(.propertyList)` | a sorted **array** — JSON and property lists have no sets (lossy, as Data's base64 is); a Set is not a SION value |
 | `d.keys` | a Dictionary's keys are a Set (round 132, revising 127): `d0 == d1` implies `d0.keys == d1.keys`, which no Array could promise |
 | `[s: v]` | a Set is Hashable, so it is a Dictionary key |

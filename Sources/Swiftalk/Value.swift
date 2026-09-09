@@ -521,9 +521,14 @@ extension Value {
         case .set(let s):
             // No literal of its own (Swift has none), so the constructor
             // over the elements, sorted by source form: deterministic,
-            // and it re-enters (round 132).
+            // and it re-enters. `Set(1, 2)` since round 134 (round 132
+            // wrote `Set([1, 2])`) — except a one-element Set whose
+            // element is a Sequence, which `Set(x)` would spread:
+            // that one stays `Set([x])`.
             if s.isEmpty { return "Set()" }
-            return "Set([" + s.map { $0.sourceString(debug: debug, seen: seen) }.sorted().joined(separator: ", ") + "])"
+            let elements = s.map { $0.sourceString(debug: debug, seen: seen) }.sorted()
+            if s.count == 1, Value.spreadsInSet(s.first!) { return "Set([" + elements[0] + "])" }
+            return "Set(" + elements.joined(separator: ", ") + ")"
         case .dictionary(let d):
             if d.isEmpty { return "[:]" }
             // Deterministic output: order entries by their key's source form.
@@ -561,7 +566,8 @@ extension Value {
                 .sorted { $0.key < $1.key }
                 .map { pad + $0.text }
                 .joined(separator: ",\n")
-            return "Set([\n" + body + "\n" + close + "])"
+            let (open, shut) = s.count == 1 && Value.spreadsInSet(s.first!) ? ("Set([\n", "])") : ("Set(\n", ")")
+            return open + body + "\n" + close + shut
         case .dictionary(let d):
             if d.isEmpty { return "[:]" }
             let body = d
@@ -592,6 +598,16 @@ extension Value {
             return "\(ev.type.name).\(ev.caseName)(\n" + body + "\n" + close + ")"
         default:
             return sourceString()
+        }
+    }
+
+    /// Would `Set(x)` spread `x` into its elements (round 133's one-
+    /// argument rule)? Then a one-element Set of it must print as
+    /// `Set([x])` to re-enter (round 134).
+    static func spreadsInSet(_ x: Value) -> Bool {
+        switch x {
+        case .array, .string, .dictionary, .set, .range, .sequence, .tuple, .data: return true
+        default: return false
         }
     }
 

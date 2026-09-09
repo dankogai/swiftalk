@@ -14,12 +14,22 @@ struct SetTests {
         #expect(try eval("Set([\"a\": 1]) == Set([(\"a\", 1)])") == .bool(true))            // a Dictionary's pairs
         #expect(try eval("Set(Set([1])) == Set([1])") == .bool(true))
         #expect(try eval("[1, 1, 2].Set().count") == .int(2))                                // the conversion law
-        #expect(try eval("Set([2, 1]).String()") == .string("Set([1, 2])"))
-        #expect(try eval("Set([\"b\", \"a\"]).String()") == .string("Set([\"a\", \"b\"])"))
+        #expect(try eval("Set([2, 1]).String()") == .string("Set(1, 2)"))               // round 134: Set(1, 2), not Set([1, 2])
+        #expect(try eval("Set([\"b\", \"a\"]).String()") == .string("Set(\"a\", \"b\")"))
+        #expect(try eval("Set(3).String()") == .string("Set(3)"))
+        #expect(try eval("Set([\"one\"]).String()") == .string("Set([\"one\"])"))              // a lone Sequence keeps its brackets, or Set(x) would spread it
+        #expect(try eval("Set([[1, 2]]).String()") == .string("Set([[1, 2]])"))
+        #expect(try eval("Set([1...3]).String()") == .string("Set([1...3])"))
+        #expect(try eval("Set([[1, 2], [3]]).String()") == .string("Set([1, 2], [3])"))
+        #expect(try eval("let t = Set([\"one\"])\neval(t.String()) == t") == .bool(true))
+        #expect(try eval("let t = Set([[1, 2]])\neval(t.String()) == t") == .bool(true))
+        #expect(try eval("let t = Set(Set(1, 2))\neval(t.String()) == t") == .bool(true))
+        #expect(try eval("let t = Set([Set(1, 2)])\neval(t.String()) == t") == .bool(true))
         #expect(try eval("Set().String()") == .string("Set()"))
         #expect(try eval("let s = Set([3, 1, 2])\neval(s.String()) == s") == .bool(true))      // the round-trip law
-        #expect(try eval("Set([1, 2]).debugDescription") == .string("Set([+0x1, +0x2])"))
-        #expect(try eval("Set([[1, 2], [3]]).String(.pretty)") == .string("Set([\n  [\n    1,\n    2\n  ],\n  [\n    3\n  ]\n])"))
+        #expect(try eval("Set([1, 2]).debugDescription") == .string("Set(+0x1, +0x2)"))
+        #expect(try eval("Set([[1, 2], [3]]).String(.pretty)") == .string("Set(\n  [\n    1,\n    2\n  ],\n  [\n    3\n  ]\n)"))
+        #expect(try eval("Set([[1]]).String(.pretty)") == .string("Set([\n  [\n    1\n  ]\n])"))
         #expect(try eval("Set([1]).Type == Set") == .bool(true))
         #expect(try eval("Set([1]).Type.name") == .string("Set"))
         #expect(try eval("Set.conforms(to: Sequence)") == .bool(true))

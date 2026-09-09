@@ -1913,3 +1913,14 @@ the history. (Moved out of Design.md in round 65.)
   `Set(1, 2)` working was a trap the first transcript walked into;
   a single Sequence stays Swift's constructor, so the `Set("one")`
   edge is in the docs rather than papered over.
+* **2026-09-10, round 134 — `Set(1, 2)` is the source form** ("`set.
+  String()` should yield `Set(elem0, elem1, ...)`, not `Set([elem0,
+  elem1, ...])`. for sure `Set([0,1]) == Set(0, 1)` but its
+  stringification is `Set(0, 1)`"), revising round 132's spelling
+  now that round 133's variadic constructor exists. The elements as
+  arguments, still sorted by source form. The round-trip law needed
+  one guard: `Set(x)` with a single Sequence spreads it (Swift's
+  rule, round 133), so a one-element Set whose element is an Array,
+  String, Range, Dictionary, Set, Data, tuple, or Sequence prints
+  `Set([x])` — `Set(["one"])`, `Set([[1, 2]])` — and the tests
+  re-enter each of those. `.pretty` follows: `Set(\n  1,\n  2\n)`.

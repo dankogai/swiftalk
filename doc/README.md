@@ -13,7 +13,7 @@ REPL). Sections in [Design.md](../Design.md) are cited as §n.
 | `String` | Unicode, grapheme-counted | [String.md](String.md) |
 | `Array` | COW, element-typed | [Array.md](Array.md) |
 | `Dictionary` | COW, `[Key: Value]`, any Hashable key | [Dictionary.md](Dictionary.md) |
-| `Set` | COW, unordered, unique; `Set([...])`, `Set<T>` (round 132) | [Set.md](Set.md) |
+| `Set` | COW, unordered, unique; `Set(a, b, ...)`, `Set<T>` (rounds 132–134) | [Set.md](Set.md) |
 | `Range` | lazy `a...b` / `a..<b`, Int only | [Range.md](Range.md) |
 | `Function` | the one function type | [Function.md](Function.md) |
 | `Sequence` | lazy generators & coroutines (also a protocol) | [Sequence.md](Sequence.md) |
