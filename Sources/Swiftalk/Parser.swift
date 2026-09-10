@@ -7,6 +7,7 @@ indirect enum Expr {
     case dictionary([(Expr, Expr)])
     case unaryMinus(Expr)
     case unaryPlus(Expr)                                  // +x — the number itself (round 121)
+    case power(Expr, Expr)                                // a ** b (round 142): right-assoc, above *
     case binary(Character, Expr, Expr)          // + - * /
     case comparison(String, Expr, Expr)         // == != < <= > >=
     case ternary(Expr, Expr, Expr)
@@ -399,7 +400,7 @@ struct Parser {
             // `x op= y` for every binary operator that can spell one (rounds
             // 102–106, 130, 135): the operator is the token without its `=`.
             if case .op(let o)? = peek, o.hasSuffix("="),
-               ["+=", "-=", "*=", "/=", "%=", "??=", "!!=", "&&=", "||=", "^^=", "&=", "|=", "^="].contains(o) {
+               ["+=", "-=", "*=", "/=", "%=", "**=", "??=", "!!=", "&&=", "||=", "^^=", "&=", "|=", "^="].contains(o) {
                 pos += 1
                 return .compoundAssignment(target: try lvalue(from: expr), op: String(o.dropLast()), expr: try parseExpr())
             }
@@ -1299,7 +1300,17 @@ struct Parser {
             pos += 1
             return .awaitE(try parseUnary())
         }
-        return try parsePostfix()
+        return try parsePower()
+    }
+
+    /// `a ** b` (round 142): right-associative and above `*`. The right
+    /// side may carry a prefix sign (`2 ** -1`); the left may not — a
+    /// prefix binds looser, so `-2 ** 2` is `-(2 ** 2)`, Python's reading.
+    private mutating func parsePower() throws -> Expr {
+        let base = try parsePostfix()
+        guard case .op("**")? = peek else { return base }
+        pos += 1
+        return .power(base, try parseUnary())
     }
 
     private mutating func parsePostfix() throws -> Expr {

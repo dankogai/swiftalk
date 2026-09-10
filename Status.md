@@ -222,6 +222,30 @@ Set(
 )
 ```
 
+**`**`** (round 142) — exponentiation, right-associative and above `*`;
+two Ints (trapping) or two Doubles (`pow`); `-2 ** 2` is `-(2 ** 2)`:
+
+```text
+swiftalk> 2 ** 10
+1024
+swiftalk> 2 ** 3 ** 2
+512
+swiftalk> -2 ** 2
+-4
+swiftalk> 2.0 ** 0.5
+1.4142135623730951
+swiftalk> var x = 3
+3
+swiftalk> x **= 2
+9
+swiftalk> 2 ** 63
+overflow: 2 ** 63
+swiftalk> 2 ** -1
+type error: '**' with a negative Int exponent has no Int answer — 2.Double() ** -1.Double()
+swiftalk> 2 ** 2.0
+type error: '**' is not defined between Int and Double — two Ints or two Doubles
+```
+
 **`:r` for types and extensions** (round 141) — a struct or enum
 redefined, an extension's members overwritten at the prompt, `:d` on a
 type:

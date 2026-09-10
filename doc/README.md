@@ -100,6 +100,7 @@ sees that module's unexported names, never the importer's.
 | Operator | Int | Double | String | Array | Date | Bool | any |
 |---|---|---|---|---|---|---|---|
 | `+ - * /` | ✓ (traps on overflow, `/0`) | ✓ | `+` only | `+` only; on Sets `-` is subtraction (round 133; union is `\|`, `+` removed in 136) | | | |
+| `**`, `**=` | ✓ Int, trapping; a negative exponent is an error (round 142) | ✓ `pow` | | | | | |
 | `\| & ^`, `\|= &= ^=` | | | | Sets only (round 135): union, intersection, symmetric difference — `s.union(t) == s \| t` | | | |
 | `%` | ✓ remainder, the dividend's sign; `% 0` traps (round 93) | type error, as in Swift | | | | | |
 | `+= -= *= /= %=` | ✓ (round 102) — `x op= y` is `x = x op y`, the target evaluated once | ✓ | `+=` | `+=` | | | |
@@ -117,7 +118,7 @@ sees that module's unexported names, never the importer's.
 | `??` `x?` `x!` `x?.m` | | | | | | | ✓ (nil / Result); `??` on two Dictionaries is per key (round 130) |
 
 Mixed arithmetic (`1 + 1.5`) is a type error — convert explicitly.
-Precedence, high to low: prefix `! -` · `* / %` · `+ -` · `... ..<` ·
+Precedence, high to low: `**` (right-assoc) · prefix `! -` · `* / %` · `+ -` · `... ..<` ·
 `??` · comparison · `&&` · `^^` · `||` · `? :`. A lone `&`, `|`, or `^`
 is a Set operator (round 135) — `&` at `*`'s level, `|` and `^` at
 `+`'s — and a type error on anything else; bitwise operations are

@@ -55,7 +55,7 @@ Shelved forms (`actor`, `class`, `super`) are not grammar today.
     keyword) and is division after a value, a name, or a closing
     bracket — JavaScript's rule. `//` is a comment, never an empty
     regex.
-* **Operators & punctuation**: `+ - * / %`, `| & ^` (Sets), `+= -= *= /= %= |= &= ^= ??= !!= &&= ||= ^^=`, `== != === !== < <= > >=`, `&& ^^ ||`,
+* **Operators & punctuation**: `+ - * / % **`, `| & ^` (Sets), `+= -= *= /= %= **= |= &= ^= ??= !!= &&= ||= ^^=`, `== != === !== < <= > >=`, `&& ^^ ||`,
   prefix `! - +`, `...` `..<`, `??` `!!`, `= : , . ; ( ) [ ] { }`. Four
   spacing-sensitive rules:
   * `!!` — infix (`a !! b`, round 130) only after an operand and with
@@ -191,7 +191,8 @@ range        = additive [ "..." [ additive ] | "..<" additive ] ;   (* a... unbo
                                                                    absent when ) ] } , : ; { or a newline follows *)
 additive     = multiplicative { ( "+" | "-" ) multiplicative } ;
 multiplicative = unary { ( "*" | "/" | "%" ) unary } ;      (* % is Int only (round 93) *)
-unary        = "-" unary | "+" unary | "!" unary | "await" unary | postfix ;   (* + since round 121 *)
+unary        = "-" unary | "+" unary | "!" unary | "await" unary | power ;     (* + since round 121 *)
+power        = postfix [ "**" unary ] ;                       (* round 142: right-assoc; -2 ** 2 is -(2 ** 2) *)
 postfix      = primary { suffix } ;
 suffix       = "." IDENT [ args ]                      (* member, method *)
              | "." INT                                 (* tuple element *)

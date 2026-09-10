@@ -182,6 +182,38 @@ enum RandomBounds {
     }
 }
 
+/// `base ** exponent` (round 142): Int ** Int is an Int — square-and-
+/// multiply, trapping on overflow as `*` does, a negative exponent a
+/// type error (there is no Int for 2 ** -1); Double ** Double is libm's
+/// pow. Mixed is a type error, as all arithmetic is (§3).
+func power(_ base: Value, _ exponent: Value) throws -> Value {
+    switch (base, exponent) {
+    case (.int(let b), .int(let e)):
+        guard e >= 0 else {
+            throw SwiftalkError.type("'**' with a negative Int exponent has no Int answer — \(b).Double() ** \(e).Double()")
+        }
+        var result: Int64 = 1, x = b, n = e
+        while n > 0 {
+            if n & 1 == 1 {
+                let (r, overflow) = result.multipliedReportingOverflow(by: x)
+                guard !overflow else { throw SwiftalkError.overflow("\(b) ** \(e)") }
+                result = r
+            }
+            n >>= 1
+            if n > 0 {
+                let (y, overflow) = x.multipliedReportingOverflow(by: x)
+                guard !overflow else { throw SwiftalkError.overflow("\(b) ** \(e)") }
+                x = y
+            }
+        }
+        return .int(result)
+    case (.double(let b), .double(let e)):
+        return .double(pow(b, e))
+    default:
+        throw SwiftalkError.type("'**' is not defined between \(base.typeName) and \(exponent.typeName) — two Ints or two Doubles")
+    }
+}
+
 /// Swift's static properties on Int (round 113) and Byte (round 116):
 /// read bare, never called.
 enum IntStatics {

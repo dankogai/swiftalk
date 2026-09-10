@@ -2020,3 +2020,17 @@ the history. (Moved out of Design.md in round 65.)
   replacing the other) on structs, enums, actors, and builtins —
   stored properties and enum cases never. Outside `:r` nothing
   changed.
+* **2026-09-11, round 142 — `**`** ("Implement `**` operator for Int
+  and Double. `base ** ex` meaning `base powered by ex`, of course").
+  Two decisions beyond the obvious one. Precedence: above `*` and
+  right-associative, as Python and JavaScript have it, which falls
+  out of one small grammar level between postfix and unary — and
+  that placement answers the prefix question for free: `-2 ** 2` is
+  `-(2 ** 2)`, Python's reading, while `2 ** -1.0` parses because the
+  right side is a unary. Types: the arithmetic rule, two Ints or two
+  Doubles and nothing mixed; the Int form is square-and-multiply
+  with `*`'s overflow trap, and a negative Int exponent is refused
+  with a pointer to Doubles rather than silently becoming one.
+  `**=` came free. The lexer had a `*=` path to extend; the compound
+  assignment's operator-as-text from round 135 took `**` without
+  complaint.

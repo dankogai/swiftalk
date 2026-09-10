@@ -13,6 +13,7 @@ mix in arithmetic without a conversion.
 | `Double(t)` for a Date | the epoch seconds |
 | `Double(x)` otherwise | type error |
 | `d + e`, `d - e`, `d * e`, `d / e` | IEEE arithmetic (`/ 0.0` gives inf, no trap) |
+| `d ** e`, `d **= e` | libm's `pow` (round 142): `2.0 ** 0.5`, `2.0 ** -1.0`; `(-8.0) ** (1.0 / 3.0)` is nan, as pow's is. Both sides Doubles — `2.0 ** 2` is a type error, like all mixed arithmetic |
 | `d % e` | type error — as in Swift, no floating remainder operator (round 93) |
 
 ## `Double.` — the math library (round 108)

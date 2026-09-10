@@ -120,6 +120,12 @@ struct Lexer {
                 pos += 1
                 tokens.append(.punct(Character(c)))
             case ":", ",", "+", "-", "*", "%", ";":
+                // ** and **= (round 142): exponentiation
+                if c == "*", pos + 1 < scalars.count, scalars[pos + 1] == "*" {
+                    pos += 2
+                    if peek == "=" { pos += 1; tokens.append(.op("**=")) } else { tokens.append(.op("**")) }
+                    continue
+                }
                 // += -= *= %= (round 102): compound assignment
                 if "+-*%".contains(Character(c)), pos + 1 < scalars.count, scalars[pos + 1] == "=" {
                     pos += 2
@@ -236,7 +242,7 @@ struct Lexer {
             return "+-*/%=".contains(p)
         case .op(let o)?:
             return ["==", "!=", "===", "!==", "<", "<=", ">", ">=", "&&", "||", "??", "!!",
-                    "+=", "-=", "*=", "/=", "%=", "??=", "!!=", "&&=", "||=", "^^", "^^=",
+                    "+=", "-=", "*=", "/=", "%=", "??=", "!!=", "&&=", "||=", "^^", "^^=", "**", "**=",
                     "&", "|", "^", "&=", "|=", "^="].contains(o)
         default:
             return false

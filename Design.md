@@ -790,6 +790,21 @@ are; `min` keeps the first of equals and `max` the last, as Swift's
 do. Not added: `last` — O(n) on a lazy Sequence and undefined on an
 infinite one — OPEN.
 
+**`**` — DECIDED (round 142)** ("Implement `**` operator for Int and
+Double. `base ** ex` meaning `base powered by ex`, of course"). A
+symbol spent, but on the one arithmetic operation the keyboard's
+four cannot spell, and the one Swift users miss most (Swift has
+`pow` and no operator). Right-associative and above `*`, as Python's
+and JavaScript's: `2 ** 3 ** 2` is 512, `2 * 3 ** 2` is 18. The
+prefix question is settled Python's way — `-2 ** 2` is `-(2 ** 2)` —
+because the prefix operators already bind looser than the postfix
+ones and `**` sits between; the right side takes a sign freely, `2.0
+** -1.0`. Types follow §3's rule for every arithmetic operator: two
+Ints give an Int, by square-and-multiply, trapping on overflow as `*`
+does, a negative Int exponent a type error since there is no Int
+answer; two Doubles give libm's `pow`; a mix is a type error. `**=`
+by round 104's rule.
+
 **SION as a built-in — DECIDED (round 97)**. The user's spec: "`SION(string)`
 parses string to SION. `sion.String()` stringify. `SION(json:string)`
 treats the string as JSON. `sion.String(.json)` emits a JSON string.

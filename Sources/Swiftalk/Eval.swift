@@ -542,6 +542,7 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             }
         }
         let rhs = try evaluate(expr, in: env)
+        if op == "**" { return try assign(target, rhs, in: env) { old in try power(old, rhs) } }   // round 142
         return try assign(target, rhs, in: env) { old in try binary(Character(op), old, rhs) }
     case .assignment(let target, let expr):
         let value = try evaluate(expr, in: env)
@@ -1527,6 +1528,8 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
         case .int, .double, .byte: return v
         default: throw SwiftalkError.type("cannot apply prefix + to \(v.typeName)")
         }
+    case .power(let lhs, let rhs):
+        return try power(try evaluate(lhs, in: env), try evaluate(rhs, in: env))   // round 142
     case .binary(let op, let lhs, let rhs):
         return try binary(op, try evaluate(lhs, in: env), try evaluate(rhs, in: env))
     case .comparison(let op, let lhs, let rhs):
