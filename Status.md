@@ -222,6 +222,33 @@ Set(
 )
 ```
 
+**Operators are Functions** (round 144) — `(op)` is the operator as a
+Function, one per operator; `(-)`, `(+)`, `(!)` take one argument as
+the prefix forms:
+
+```text
+swiftalk> (+)(2, 4)
+6
+swiftalk> (*)(2, 4)
+8
+swiftalk> (**)(2, 4)
+16
+swiftalk> [1, 2, 3].reduce(0, (+))
+6
+swiftalk> [3, 1, 2].sorted((>))
+[3, 2, 1]
+swiftalk> [1, 2].map((-))
+[-1, -2]
+swiftalk> (+)
+(+)
+swiftalk> (+) == (+)
+true
+swiftalk> (??)(nil, 7)
+7
+swiftalk> (+)(1, 2.0)
+type error: '+' is not defined between Int and Double
+```
+
 **Static members and `Self`** (round 143) — `static let`, `static var`
 getters, in struct, enum, and extension bodies, builtins included;
 `Self` is the type inside them:

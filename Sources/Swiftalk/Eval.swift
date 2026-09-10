@@ -915,7 +915,7 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
                     lock: TypeAnnotation(name: "Function", optional: false),
                     value: .function(fn)))
             }
-        case .plain, .todo:
+        case .plain, .todo, .operator:
             throw SwiftalkError.type("'\(typeName)' is not a type")
         }
         return .nil
@@ -1482,7 +1482,7 @@ func evaluate(_ expr: Expr, in env: Environment) throws -> Value {
                 switch f.role {
                 case .type, .protocol, .enumType, .structType, .actorType:
                     return try apply(f, args: try evaluateArgs(args, in: env))
-                case .plain, .todo:
+                case .plain, .todo, .operator:
                     break
                 }
             }
@@ -1568,6 +1568,8 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
         }
     case .power(let lhs, let rhs):
         return try power(try evaluate(lhs, in: env), try evaluate(rhs, in: env))   // round 142
+    case .operatorRef(let op):
+        return .function(OperatorFunctions.function(op))                          // round 144
     case .binary(let op, let lhs, let rhs):
         return try binary(op, try evaluate(lhs, in: env), try evaluate(rhs, in: env))
     case .comparison(let op, let lhs, let rhs):
@@ -2217,6 +2219,68 @@ private func makeObservers(_ order: [String],
 
 /// Turns parsed method expressions into FunctionObjects closed over the
 /// declaring environment (round 48).
+/// Operators as Functions (round 144): `(+)(2, 4)`, `xs.reduce(0, (+))`,
+/// `xs.sorted((<))`. One FunctionObject per operator, made on first use
+/// and kept, so `(+) == (+)` by identity like any Function. Two arguments
+/// apply the binary operator exactly as the infix form does; one
+/// argument is the prefix form for `-`, `+`, `!`. `&&`/`||`/`??`/`!!`
+/// cannot short-circuit here — both arguments arrive evaluated.
+enum OperatorFunctions {
+    nonisolated(unsafe) private static var cache: [String: FunctionObject] = [:]
+
+    static func function(_ op: String) -> FunctionObject {
+        if let f = cache[op] { return f }
+        let f = FunctionObject(parameters: [], body: [], closure: Builtins.emptyEnvironment,
+                               builtin: { try apply(op, $0) }, role: .operator(op))
+        cache[op] = f
+        return f
+    }
+
+    private static func apply(_ op: String, _ args: [Value]) throws -> Value {
+        switch (op, args.count) {
+        case ("-", 1):
+            switch args[0] {
+            case .int(let i):
+                guard i != Int64.min else { throw SwiftalkError.overflow("negating \(i)") }
+                return .int(-i)
+            case .double(let d): return .double(-d)
+            default: throw SwiftalkError.type("cannot negate \(args[0].typeName)")
+            }
+        case ("+", 1):
+            switch args[0] {
+            case .int, .double, .byte: return args[0]
+            default: throw SwiftalkError.type("cannot apply prefix + to \(args[0].typeName)")
+            }
+        case ("!", 1):
+            guard case .bool(let b) = args[0] else { throw SwiftalkError.type("'!' takes a Bool — nothing is truthy (§3b)") }
+            return .bool(!b)
+        case (_, 2):
+            let (a, b) = (args[0], args[1])
+            switch op {
+            case "+", "-", "*", "/", "%", "|", "&", "^": return try binary(Character(op), a, b)
+            case "**":                                  return try power(a, b)
+            case "==", "!=", "===", "!==", "<", "<=", ">", ">=": return try compare(op, a, b)
+            case "&&", "||", "^^":
+                guard case .bool(let x) = a, case .bool(let y) = b else {
+                    throw SwiftalkError.type("'\(op)' takes Bools — nothing is truthy (§3b)")
+                }
+                return .bool(op == "&&" ? x && y : op == "||" ? x || y : x != y)
+            case "??":
+                if case .dictionary(let d) = a { return .dictionary(try coalesceDictionaries(base: d, fill: b, op: "??")) }
+                return try isAbsent(a) ? b : a
+            case "!!":
+                if case .dictionary(let e) = b { return .dictionary(try coalesceDictionaries(base: e, fill: a, op: "!!")) }
+                return try isAbsent(b) ? a : b
+            default:
+                throw SwiftalkError.type("(\(op)) is not a function")
+            }
+        default:
+            let unary = ["-", "+", "!"].contains(op) ? "one or " : ""
+            throw SwiftalkError.type("(\(op)) takes \(unary)two arguments, got \(args.count)")
+        }
+    }
+}
+
 /// A type body's scope (round 143): `Self` bound to the type, so
 /// methods, statics, and extensions can say `Self(x: 0)` and `Self.origin`.
 func typeScope(_ env: Environment, self type: Value) -> Environment {
@@ -3497,7 +3561,7 @@ private func method(on receiver: Value, name: String,
             // User types get synthesized Equatable/Hashable (§10) —
             // an actor's by identity, like Function.
             return .bool(protoName == "Equatable" || protoName == "Hashable")
-        case .plain, .todo:
+        case .plain, .todo, .operator:
             throw SwiftalkError.type("'.conforms(to:)' is a question asked of a type")
         }
     }
@@ -3705,6 +3769,7 @@ private func method(on receiver: Value, name: String,
         case .structType(let st):            return .string(st.name)
         case .actorType(let at):             return .string(at.name)
         case .plain, .todo:                  return .nil
+        case .operator(let op):              return .string("(\(op))")
         }
     case ("count", false):
         switch receiver {

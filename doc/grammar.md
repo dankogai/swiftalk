@@ -208,6 +208,7 @@ primary      = INT | DOUBLE | STRING | REGEX | "true" | "false" | "nil"   (* STR
              | IDENT | "$" | "$" INT
              | "." IDENT                               (* implicit self member, or a format tag *)
              | "(" expression ")"                      (* grouping *)
+             | "(" OPERATOR ")"                         (* the operator as a Function (round 144): (+), (**), (==)… *)
              | tuple | array | dictionary
              | closure | "async" closure               (* async { } is Task { } *)
              | switch | if ;                           (* let x = switch ..., let y = if c { } else { } *)

@@ -301,6 +301,9 @@ extension Swiftalk {
         /// (§10, round 39).
         enum Role {
             case plain
+            /// `(+)`, `(**)`, `(==)`… (round 144): an operator as a Function
+            /// value — one per operator, so `(+) == (+)`.
+            case `operator`(String)
             case type(String)
             case `protocol`(String)
             /// The `.todo` placeholder (round 44): a not-yet-implemented
@@ -447,6 +450,8 @@ extension Value {
                 return at.name
             case .todo:
                 return ".todo"
+            case .operator(let op):
+                return "(\(op))"                         // re-enters (round 144)
             case .plain:
                 let params = f.parameters.isEmpty ? "" : f.parameters.joined(separator: ", ") + " in "
                 return "{ \(params)... }"

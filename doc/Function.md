@@ -17,7 +17,8 @@ checked at call time.
 | `$(args)` | recursion — calls the innermost enclosing function |
 | `let f: Function = .todo` | deferred init: exactly one later assignment (named/mutual recursion) |
 | `f.Type` | `Function` |
-| `f.name` | a type's or protocol's name; `nil` for a plain closure |
+| `f.name` | a type's or protocol's name; `nil` for a plain closure; `"(+)"` for an operator |
+| `(+)`, `(**)`, `(==)`, `(??)`, `(\|)`… | **an operator is a Function** (round 144): `(+)(2, 4)` is 6, `xs.reduce(0, (+))`, `xs.sorted((<))`; every binary operator, applying exactly as its infix form does (so `(+)(1, 2.0)` is the same type error); `(-)`, `(+)`, `(!)` with one argument are the prefix forms — `xs.map((-))`. One Function per operator, so `(+) == (+)`; no labels; `(&&)` and `(??)` cannot short-circuit, both arguments having arrived. `.String()` is `"(+)"`, which re-enters |
 | `f == g` | identity |
 | `T.conforms(to: P)` | for a type constructor: protocol conformance (`Array.conforms(to: Sequence)`) |
 | `f.Sequence()` | wraps a yielding function into a Sequence — see [Sequence.md](Sequence.md) |

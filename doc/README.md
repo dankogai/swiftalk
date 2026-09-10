@@ -121,7 +121,9 @@ sees that module's unexported names, never the importer's.
 
 Mixed arithmetic (`1 + 1.5`) is a type error — convert explicitly.
 Precedence, high to low: `**` (right-assoc) · prefix `! -` · `* / %` · `+ -` · `... ..<` ·
-`??` · comparison · `&&` · `^^` · `||` · `? :`. A lone `&`, `|`, or `^`
+`??` · comparison · `&&` · `^^` · `||` · `? :`. **An operator in
+parentheses is a Function** (round 144): `(+)(2, 4)`, `xs.reduce(0,
+(+))` — see [Function.md](Function.md). A lone `&`, `|`, or `^`
 is a Set operator (round 135) — `&` at `*`'s level, `|` and `^` at
 `+`'s — and a type error on anything else; bitwise operations are
 methods on Int.

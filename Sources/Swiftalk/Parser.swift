@@ -8,6 +8,7 @@ indirect enum Expr {
     case unaryMinus(Expr)
     case unaryPlus(Expr)                                  // +x — the number itself (round 121)
     case power(Expr, Expr)                                // a ** b (round 142): right-assoc, above *
+    case operatorRef(String)                              // (+), (**), (==)… — an operator as a Function (round 144)
     case binary(Character, Expr, Expr)          // + - * /
     case comparison(String, Expr, Expr)         // == != < <= > >=
     case ternary(Expr, Expr, Expr)
@@ -1507,6 +1508,11 @@ struct Parser {
         return peek != .punct(closing)
     }
 
+    /// The operators that `(op)` turns into Functions (round 144): the
+    /// binary ones; `-`, `+`, `!` also serve as unary with one argument.
+    static let functionOperators: Set<String> = [
+        "**", "==", "!=", "===", "!==", "<", "<=", ">", ">=", "&&", "||", "^^", "??", "!!", "|", "&", "^", "!"]
+
     private mutating func parsePrimary() throws -> Expr {
         switch advance() {
         case .int(let i):     return .literal(.int(i))
@@ -1567,6 +1573,20 @@ struct Parser {
             if case .punct(")")? = peek {
                 pos += 1
                 return .tuple([])
+            }
+            // `(+)`, `(**)`, `(==)`, `(??)`… — an operator alone in parentheses
+            // is that operator as a Function (round 144)
+            if peek(at: 1) == .punct(")") {
+                let op: String?
+                switch peek {
+                case .punct(let c)? where "+-*/%".contains(c): op = String(c)
+                case .op(let o)? where Parser.functionOperators.contains(o): op = o
+                default: op = nil
+                }
+                if let op {
+                    pos += 2
+                    return .operatorRef(op)
+                }
             }
             // an element may carry a label (round 74): `x: expr` — which
             // also makes `(x: 1)` a 1-tuple, since a group has no label

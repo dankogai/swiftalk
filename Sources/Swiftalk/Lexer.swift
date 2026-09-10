@@ -91,7 +91,10 @@ struct Lexer {
                     while let c = peek, c != "\n" { pos += 1 }
                 } else if pos + 1 < scalars.count, scalars[pos + 1] == "*" {
                     try skipBlockComment()
-                } else if Lexer.regexMayStart(after: tokens.last) {
+                } else if Lexer.regexMayStart(after: tokens.last),
+                          !(pos + 1 < scalars.count && scalars[pos + 1] == ")") {
+                    // `(/)` is the operator as a Function (round 144) — a `/`
+                    // right before `)` cannot open a regex
                     tokens.append(try lexRegex())
                 } else if pos + 1 < scalars.count, scalars[pos + 1] == "=" {
                     pos += 2
@@ -161,8 +164,8 @@ struct Lexer {
                 // after an operand, with whitespace before it — so `x!!`
                 // stays two force-unwraps and `!!b` two nots.
                 if c == "!", pos + 1 < scalars.count, scalars[pos + 1] == "!",
-                   pos > 0, " \t".unicodeScalars.contains(scalars[pos - 1]),
-                   !Lexer.regexMayStart(after: tokens.last) {
+                   (pos > 0 && " \t".unicodeScalars.contains(scalars[pos - 1]) && !Lexer.regexMayStart(after: tokens.last))
+                    || Lexer.parenthesizedAlone(scalars, from: pos + 2, after: tokens.last) {   // `(!!)` (round 144)
                     pos += 2
                     if peek == "=" { pos += 1; tokens.append(.op("!!=")) } else { tokens.append(.op("!!")) }
                     continue
@@ -257,6 +260,16 @@ struct Lexer {
         if continuesLine(after: token) { return true }
         if case .punct(let p)? = token { return p == "?" || p == ":" }
         return false
+    }
+
+    /// `( op )` — the operator as a Function (round 144): true when the
+    /// token being lexed ends at `from`, only whitespace follows before
+    /// `)`, and the previous token was `(`.
+    static func parenthesizedAlone(_ scalars: [Unicode.Scalar], from: Int, after last: Token?) -> Bool {
+        guard case .punct("(")? = last else { return false }
+        var i = from
+        while i < scalars.count, scalars[i] == " " || scalars[i] == "\t" { i += 1 }
+        return i < scalars.count && scalars[i] == ")"
     }
 
     /// JavaScript's rule (round 86): `/` starts a regex literal where an

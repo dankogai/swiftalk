@@ -67,6 +67,7 @@ for x in mixed {
 }
 let answer = "42".Int() ?? 0                  // failable conversion + default
 let kib    = 2 ** 10                          // 1024 — ** on two Ints (trapping) or two Doubles (round 142)
+let sum    = [1, 2, 3].reduce(0, (+))         // 6 — an operator in parentheses is a Function (round 144)
 let hex    = 255.String(.hex)                 // "0xff"; .String(.sign, .hex) is "+0xff"; radix: 16 for bare "ff"
 let bytes  = "café".Data(.utf8)               // infallible; .Data("base64") is the literal
 let text   = bytes.String(.utf8)              // String? — bytes may not be text

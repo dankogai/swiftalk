@@ -2049,3 +2049,16 @@ the history. (Moved out of Design.md in round 65.)
   the new entries first and merging after is the right shape anyway.
   The user's own example, `Self(lhs.x + rhs.x, lhs.y + rhs.y)`, runs
   as typed, positional memberwise init included.
+* **2026-09-11, round 144 — operators are Functions** ("Like Swift,
+  operators are functions. `(+)(2,4) == 6`, `(*)(2,4)==8` and
+  `(**)(2,4)==16`"). The parser's job was two tokens — an operator
+  followed by `)` right after `(` — and the evaluator's was to hand
+  back one cached Function per operator whose body is the same
+  `binary`/`power`/`compare` the infix forms call, so the two can
+  never disagree. A new Function role, `.operator(op)`, gives the
+  value a name, a source form that re-enters, and identity across
+  uses. `-`, `+`, `!` double as prefix with one argument, which is
+  what makes `xs.map((-))` read. `(&&)` and `(??)` are honest about
+  what a function can be: eager. Swift's bare `reduce(0, +)` is left
+  OPEN; the parenthesized form was the ask and is the unambiguous
+  one.

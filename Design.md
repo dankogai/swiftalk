@@ -829,6 +829,24 @@ Self.origin`), which means the type's table must not be under a write
 while initializers run — the first draft was, and Swift's exclusivity
 check caught it.
 
+**Operators are Functions — DECIDED (round 144)** ("Like Swift,
+operators are functions. `(+)(2,4) == 6`, `(*)(2,4)==8` and
+`(**)(2,4)==16`"). Swift's spelling, `(op)`, and Swift's meaning: the
+parenthesized operator is the very Function the infix form applies —
+one FunctionObject per operator, made on first use and kept, so `(+)
+== (+)` holds by the identity rule Functions have always had, and
+`(+).String()` is `"(+)"`, which re-enters. Two arguments apply the
+binary operator with its own type rules (`(+)(1, 2.0)` is the infix
+form's type error); one argument is the prefix form for `-`, `+`,
+`!`. Every binary operator qualifies — arithmetic, `**`, the eight
+comparisons, the Bool three, `??`/`!!` (per key on Dictionaries),
+the Set three — except the assignments and `...`/`..<`, which are not
+functions of two values. The short-circuiting ones cannot, both
+arguments having been evaluated by the call; that is what a function
+is. **Swift's bare form** — `reduce(0, +)` without parentheses — is
+OPEN: it would make `+` a primary expression wherever an operand can
+stand, and `f(a, +)` reads too much like a mistake for now.
+
 **SION as a built-in — DECIDED (round 97)**. The user's spec: "`SION(string)`
 parses string to SION. `sion.String()` stringify. `SION(json:string)`
 treats the string as JSON. `sion.String(.json)` emits a JSON string.
