@@ -1,6 +1,6 @@
 // Complex — C++'s std::complex<double> in swiftalk (round 147).
 //
-//     import (Complex) from "./modules/Complex.swt"
+//     import from "./modules/Complex.swt"
 //     let z = Complex(1.0, 2.0)          // 1 + 2i; Complex(3.0) is 3 + 0i
 //     z * z.conj == z.norm               // (a + bi)(a - bi) = a² + b²
 //     Complex.exp(Double.pi.i).real      // -1.0 — Euler

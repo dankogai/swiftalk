@@ -34,6 +34,23 @@ struct ModuleTests {
         #expect(throws: SwiftalkError.self) { try i.eval("G.area = { 0 }") }       // a let
     }
 
+    @Test("import from: every export by its own name (round 148); no namespace, no list")
+    func everything() throws {
+        let i = interpreter(["geometry.swt": geometry])
+        #expect(try i.eval("import from \"./geometry.swt\"\narea(3.0, 4.0) + unit") == .double(13))
+        #expect(try i.eval("Point(x: 1.0, y: 2.0).y") == .double(2))
+        #expect(try i.eval("count()") == .int(1))
+        #expect(throws: SwiftalkError.self) { try i.eval("secret") }                       // unexported stays out
+        #expect(throws: SwiftalkError.self) { try i.eval("G") }                            // no namespace was made
+        #expect(throws: SwiftalkError.self) { try i.eval("import from \"./geometry.swt\"") }   // twice: the names redeclare
+        let j = interpreter(["m.swt": "let hidden = 1"])
+        #expect(try j.eval("import from \"./m.swt\"\n1") == .int(1))                     // a module with no exports imports nothing
+        let k = interpreter(["m.swt": "export let area = 1"])
+        #expect(throws: SwiftalkError.self) { try k.eval("let area = 0\nimport from \"./m.swt\"") }   // a clash is the usual redeclaration
+        #expect(throws: SwiftalkError.self) { try interpreter([:]).eval("import from") }
+        #expect(throws: SwiftalkError.self) { try interpreter([:]).eval("import from 1") }
+    }
+
     @Test("import (a, b) from: the named exports, directly; a module loads once per Interpreter")
     func names() throws {
         let i = interpreter(["geometry.swt": geometry])

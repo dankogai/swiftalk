@@ -15,7 +15,7 @@ struct ComplexModuleTests {
         i.scriptPath = Self.root + "/eg/_.swt"   // imports resolve beside this
         return i
     }
-    let prelude = "import (Complex) from \"../modules/Complex.swt\"\nlet near = { a, b in (Complex.lift(a) - Complex.lift(b)).abs < 1e-9 }\n"
+    let prelude = "import from \"../modules/Complex.swt\"\nlet near = { a, b in (Complex.lift(a) - Complex.lift(b)).abs < 1e-9 }\n"
 
     @Test("arithmetic, either side a scalar; conj, norm, abs, arg, polar, proj; i")
     func arithmetic() throws {

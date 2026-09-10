@@ -599,6 +599,9 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             throw SwiftalkError.type("import needs a running Interpreter")
         }
         let module = try modules.load(spec)
+        // `import from` (round 148): no namespace, no list — every export,
+        // bound by its own name
+        let names = namespace == nil && names.isEmpty ? module.names : names
         if let namespace {
             try env.declare(namespace, Binding(
                 mutable: false, lock: TypeAnnotation(name: "Tuple", optional: false),

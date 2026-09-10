@@ -9,7 +9,8 @@ file: `from` is required, and the "where" is a path or a URL.
 
 | Form | Meaning |
 |---|---|
-| `import M from "./mod.swt"` | every export under `M` — a **labeled tuple** of the exports in export order, so `M.x` reads and `M.f(args)` calls through; `M` is a `let` |
+| `import from "./mod.swt"` | **every export, by its own name** (round 148) — the plain form: `import from "./modules/Complex.swt"` then `Complex(0.0, 1.0)`. A name already bound is the usual redeclaration error |
+| `import M from "./mod.swt"` | every export under `M` — a **labeled tuple** of the exports in export order, so `M.x` reads and `M.f(args)` calls through; `M` is a `let`. Mind the trap: `import Complex from` makes `Complex` the *namespace*, so the struct is `Complex.Complex` — `import from` is what that sentence means |
 | `import (foo, bar) from "./mod.swt"` | the named exports, bound directly (as `let`s); a name the module does not export is an error that lists what it does. Parentheses, not braces |
 | `"./mod.swt"`, `"../lib/x.swt"`, `"/abs/x.swt"` | resolved **beside the importing file** (the CLI script, or the module doing the importing); the REPL resolves from the cwd |
 | `"https://host/path/mod.swt"` | the CLI fetches with `curl -fsSL`; an embedder supplies `Interpreter.moduleLoader` (the core refuses URLs without one) |

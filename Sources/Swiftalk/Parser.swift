@@ -272,7 +272,9 @@ struct Parser {
             pos += 1
             var namespace: String? = nil
             var names: [String] = []
-            if case .punct("(")? = peek {
+            if case .identifier("from")? = peek {
+                // `import from "..."` (round 148): every export, by its own name
+            } else if case .punct("(")? = peek {
                 pos += 1
                 repeat {
                     guard case .identifier(let n)? = advance(), !keywords.contains(n), !n.hasPrefix("$") else {
@@ -283,7 +285,7 @@ struct Parser {
                 try expect(")")
             } else {
                 guard case .identifier(let n)? = advance(), !keywords.contains(n), !n.hasPrefix("$") else {
-                    throw SwiftalkError.syntax("import M from \"./mod.swt\", or import (a, b) from \"./mod.swt\"")
+                    throw SwiftalkError.syntax("import from \"./mod.swt\", import M from \"./mod.swt\", or import (a, b) from \"./mod.swt\"")
                 }
                 namespace = n
             }

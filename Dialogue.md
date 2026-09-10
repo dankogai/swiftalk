@@ -2117,3 +2117,16 @@ the history. (Moved out of Design.md in round 65.)
   now follow CPython's `cmath`, and a comparison across 304 points,
   cuts included, agrees to 1e-9. The test suite loads the module
   from the repository the way a script would.
+* **2026-09-11, round 148 — `import from`** ("`import Complex from
+  "modules/Complex.swt"` … `type error: cannot call a Tuple` WHY?"
+  then "implement a simple `import from where` without `import
+  (what)`"). The why: round 100's `import M from` binds a namespace
+  tuple, and a module named after its sole export makes `Complex`
+  the tuple and `Complex.Complex` the struct — a trap the docs had
+  walked around with parentheses and never named. The fix is the
+  form the sentence wanted: `import from "..."` binds every export
+  by its own name, one line in the parser (nothing between `import`
+  and `from`) and one in the executor (an empty request means all).
+  The module's header, README, and tests now use it, and the module
+  page names the trap beside the namespace form so the next reader
+  meets the warning before the error.

@@ -84,7 +84,7 @@ statement    = declaration | destructure | assignment | expression
              | enumDecl | structDecl | extensionDecl
              | import | export ;                       (* a file's top level only *)
 
-import       = "import" ( IDENT | "(" IDENT { "," IDENT } ")" ) "from" STRING ;   (* round 100 *)
+import       = "import" [ IDENT | "(" IDENT { "," IDENT } ")" ] "from" STRING ;   (* round 100; bare `import from` = every export (round 148) *)
 export       = "export" ( declaration | destructure | structDecl | enumDecl )
              | "export" "(" IDENT { "," IDENT } ")" ;
 

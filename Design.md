@@ -903,6 +903,20 @@ wrong side of the cut; the module agrees with `cmath` on 304 points
 including the cuts. Doubles only, as `std::complex<double>`; no
 `<iostream>`, no order (`<` is not defined on Complex, as in C++).
 
+**`import from` — DECIDED (round 148)** (the user, having typed `import
+Complex from "modules/Complex.swt"` and got "cannot call a Tuple":
+"WHY? … implement a simple `import from where` without `import
+(what)`"). Round 100's two forms left a trap: `import Complex from`
+is the namespace form, so a module named after its one export gives
+`Complex.Complex`. The third form is the plain one — `import from
+"..."`, every export bound by its own name, JavaScript's `import *`
+and Python's `from m import *` without a star to spell — and it is
+what the sentence "import Complex" means when the file is
+`Complex.swt`. A clash with a name already bound is the ordinary
+redeclaration error, which is the right amount of protection for a
+form that imports a module's whole face. The namespace and named
+forms stay for the cases they serve.
+
 **SION as a built-in — DECIDED (round 97)**. The user's spec: "`SION(string)`
 parses string to SION. `sion.String()` stringify. `SION(json:string)`
 treats the string as JSON. `sion.String(.json)` emits a JSON string.

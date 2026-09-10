@@ -1,8 +1,10 @@
 # modules
 
-Libraries written *in* swiftalk, imported with `import (Name) from
-"./modules/Name.swt"` (see [doc/module.md](../doc/module.md)). Each is
-checked by the test suite.
+Libraries written *in* swiftalk, imported with `import from
+"./modules/Name.swt"` — every export by its own name (round 148); or
+`import (Name) from` for a named few, `import M from` for a namespace
+(see [doc/module.md](../doc/module.md)). Each is checked by the test
+suite.
 
 * **[Complex.swt](Complex.swt)** — C++'s `std::complex<double>` (round
   147): a struct with the arithmetic operators (either side may be a

@@ -222,6 +222,17 @@ Set(
 )
 ```
 
+**`import from`** (round 148) — every export by its own name; the form
+`import Complex from` (a namespace) had trapped:
+
+```text
+swiftalk> import from "modules/Complex.swt"
+swiftalk> Complex(real: 0.0, imag: 1.0)
+Complex(real: 0.0, imag: 1.0)
+swiftalk> Complex(0.0, 1.0) ** 2
+Complex(real: -1.0, imag: 1.2246467991473532e-16)
+```
+
 **`modules/Complex.swt`** (round 147) — C++'s `<complex>` written in
 swiftalk with rounds 143–146; a builtin's extension in a module is
 program-wide, so `Double.pi.i` reads:
