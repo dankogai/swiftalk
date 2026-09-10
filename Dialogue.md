@@ -2059,6 +2059,11 @@ the history. (Moved out of Design.md in round 65.)
   value a name, a source form that re-enters, and identity across
   uses. `-`, `+`, `!` double as prefix with one argument, which is
   what makes `xs.map((-))` read. `(&&)` and `(??)` are honest about
-  what a function can be: eager. Swift's bare `reduce(0, +)` is left
-  OPEN; the parenthesized form was the ask and is the unambiguous
-  one.
+  what a function can be: eager. Two lexer corners surfaced by the
+  tests: `(/)` had opened a regex literal, since a `/` after `(` is
+  where JavaScript's rule says one may start — a `/` right before `)`
+  now cannot — and `(!!)` had lexed as two prefix `!`s, round 130's
+  infix rule wanting an operand before it; an operator alone between
+  parentheses is now recognized as such. Swift's bare `reduce(0, +)`
+  is left OPEN; the parenthesized form was the ask and is the
+  unambiguous one.
