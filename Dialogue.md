@@ -2076,4 +2076,9 @@ the history. (Moved out of Design.md in round 65.)
   rule learned the same position (after `(` or `,`, before `)` or
   `,`). The regex rule keeps one corner: `/` before `,` must stay a
   literal's opening, or `split(/,/)` breaks, so `f(/, x)` is written
-  `f((/), x)` and the doc says so.
+  `f((/), x)` and the doc says so. CI's macOS release run then
+  crashed with a segfault Ubuntu did not see: round 144's operator
+  cache was a mutable static dictionary, and Swift Testing runs
+  suites in parallel, so two tests reaching for `(+)` at once raced
+  on it. The table is built once now, immutably — the shape it
+  should have had.

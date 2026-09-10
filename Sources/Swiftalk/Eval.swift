@@ -2226,14 +2226,19 @@ private func makeObservers(_ order: [String],
 /// argument is the prefix form for `-`, `+`, `!`. `&&`/`||`/`??`/`!!`
 /// cannot short-circuit here — both arguments arrive evaluated.
 enum OperatorFunctions {
-    nonisolated(unsafe) private static var cache: [String: FunctionObject] = [:]
+    /// Built once, immutably — tests run in parallel, and a mutable
+    /// cache raced (the macOS release run of round 145 crashed on it).
+    nonisolated(unsafe) private static let all: [String: FunctionObject] = {
+        var table: [String: FunctionObject] = [:]
+        for op in Parser.functionOperators.union(["+", "-", "*", "/", "%"]) {
+            table[op] = FunctionObject(parameters: [], body: [], closure: Builtins.emptyEnvironment,
+                                       builtin: { try apply(op, $0) }, role: .operator(op))
+        }
+        return table
+    }()
 
     static func function(_ op: String) -> FunctionObject {
-        if let f = cache[op] { return f }
-        let f = FunctionObject(parameters: [], body: [], closure: Builtins.emptyEnvironment,
-                               builtin: { try apply(op, $0) }, role: .operator(op))
-        cache[op] = f
-        return f
+        all[op]!                                  // the parser admits only these
     }
 
     private static func apply(_ op: String, _ args: [Value]) throws -> Value {
