@@ -107,7 +107,9 @@ let nextLine: (_ continued: Bool) -> LineEditor.ReadResult = { continued in
 let help = """
     :h              this help
     :r let x = ...  redefine a top-level let or var — the old binding is replaced, whatever its type or mutability
-    :d x            undefine a top-level binding
+    :r struct P {}  redefine a struct or enum (existing values keep the old type)
+    :r extension T {}  add to a type, overwriting members of the same name
+    :d x            undefine a top-level binding — a let, var, struct, or enum
     """
 @MainActor func runCommand(_ line: String) {
     let parts = line.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)

@@ -1645,7 +1645,13 @@ there — errors, same as `await`); nonisolated escape hatches;
    mutability, restored if the new declaration fails), `:d x`
    undefines one. The REPL's business, not the language's: a script
    has no `:r`, and `redefine`/`undefine` live on the Interpreter for
-   any embedder's REPL.
+   any embedder's REPL. **Round 141** extends `:r` to `struct` and
+   `enum` (the name rebound; values made under the old type keep it,
+   as a redefined closure keeps its captures) and to `extension T { }`,
+   which at the prompt **overwrites** methods and computed properties
+   of the same name where a file's extension refuses them — stored
+   properties and enum cases never give way. `:d` removes a type as
+   it removes any binding.
 2. *(TBD — script runner, embedding API, stdlib growth...)*
 
 ∞. **Make swiftalk self-hosting** *(added round 43; not necessarily

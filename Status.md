@@ -222,6 +222,30 @@ Set(
 )
 ```
 
+**`:r` for types and extensions** (round 141) — a struct or enum
+redefined, an extension's members overwritten at the prompt, `:d` on a
+type:
+
+```text
+swiftalk> struct P { var x: Int = 0 }
+P
+swiftalk> :r struct P { var y: Int = 0 }
+P
+swiftalk> P(y: 2)
+P(y: 2)
+swiftalk> extension Int { var twice { self * 2 } }
+swiftalk> 4.twice
+8
+swiftalk> extension Int { var twice { self * 3 } }
+type error: redeclaration of '@ext:Int:get:twice'
+swiftalk> :r extension Int { var twice { self * 3 } }
+swiftalk> 4.twice
+12
+swiftalk> :d P
+swiftalk> P
+type error: undefined variable 'P'
+```
+
 **`===` on Strings is scalar for scalar** (round 140) — `==` is canonical
 equivalence, as Swift's; `===` is the same scalars:
 

@@ -2006,3 +2006,17 @@ the history. (Moved out of Design.md in round 65.)
   keys recurse through `identical`, the fix reaches them too. The
   same-bits rule Doubles got in round 121, applied where it had been
   missing; `isNormalized` had met the same fact two rounds ago.
+* **2026-09-11, round 141 — `:r` for types and extensions** ("CLI:
+  allow :r to redefine struct and enum, :d to delete. also allow `:r
+  extension Typename{}` to overwrite properties"). A type is a
+  binding, so `:r struct P { }` is the same move as `:r let` — the
+  name comes out and the declaration runs — and `:d P` already
+  worked, now tested. The extension case is the new idea: a file's
+  `extension` refuses a member the type already has, and that is
+  right for a file, but at the prompt the point of re-typing an
+  extension is to replace what it said. So the top-level scope
+  carries a "redefining" flag for the duration of `:r`, and under it
+  an extension overwrites methods and computed properties (either
+  replacing the other) on structs, enums, actors, and builtins —
+  stored properties and enum cases never. Outside `:r` nothing
+  changed.

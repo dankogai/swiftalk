@@ -110,6 +110,6 @@ when.y                                        // "2026"
   language is being designed through.
 
 ```sh
-swift run swiftalk   # the REPL — :h for its commands (:r redefines a top-level binding, :d undefines one)
+swift run swiftalk   # the REPL — :h for its commands (:r redefines a binding, a type, or an extension's members; :d undefines)
 swift test           # the suite
 ```

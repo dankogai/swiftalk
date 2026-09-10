@@ -172,12 +172,17 @@ extension Swiftalk {
             let program = try parser.parseProgram()
             let names: [String]
             switch program.count == 1 ? program[0] : nil {
-            case .declaration(_, let name, _, _)?:  names = [name]
-            case .destructure(_, let pattern, _)?:  names = Parser.names(in: pattern)
+            case .declaration(_, let name, _, _)?:       names = [name]
+            case .destructure(_, let pattern, _)?:       names = Parser.names(in: pattern)
+            case .structDecl(let name, _, _, _, _, _)?:  names = [name]        // round 141: types too
+            case .enumDecl(let name, _, _, _)?:          names = [name]
+            case .extensionDecl?:                        names = []            // …and an extension overwrites members
             default:
-                throw SwiftalkError.syntax("':r' takes one let or var declaration: :r let x = ...")
+                throw SwiftalkError.syntax("':r' takes one declaration: let, var, struct, enum, or extension")
             }
             let saved = names.map { ($0, environment.removeBinding($0)) }
+            environment.redefining = true
+            defer { environment.redefining = false }
             do {
                 return try eval(source)
             } catch {
@@ -277,6 +282,10 @@ final class Environment {
     /// A file's top level (a program's or a module's) — where `import`
     /// and `export` belong (round 100).
     var isFileScope = false
+    /// The REPL's `:r extension T { }` (round 141): while set on the
+    /// scope an extension runs in, its members overwrite existing
+    /// methods and computed properties instead of being refused.
+    var redefining = false
     /// The names this file exports, in order.
     var exports: [String] = []
 
@@ -786,20 +795,25 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
         guard let value = try? env.lookup(typeName), case .function(let f) = value else {
             throw SwiftalkError.type("unknown type '\(typeName)'")
         }
+        // The REPL's `:r extension` (round 141): existing methods and
+        // computed properties give way; stored properties and cases never.
+        let overwrite = env.redefining
         switch f.role {
         case .structType(let st):
             for (name, fn) in fns {
-                guard st.properties[name] == nil, st.methods[name] == nil,
-                      st.computed[name] == nil else {
+                guard st.properties[name] == nil,
+                      overwrite || (st.methods[name] == nil && st.computed[name] == nil) else {
                     throw SwiftalkError.type("\(typeName) already has a member '\(name)'")
                 }
+                st.computed.removeValue(forKey: name)
                 st.methods[name] = fn
             }
             for (name, c) in makeComputed(computedExprs, in: env) {
-                guard st.properties[name] == nil, st.methods[name] == nil,
-                      st.computed[name] == nil else {
+                guard st.properties[name] == nil,
+                      overwrite || (st.methods[name] == nil && st.computed[name] == nil) else {
                     throw SwiftalkError.type("\(typeName) already has a member '\(name)'")
                 }
+                st.methods.removeValue(forKey: name)
                 st.computed[name] = c
             }
         case .enumType(let et):
@@ -808,7 +822,7 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
                     "computed properties on enums are not (yet) supported")
             }
             for (name, fn) in fns {
-                guard et.cases[name] == nil, et.methods[name] == nil else {
+                guard et.cases[name] == nil, overwrite || et.methods[name] == nil else {
                     throw SwiftalkError.type("\(typeName) already has a member '\(name)'")
                 }
                 et.methods[name] = fn
@@ -849,12 +863,14 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
                     throw SwiftalkError.type(
                         "a computed setter on a builtin type is not (yet) supported — \(n).\(name)")
                 }
+                if overwrite { env.removeBinding("@ext:\(n):get:\(name)") }
                 try env.declare("@ext:\(n):get:\(name)", Binding(
                     mutable: false,
                     lock: TypeAnnotation(name: "Function", optional: false),
                     value: .function(c.get)))
             }
             for (name, fn) in fns {
+                if overwrite { env.removeBinding("@ext:\(n):\(name)") }
                 try env.declare("@ext:\(n):\(name)", Binding(
                     mutable: false,
                     lock: TypeAnnotation(name: "Function", optional: false),
