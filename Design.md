@@ -879,6 +879,30 @@ Comparable — `sorted()`, `min()`, `max()`, and `.conforms(to:
 Comparable)` follow. OPEN, as the user said: new operators, and
 precedence.
 
+**`modules/Complex.swt` — DECIDED (round 147)** ("Let's implement
+`Complex` as a module. We should now have all the basis to do so
+*within* swiftalk … cover C++ functionalities … add `var i {
+Self(-.imag, .real) }` so you can go `Double.pi.i`"). The first
+library written in the language, and the test of rounds 143–146
+together: a struct with `infix(+ - * / ** ==)` and `prefix(- +)`,
+either side a scalar (the closure lifts Int and Double through
+`$0.Type`), `abs`/`arg`/`norm`/`conj`/`proj`/`i` as properties and
+the whole of `<complex>`'s free functions as statics, `Complex.exp(z)`
+the way `Double.exp(x)` reads. Two decisions came out of writing it.
+**An extension of a builtin type is program-wide** — the module's
+`extension Double { var i }` had landed in the module's own scope,
+invisible to the importer, while a struct's extension was already
+global by mutating the type object; now the hidden `@ext:` bindings
+live in the root scope, which is Swift's rule (an extension is
+visible wherever its module is) and the only one under which
+`Double.pi.i` can mean anything. **The inverse functions follow C99
+Annex G**, computed as CPython's `cmath` computes them — `asin`
+through `asinh`, `atan` through `atanh`, with sign-preserving
+rotations — because the textbook formulas put `asin(2 + 0i)` on the
+wrong side of the cut; the module agrees with `cmath` on 304 points
+including the cuts. Doubles only, as `std::complex<double>`; no
+`<iostream>`, no order (`<` is not defined on Complex, as in C++).
+
 **SION as a built-in — DECIDED (round 97)**. The user's spec: "`SION(string)`
 parses string to SION. `sion.String()` stringify. `SION(json:string)`
 treats the string as JSON. `sion.String(.json)` emits a JSON string.

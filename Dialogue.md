@@ -2099,3 +2099,21 @@ the history. (Moved out of Design.md in round 65.)
   `<` returned, and the test caught it. `Self` in the closures comes
   from round 143 for free. Round 141's `:r extension` overwrites an
   operator as it does a method.
+* **2026-09-11, round 147 — `modules/Complex.swt`** ("Let's implement
+  `Complex` as a module. We should now have all the basis to do so
+  *within* swiftalk … cover C++ functionalities … add `var i {
+  Self(-.imag, .real) }` so you can go `Double.pi.i`"). The basis
+  held: operators, statics, `Self`, and modules carried the whole of
+  `<complex>` in 170 lines of swiftalk, and the closure-dispatch
+  idiom (`x.Type == Self ? x : Self(x.Double(), 0.0)`) made scalars
+  on either side free. Two things the exercise taught. `Double.pi.i`
+  did not reach the importer: a builtin's extension had lived in the
+  declaring file's scope, so a module could not extend Double for
+  anyone but itself — while a struct's extension, mutating the type
+  object, always could. The hidden bindings moved to the root scope,
+  Swift's rule. And the textbook inverse formulas were wrong on the
+  branch cuts: `asin(2 + 0i)` came out with a negative imaginary part
+  where C99 says positive, the signed zero deciding. The functions
+  now follow CPython's `cmath`, and a comparison across 304 points,
+  cuts included, agrees to 1e-9. The test suite loads the module
+  from the repository the way a script would.

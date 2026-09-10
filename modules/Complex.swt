@@ -1,0 +1,161 @@
+// Complex — C++'s std::complex<double> in swiftalk (round 147).
+//
+//     import (Complex) from "./modules/Complex.swt"
+//     let z = Complex(1.0, 2.0)          // 1 + 2i; Complex(3.0) is 3 + 0i
+//     z * z.conj == z.norm               // (a + bi)(a - bi) = a² + b²
+//     Complex.exp(Double.pi.i).real      // -1.0 — Euler
+//
+// Doubles throughout, as std::complex<double>; an Int is promoted where
+// a scalar meets a Complex. The free functions of <complex> are statics
+// (Complex.sqrt(z), like Double.sqrt); the one-argument ones are also
+// properties (z.abs, z.arg, z.norm, z.conj, z.proj). No <iostream>.
+
+export struct Complex {
+    var real: Double = 0.0
+    var imag: Double = 0.0
+
+    // — a scalar as a Complex: Int and Double lift, a Complex is itself
+    static let lift = { x in x.Type == Self ? x : Self(x.Double(), 0.0) }
+
+    // — arithmetic (C++ operators; either side may be a scalar)
+    infix(+) = { a, b in
+        let l = Self.lift(a)
+        let r = Self.lift(b)
+        return Self(l.real + r.real, l.imag + r.imag)
+    }
+    infix(-) = { a, b in
+        let l = Self.lift(a)
+        let r = Self.lift(b)
+        return Self(l.real - r.real, l.imag - r.imag)
+    }
+    infix(*) = { a, b in
+        let l = Self.lift(a)
+        let r = Self.lift(b)
+        return Self(l.real * r.real - l.imag * r.imag, l.real * r.imag + l.imag * r.real)
+    }
+    infix(/) = { a, b in
+        let l = Self.lift(a)
+        let r = Self.lift(b)
+        let d = r.real * r.real + r.imag * r.imag
+        return Self((l.real * r.real + l.imag * r.imag) / d, (l.imag * r.real - l.real * r.imag) / d)
+    }
+    infix(**) = { a, b in Self.pow(a, b) }
+    prefix(-) = { z in Self(-z.real, -z.imag) }
+    prefix(+) = { z in z }
+    infix(==) = { a, b in
+        let l = Self.lift(a)
+        let r = Self.lift(b)
+        return l.real == r.real && l.imag == r.imag
+    }
+
+    // — the values of <complex>, as properties
+    var abs { Double.hypot(.real, .imag) }
+    var arg { Double.atan2(.imag, .real) }
+    var norm { .real * .real + .imag * .imag }
+    var conj { Self(.real, -.imag) }
+    var proj {
+        if Double.isInfinite(.real) || Double.isInfinite(.imag) {
+            return Self(Double.infinity, Double.copysign(0.0, .imag))
+        }
+        return self
+    }
+    var i { Self(-.imag, .real) }                       // z * i — so Double.pi.i is πi
+
+    // — and as statics, C++'s free-function spelling: Complex.abs(z)
+    static let abs = { z in Self.lift(z).abs }
+    static let arg = { z in Self.lift(z).arg }
+    static let norm = { z in Self.lift(z).norm }
+    static let conj = { z in Self.lift(z).conj }
+    static let proj = { z in Self.lift(z).proj }
+    static let polar = { r, theta in Self(r * Double.cos(theta), r * Double.sin(theta)) }
+
+    // — exponential and logarithmic
+    static let exp = { z in
+        let w = Self.lift(z)
+        let m = Double.exp(w.real)
+        return Self(m * Double.cos(w.imag), m * Double.sin(w.imag))
+    }
+    static let log = { z in
+        let w = Self.lift(z)
+        return Self(Double.log(w.abs), w.arg)
+    }
+    static let log10 = { z in Self.log(z) / Double.ln10 }
+    static let pow = { z, w in
+        let base = Self.lift(z)
+        let ex = Self.lift(w)
+        if base == Self() { return ex == Self() ? Self(1.0) : Self() }
+        return Self.exp(ex * Self.log(base))
+    }
+    static let sqrt = { z in
+        let w = Self.lift(z)
+        let r = w.abs
+        return Self(Double.sqrt((r + w.real) / 2.0), Double.copysign(Double.sqrt((r - w.real) / 2.0), w.imag))
+    }
+
+    // — trigonometric
+    static let sin = { z in
+        let w = Self.lift(z)
+        return Self(Double.sin(w.real) * Double.cosh(w.imag), Double.cos(w.real) * Double.sinh(w.imag))
+    }
+    static let cos = { z in
+        let w = Self.lift(z)
+        return Self(Double.cos(w.real) * Double.cosh(w.imag), -Double.sin(w.real) * Double.sinh(w.imag))
+    }
+    static let tan = { z in Self.sin(z) / Self.cos(z) }
+    // Inverses per C99 Annex G, the way CPython's cmath computes them:
+    // signed zeros pick the side of each branch cut, so asin(2 + 0i)
+    // has a positive imaginary part and asin(2 - 0i) a negative one.
+    static let asin = { z in                                   // asin(z) = -i · asinh(i z)
+        let w = Self.lift(z)
+        let s = Self.asinh(Self(-w.imag, w.real))
+        return Self(s.imag, -s.real)
+    }
+    static let acos = { z in
+        let w = Self.lift(z)
+        let s1 = Self.sqrt(Self(1.0 - w.real, -w.imag))
+        let s2 = Self.sqrt(Self(1.0 + w.real, w.imag))
+        return Self(2.0 * Double.atan2(s1.real, s2.real), Double.asinh(s2.real * s1.imag - s2.imag * s1.real))
+    }
+    static let atan = { z in                                   // atan(z) = -i · atanh(i z)
+        let w = Self.lift(z)
+        let s = Self.atanh(Self(-w.imag, w.real))
+        return Self(s.imag, -s.real)
+    }
+
+    // — hyperbolic
+    static let sinh = { z in
+        let w = Self.lift(z)
+        return Self(Double.sinh(w.real) * Double.cos(w.imag), Double.cosh(w.real) * Double.sin(w.imag))
+    }
+    static let cosh = { z in
+        let w = Self.lift(z)
+        return Self(Double.cosh(w.real) * Double.cos(w.imag), Double.sinh(w.real) * Double.sin(w.imag))
+    }
+    static let tanh = { z in Self.sinh(z) / Self.cosh(z) }
+    static let asinh = { z in
+        let w = Self.lift(z)
+        let s1 = Self.sqrt(Self(1.0 + w.imag, -w.real))
+        let s2 = Self.sqrt(Self(1.0 - w.imag, w.real))
+        return Self(Double.asinh(s1.real * s2.imag - s2.real * s1.imag), Double.atan2(w.imag, s1.real * s2.real - s1.imag * s2.imag))
+    }
+    static let acosh = { z in
+        let w = Self.lift(z)
+        let s1 = Self.sqrt(Self(w.real - 1.0, w.imag))
+        let s2 = Self.sqrt(Self(w.real + 1.0, w.imag))
+        return Self(Double.asinh(s1.real * s2.real + s1.imag * s2.imag), 2.0 * Double.atan2(s1.imag, s2.real))
+    }
+    static let atanh = { z in
+        let w = Self.lift(z)
+        if w.real < 0.0 { return -Self.atanh(-w) }              // odd, and the cut wants the sign kept
+        let ay = Double.abs(w.imag)
+        let re = Double.log1p(4.0 * w.real / ((1.0 - w.real) * (1.0 - w.real) + ay * ay)) / 4.0
+        let im = -Double.atan2(-2.0 * w.imag, (1.0 - w.real) * (1.0 + w.real) - ay * ay) / 2.0
+        return Self(re, im)
+    }
+}
+
+// `Double.pi.i` and `3.i`: a scalar times i — the imaginary unit as a
+// property. Extensions of builtin types are program-wide (round 147), so
+// these reach whoever imports the module.
+extension Double { var i { Complex(0.0, self) } }
+extension Int { var i { Complex(0.0, self.Double()) } }

@@ -222,6 +222,28 @@ Set(
 )
 ```
 
+**`modules/Complex.swt`** (round 147) — C++'s `<complex>` written in
+swiftalk with rounds 143–146; a builtin's extension in a module is
+program-wide, so `Double.pi.i` reads:
+
+```text
+swiftalk> import (Complex) from "./modules/Complex.swt"
+swiftalk> let z = Complex(1.0, 2.0)
+Complex(real: 1.0, imag: 2.0)
+swiftalk> z * z.conj == z.norm
+true
+swiftalk> Complex.exp(Double.pi.i)
+Complex(real: -1.0, imag: 1.2246467991473532e-16)
+swiftalk> Complex.sqrt(Complex(-4.0))
+Complex(real: 0.0, imag: 2.0)
+swiftalk> 2 * z / z
+Complex(real: 2.0, imag: 0.0)
+swiftalk> Complex.asin(Complex(2.0))
+Complex(real: 1.5707963267948966, imag: 1.3169578969248166)
+swiftalk> 3.i ** 2
+Complex(real: -9.000000000000002, imag: 1.1021821192326181e-15)
+```
+
 **Operators on structs and enums** (round 146) — `infix(op) = { lhs,
 rhs in }`, `prefix(op)`, `postfix(op)`; every spelling reaches them;
 `<` makes a type Comparable:

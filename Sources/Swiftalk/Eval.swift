@@ -293,6 +293,12 @@ final class Environment {
         self.parent = parent
     }
 
+    /// The outermost scope — the builtins' (round 147): where an
+    /// extension of a builtin type keeps its hidden members, so that an
+    /// `extension Double` declared in a module reaches the importer, as
+    /// a struct's extension already does by mutating the type object.
+    var root: Environment { parent?.root ?? self }
+
     /// The REPL's `:r` and `:d` (round 131): a binding taken out, or put
     /// back when a redefinition fails.
     @discardableResult
@@ -885,18 +891,21 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             guard staticSpec.ops.isEmpty else {
                 throw SwiftalkError.type("operators are implemented on structs and enums, not on \(n) (round 146)")
             }
+            // Program-wide, in the root scope (round 147): a module's
+            // `extension Double` serves its importer, as Swift's would.
+            let store = env.root
             // Statics on a builtin (round 143): the same hidden scheme,
             // under "static:" and "static:get:".
             for (name, expr) in staticSpec.lets {
-                if overwrite { env.removeBinding("@ext:\(n):static:\(name)"); env.removeBinding("@ext:\(n):static:get:\(name)") }
-                try env.declare("@ext:\(n):static:\(name)", Binding(
+                if overwrite { store.removeBinding("@ext:\(n):static:\(name)"); store.removeBinding("@ext:\(n):static:get:\(name)") }
+                try store.declare("@ext:\(n):static:\(name)", Binding(
                     mutable: false, lock: TypeAnnotation(name: "Any", optional: true),
                     value: try evaluate(expr, in: typeEnv)))
             }
             for (name, spec) in staticSpec.vars {
                 guard case .function(let params, let body) = spec.get else { continue }
-                if overwrite { env.removeBinding("@ext:\(n):static:\(name)"); env.removeBinding("@ext:\(n):static:get:\(name)") }
-                try env.declare("@ext:\(n):static:get:\(name)", Binding(
+                if overwrite { store.removeBinding("@ext:\(n):static:\(name)"); store.removeBinding("@ext:\(n):static:get:\(name)") }
+                try store.declare("@ext:\(n):static:get:\(name)", Binding(
                     mutable: false, lock: TypeAnnotation(name: "Function", optional: false),
                     value: .function(FunctionObject(parameters: params, body: body, closure: typeEnv))))
             }
@@ -905,15 +914,15 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
                     throw SwiftalkError.type(
                         "a computed setter on a builtin type is not (yet) supported — \(n).\(name)")
                 }
-                if overwrite { env.removeBinding("@ext:\(n):get:\(name)") }
-                try env.declare("@ext:\(n):get:\(name)", Binding(
+                if overwrite { store.removeBinding("@ext:\(n):get:\(name)") }
+                try store.declare("@ext:\(n):get:\(name)", Binding(
                     mutable: false,
                     lock: TypeAnnotation(name: "Function", optional: false),
                     value: .function(c.get)))
             }
             for (name, fn) in fns {
-                if overwrite { env.removeBinding("@ext:\(n):\(name)") }
-                try env.declare("@ext:\(n):\(name)", Binding(
+                if overwrite { store.removeBinding("@ext:\(n):\(name)") }
+                try store.declare("@ext:\(n):\(name)", Binding(
                     mutable: false,
                     lock: TypeAnnotation(name: "Function", optional: false),
                     value: .function(fn)))
