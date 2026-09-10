@@ -165,7 +165,7 @@ struct Lexer {
                 // stays two force-unwraps and `!!b` two nots.
                 if c == "!", pos + 1 < scalars.count, scalars[pos + 1] == "!",
                    (pos > 0 && " \t".unicodeScalars.contains(scalars[pos - 1]) && !Lexer.regexMayStart(after: tokens.last))
-                    || Lexer.parenthesizedAlone(scalars, from: pos + 2, after: tokens.last) {   // `(!!)` (round 144)
+                    || Lexer.bareOperatorPosition(scalars, from: pos + 2, after: tokens.last) {   // `(!!)`, `f(a, !!)` (rounds 144–145)
                     pos += 2
                     if peek == "=" { pos += 1; tokens.append(.op("!!=")) } else { tokens.append(.op("!!")) }
                     continue
@@ -262,14 +262,15 @@ struct Lexer {
         return false
     }
 
-    /// `( op )` — the operator as a Function (round 144): true when the
-    /// token being lexed ends at `from`, only whitespace follows before
-    /// `)`, and the previous token was `(`.
-    static func parenthesizedAlone(_ scalars: [Unicode.Scalar], from: Int, after last: Token?) -> Bool {
-        guard case .punct("(")? = last else { return false }
+    /// An operator standing alone as an argument — `(op)`, `f(a, op)`,
+    /// `f(op, a)` (rounds 144–145): true when the token being lexed ends
+    /// at `from`, the previous token was `(` or `,`, and only whitespace
+    /// separates it from `)` or `,`.
+    static func bareOperatorPosition(_ scalars: [Unicode.Scalar], from: Int, after last: Token?) -> Bool {
+        guard last == .punct("(") || last == .punct(",") else { return false }
         var i = from
         while i < scalars.count, scalars[i] == " " || scalars[i] == "\t" { i += 1 }
-        return i < scalars.count && scalars[i] == ")"
+        return i < scalars.count && (scalars[i] == ")" || scalars[i] == ",")
     }
 
     /// JavaScript's rule (round 86): `/` starts a regex literal where an

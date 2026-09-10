@@ -222,6 +222,26 @@ Set(
 )
 ```
 
+**The bare operator argument** (round 145) — `reduce(0, +)`, `sorted(by:
+<)`, `map(-)`: an operator alone as an argument is the Function:
+
+```text
+swiftalk> [1, 2, 3].reduce(0, +)
+6
+swiftalk> [3, 1, 2].sorted(by: >)
+[3, 2, 1]
+swiftalk> [1, 2].map(-)
+[-1, -2]
+swiftalk> let apply = { op, a, b in op(a, b) }
+{ op, a, b in ... }
+swiftalk> apply(**, 2, 10)
+1024
+swiftalk> apply(??, nil, 4)
+4
+swiftalk> "a,b".split(/,/)
+["a", "b"]
+```
+
 **Operators are Functions** (round 144) — `(op)` is the operator as a
 Function, one per operator; `(-)`, `(+)`, `(!)` take one argument as
 the prefix forms:

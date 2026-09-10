@@ -843,9 +843,15 @@ comparisons, the Bool three, `??`/`!!` (per key on Dictionaries),
 the Set three — except the assignments and `...`/`..<`, which are not
 functions of two values. The short-circuiting ones cannot, both
 arguments having been evaluated by the call; that is what a function
-is. **Swift's bare form** — `reduce(0, +)` without parentheses — is
-OPEN: it would make `+` a primary expression wherever an operand can
-stand, and `f(a, +)` reads too much like a mistake for now.
+is. **Swift's bare form** — `reduce(0, +)` without parentheses — came
+in **round 145** ("Implement the bare form too"), and narrower than
+the fear: not a primary expression anywhere, but a *call argument*
+that is nothing but an operator token — the token after it is `,` or
+`)` — so `reduce(0, +)`, `sorted(by: <)`, `map(-)`, `f(**, 2, 3)`
+read, while `(1 + 2)` and `f(-1)` are what they were. One corner is
+the regex rule's: `/` before `,` opens a literal (`split(/,/)` is a
+regex of a comma, and must stay one), so `f(/, x)` is spelled `f((/),
+x)`; before `)` it is the operator.
 
 **SION as a built-in — DECIDED (round 97)**. The user's spec: "`SION(string)`
 parses string to SION. `sion.String()` stringify. `SION(json:string)`

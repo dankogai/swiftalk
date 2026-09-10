@@ -72,4 +72,38 @@ struct OperatorFunctionTests {
         #expect(throws: SwiftalkError.self) { try eval("(+=)") }
         #expect(throws: SwiftalkError.self) { try eval("(?)") }
     }
+
+    @Test("the bare form (round 145): an operator alone as a call argument — reduce(0, +), sorted(by: <), map(-)")
+    func bare() throws {
+        #expect(try eval("[1, 2, 3].reduce(0, +)") == .int(6))
+        #expect(try eval("[1, 2, 3].reduce(1, *)") == .int(6))
+        #expect(try eval("[10, 2, 3].reduce(20, -)") == .int(5))
+        #expect(try eval("[2, 3].reduce(1, **)") == .int(1))                      // ((1 ** 2) ** 3)
+        #expect(try eval("[3, 1, 2].sorted(<)") == .array([.int(1), .int(2), .int(3)]))
+        #expect(try eval("[3, 1, 2].sorted(by: >)") == .array([.int(3), .int(2), .int(1)]))
+        #expect(try eval("[1, 2].map(-)") == .array([.int(-1), .int(-2)]))
+        #expect(try eval("[true, false].map(!)") == .array([.bool(false), .bool(true)]))
+        #expect(try eval("[\"b\", \"a\"].max(by: <)") == .string("b"))
+        #expect(try eval("[[1], [2]].reduce([], +)") == .array([.int(1), .int(2)]))
+        #expect(try eval("[8, 2].reduce(64, /)") == .int(4))                      // `/` before `)`: an operator, not a regex
+        let apply = "let apply = { op, a, b in op(a, b) }\n"
+        #expect(try eval(apply + "apply(+, 2, 3)") == .int(5))
+        #expect(try eval(apply + "apply(**, 2, 3)") == .int(8))
+        #expect(try eval(apply + "apply(==, 1, 1)") == .bool(true))
+        #expect(try eval(apply + "apply(!!, nil, 4)") == .int(4))
+        #expect(try eval(apply + "apply(??, nil, 4)") == .int(4))
+        #expect(try eval(apply + "apply(|, Set(1), Set(2)).count") == .int(2))
+        #expect(try eval(apply + "apply( + , 2, 3)") == .int(5))                  // spacing is free
+        #expect(try eval(apply + "apply(+,2,3)") == .int(5))
+        #expect(try eval("\"a,b\".split(/,/)") == .array([.string("a"), .string("b")]))   // a regex of a comma is still a regex
+        #expect(try eval("[(+)][0](1, 2)") == .int(3))
+        #expect(try eval("let f = { $0(2, 5) }\nf(-)") == .int(-3))                // -(2, 5): binary with two arguments
+        #expect(try eval("[1, 2].map(+)") == .array([.int(1), .int(2)]))            // prefix + with one argument
+        #expect(try eval("(1 + 2)") == .int(3))                                    // an operator with operands is not bare
+        #expect(try eval("[1, 2].reduce(0, +) + 1") == .int(4))
+        #expect(throws: SwiftalkError.self) { try eval("let apply = { op, a, b in op(a, b) }\napply(/, 6, 3)") }   // `/` then `,` reads as a regex — write (/)
+        #expect(try eval("let apply = { op, a, b in op(a, b) }\napply((/), 6, 3)") == .int(2))
+        #expect(throws: SwiftalkError.self) { try eval("[1].reduce(0, +=)") }
+        #expect(throws: SwiftalkError.self) { try eval("[1].reduce(0, ...)") }
+    }
 }

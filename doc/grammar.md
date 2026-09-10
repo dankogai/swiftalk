@@ -209,6 +209,7 @@ primary      = INT | DOUBLE | STRING | REGEX | "true" | "false" | "nil"   (* STR
              | "." IDENT                               (* implicit self member, or a format tag *)
              | "(" expression ")"                      (* grouping *)
              | "(" OPERATOR ")"                         (* the operator as a Function (round 144): (+), (**), (==)… *)
+argument     = [ IDENT ":" ] ( expression | OPERATOR ) ;  (* a bare operator before `,` or `)` is the Function (round 145) *)
              | tuple | array | dictionary
              | closure | "async" closure               (* async { } is Task { } *)
              | switch | if ;                           (* let x = switch ..., let y = if c { } else { } *)

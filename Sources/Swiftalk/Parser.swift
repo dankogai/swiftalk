@@ -1488,15 +1488,25 @@ struct Parser {
                             throw SwiftalkError.syntax("'_' is not an argument label")
                         }
                         $0.pos += 2
-                        args.append((label, try $0.parseExpr()))
+                        args.append((label, try $0.parseArgument()))
                     } else {
-                        args.append((nil, try $0.parseExpr()))
+                        args.append((nil, try $0.parseArgument()))
                     }
                 } while $0.consumeComma(closing: ")")
             }
         }
         try expect(")")
         return args
+    }
+
+    /// One call argument (round 145): Swift's bare operator — `reduce(0,
+    /// +)`, `sorted(by: <)`, `map(-)` — where an operator token is the
+    /// whole argument; otherwise an expression.
+    private mutating func parseArgument() throws -> Expr {
+        if let op = bareOperator(before: [.punct(","), .punct(")")]) {
+            return .operatorRef(op)
+        }
+        return try parseExpr()
     }
 
     /// Consumes a `,` and reports whether more elements follow — a comma
@@ -1512,6 +1522,20 @@ struct Parser {
     /// binary ones; `-`, `+`, `!` also serve as unary with one argument.
     static let functionOperators: Set<String> = [
         "**", "==", "!=", "===", "!==", "<", "<=", ">", ">=", "&&", "||", "^^", "??", "!!", "|", "&", "^", "!"]
+
+    /// An operator token standing alone — followed by one of `closers` —
+    /// consumed and returned as its text (rounds 144–145); nil otherwise.
+    private mutating func bareOperator(before closers: [Token]) -> String? {
+        guard let next = peek(at: 1), closers.contains(next) else { return nil }
+        let op: String
+        switch peek {
+        case .punct(let c)? where "+-*/%".contains(c): op = String(c)
+        case .op(let o)? where Parser.functionOperators.contains(o): op = o
+        default: return nil
+        }
+        pos += 1
+        return op
+    }
 
     private mutating func parsePrimary() throws -> Expr {
         switch advance() {
@@ -1576,17 +1600,9 @@ struct Parser {
             }
             // `(+)`, `(**)`, `(==)`, `(??)`… — an operator alone in parentheses
             // is that operator as a Function (round 144)
-            if peek(at: 1) == .punct(")") {
-                let op: String?
-                switch peek {
-                case .punct(let c)? where "+-*/%".contains(c): op = String(c)
-                case .op(let o)? where Parser.functionOperators.contains(o): op = o
-                default: op = nil
-                }
-                if let op {
-                    pos += 2
-                    return .operatorRef(op)
-                }
+            if let op = bareOperator(before: [.punct(")")]) {
+                try expect(")")
+                return .operatorRef(op)
             }
             // an element may carry a label (round 74): `x: expr` — which
             // also makes `(x: 1)` a 1-tuple, since a group has no label

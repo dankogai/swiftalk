@@ -2067,3 +2067,13 @@ the history. (Moved out of Design.md in round 65.)
   parentheses is now recognized as such. Swift's bare `reduce(0, +)`
   is left OPEN; the parenthesized form was the ask and is the
   unambiguous one.
+* **2026-09-11, round 145 — the bare operator argument** ("Implement
+  the bare form too. `reduce(0, +)` like Swift"). Round 144's worry
+  was `+` as a primary expression anywhere; the bare form needs
+  much less — an argument that is only an operator token, decided by
+  the token after it being `,` or `)` — and one helper now serves
+  both the parenthesized and the bare spellings. The lexer's `!!`
+  rule learned the same position (after `(` or `,`, before `)` or
+  `,`). The regex rule keeps one corner: `/` before `,` must stay a
+  literal's opening, or `split(/,/)` breaks, so `f(/, x)` is written
+  `f((/), x)` and the doc says so.
