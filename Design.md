@@ -917,6 +917,31 @@ redeclaration error, which is the right amount of protection for a
 form that imports a module's whole face. The namespace and named
 forms stay for the cases they serve.
 
+**`modules/Rational.swt`; `static let` is lazy — DECIDED (round 149)**
+("Let's implement `Rational` as a module too"). The second library:
+exact fractions of Ints, normalized on every construction through a
+two-argument `init` (reduced by gcd, the sign carried by `num`), so
+the synthesized structural equality is the right one and a Rational
+is a Dictionary key; one-argument inits dispatch on `$0.Type` — an
+Int, a Double converted *exactly* through `frexp` (so `Rational(0.1)`
+is the binary fraction the Double is, 3602879701896397/2⁵⁵, which is
+the honest answer), a `"n/d"` String, a Rational; Ints lift into the
+arithmetic and a Double on either side makes the result a Double,
+Ruby's rule. Zero denominators and overflow are Int's own errors — a
+module cannot yet raise its own (OPEN). Writing it changed one
+decision of round 143: **`static let` is lazy**, evaluated on first
+read in the type's scope and then kept, which is Swift's rule too.
+The module's `static let zero = Self(0, 1)` ran the init, which
+reached for `Self.gcd`, declared later and not yet installed; eager
+evaluation in declaration order would only have moved the problem.
+A thunk per static, removed before its expression runs, means statics
+depend on one another in any order, a self-reference fails instead of
+recursing, and a failed initializer is retried — and the type's
+tables are never held open while an initializer reads them, a
+discipline Swift's exclusivity checker enforced twice this round.
+Statics on builtin types, hidden bindings in the root scope, stay
+eager.
+
 **SION as a built-in — DECIDED (round 97)**. The user's spec: "`SION(string)`
 parses string to SION. `sion.String()` stringify. `SION(json:string)`
 treats the string as JSON. `sion.String(.json)` emits a JSON string.

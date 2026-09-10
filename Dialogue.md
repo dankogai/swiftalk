@@ -2130,3 +2130,27 @@ the history. (Moved out of Design.md in round 65.)
   The module's header, README, and tests now use it, and the module
   page names the trap beside the namespace form so the next reader
   meets the warning before the error.
+* **2026-09-11, round 149 — `modules/Rational.swt`; lazy statics**
+  ("Let's implement `Rational` as a module too"). Rational is the
+  module where the struct's *init* matters — every construction
+  normalizes, so `Rational(2, 4) == Rational(1, 2)` by the equality
+  the language already synthesizes — and it was the init that found
+  round 143's flaw: `static let zero = Self(0, 1)` ran the init at
+  install time, the init asked for `Self.gcd`, and `gcd` was three
+  lines below and not yet in the table. Swift's `static let` is lazy,
+  and so is swiftalk's now: a thunk until first read, cached after,
+  any order, a self-reference an error rather than a stack overflow.
+  The exclusivity checker caught the first draft holding the static
+  table open through the initializer, as it had in round 143; the
+  resolver now touches the table in two short steps with the
+  evaluation between them. The conversions came out well: `Rational
+  (0.1)` is the 55-bit binary fraction the Double really is, which is
+  the true answer and a small lesson about floating point in one
+  line. `3.Rational()` and `0.75.Rational()` through extensions; a
+  Double on either side of an operator turns the result into a
+  Double, Ruby's rule. A module still cannot raise an error of its
+  own — the zero denominator rides on Int's division — noted OPEN.
+  And a bug from round 108 came out: `Rational(-2.5)` was 5/2 because
+  `Double.frexp(-2.5)` gave a *positive* fraction — Swift's `frexp`
+  overlay hands back the magnitude where C's carries the sign — so
+  the sign is restored and the math test pins C's contract.

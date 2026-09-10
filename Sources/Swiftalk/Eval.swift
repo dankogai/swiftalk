@@ -685,9 +685,9 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
         // the body's scope: `Self` is the type (round 143)
         let typeEnv = typeScope(env, self: .function(constructor))
         et.methods = makeMethods(methodExprs, in: typeEnv)
-        mergeStatics(try installStatics(staticSpec, in: typeEnv, existing: et.statics, getters: et.staticGetters, operators: et.operators,
+        mergeStatics(try installStatics(staticSpec, in: typeEnv, existing: et.statics, getters: et.staticGetters, thunks: et.staticThunks, operators: et.operators,
                                         typeName: name, overwrite: false),
-                     into: &et.statics, getters: &et.staticGetters, operators: &et.operators)
+                     into: &et.statics, getters: &et.staticGetters, thunks: &et.staticThunks, operators: &et.operators)
         try env.declare(name, Binding(
             mutable: false,
             lock: TypeAnnotation(name: "Function", optional: false),
@@ -721,9 +721,9 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             guard case .function(let params, let body) = $0 else { return nil }
             return FunctionObject(parameters: params, body: body, closure: typeEnv)
         }
-        mergeStatics(try installStatics(staticSpec, in: typeEnv, existing: st.statics, getters: st.staticGetters, operators: st.operators,
+        mergeStatics(try installStatics(staticSpec, in: typeEnv, existing: st.statics, getters: st.staticGetters, thunks: st.staticThunks, operators: st.operators,
                                         typeName: name, overwrite: false),
-                     into: &st.statics, getters: &st.staticGetters, operators: &st.operators)
+                     into: &st.statics, getters: &st.staticGetters, thunks: &st.staticThunks, operators: &st.operators)
         try env.declare(name, Binding(
             mutable: false,
             lock: TypeAnnotation(name: "Function", optional: false),
@@ -840,9 +840,9 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
                 st.methods.removeValue(forKey: name)
                 st.computed[name] = c
             }
-            mergeStatics(try installStatics(staticSpec, in: typeEnv, existing: st.statics, getters: st.staticGetters, operators: st.operators,
+            mergeStatics(try installStatics(staticSpec, in: typeEnv, existing: st.statics, getters: st.staticGetters, thunks: st.staticThunks, operators: st.operators,
                                             typeName: typeName, overwrite: overwrite),
-                         into: &st.statics, getters: &st.staticGetters, operators: &st.operators)
+                         into: &st.statics, getters: &st.staticGetters, thunks: &st.staticThunks, operators: &st.operators)
         case .enumType(let et):
             guard computedExprs.isEmpty else {
                 throw SwiftalkError.type(
@@ -857,9 +857,9 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             for name in staticSpec.lets.keys where et.cases[name] != nil {
                 throw SwiftalkError.type("\(typeName) has a case '\(name)' — a static may not share its name")
             }
-            mergeStatics(try installStatics(staticSpec, in: typeEnv, existing: et.statics, getters: et.staticGetters, operators: et.operators,
+            mergeStatics(try installStatics(staticSpec, in: typeEnv, existing: et.statics, getters: et.staticGetters, thunks: et.staticThunks, operators: et.operators,
                                             typeName: typeName, overwrite: overwrite),
-                         into: &et.statics, getters: &et.staticGetters, operators: &et.operators)
+                         into: &et.statics, getters: &et.staticGetters, thunks: &et.staticThunks, operators: &et.operators)
         case .actorType(let at):
             // A class extension's methods may use `super` (round 56):
             // give them the same lexical @superclass their in-body
@@ -2320,51 +2320,73 @@ func typeScope(_ env: Environment, self type: Value) -> Environment {
     return scope
 }
 
-/// Evaluates `static let`s (now, in the type's scope — one may read
-/// another already installed, `static let zero = Self.origin`) and
-/// binds `static var` getters (run on each read) — round 143. Returns
-/// the new entries for the caller to merge, so no write is in flight
-/// while an initializer reads the table. Under the REPL's `:r
-/// extension` (`overwrite`) an existing static gives way.
+/// Binds a type body's statics (rounds 143, 146, 149): `static let`s as
+/// thunks — Swift's lazy initialization, evaluated on first read in the
+/// type's scope, so `static let zero = Self(0, 1)` may use a `gcd`
+/// declared below it — `static var` getters run on each read, and
+/// operators. Returns the entries for the caller to merge. Under the
+/// REPL's `:r extension` (`overwrite`) an existing member gives way.
+struct StaticEntries {
+    var thunks: [String: (expr: Expr, env: Environment)] = [:]
+    var getters: [String: FunctionObject] = [:]
+    var ops: [String: FunctionObject] = [:]
+}
+
 func installStatics(_ spec: StaticSpec, in typeEnv: Environment,
                     existing statics: [String: Value], getters: [String: FunctionObject],
-                    operators: [String: FunctionObject] = [:], typeName: String, overwrite: Bool)
-    throws -> (values: [String: Value], getters: [String: FunctionObject], ops: [String: FunctionObject]) {
-    var values: [String: Value] = [:]
-    var newGetters: [String: FunctionObject] = [:]
-    var ops: [String: FunctionObject] = [:]
+                    thunks: [String: (expr: Expr, env: Environment)] = [:],
+                    operators: [String: FunctionObject] = [:], typeName: String, overwrite: Bool) throws -> StaticEntries {
+    var out = StaticEntries()
     for (key, expr) in spec.ops {
         guard case .function(let params, let body) = expr else { continue }
         guard overwrite || operators[key] == nil else {
             let parts = key.split(separator: ":")
             throw SwiftalkError.type("\(typeName) already implements \(parts[0])(\(parts[1]))")
         }
-        ops[key] = FunctionObject(parameters: params, body: body, closure: typeEnv)
+        out.ops[key] = FunctionObject(parameters: params, body: body, closure: typeEnv)
     }
     for (name, expr) in spec.lets {
-        guard overwrite || (statics[name] == nil && getters[name] == nil) else {
+        guard overwrite || (statics[name] == nil && getters[name] == nil && thunks[name] == nil) else {
             throw SwiftalkError.type("\(typeName) already has a static member '\(name)'")
         }
-        values[name] = try evaluate(expr, in: typeEnv)
+        out.thunks[name] = (expr, typeEnv)
     }
     for (name, cspec) in spec.vars {
         guard case .function(let params, let body) = cspec.get else { continue }
-        guard overwrite || (statics[name] == nil && getters[name] == nil), values[name] == nil else {
+        guard overwrite || (statics[name] == nil && getters[name] == nil && thunks[name] == nil), out.thunks[name] == nil else {
             throw SwiftalkError.type("\(typeName) already has a static member '\(name)'")
         }
-        newGetters[name] = FunctionObject(parameters: params, body: body, closure: typeEnv)
+        out.getters[name] = FunctionObject(parameters: params, body: body, closure: typeEnv)
     }
-    return (values, newGetters, ops)
+    return out
 }
 
-/// Merges `installStatics`' result into a type's tables: a new let
-/// displaces a getter of the same name and vice versa (round 143).
-func mergeStatics(_ new: (values: [String: Value], getters: [String: FunctionObject], ops: [String: FunctionObject]),
+/// Merges `installStatics`' entries into a type's tables: a new let
+/// displaces a getter of the same name and vice versa.
+func mergeStatics(_ new: StaticEntries,
                   into statics: inout [String: Value], getters: inout [String: FunctionObject],
-                  operators: inout [String: FunctionObject]) {
-    for (name, v) in new.values { getters.removeValue(forKey: name); statics[name] = v }
-    for (name, g) in new.getters { statics.removeValue(forKey: name); getters[name] = g }
+                  thunks: inout [String: (expr: Expr, env: Environment)], operators: inout [String: FunctionObject]) {
+    for (name, t) in new.thunks { getters.removeValue(forKey: name); statics.removeValue(forKey: name); thunks[name] = t }
+    for (name, g) in new.getters { statics.removeValue(forKey: name); thunks.removeValue(forKey: name); getters[name] = g }
     for (key, f) in new.ops { operators[key] = f }
+}
+
+/// A `static let` read for the first time (round 149): its thunk comes
+/// out before its expression runs — so a static that reaches for itself
+/// finds nothing and fails instead of recursing, and no table is held
+/// open while the initializer (which may read other statics) runs.
+func resolveStatic(_ name: String, on type: StaticHolder) throws -> Value? {
+    if let v = type.statics[name] { return v }
+    guard let thunk = type.staticThunks.removeValue(forKey: name) else { return nil }
+    let value: Value
+    do {
+        value = try evaluate(thunk.expr, in: thunk.env)
+    } catch {
+        type.staticThunks[name] = thunk          // a failed initializer may be retried
+        throw error
+    }
+    type.statics[name] = value
+    return value
 }
 
 /// A user type's operator (round 146): the first operand whose struct or
@@ -2411,8 +2433,14 @@ private func staticMember(_ f: FunctionObject, _ name: String,
     var getter: FunctionObject? = nil
     let typeName: String
     switch f.role {
-    case .structType(let st): stored = st.statics[name]; getter = st.staticGetters[name]; typeName = st.name
-    case .enumType(let et):   stored = et.statics[name]; getter = et.staticGetters[name]; typeName = et.name
+    case .structType(let st):
+        typeName = st.name
+        stored = try resolveStatic(name, on: st)
+        getter = st.staticGetters[name]
+    case .enumType(let et):
+        typeName = et.name
+        stored = try resolveStatic(name, on: et)
+        getter = et.staticGetters[name]
     case .type(let n):
         typeName = n
         if let v = try? env.lookup("@ext:\(n):static:\(name)") { stored = v }

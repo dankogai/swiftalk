@@ -13,3 +13,12 @@ suite.
   and hyperbolic functions as statics (`Complex.exp(z)`). `z.i` is
   `z * i`, and `extension Double { var i }` makes `Double.pi.i` read.
   Written with rounds 143–146: statics, `Self`, and operator members.
+* **[Rational.swt](Rational.swt)** — exact fractions of Ints (round
+  149): normalized on construction (reduced, the sign in `num`), so
+  equality is structural and a Rational is a Dictionary key; from two
+  Ints, an Int, a Double (exactly — `Rational(0.1)` is the binary
+  fraction the Double is), a `"n/d"` String, or a Rational; `+ - * /
+  **`, `-`, `==`, `<` (Ints lift, a Double on either side makes a
+  Double); `abs`, `sign`, `reciprocal`, `floor`, `ceil`, `rounded`,
+  `truncated`, `mixed`, `fraction`, `isInteger`; `.Double()`, `.Int()`;
+  `3.Rational()`. Zero denominators and overflow are Int's own errors.

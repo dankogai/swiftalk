@@ -131,8 +131,14 @@ enum DoubleMath {
             let whole = x.rounded(.towardZero)
             return .tuple([.double(whole), .double(x - whole)], labels: ["integer", "fraction"])
         case "frexp":
+            // C's frexp: a signed fraction in [0.5, 1) — Swift's overlay
+            // hands back the magnitude, so the sign is restored (round 149)
             let x = try arity(1)[0]
-            let (fraction, exponent) = frexp(x)
+            if x.isZero || !x.isFinite {                 // C: ±0, ±inf, nan come back as they are, exponent 0
+                return .tuple([.double(x), .int(0)], labels: ["fraction", "exponent"])
+            }
+            let (magnitude, exponent) = frexp(x)
+            let fraction = x.sign == .minus ? -magnitude : magnitude
             return .tuple([.double(fraction), .int(Int64(exponent))], labels: ["fraction", "exponent"])
         case "remquo":
             let a = try arity(2)

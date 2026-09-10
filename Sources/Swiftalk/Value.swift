@@ -154,10 +154,17 @@ extension Swiftalk {
         let set: FunctionObject?
     }
 
+    /// A type that carries statics (round 149): StructType and EnumType,
+    /// so one resolver serves both without holding either table open.
+    protocol StaticHolder: AnyObject {
+        var statics: [String: Value] { get set }
+        var staticThunks: [String: (expr: Expr, env: Environment)] { get set }
+    }
+
     /// A user-declared struct type (§4). Identity is its equality; the
     /// language-facing type object is `constructor` (role `.structType`),
     /// and calling it IS the memberwise initializer.
-    public final class StructType: Hashable {
+    public final class StructType: Hashable, StaticHolder {
         struct Property {
             let mutable: Bool
             let annotation: TypeAnnotation?
@@ -189,6 +196,10 @@ extension Swiftalk {
         /// a static method) and `static var` getters, read off the type.
         var statics: [String: Value] = [:]
         var staticGetters: [String: FunctionObject] = [:]
+        /// A `static let` not yet read (round 149): Swift's lazy
+        /// initialization — evaluated on first access, then cached in
+        /// `statics`, so statics may depend on one another in any order.
+        var staticThunks: [String: (expr: Expr, env: Environment)] = [:]
         /// Operators (round 146): "infix:+" → { lhs, rhs in }, "prefix:-" → { x in }
         var operators: [String: FunctionObject] = [:]
 
@@ -217,7 +228,7 @@ extension Swiftalk {
 
     /// A user-declared enum type (§7). Identity is its equality; the
     /// language-facing type object is `constructor` (role `.enumType`).
-    public final class EnumType: Hashable {
+    public final class EnumType: Hashable, StaticHolder {
         let name: String
         let caseOrder: [String]
         let cases: [String: [(label: String?, typeName: String?)]]
@@ -228,6 +239,7 @@ extension Swiftalk {
         /// Static members (round 143), as a struct's.
         var statics: [String: Value] = [:]
         var staticGetters: [String: FunctionObject] = [:]
+        var staticThunks: [String: (expr: Expr, env: Environment)] = [:]
         /// Operators (round 146), as a struct's.
         var operators: [String: FunctionObject] = [:]
 
@@ -358,6 +370,7 @@ typealias SequenceObject = Swiftalk.SequenceObject
 typealias EnumType = Swiftalk.EnumType
 typealias EnumCaseValue = Swiftalk.EnumCaseValue
 typealias StructType = Swiftalk.StructType
+typealias StaticHolder = Swiftalk.StaticHolder
 typealias StructValue = Swiftalk.StructValue
 typealias TaskObject = Swiftalk.TaskObject
 typealias TupleValue = Swiftalk.TupleValue

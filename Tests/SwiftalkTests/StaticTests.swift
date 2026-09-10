@@ -39,6 +39,20 @@ struct StaticTests {
         #expect(throws: SwiftalkError.self) { try eval("struct S { static func f() { } }") }
     }
 
+    @Test("static lets are lazy (round 149): evaluated on first read in any order; a self-reference fails; a failed initializer is retried")
+    func lazy() throws {
+        #expect(try eval("struct T { static let a = Self.b + 1; static let b = 41 }\nT.a") == .int(42))
+        #expect(try eval("struct T { static let a = Self.b + 1; static let b = 41 }\n[T.b, T.a]") == .array([.int(41), .int(42)]))
+        #expect(try eval("struct T { var x: Int = 0; static let unit = Self(x: 1); static let twice = Self(x: Self.unit.x * 2) }\nT.twice.x") == .int(2))
+        #expect(try eval("var n = 0\nstruct T { static let once = { n = n + 1; return n }() }\n[T.once, T.once, n]") == .array([.int(1), .int(1), .int(1)]))   // once, cached
+        #expect(try eval("var n = 0\nstruct T { static let never = { n = n + 1; return n }() }\nn") == .int(0))                               // not until read
+        #expect(throws: SwiftalkError.self) { try eval("struct U { static let loop = Self.loop }\nU.loop") }
+        let i = Swiftalk.Interpreter(relaxed: true)
+        _ = try i.eval("var ready = false\nstruct V { static let v = ready ? 1 : Int(\"x\")! }")
+        #expect(throws: SwiftalkError.self) { try i.eval("V.v") }                                  // the initializer fails…
+        #expect(try i.eval("ready = true\nV.v") == .int(1))                                        // …and is retried
+    }
+
     @Test("enums: statics beside cases, never sharing a case's name")
     func enumStatics() throws {
         let shape = "enum Shape { case circle(r: Double), dot; static let unitCircle = Self.circle(r: 1.0); static var names { [\"circle\", \"dot\"] } }\n"

@@ -222,6 +222,36 @@ Set(
 )
 ```
 
+**`modules/Rational.swt`; lazy `static let`** (round 149) — exact
+fractions normalized on construction; statics are evaluated on first
+read, so they may depend on one another in any order:
+
+```text
+swiftalk> import from "modules/Rational.swt"
+swiftalk> Rational(6, -8)
+Rational(num: -3, den: 4)
+swiftalk> Rational(3, 4) + 1
+Rational(num: 7, den: 4)
+swiftalk> Rational(0.75) == Rational(3, 4)
+true
+swiftalk> Rational(0.1).fraction
+"3602879701896397/36028797018963968"
+swiftalk> Rational("-6/8") ** -2
+Rational(num: 16, den: 9)
+swiftalk> Rational(1, 3) + 0.5
+0.8333333333333333
+swiftalk> [Rational(1, 2), Rational(1, 3)].sorted()
+[Rational(num: 1, den: 3), Rational(num: 1, den: 2)]
+swiftalk> Rational(7, 4).mixed
+(whole: 1, part: Rational(num: 3, den: 4))
+swiftalk> Rational(1, 0)
+division by zero
+swiftalk> struct T { static let a = Self.b + 1; static let b = 41 }
+T
+swiftalk> T.a
+42
+```
+
 **`import from`** (round 148) — every export by its own name; the form
 `import Complex from` (a namespace) had trapped:
 

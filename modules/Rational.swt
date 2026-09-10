@@ -1,0 +1,143 @@
+// Rational — exact fractions of Ints, in swiftalk (round 149).
+//
+//     import from "./modules/Rational.swt"
+//     let r = Rational(3, 4)             // 3/4; always reduced, den > 0
+//     r + 1 == Rational(7, 4)            // Ints lift; a Double on either side gives a Double
+//     Rational(0.75) == r                // a Double converts exactly (it is a binary fraction)
+//     Rational("-6/8").fraction          // "-3/4"
+//     (r ** -2).Double()                 // 1.7777…
+//
+// Two Ints, `num` and `den`, normalized on every construction: reduced
+// by their gcd, the sign in `num`. Equality is therefore structural —
+// Rational(2, 4) == Rational(1, 2) — and a Rational is a Dictionary key.
+// Arithmetic traps on overflow as Int's does; a zero denominator is
+// Int's own division-by-zero error.
+
+export struct Rational {
+    var num: Int = 0
+    var den: Int = 1
+
+    // — construction: Rational(n, d), Rational(n), Rational(double), Rational("n/d"), Rational(r)
+    init { n, d in
+        let _ = n / d                          // a zero denominator fails here, as Int's division does
+        let g = Self.gcd(n, d)
+        let s = d < 0 ? -1 : 1
+        self.num = s * n / g
+        self.den = s * d / g
+    }
+    init { x in
+        if x.Type == Int {
+            self.num = x
+            self.den = 1
+        } else if x.Type == Double {
+            // exact: a finite Double is m · 2^e with a 53-bit m
+            let parts = Double.frexp(x)
+            var n = Int(parts.fraction * 2.0 ** 53.0)
+            var d = 2 ** 53
+            var e = parts.exponent
+            while e > 0 { n = n * 2; e = e - 1 }
+            while e < 0 && d > 1 && n % 2 == 0 { n = n / 2; e = e + 1 }
+            while e < 0 { d = d * 2; e = e + 1 }
+            let r = Self(n, d)
+            self.num = r.num
+            self.den = r.den
+        } else if x.Type == String {
+            let parts = x.split("/")
+            let r = parts.count == 1 ? Self(parts[0].Int()!, 1) : Self(parts[0].Int()!, parts[1].Int()!)
+            self.num = r.num
+            self.den = r.den
+        } else {
+            self.num = x.num                   // a Rational, copied
+            self.den = x.den
+        }
+    }
+
+    static let gcd = { a, b in
+        var x = a < 0 ? -a : a
+        var y = b < 0 ? -b : b
+        while y != 0 {
+            let t = x % y
+            x = y
+            y = t
+        }
+        return x == 0 ? 1 : x
+    }
+    static let lcm = { a, b in a == 0 || b == 0 ? 0 : (a < 0 ? -a : a) / Self.gcd(a, b) * (b < 0 ? -b : b) }
+    static let zero = Self(0, 1)
+    static let one = Self(1, 1)
+
+    // — a scalar beside a Rational: an Int lifts; a Double makes the whole thing a Double
+    static let lift = { x in x.Type == Self ? x : Self(x, 1) }
+    static let isDouble = { a, b in a.Type == Double || b.Type == Double }
+    static let toDouble = { x in x.Type == Self ? x.num.Double() / x.den.Double() : x.Double() }
+
+    infix(+) = { a, b in
+        if Self.isDouble(a, b) { return Self.toDouble(a) + Self.toDouble(b) }
+        let l = Self.lift(a)
+        let r = Self.lift(b)
+        return Self(l.num * r.den + r.num * l.den, l.den * r.den)
+    }
+    infix(-) = { a, b in
+        if Self.isDouble(a, b) { return Self.toDouble(a) - Self.toDouble(b) }
+        let l = Self.lift(a)
+        let r = Self.lift(b)
+        return Self(l.num * r.den - r.num * l.den, l.den * r.den)
+    }
+    infix(*) = { a, b in
+        if Self.isDouble(a, b) { return Self.toDouble(a) * Self.toDouble(b) }
+        let l = Self.lift(a)
+        let r = Self.lift(b)
+        return Self(l.num * r.num, l.den * r.den)
+    }
+    infix(/) = { a, b in
+        if Self.isDouble(a, b) { return Self.toDouble(a) / Self.toDouble(b) }
+        let l = Self.lift(a)
+        let r = Self.lift(b)
+        return Self(l.num * r.den, l.den * r.num)
+    }
+    infix(**) = { a, e in
+        if e.Type == Double { return Self.toDouble(a) ** e }
+        let base = Self.lift(a)
+        if e == 0 { return Self.one }
+        if e < 0 { return Self(base.den ** (-e), base.num ** (-e)) }
+        return Self(base.num ** e, base.den ** e)
+    }
+    prefix(-) = { r in Self(-r.num, r.den) }
+    prefix(+) = { r in r }
+    infix(==) = { a, b in
+        if Self.isDouble(a, b) { return Self.toDouble(a) == Self.toDouble(b) }
+        let l = Self.lift(a)
+        let r = Self.lift(b)
+        return l.num == r.num && l.den == r.den
+    }
+    infix(<) = { a, b in
+        if Self.isDouble(a, b) { return Self.toDouble(a) < Self.toDouble(b) }
+        let l = Self.lift(a)
+        let r = Self.lift(b)
+        return l.num * r.den < r.num * l.den   // dens are positive
+    }
+
+    // — properties
+    var abs { .num < 0 ? Self(-.num, .den) : self }
+    var sign { .num < 0 ? -1 : .num > 0 ? 1 : 0 }
+    var reciprocal { Self(.den, .num) }
+    var isInteger { .den == 1 }
+    var floor { (.num - ((.num % .den) + .den) % .den) / .den }
+    var ceil { -((-self).floor) }
+    var truncated { .num / .den }
+    var rounded { (self + Self(.sign, 2)).truncated }          // half away from zero, as Int(x.rounded()) is
+    var fraction { .den == 1 ? "\(.num)" : "\(.num)/\(.den)" }
+    var mixed {                                                  // (whole:, part:) — 7/4 is (1, 3/4)
+        let whole = .truncated
+        return (whole: whole, part: self - whole)
+    }
+
+    // — conversions, by the round-47 law's spelling
+    let Double = { .num.Double() / .den.Double() }
+    let Int = { .truncated }
+}
+
+// `3.Rational()`, `0.75.Rational()`: the conversion law's spelling, from
+// Int and Double. Extensions of builtins are program-wide (round 147).
+extension Int { let Rational = { Rational(self, 1) } }
+extension Double { let Rational = { Rational(self) } }

@@ -89,6 +89,10 @@ struct MathTests {
         #expect(throws: SwiftalkError.self) { try eval("Double.random(Double.infinity)") }
         #expect(throws: SwiftalkError.self) { try eval("Double.random(1, 2, 3)") }
         #expect(throws: SwiftalkError.self) { try eval("Double.random(\"x\")") }
+        // round 149: frexp's fraction carries the sign, as C's does (Swift's overlay drops it)
+        #expect(try eval("Double.frexp(-2.5)") == .tuple([.double(-0.625), .int(2)], labels: ["fraction", "exponent"]))
+        #expect(try eval("Double.frexp(2.5).fraction") == .double(0.625))
+        #expect(try eval("Double.frexp(-0.0).fraction.String(.sign, .hex)") == .string("-0x0p0"))
         // round 119: the labels — random(to:), random(from:to:); positional stays (from, to)
         #expect(try eval("(1...300).map { Double.random(to: 5) }.filter { $0 < 0.0 || $0 >= 5.0 }.count") == .int(0))
         #expect(try eval("(1...300).map { Double.random(from: -1, to: 1) }.filter { $0 < -1.0 || $0 >= 1.0 }.count") == .int(0))
