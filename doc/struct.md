@@ -30,7 +30,10 @@ struct Point {
 | `p == q` | structural equality; `p.Type == Point`; `Point.name` |
 | `p.String()` | `"Point(x: 3, y: 4)"` — round-trips wherever Point is declared |
 | `p.String(.pretty)` | the same, one property per line, two spaces a level (round 118) |
-| `extension Point { let m = { } ; var c { } }` | adds methods and computed properties |
+| `static let origin = Self(x: 0, y: 0)`, `static let plus = { a, b in ... }` | **static members** (round 143), read off the type: `Point.origin`, `Point.plus(a, b)`; a `static let` holding a Function is a static method, uncalled it is the Function. Their own namespace beside the instance's; a stored `static var` does not exist (a type is a value, not storage) |
+| `static var unit { Self(x: 1, y: 1) }` | a static computed property: a getter run on each read, no setter |
+| `Self` | inside the body and its extensions, the type itself: `Self(x: 1)`, `Self.origin` |
+| `extension Point { let m = { } ; var c { } ; static let s = ... }` | adds methods, computed properties, and statics |
 
 **No `mutating` keyword** (round 50a): a method may mutate whatever
 the properties' `var`/`let` allows; if it does, the change writes

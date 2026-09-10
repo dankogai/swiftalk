@@ -185,6 +185,10 @@ extension Swiftalk {
         var computed: [String: ComputedProperty] = [:]
         /// Stored-property observers (round 58b), keyed by property.
         var observers: [String: PropertyObservers] = [:]
+        /// Static members (round 143): `static let` values (a Function is
+        /// a static method) and `static var` getters, read off the type.
+        var statics: [String: Value] = [:]
+        var staticGetters: [String: FunctionObject] = [:]
 
         init(name: String, propertyOrder: [String],
              properties: [String: Property], declEnv: Environment) {
@@ -219,6 +223,9 @@ extension Swiftalk {
         /// Methods (round 48): closure properties with `self` bound at
         /// invocation.
         var methods: [String: FunctionObject] = [:]
+        /// Static members (round 143), as a struct's.
+        var statics: [String: Value] = [:]
+        var staticGetters: [String: FunctionObject] = [:]
 
         init(name: String, caseOrder: [String],
              cases: [String: [(label: String?, typeName: String?)]]) {

@@ -222,6 +222,29 @@ Set(
 )
 ```
 
+**Static members and `Self`** (round 143) — `static let`, `static var`
+getters, in struct, enum, and extension bodies, builtins included;
+`Self` is the type inside them:
+
+```text
+swiftalk> struct Point { var x: Int = 0; var y: Int = 0; static let origin = Self(); static var unit { Self(x: 1, y: 1) } }
+Point
+swiftalk> Point.origin
+Point(x: 0, y: 0)
+swiftalk> Point.unit
+Point(x: 1, y: 1)
+swiftalk> extension Point { static let plus = { lhs, rhs in Self(lhs.x + rhs.x, lhs.y + rhs.y) } }
+swiftalk> Point.plus(Point(1, 2), Point(3, 4))
+Point(x: 4, y: 6)
+swiftalk> extension Int { static let answer = 42 }
+swiftalk> Int.answer
+42
+swiftalk> Point.unit()
+type error: Point.unit is a static var — read it, do not call it
+swiftalk> Point(1, 2).origin
+unknown member: Point.origin
+```
+
 **`**`** (round 142) — exponentiation, right-associative and above `*`;
 two Ints (trapping) or two Doubles (`pow`); `-2 ** 2` is `-(2 ** 2)`:
 

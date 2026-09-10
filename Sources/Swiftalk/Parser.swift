@@ -141,11 +141,11 @@ enum Stmt {
     case continueS
     case enumDecl(name: String, caseOrder: [String],
                   cases: [String: [(label: String?, typeName: String?)]],
-                  methods: [String: Expr])
+                  methods: [String: Expr], statics: StaticSpec)
     case structDecl(name: String, propertyOrder: [String],
                     properties: [String: Swiftalk.StructType.Property],
                     methods: [String: Expr], inits: [Expr],
-                    computed: [String: ComputedSpec])
+                    computed: [String: ComputedSpec], statics: StaticSpec)
     case actorDecl(name: String, propertyOrder: [String],
                    properties: [String: Swiftalk.StructType.Property],
                    methods: [String: Expr], inits: [Expr],
@@ -155,7 +155,7 @@ enum Stmt {
                    methods: [String: Expr], inits: [Expr],
                    computed: [String: ComputedSpec])
     case extensionDecl(typeName: String, methods: [String: Expr],
-                       computed: [String: ComputedSpec])
+                       computed: [String: ComputedSpec], statics: StaticSpec)
     /// `import M from "./mod.swt"` / `import (a, b) from "..."` (round 100)
     case importS(namespace: String?, names: [String], spec: String)
     /// `export let x = ...` (any declaration) / `export (a, b)` (round 100)
@@ -166,6 +166,9 @@ enum Stmt {
 /// `.function` exprs (the setter's one parameter is `newValue` or the
 /// `set(v)` custom name); nil `set` means read-only.
 typealias ComputedSpec = (annotation: TypeAnnotation?, get: Expr, set: Expr?)
+/// A type's static members (round 143): `static let name = expr` (any
+/// value — a Function is a static method) and `static var name { get }`.
+typealias StaticSpec = (lets: [String: Expr], vars: [String: ComputedSpec])
 
 let keywords: Set<String> = [
     "let", "var", "true", "false", "nil", "in",
@@ -308,8 +311,8 @@ struct Parser {
             switch declaration {
             case .declaration(_, let name, _, _):       names = [name]
             case .destructure(_, let pattern, _):       names = Parser.names(in: pattern)
-            case .structDecl(let name, _, _, _, _, _):  names = [name]
-            case .enumDecl(let name, _, _, _):          names = [name]
+            case .structDecl(let name, _, _, _, _, _, _): names = [name]
+            case .enumDecl(let name, _, _, _, _):         names = [name]
             default:
                 throw SwiftalkError.syntax("export takes a let/var/struct/enum declaration, or export (a, b)")
             }
@@ -517,8 +520,18 @@ struct Parser {
         var caseOrder: [String] = []
         var cases: [String: [(label: String?, typeName: String?)]] = [:]
         var methods: [String: Expr] = [:]
+        var statics: StaticSpec = ([:], [:])
         skipSeparators()
         while peek != .punct("}") {
+            // Static members (round 143): a static may not share a case's name.
+            if case .identifier("static")? = peek {
+                try parseStatic(into: &statics, existing: { cases[$0] != nil })
+                guard peek == .punct("}") || consumeSeparator() else {
+                    throw SwiftalkError.syntax("expected a newline between enum members")
+                }
+                skipSeparators()
+                continue
+            }
             // Methods (round 48): `let name = { ... }` among the cases.
             if case .identifier("let")? = peek {
                 let (methodName, fn) = try parseMethod(existing: { cases[$0] != nil || methods[$0] != nil })
@@ -568,7 +581,7 @@ struct Parser {
             skipSeparators()
         }
         try expect("}")
-        return .enumDecl(name: name, caseOrder: caseOrder, cases: cases, methods: methods)
+        return .enumDecl(name: name, caseOrder: caseOrder, cases: cases, methods: methods, statics: statics)
     }
 
     /// `let name = { ... }` inside a type body — a method (round 48):
@@ -615,8 +628,18 @@ struct Parser {
         var methods: [String: Expr] = [:]
         var inits: [Expr] = []
         var computed: [String: ComputedSpec] = [:]
+        var statics: StaticSpec = ([:], [:])
         skipSeparators()
         while peek != .punct("}") {
+            // Static members (round 143): their own namespace, beside the instance's.
+            if case .identifier("static")? = peek {
+                try parseStatic(into: &statics, existing: { _ in false })
+                guard peek == .punct("}") || consumeSeparator() else {
+                    throw SwiftalkError.syntax("expected a newline between \(kind) members")
+                }
+                skipSeparators()
+                continue
+            }
             // Initializers (round 48): `init { params in ... }`.
             if case .identifier("init")? = peek {
                 pos += 1
@@ -715,6 +738,9 @@ struct Parser {
             skipSeparators()
         }
         try expect("}")
+        guard kind == "struct" || (statics.lets.isEmpty && statics.vars.isEmpty) else {
+            throw SwiftalkError.syntax("static members are for structs and enums (round 143)")
+        }
         switch kind {
         case "actor":
             return .actorDecl(name: name, propertyOrder: propertyOrder, properties: properties,
@@ -725,8 +751,42 @@ struct Parser {
                               computed: computed)
         default:
             return .structDecl(name: name, propertyOrder: propertyOrder, properties: properties,
-                               methods: methods, inits: inits, computed: computed)
+                               methods: methods, inits: inits, computed: computed, statics: statics)
         }
+    }
+
+    /// `static let name = expr` / `static var name [: T] { getter }`
+    /// (round 143), in a struct, an enum, or an extension body.
+    private mutating func parseStatic(into statics: inout StaticSpec, existing: (String) -> Bool) throws {
+        pos += 1  // consume "static"
+        guard case .identifier(let keyword)? = advance(), keyword == "let" || keyword == "var" else {
+            throw SwiftalkError.syntax("'static' is followed by 'let name = value' or 'var name { ... }'")
+        }
+        guard case .identifier(let name)? = advance(),
+              !keywords.contains(name), !name.hasPrefix("$") else {
+            throw SwiftalkError.syntax("expected a name after 'static \(keyword)'")
+        }
+        guard !existing(name), statics.lets[name] == nil, statics.vars[name] == nil else {
+            throw SwiftalkError.syntax("duplicate static member '\(name)'")
+        }
+        if keyword == "let" {
+            try expect("=")
+            statics.lets[name] = try parseExpr()
+            return
+        }
+        var annotation: TypeAnnotation? = nil
+        if case .punct(":")? = peek {
+            pos += 1
+            annotation = try parseTypeAnnotation()
+        }
+        guard case .punct("{")? = advance() else {
+            throw SwiftalkError.syntax("a static var computes: static var \(name) { ... } — a stored one is static let")
+        }
+        let (getter, setter) = try parseComputedBody()
+        guard setter == nil else {
+            throw SwiftalkError.syntax("a static var has no setter — a type is a value, not storage")
+        }
+        statics.vars[name] = (annotation: annotation, get: getter, set: nil)
     }
 
     /// A type annotation, recursive (round 59): a name, `[Element]`,
@@ -887,8 +947,17 @@ struct Parser {
         try expect("{")
         var methods: [String: Expr] = [:]
         var computed: [String: ComputedSpec] = [:]
+        var statics: StaticSpec = ([:], [:])
         skipSeparators()
         while peek != .punct("}") {
+            if case .identifier("static")? = peek {                 // round 143
+                try parseStatic(into: &statics, existing: { _ in false })
+                guard peek == .punct("}") || consumeSeparator() else {
+                    throw SwiftalkError.syntax("expected a newline between extension members")
+                }
+                skipSeparators()
+                continue
+            }
             // `var name [: Type] { ... }` — a computed property
             // (round 57); `let name = { ... }` — a method.
             if case .identifier("var")? = peek {
@@ -911,7 +980,7 @@ struct Parser {
             } else {
                 guard case .identifier("let")? = peek else {
                     throw SwiftalkError.syntax(
-                        "an extension body holds 'let' methods and 'var' computed properties")
+                        "an extension body holds 'let' methods, 'var' computed properties, and 'static' members")
                 }
                 let (methodName, fn) = try parseMethod(existing: {
                     methods[$0] != nil || computed[$0] != nil
@@ -924,7 +993,7 @@ struct Parser {
             skipSeparators()
         }
         try expect("}")
-        return .extensionDecl(typeName: typeName, methods: methods, computed: computed)
+        return .extensionDecl(typeName: typeName, methods: methods, computed: computed, statics: statics)
     }
 
     /// `switch expr { case pattern, ...: stmts ... default: stmts }` (§7)

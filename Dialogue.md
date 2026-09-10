@@ -2034,3 +2034,18 @@ the history. (Moved out of Design.md in round 65.)
   `**=` came free. The lexer had a `*=` path to extend; the compound
   assignment's operator-as-text from round 135 took `**` without
   complaint.
+* **2026-09-11, round 143 — static members and `Self`** ("Then how do
+  we extend static properties?", after `:r extension Point { static
+  let plus = … }` met a syntax error; "Go for it as round 143"). The
+  design was the one proposed the round before and the pieces fell
+  where expected: `static let` and `static var` parsed by one helper
+  in struct, enum, and extension bodies; the values on the type
+  object, or as hidden bindings for a builtin; a `Self` binding in
+  a scope the whole body closes over, so methods and inits see it
+  too. The one surprise was Swift's, not swiftalk's: with the type's
+  static table passed `inout` while `static let zero = Self.origin`
+  evaluated, the runtime reported an access conflict — the
+  initializer read the table the installer was writing. Computing
+  the new entries first and merging after is the right shape anyway.
+  The user's own example, `Self(lhs.x + rhs.x, lhs.y + rhs.y)`, runs
+  as typed, positional memberwise init included.

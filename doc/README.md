@@ -55,8 +55,10 @@ never converts**.
 ```swift
 extension Int { let doubled = { self * 2 } }      // a method
 extension Int { var squared { self * self } }      // a read-only computed property
+extension Int { static let answer = 42 }           // a static (round 143), beside Int.max
 21.doubled()   // 42
 12.squared     // 144
+Int.answer     // 42
 ```
 
 ## Annotation-only names (round 59)

@@ -805,6 +805,30 @@ does, a negative Int exponent a type error since there is no Int
 answer; two Doubles give libm's `pow`; a mix is a type error. `**=`
 by round 104's rule.
 
+**Static members and `Self` — DECIDED (round 143)** (the user, meeting
+"an extension body holds 'let' methods and 'var' computed
+properties": "Then how do we extend static properties?"). Until now a
+type value was a Function with nothing behind it but a name, and the
+only statics were the builtin hooks of rounds 108–116. Now a struct
+or enum body, and an extension of one or of a builtin, may say
+**`static let name = value`** — any value; a Function is a static
+method, so `Point.plus(a, b)` calls and `Point.plus` is the Function
+— and **`static var name { getter }`**, a computed property of the
+type, read on each access. They live on the type object (a hidden
+`@ext:T:static:` binding for a builtin, the scheme extension methods
+use) in their own namespace, so `Point.origin` and `p.origin` do not
+collide, and an enum's statics may not take a case's name. **`Self`**
+is bound in the type's scope for the body and every extension:
+`Self(x: 0, y: 0)`, `Self.origin`, and an instance method's `Self(...)`
+all read as in Swift; `static` and `Self` are contextual, not
+keywords. Left out on purpose: a stored `static var` (a global by
+another name) and a setter on a static var. `:r extension` overwrites
+statics as it does methods. One implementation note worth its line:
+a `static let` may read an earlier static (`static let zero =
+Self.origin`), which means the type's table must not be under a write
+while initializers run — the first draft was, and Swift's exclusivity
+check caught it.
+
 **SION as a built-in — DECIDED (round 97)**. The user's spec: "`SION(string)`
 parses string to SION. `sion.String()` stringify. `SION(json:string)`
 treats the string as JSON. `sion.String(.json)` emits a JSON string.

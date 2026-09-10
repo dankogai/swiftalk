@@ -174,8 +174,8 @@ extension Swiftalk {
             switch program.count == 1 ? program[0] : nil {
             case .declaration(_, let name, _, _)?:       names = [name]
             case .destructure(_, let pattern, _)?:       names = Parser.names(in: pattern)
-            case .structDecl(let name, _, _, _, _, _)?:  names = [name]        // round 141: types too
-            case .enumDecl(let name, _, _, _)?:          names = [name]
+            case .structDecl(let name, _, _, _, _, _, _)?: names = [name]      // round 141: types too
+            case .enumDecl(let name, _, _, _, _)?:         names = [name]
             case .extensionDecl?:                        names = []            // …and an extension overwrites members
             default:
                 throw SwiftalkError.syntax("':r' takes one declaration: let, var, struct, enum, or extension")
@@ -653,7 +653,7 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
         }
         try runner.yieldValue(value)
         return .nil
-    case .enumDecl(let name, let caseOrder, let cases, let methodExprs):
+    case .enumDecl(let name, let caseOrder, let cases, let methodExprs, let staticSpec):
         // a payload type name bound to a type value means that type
         // (let N = Int; case some(N)) — round 111
         var cases = cases
@@ -665,7 +665,6 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             }
         }
         let et = EnumType(name: name, caseOrder: caseOrder, cases: cases)
-        et.methods = makeMethods(methodExprs, in: env)
         let constructor = FunctionObject(
             parameters: [], body: [], closure: env,
             builtin: { _ in
@@ -674,13 +673,19 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             },
             role: .enumType(et))
         et.constructor = constructor
+        // the body's scope: `Self` is the type (round 143)
+        let typeEnv = typeScope(env, self: .function(constructor))
+        et.methods = makeMethods(methodExprs, in: typeEnv)
+        mergeStatics(try installStatics(staticSpec, in: typeEnv, existing: et.statics, getters: et.staticGetters,
+                                        typeName: name, overwrite: false),
+                     into: &et.statics, getters: &et.staticGetters)
         try env.declare(name, Binding(
             mutable: false,
             lock: TypeAnnotation(name: "Function", optional: false),
             value: .function(constructor)))
         return .function(constructor)
     case .structDecl(let name, let propertyOrder, let properties, let methodExprs,
-                     let initExprs, let computedExprs):
+                     let initExprs, let computedExprs, let staticSpec):
         // property annotations naming a type binding resolve now (round 111)
         var properties = properties
         for (key, prop) in properties {
@@ -689,19 +694,27 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
                                                   defaultExpr: prop.defaultExpr,
                                                   willSetExpr: prop.willSetExpr, didSetExpr: prop.didSetExpr)
         }
+        // the body's scope: `Self` is the type (round 143) — methods,
+        // computed properties, inits, observers, defaults, and statics see it
+        let constructorEnv = env
+        var typeEnv = env
         let st = StructType(name: name, propertyOrder: propertyOrder,
                             properties: properties, declEnv: env)
-        st.methods = makeMethods(methodExprs, in: env)
-        st.computed = makeComputed(computedExprs, in: env)
-        st.observers = makeObservers(propertyOrder, properties, in: env)
-        st.inits = initExprs.compactMap {
-            guard case .function(let params, let body) = $0 else { return nil }
-            return FunctionObject(parameters: params, body: body, closure: env)
-        }
         let constructor = FunctionObject(
-            parameters: [], body: [], closure: env, builtin: nil,
+            parameters: [], body: [], closure: constructorEnv, builtin: nil,
             role: .structType(st))
         st.constructor = constructor
+        typeEnv = typeScope(env, self: .function(constructor))
+        st.methods = makeMethods(methodExprs, in: typeEnv)
+        st.computed = makeComputed(computedExprs, in: typeEnv)
+        st.observers = makeObservers(propertyOrder, properties, in: typeEnv)
+        st.inits = initExprs.compactMap {
+            guard case .function(let params, let body) = $0 else { return nil }
+            return FunctionObject(parameters: params, body: body, closure: typeEnv)
+        }
+        mergeStatics(try installStatics(staticSpec, in: typeEnv, existing: st.statics, getters: st.staticGetters,
+                                        typeName: name, overwrite: false),
+                     into: &st.statics, getters: &st.staticGetters)
         try env.declare(name, Binding(
             mutable: false,
             lock: TypeAnnotation(name: "Function", optional: false),
@@ -791,11 +804,12 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             lock: TypeAnnotation(name: "Function", optional: false),
             value: .function(classConstructor)))
         return .function(classConstructor)
-    case .extensionDecl(let typeName, let methodExprs, let computedExprs):
-        let fns = makeMethods(methodExprs, in: env)
+    case .extensionDecl(let typeName, let methodExprs, let computedExprs, let staticSpec):
         guard let value = try? env.lookup(typeName), case .function(let f) = value else {
             throw SwiftalkError.type("unknown type '\(typeName)'")
         }
+        let typeEnv = typeScope(env, self: value)             // `Self` in an extension (round 143)
+        let fns = makeMethods(methodExprs, in: typeEnv)
         // The REPL's `:r extension` (round 141): existing methods and
         // computed properties give way; stored properties and cases never.
         let overwrite = env.redefining
@@ -809,7 +823,7 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
                 st.computed.removeValue(forKey: name)
                 st.methods[name] = fn
             }
-            for (name, c) in makeComputed(computedExprs, in: env) {
+            for (name, c) in makeComputed(computedExprs, in: typeEnv) {
                 guard st.properties[name] == nil,
                       overwrite || (st.methods[name] == nil && st.computed[name] == nil) else {
                     throw SwiftalkError.type("\(typeName) already has a member '\(name)'")
@@ -817,6 +831,9 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
                 st.methods.removeValue(forKey: name)
                 st.computed[name] = c
             }
+            mergeStatics(try installStatics(staticSpec, in: typeEnv, existing: st.statics, getters: st.staticGetters,
+                                            typeName: typeName, overwrite: overwrite),
+                         into: &st.statics, getters: &st.staticGetters)
         case .enumType(let et):
             guard computedExprs.isEmpty else {
                 throw SwiftalkError.type(
@@ -828,13 +845,19 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
                 }
                 et.methods[name] = fn
             }
+            for name in staticSpec.lets.keys where et.cases[name] != nil {
+                throw SwiftalkError.type("\(typeName) has a case '\(name)' — a static may not share its name")
+            }
+            mergeStatics(try installStatics(staticSpec, in: typeEnv, existing: et.statics, getters: et.staticGetters,
+                                            typeName: typeName, overwrite: overwrite),
+                         into: &et.statics, getters: &et.staticGetters)
         case .actorType(let at):
             // A class extension's methods may use `super` (round 56):
             // give them the same lexical @superclass their in-body
             // siblings get. (Actors have none — super errors there.)
-            var memberEnv = env
+            var memberEnv = typeEnv
             if !at.serialized {
-                let extEnv = Environment(parent: env)
+                let extEnv = Environment(parent: typeEnv)
                 try extEnv.declare("@superclass", superclassBinding(at.superType))
                 memberEnv = extEnv
             }
@@ -859,7 +882,22 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             // Computed getters ride the same scheme under "get:" —
             // read-only: a builtin receiver is a value, there is no
             // storage for a setter to reach (round 57).
-            for (name, c) in makeComputed(computedExprs, in: env) {
+            // Statics on a builtin (round 143): the same hidden scheme,
+            // under "static:" and "static:get:".
+            for (name, expr) in staticSpec.lets {
+                if overwrite { env.removeBinding("@ext:\(n):static:\(name)"); env.removeBinding("@ext:\(n):static:get:\(name)") }
+                try env.declare("@ext:\(n):static:\(name)", Binding(
+                    mutable: false, lock: TypeAnnotation(name: "Any", optional: true),
+                    value: try evaluate(expr, in: typeEnv)))
+            }
+            for (name, spec) in staticSpec.vars {
+                guard case .function(let params, let body) = spec.get else { continue }
+                if overwrite { env.removeBinding("@ext:\(n):static:\(name)"); env.removeBinding("@ext:\(n):static:get:\(name)") }
+                try env.declare("@ext:\(n):static:get:\(name)", Binding(
+                    mutable: false, lock: TypeAnnotation(name: "Function", optional: false),
+                    value: .function(FunctionObject(parameters: params, body: body, closure: typeEnv))))
+            }
+            for (name, c) in makeComputed(computedExprs, in: typeEnv) {
                 guard c.set == nil else {
                     throw SwiftalkError.type(
                         "a computed setter on a builtin type is not (yet) supported — \(n).\(name)")
@@ -2179,6 +2217,80 @@ private func makeObservers(_ order: [String],
 
 /// Turns parsed method expressions into FunctionObjects closed over the
 /// declaring environment (round 48).
+/// A type body's scope (round 143): `Self` bound to the type, so
+/// methods, statics, and extensions can say `Self(x: 0)` and `Self.origin`.
+func typeScope(_ env: Environment, self type: Value) -> Environment {
+    let scope = Environment(parent: env)
+    try? scope.declare("Self", Binding(mutable: false, lock: TypeAnnotation(name: "Function", optional: false), value: type))
+    return scope
+}
+
+/// Evaluates `static let`s (now, in the type's scope — one may read
+/// another already installed, `static let zero = Self.origin`) and
+/// binds `static var` getters (run on each read) — round 143. Returns
+/// the new entries for the caller to merge, so no write is in flight
+/// while an initializer reads the table. Under the REPL's `:r
+/// extension` (`overwrite`) an existing static gives way.
+func installStatics(_ spec: StaticSpec, in typeEnv: Environment,
+                    existing statics: [String: Value], getters: [String: FunctionObject],
+                    typeName: String, overwrite: Bool) throws -> (values: [String: Value], getters: [String: FunctionObject]) {
+    var values: [String: Value] = [:]
+    var newGetters: [String: FunctionObject] = [:]
+    for (name, expr) in spec.lets {
+        guard overwrite || (statics[name] == nil && getters[name] == nil) else {
+            throw SwiftalkError.type("\(typeName) already has a static member '\(name)'")
+        }
+        values[name] = try evaluate(expr, in: typeEnv)
+    }
+    for (name, cspec) in spec.vars {
+        guard case .function(let params, let body) = cspec.get else { continue }
+        guard overwrite || (statics[name] == nil && getters[name] == nil), values[name] == nil else {
+            throw SwiftalkError.type("\(typeName) already has a static member '\(name)'")
+        }
+        newGetters[name] = FunctionObject(parameters: params, body: body, closure: typeEnv)
+    }
+    return (values, newGetters)
+}
+
+/// Merges `installStatics`' result into a type's tables: a new let
+/// displaces a getter of the same name and vice versa (round 143).
+func mergeStatics(_ new: (values: [String: Value], getters: [String: FunctionObject]),
+                  into statics: inout [String: Value], getters: inout [String: FunctionObject]) {
+    for (name, v) in new.values { getters.removeValue(forKey: name); statics[name] = v }
+    for (name, g) in new.getters { statics.removeValue(forKey: name); getters[name] = g }
+}
+
+/// `T.name` on a type value (round 143): a user type's static, or an
+/// extension's static on a builtin. nil when there is none — the caller
+/// falls through to the type's other members.
+private func staticMember(_ f: FunctionObject, _ name: String,
+                          args: [(label: String?, value: Value)], called: Bool,
+                          env: Environment) throws -> Value? {
+    var stored: Value? = nil
+    var getter: FunctionObject? = nil
+    let typeName: String
+    switch f.role {
+    case .structType(let st): stored = st.statics[name]; getter = st.staticGetters[name]; typeName = st.name
+    case .enumType(let et):   stored = et.statics[name]; getter = et.staticGetters[name]; typeName = et.name
+    case .type(let n):
+        typeName = n
+        if let v = try? env.lookup("@ext:\(n):static:\(name)") { stored = v }
+        else if case .function(let g)? = try? env.lookup("@ext:\(n):static:get:\(name)") { getter = g }
+    default:
+        return nil
+    }
+    if let getter {
+        guard !called else { throw SwiftalkError.type("\(typeName).\(name) is a static var — read it, do not call it") }
+        return try apply(getter, args: [])
+    }
+    guard let stored else { return nil }
+    if !called { return stored }
+    guard case .function(let fn) = stored else {
+        throw SwiftalkError.type("cannot call \(typeName).\(name), a \(stored.typeName)")
+    }
+    return try apply(fn, args: args)
+}
+
 private func makeMethods(_ exprs: [String: Expr], in env: Environment) -> [String: FunctionObject] {
     var out: [String: FunctionObject] = [:]
     for (name, expr) in exprs {
@@ -3435,6 +3547,12 @@ private func method(on receiver: Value, name: String,
     if case .function(let f) = receiver, case .enumType(let et) = f.role,
        et.cases[name] != nil {
         return try constructEnumCase(et, name, args: labeledArgs, called: called)
+    }
+    // A type's static members (round 143): Point.origin, Point.plus(a, b),
+    // Int.answer from an extension — after the builtin hooks above.
+    if case .function(let f) = receiver,
+       let v = try staticMember(f, name, args: labeledArgs, called: called, env: env) {
+        return v
     }
     // Case accessors (round 46) — Swift's `if case .name(let v)`
     // ceremony, dissolved: `if let v = s.name` (and, in a switch,

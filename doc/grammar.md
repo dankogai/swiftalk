@@ -157,11 +157,12 @@ trailing-closure call there.
 ### Declarations of types
 
 ```
-enumDecl     = "enum" IDENT "{" { enumCase | method } "}" ;
+enumDecl     = "enum" IDENT "{" { enumCase | method | static } "}" ;
 enumCase     = "case" IDENT [ "(" [ IDENT ":" ] IDENT { "," [ IDENT ":" ] IDENT } ")" ]
                { "," IDENT [ ... ] } ;
 
-structDecl   = "struct" IDENT "{" { property | computed | method | init } "}" ;
+structDecl   = "struct" IDENT "{" { property | computed | method | init | static } "}" ;
+static       = "static" ( "let" IDENT "=" expr | "var" IDENT [ ":" type ] "{" stmts "}" ) ;   (* round 143; `static` and `Self` are contextual *)
 property     = ( "var" | "let" ) IDENT [ ":" type ] [ "=" expression ] [ observers ] ;
 computed     = "var" IDENT [ ":" type ] "{" ( { statement }
              | "get" block [ "set" [ "(" IDENT ")" ] block ] ) "}" ;
@@ -169,7 +170,7 @@ observers    = "{" { ( "willSet" | "didSet" ) [ "(" IDENT ")" ] block } "}" ;
 method       = "let" IDENT "=" closure ;               (* let + closure literal = method *)
 init         = "init" closure ;                        (* several: multi-dispatch *)
 
-extensionDecl = "extension" IDENT "{" { method | computed } "}" ;
+extensionDecl = "extension" IDENT "{" { method | computed | static } "}" ;
 ```
 
 A brace whose first word is `willSet`/`didSet` is an observer block,
