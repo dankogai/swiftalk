@@ -676,9 +676,9 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
         // the body's scope: `Self` is the type (round 143)
         let typeEnv = typeScope(env, self: .function(constructor))
         et.methods = makeMethods(methodExprs, in: typeEnv)
-        mergeStatics(try installStatics(staticSpec, in: typeEnv, existing: et.statics, getters: et.staticGetters,
+        mergeStatics(try installStatics(staticSpec, in: typeEnv, existing: et.statics, getters: et.staticGetters, operators: et.operators,
                                         typeName: name, overwrite: false),
-                     into: &et.statics, getters: &et.staticGetters)
+                     into: &et.statics, getters: &et.staticGetters, operators: &et.operators)
         try env.declare(name, Binding(
             mutable: false,
             lock: TypeAnnotation(name: "Function", optional: false),
@@ -712,9 +712,9 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             guard case .function(let params, let body) = $0 else { return nil }
             return FunctionObject(parameters: params, body: body, closure: typeEnv)
         }
-        mergeStatics(try installStatics(staticSpec, in: typeEnv, existing: st.statics, getters: st.staticGetters,
+        mergeStatics(try installStatics(staticSpec, in: typeEnv, existing: st.statics, getters: st.staticGetters, operators: st.operators,
                                         typeName: name, overwrite: false),
-                     into: &st.statics, getters: &st.staticGetters)
+                     into: &st.statics, getters: &st.staticGetters, operators: &st.operators)
         try env.declare(name, Binding(
             mutable: false,
             lock: TypeAnnotation(name: "Function", optional: false),
@@ -831,9 +831,9 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
                 st.methods.removeValue(forKey: name)
                 st.computed[name] = c
             }
-            mergeStatics(try installStatics(staticSpec, in: typeEnv, existing: st.statics, getters: st.staticGetters,
+            mergeStatics(try installStatics(staticSpec, in: typeEnv, existing: st.statics, getters: st.staticGetters, operators: st.operators,
                                             typeName: typeName, overwrite: overwrite),
-                         into: &st.statics, getters: &st.staticGetters)
+                         into: &st.statics, getters: &st.staticGetters, operators: &st.operators)
         case .enumType(let et):
             guard computedExprs.isEmpty else {
                 throw SwiftalkError.type(
@@ -848,9 +848,9 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             for name in staticSpec.lets.keys where et.cases[name] != nil {
                 throw SwiftalkError.type("\(typeName) has a case '\(name)' — a static may not share its name")
             }
-            mergeStatics(try installStatics(staticSpec, in: typeEnv, existing: et.statics, getters: et.staticGetters,
+            mergeStatics(try installStatics(staticSpec, in: typeEnv, existing: et.statics, getters: et.staticGetters, operators: et.operators,
                                             typeName: typeName, overwrite: overwrite),
-                         into: &et.statics, getters: &et.staticGetters)
+                         into: &et.statics, getters: &et.staticGetters, operators: &et.operators)
         case .actorType(let at):
             // A class extension's methods may use `super` (round 56):
             // give them the same lexical @superclass their in-body
@@ -882,6 +882,9 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             // Computed getters ride the same scheme under "get:" —
             // read-only: a builtin receiver is a value, there is no
             // storage for a setter to reach (round 57).
+            guard staticSpec.ops.isEmpty else {
+                throw SwiftalkError.type("operators are implemented on structs and enums, not on \(n) (round 146)")
+            }
             // Statics on a builtin (round 143): the same hidden scheme,
             // under "static:" and "static:get:".
             for (name, expr) in staticSpec.lets {
@@ -1548,7 +1551,9 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
         }
         return .dictionary(dict)
     case .unaryMinus(let e):
-        switch try evaluate(e, in: env) {
+        let operand = try evaluate(e, in: env)
+        if let r = try userOperator("prefix:-", [operand]) { return r }      // round 146
+        switch operand {
         case .int(let i):
             guard i != Int64.min else {
                 throw SwiftalkError.overflow("negating \(i)")
@@ -1562,6 +1567,7 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
     case .unaryPlus(let e):
         // prefix + (round 121): the number itself — Int, Double, Byte
         let v = try evaluate(e, in: env)
+        if let r = try userOperator("prefix:+", [v]) { return r }            // round 146
         switch v {
         case .int, .double, .byte: return v
         default: throw SwiftalkError.type("cannot apply prefix + to \(v.typeName)")
@@ -1808,15 +1814,19 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
         }
         return .bool(a != b)
     case .logicalNot(let inner):
-        guard case .bool(let a) = try evaluate(inner, in: env) else {
+        let operand = try evaluate(inner, in: env)
+        if let r = try userOperator("prefix:!", [operand]) { return r }      // round 146
+        guard case .bool(let a) = operand else {
             throw SwiftalkError.type("prefix '!' takes a Bool — nothing is truthy (§3b)")
         }
         return .bool(!a)
     case .propagate(let inner):
         // Postfix ? (§3a/§8, unified): unwrap .success; early-return
         // .failure or nil from the enclosing function; anything else is
-        // already its unwrapped self (flat optionals).
+        // already its unwrapped self (flat optionals). A type's own
+        // postfix ? first (round 146).
         let v = try evaluate(inner, in: env)
+        if let r = try userOperator("postfix:?", [v]) { return r }
         switch v {
         case .nil:
             throw ReturnSignal(value: .nil)
@@ -1830,8 +1840,9 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
         }
     case .forceUnwrap(let inner):
         // Postfix ! (§3a): for when the scripter is sure — trapping when
-        // they were wrong.
+        // they were wrong. A type's own postfix ! first (round 146).
         let v = try evaluate(inner, in: env)
+        if let r = try userOperator("postfix:!", [v]) { return r }
         switch v {
         case .nil:
             throw SwiftalkError.type("force-unwrapped nil")
@@ -2244,6 +2255,7 @@ enum OperatorFunctions {
     private static func apply(_ op: String, _ args: [Value]) throws -> Value {
         switch (op, args.count) {
         case ("-", 1):
+            if let r = try userOperator("prefix:-", [args[0]]) { return r }
             switch args[0] {
             case .int(let i):
                 guard i != Int64.min else { throw SwiftalkError.overflow("negating \(i)") }
@@ -2252,11 +2264,13 @@ enum OperatorFunctions {
             default: throw SwiftalkError.type("cannot negate \(args[0].typeName)")
             }
         case ("+", 1):
+            if let r = try userOperator("prefix:+", [args[0]]) { return r }
             switch args[0] {
             case .int, .double, .byte: return args[0]
             default: throw SwiftalkError.type("cannot apply prefix + to \(args[0].typeName)")
             }
         case ("!", 1):
+            if let r = try userOperator("prefix:!", [args[0]]) { return r }
             guard case .bool(let b) = args[0] else { throw SwiftalkError.type("'!' takes a Bool — nothing is truthy (§3b)") }
             return .bool(!b)
         case (_, 2):
@@ -2302,9 +2316,19 @@ func typeScope(_ env: Environment, self type: Value) -> Environment {
 /// extension` (`overwrite`) an existing static gives way.
 func installStatics(_ spec: StaticSpec, in typeEnv: Environment,
                     existing statics: [String: Value], getters: [String: FunctionObject],
-                    typeName: String, overwrite: Bool) throws -> (values: [String: Value], getters: [String: FunctionObject]) {
+                    operators: [String: FunctionObject] = [:], typeName: String, overwrite: Bool)
+    throws -> (values: [String: Value], getters: [String: FunctionObject], ops: [String: FunctionObject]) {
     var values: [String: Value] = [:]
     var newGetters: [String: FunctionObject] = [:]
+    var ops: [String: FunctionObject] = [:]
+    for (key, expr) in spec.ops {
+        guard case .function(let params, let body) = expr else { continue }
+        guard overwrite || operators[key] == nil else {
+            let parts = key.split(separator: ":")
+            throw SwiftalkError.type("\(typeName) already implements \(parts[0])(\(parts[1]))")
+        }
+        ops[key] = FunctionObject(parameters: params, body: body, closure: typeEnv)
+    }
     for (name, expr) in spec.lets {
         guard overwrite || (statics[name] == nil && getters[name] == nil) else {
             throw SwiftalkError.type("\(typeName) already has a static member '\(name)'")
@@ -2318,15 +2342,51 @@ func installStatics(_ spec: StaticSpec, in typeEnv: Environment,
         }
         newGetters[name] = FunctionObject(parameters: params, body: body, closure: typeEnv)
     }
-    return (values, newGetters)
+    return (values, newGetters, ops)
 }
 
 /// Merges `installStatics`' result into a type's tables: a new let
 /// displaces a getter of the same name and vice versa (round 143).
-func mergeStatics(_ new: (values: [String: Value], getters: [String: FunctionObject]),
-                  into statics: inout [String: Value], getters: inout [String: FunctionObject]) {
+func mergeStatics(_ new: (values: [String: Value], getters: [String: FunctionObject], ops: [String: FunctionObject]),
+                  into statics: inout [String: Value], getters: inout [String: FunctionObject],
+                  operators: inout [String: FunctionObject]) {
     for (name, v) in new.values { getters.removeValue(forKey: name); statics[name] = v }
     for (name, g) in new.getters { statics.removeValue(forKey: name); getters[name] = g }
+    for (key, f) in new.ops { operators[key] = f }
+}
+
+/// A user type's operator (round 146): the first operand whose struct or
+/// enum type implements `key` ("infix:+", "prefix:-", "postfix:!") gets
+/// the call — so `c * 2` and `2 * c` both reach Complex's `*`, and a
+/// type can answer for a builtin on its other side. nil when no operand
+/// has one; the caller proceeds with the builtin meaning.
+func userOperator(_ key: String, _ operands: [Value]) throws -> Value? {
+    for v in operands {
+        let table: [String: FunctionObject]
+        switch v {
+        case .structValue(let sv): table = sv.type.operators
+        case .enumCase(let ev):    table = ev.type.operators
+        default: continue
+        }
+        if let fn = table[key] { return try apply(fn, args: operands.map { (nil, $0) }) }
+    }
+    return nil
+}
+
+/// Does a value's type implement `key`? For `sorted()`/`min()`'s
+/// "Comparable" question (round 146) and `.conforms(to: Comparable)`.
+func hasUserOperator(_ v: Value, _ key: String) -> Bool {
+    switch v {
+    case .structValue(let sv): return sv.type.operators[key] != nil
+    case .enumCase(let ev):    return ev.type.operators[key] != nil
+    default: return false
+    }
+}
+
+private func userTyped(_ v: Value) -> Bool {
+    if case .structValue = v { return true }
+    if case .enumCase(let ev) = v { return ev.type !== Builtins.resultType }
+    return false
 }
 
 /// `T.name` on a type value (round 143): a user type's static, or an
@@ -3139,6 +3199,8 @@ func run(_ fn: FunctionObject, ordered: [Value]) throws -> (result: Value, local
 /// Same-type arithmetic only (Design.md §3): `1 + 1.5` is a type error,
 /// Int overflow traps (§3b), and `+` concatenates Strings and Arrays.
 private func binary(_ op: Character, _ lhs: Value, _ rhs: Value) throws -> Value {
+    // a struct's or enum's own operator first (round 146)
+    if let r = try userOperator("infix:\(op)", [lhs, rhs]) { return r }
     // `|`, `&`, `^` are Set operators (round 135) — on anything else a
     // type error, before the numeric switches that know only arithmetic
     if "|&^".contains(op) {
@@ -3300,6 +3362,22 @@ func identical(_ a: Value, _ b: Value) -> Bool {
 /// Int/Double/String (Comparable). `x == nil` is a valid question of
 /// anything (§3a); mixing other types is a type error, not `false`.
 private func compare(_ op: String, _ lhs: Value, _ rhs: Value) throws -> Value {
+    // a type's own comparison (round 146), and the ones Swift derives:
+    // != from ==; > <= >= from < — for a user-typed operand only
+    if op != "===", op != "!==", userTyped(lhs) || userTyped(rhs) {
+        func bool(_ v: Value, negated: Bool = false) throws -> Value {
+            guard case .bool(let b) = v else { throw SwiftalkError.type("a comparison operator must return a Bool, not a \(v.typeName)") }
+            return .bool(negated ? !b : b)
+        }
+        if let r = try userOperator("infix:\(op)", [lhs, rhs]) { return try bool(r) }
+        switch op {
+        case "!=": if let r = try userOperator("infix:==", [lhs, rhs]) { return try bool(r, negated: true) }
+        case ">":  if let r = try userOperator("infix:<", [rhs, lhs]) { return try bool(r) }
+        case "<=": if let r = try userOperator("infix:<", [rhs, lhs]) { return try bool(r, negated: true) }
+        case ">=": if let r = try userOperator("infix:<", [lhs, rhs]) { return try bool(r, negated: true) }
+        default: break
+        }
+    }
     switch op {
     case "==", "!=":
         // a Byte and an Int compare by value (round 116)
@@ -3562,9 +3640,15 @@ private func method(on receiver: Value, name: String,
         switch t.role {
         case .type(let n), .protocol(let n):
             return .bool(Builtins.conformance[protoName]?.contains(n) ?? false)
-        case .enumType, .structType, .actorType:
-            // User types get synthesized Equatable/Hashable (§10) —
-            // an actor's by identity, like Function.
+        case .structType(let st):
+            // User types get synthesized Equatable/Hashable (§10); a
+            // struct or enum implementing `<` is Comparable (round 146)
+            return .bool(protoName == "Equatable" || protoName == "Hashable"
+                         || (protoName == "Comparable" && st.operators["infix:<"] != nil))
+        case .enumType(let et):
+            return .bool(protoName == "Equatable" || protoName == "Hashable"
+                         || (protoName == "Comparable" && et.operators["infix:<"] != nil))
+        case .actorType:
             return .bool(protoName == "Equatable" || protoName == "Hashable")
         case .plain, .todo, .operator:
             throw SwiftalkError.type("'.conforms(to:)' is a question asked of a type")
@@ -3974,7 +4058,7 @@ private func method(on receiver: Value, name: String,
         case 0:
             // every element must be Comparable, a lone one included —
             // "applies only when its elements are Comparable. Error if not"
-            if let odd = elements.first(where: { !Builtins.conformance["Comparable"]!.contains($0.typeName) }) {
+            if let odd = elements.first(where: { !Builtins.conformance["Comparable"]!.contains($0.typeName) && !hasUserOperator($0, "infix:<") }) {
                 throw SwiftalkError.type(".\(name)() needs Comparable elements — a \(odd.typeName) is not; give it a Function (a, b) -> Bool")
             }
             less = { a, b in

@@ -169,7 +169,8 @@ enum Stmt {
 typealias ComputedSpec = (annotation: TypeAnnotation?, get: Expr, set: Expr?)
 /// A type's static members (round 143): `static let name = expr` (any
 /// value — a Function is a static method) and `static var name { get }`.
-typealias StaticSpec = (lets: [String: Expr], vars: [String: ComputedSpec])
+typealias StaticSpec = (lets: [String: Expr], vars: [String: ComputedSpec],
+                        ops: [String: Expr])          // "infix:+", "prefix:-", "postfix:!" → closure (round 146)
 
 let keywords: Set<String> = [
     "let", "var", "true", "false", "nil", "in",
@@ -521,9 +522,18 @@ struct Parser {
         var caseOrder: [String] = []
         var cases: [String: [(label: String?, typeName: String?)]] = [:]
         var methods: [String: Expr] = [:]
-        var statics: StaticSpec = ([:], [:])
+        var statics: StaticSpec = ([:], [:], [:])
         skipSeparators()
         while peek != .punct("}") {
+            // Operators (round 146): infix(+) = { lhs, rhs in }, prefix(-) = { x in }
+            if isOperatorMember() {
+                try parseOperatorMember(into: &statics)
+                guard peek == .punct("}") || consumeSeparator() else {
+                    throw SwiftalkError.syntax("expected a newline between enum members")
+                }
+                skipSeparators()
+                continue
+            }
             // Static members (round 143): a static may not share a case's name.
             if case .identifier("static")? = peek {
                 try parseStatic(into: &statics, existing: { cases[$0] != nil })
@@ -629,9 +639,18 @@ struct Parser {
         var methods: [String: Expr] = [:]
         var inits: [Expr] = []
         var computed: [String: ComputedSpec] = [:]
-        var statics: StaticSpec = ([:], [:])
+        var statics: StaticSpec = ([:], [:], [:])
         skipSeparators()
         while peek != .punct("}") {
+            // Operators (round 146)
+            if isOperatorMember() {
+                try parseOperatorMember(into: &statics)
+                guard peek == .punct("}") || consumeSeparator() else {
+                    throw SwiftalkError.syntax("expected a newline between \(kind) members")
+                }
+                skipSeparators()
+                continue
+            }
             // Static members (round 143): their own namespace, beside the instance's.
             if case .identifier("static")? = peek {
                 try parseStatic(into: &statics, existing: { _ in false })
@@ -754,6 +773,53 @@ struct Parser {
             return .structDecl(name: name, propertyOrder: propertyOrder, properties: properties,
                                methods: methods, inits: inits, computed: computed, statics: statics)
         }
+    }
+
+    /// The operators a type may implement (round 146): existing ones
+    /// only, by fixity. Not `&&`/`||`/`^^` (they short-circuit), `??`/`!!`
+    /// (a struct is never absent), `===`/`!==` (identity is not a
+    /// question a type answers).
+    static let infixOperators: Set<String> = ["+", "-", "*", "/", "%", "**", "==", "!=", "<", "<=", ">", ">=", "|", "&", "^"]
+    static let prefixOperators: Set<String> = ["-", "+", "!"]
+    static let postfixOperators: Set<String> = ["!", "?"]
+
+    /// `infix(` / `prefix(` / `postfix(` at the member position.
+    private func isOperatorMember() -> Bool {
+        if case .identifier(let fix)? = peek, ["infix", "prefix", "postfix"].contains(fix), peek(at: 1) == .punct("(") {
+            return true
+        }
+        return false
+    }
+
+    /// `infix(+) = { lhs, rhs in ... }`, `prefix(-) = { x in ... }`,
+    /// `postfix(!) = { x in ... }` (round 146): a closure, no `static`
+    /// and no `func` — an operator is always the type's.
+    private mutating func parseOperatorMember(into statics: inout StaticSpec) throws {
+        guard case .identifier(let fix)? = advance() else { throw SwiftalkError.syntax("expected infix, prefix, or postfix") }
+        try expect("(")
+        let op: String
+        switch advance() {
+        case .punct(let c)? where "+-*/%".contains(c): op = String(c)
+        case .op(let o)?:                             op = o
+        default: throw SwiftalkError.syntax("expected an operator after '\(fix)('")
+        }
+        try expect(")")
+        let allowed: Set<String> = fix == "infix" ? Parser.infixOperators : fix == "prefix" ? Parser.prefixOperators : Parser.postfixOperators
+        guard allowed.contains(op) else {
+            throw SwiftalkError.syntax("'\(op)' is not a \(fix) operator a type can implement — \(allowed.sorted().joined(separator: " "))")
+        }
+        let key = "\(fix):\(op)"
+        guard statics.ops[key] == nil else { throw SwiftalkError.syntax("duplicate operator \(fix)(\(op))") }
+        try expect("=")
+        let fn = try parseExpr()
+        guard case .function(let params, _) = fn else {
+            throw SwiftalkError.syntax("\(fix)(\(op)) = { ... } — an operator is a closure")
+        }
+        let arity = fix == "infix" ? 2 : 1
+        guard params.isEmpty || params.count == arity else {
+            throw SwiftalkError.syntax("\(fix)(\(op)) takes \(arity) parameter\(arity == 1 ? "" : "s"): { \(fix == "infix" ? "lhs, rhs" : "x") in ... }")
+        }
+        statics.ops[key] = fn
     }
 
     /// `static let name = expr` / `static var name [: T] { getter }`
@@ -948,9 +1014,17 @@ struct Parser {
         try expect("{")
         var methods: [String: Expr] = [:]
         var computed: [String: ComputedSpec] = [:]
-        var statics: StaticSpec = ([:], [:])
+        var statics: StaticSpec = ([:], [:], [:])
         skipSeparators()
         while peek != .punct("}") {
+            if isOperatorMember() {                                  // round 146
+                try parseOperatorMember(into: &statics)
+                guard peek == .punct("}") || consumeSeparator() else {
+                    throw SwiftalkError.syntax("expected a newline between extension members")
+                }
+                skipSeparators()
+                continue
+            }
             if case .identifier("static")? = peek {                 // round 143
                 try parseStatic(into: &statics, existing: { _ in false })
                 guard peek == .punct("}") || consumeSeparator() else {
@@ -981,7 +1055,7 @@ struct Parser {
             } else {
                 guard case .identifier("let")? = peek else {
                     throw SwiftalkError.syntax(
-                        "an extension body holds 'let' methods, 'var' computed properties, and 'static' members")
+                        "an extension body holds 'let' methods, 'var' computed properties, 'static' members, and infix/prefix/postix operators")
                 }
                 let (methodName, fn) = try parseMethod(existing: {
                     methods[$0] != nil || computed[$0] != nil

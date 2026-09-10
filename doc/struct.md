@@ -33,6 +33,8 @@ struct Point {
 | `static let origin = Self(x: 0, y: 0)`, `static let plus = { a, b in ... }` | **static members** (round 143), read off the type: `Point.origin`, `Point.plus(a, b)`; a `static let` holding a Function is a static method, uncalled it is the Function. Their own namespace beside the instance's; a stored `static var` does not exist (a type is a value, not storage) |
 | `static var unit { Self(x: 1, y: 1) }` | a static computed property: a getter run on each read, no setter |
 | `Self` | inside the body and its extensions, the type itself: `Self(x: 1)`, `Self.origin` |
+| `infix(+) = { lhs, rhs in ... }`, `prefix(-) = { x in ... }`, `postfix(!) = { x in ... }` | **operators** (round 146): existing operators only, at their existing precedence, always the type's (no `static`, no `func`). Either operand's type answers an infix — `2 * z` and `z * 2` both reach it. Every spelling arrives: `a + b`, `a += b`, `(+)(a, b)`, `reduce(z, +)`. Implementable: infix `+ - * / % ** == != < <= > >= \| & ^`, prefix `- + !`, postfix `! ?`; not `&&`/`\|\|`/`^^` (short-circuit), `??`/`!!` (a value is never absent), `===`/`!==` (identity) |
+| `infix(<)`, `infix(==)` | a comparison must return a Bool; `!=` is derived from `==`, and `>`, `<=`, `>=` from `<`, as Swift derives them — so one `<` makes the type Comparable: `sorted()`, `min()`, `max()`, `.conforms(to: Comparable)` follow |
 | `extension Point { let m = { } ; var c { } ; static let s = ... }` | adds methods, computed properties, and statics |
 
 **No `mutating` keyword** (round 50a): a method may mutate whatever

@@ -157,11 +157,12 @@ trailing-closure call there.
 ### Declarations of types
 
 ```
-enumDecl     = "enum" IDENT "{" { enumCase | method | static } "}" ;
+enumDecl     = "enum" IDENT "{" { enumCase | method | static | operatorDecl } "}" ;
 enumCase     = "case" IDENT [ "(" [ IDENT ":" ] IDENT { "," [ IDENT ":" ] IDENT } ")" ]
                { "," IDENT [ ... ] } ;
 
-structDecl   = "struct" IDENT "{" { property | computed | method | init | static } "}" ;
+structDecl   = "struct" IDENT "{" { property | computed | method | init | static | operatorDecl } "}" ;
+operatorDecl = ( "infix" | "prefix" | "postfix" ) "(" OPERATOR ")" "=" closure ;   (* round 146; existing operators only *)
 static       = "static" ( "let" IDENT "=" expr | "var" IDENT [ ":" type ] "{" stmts "}" ) ;   (* round 143; `static` and `Self` are contextual *)
 property     = ( "var" | "let" ) IDENT [ ":" type ] [ "=" expression ] [ observers ] ;
 computed     = "var" IDENT [ ":" type ] "{" ( { statement }
@@ -170,7 +171,7 @@ observers    = "{" { ( "willSet" | "didSet" ) [ "(" IDENT ")" ] block } "}" ;
 method       = "let" IDENT "=" closure ;               (* let + closure literal = method *)
 init         = "init" closure ;                        (* several: multi-dispatch *)
 
-extensionDecl = "extension" IDENT "{" { method | computed | static } "}" ;
+extensionDecl = "extension" IDENT "{" { method | computed | static | operatorDecl } "}" ;
 ```
 
 A brace whose first word is `willSet`/`didSet` is an observer block,

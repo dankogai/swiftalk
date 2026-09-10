@@ -222,6 +222,34 @@ Set(
 )
 ```
 
+**Operators on structs and enums** (round 146) — `infix(op) = { lhs,
+rhs in }`, `prefix(op)`, `postfix(op)`; every spelling reaches them;
+`<` makes a type Comparable:
+
+```text
+swiftalk> struct Complex { var real: Double = 0.0; var imag: Double = 0.0; prefix(-) = { z in Self(-z.real, -z.imag) } }
+Complex
+swiftalk> extension Complex { infix(*) = { lhs, rhs in Self(lhs.real * rhs.real - lhs.imag * rhs.imag, lhs.real * rhs.imag + lhs.imag * rhs.real) } }
+swiftalk> let i = Complex(0.0, 1.0)
+Complex(real: 0.0, imag: 1.0)
+swiftalk> i * i
+Complex(real: -1.0, imag: 0.0)
+swiftalk> -i
+Complex(real: -0.0, imag: -1.0)
+swiftalk> (*)(i, i) == i * i
+true
+swiftalk> [i, i, i].reduce(Complex(1.0, 0.0), *)
+Complex(real: -0.0, imag: -1.0)
+swiftalk> struct Money { var cents: Int = 0; infix(<) = { a, b in a.cents < b.cents } }
+Money
+swiftalk> Money(2) >= Money(1)
+true
+swiftalk> [Money(3), Money(1)].sorted()
+[Money(cents: 1), Money(cents: 3)]
+swiftalk> i + i
+type error: '+' is not defined between Complex and Complex
+```
+
 **The bare operator argument** (round 145) — `reduce(0, +)`, `sorted(by:
 <)`, `map(-)`: an operator alone as an argument is the Function:
 

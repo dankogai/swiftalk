@@ -853,6 +853,32 @@ the regex rule's: `/` before `,` opens a literal (`split(/,/)` is a
 regex of a comma, and must stay one), so `f(/, x)` is spelled `f((/),
 x)`; before `)` it is the operator.
 
+**Operators on structs and enums — DECIDED (round 146)** ("Swift has
+one of the most elaborate system to implement that but Swiftalk will
+go lighter. Will not tweak precedence (yet); existing operators only
+(yet); … we simply say `prefix(-)`, `postfix(-)` and `infix(-)`.
+They are always static so you don't have to say so … `infix(*) =
+{ lhs, rhs in ... }`"). The user's spelling, exactly: a member of a
+struct, an enum, or an extension of one, `fixity(op) = closure`,
+with no `static` and no `func` — an operator is the type's by
+definition. Existing operators at their existing precedence: infix
+`+ - * / % ** == != < <= > >= | & ^`, prefix `- + !`, postfix `! ?`;
+not the short-circuiting `&& || ^^`, not `?? !!` (a struct is never
+absent), not `=== !==` (identity is not a question a type answers),
+and not on builtin types (`extension Int { infix(+) }` is refused —
+Int keeps its `+`). **Dispatch is by operand, inside the same
+functions every spelling already calls** — `binary`, `compare`,
+`power`, the prefix and postfix evaluations — so `a * b`, `a *= b`,
+`(*)(a, b)`, `reduce(z, *)`, and `sorted()` reach a type's operator
+without knowing it exists; the first operand whose type implements
+the operator answers, so `2 * z` and `z * 2` both reach `Complex`'s
+`*` and the closure dispatches on `$0.Type` as the language always
+has. **Derivation, Swift's**: a comparison must return a Bool; `!=`
+comes from `==`, and `>`, `<=`, `>=` from `<`, so one `<` makes a type
+Comparable — `sorted()`, `min()`, `max()`, and `.conforms(to:
+Comparable)` follow. OPEN, as the user said: new operators, and
+precedence.
+
 **SION as a built-in — DECIDED (round 97)**. The user's spec: "`SION(string)`
 parses string to SION. `sion.String()` stringify. `SION(json:string)`
 treats the string as JSON. `sion.String(.json)` emits a JSON string.

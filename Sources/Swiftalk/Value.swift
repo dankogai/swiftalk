@@ -189,6 +189,8 @@ extension Swiftalk {
         /// a static method) and `static var` getters, read off the type.
         var statics: [String: Value] = [:]
         var staticGetters: [String: FunctionObject] = [:]
+        /// Operators (round 146): "infix:+" → { lhs, rhs in }, "prefix:-" → { x in }
+        var operators: [String: FunctionObject] = [:]
 
         init(name: String, propertyOrder: [String],
              properties: [String: Property], declEnv: Environment) {
@@ -226,6 +228,8 @@ extension Swiftalk {
         /// Static members (round 143), as a struct's.
         var statics: [String: Value] = [:]
         var staticGetters: [String: FunctionObject] = [:]
+        /// Operators (round 146), as a struct's.
+        var operators: [String: FunctionObject] = [:]
 
         init(name: String, caseOrder: [String],
              cases: [String: [(label: String?, typeName: String?)]]) {

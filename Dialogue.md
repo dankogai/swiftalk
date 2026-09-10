@@ -2082,3 +2082,20 @@ the history. (Moved out of Design.md in round 65.)
   suites in parallel, so two tests reaching for `(+)` at once raced
   on it. The table is built once now, immutably — the shape it
   should have had.
+* **2026-09-11, round 146 — operators on structs and enums** ("Now
+  let's think about how we add operators to new structs and enums.
+  Swift has one of the most elaborate system … Swiftalk will go
+  lighter … `infix(*) = { lhs, rhs in ... }`"). The spelling was the
+  user's and needed no thinking; the design point was where dispatch
+  lives. Putting it at the expression level would have meant one
+  spelling at a time — `a + b` but not `+=`, not `(+)`, not `reduce`
+  — so it lives inside `binary`, `compare`, `power`, and the four
+  unary evaluations instead, one lookup on each operand's type before
+  the builtin meaning, and every spelling in the language reaches a
+  type's operator at once, `sorted()` included. Swift's derivations
+  came along because they cost six lines and save six declarations:
+  `!=` from `==`, the other three from `<`. A comparison must return
+  a Bool — the first draft let the derived `>` hand back whatever
+  `<` returned, and the test caught it. `Self` in the closures comes
+  from round 143 for free. Round 141's `:r extension` overwrites an
+  operator as it does a method.

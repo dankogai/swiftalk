@@ -187,6 +187,7 @@ enum RandomBounds {
 /// type error (there is no Int for 2 ** -1); Double ** Double is libm's
 /// pow. Mixed is a type error, as all arithmetic is (§3).
 func power(_ base: Value, _ exponent: Value) throws -> Value {
+    if let r = try userOperator("infix:**", [base, exponent]) { return r }   // round 146
     switch (base, exponent) {
     case (.int(let b), .int(let e)):
         guard e >= 0 else {

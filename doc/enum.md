@@ -36,7 +36,8 @@ enum Shape {
 | `s.String()` | `"Shape.circle(r: 2.5)"` — round-trips wherever Shape is declared |
 | `s.String(.pretty)` | the same, one payload per line, two spaces a level; a case without a payload is one line (round 118) |
 | `static let unitCircle = Self.circle(r: 1.0)`, `static var names { [...] }` | static members (round 143), as a struct's — `Shape.unitCircle`; a static may not share a case's name |
-| `extension Shape { let m = { } ; static let s = ... }` | adds methods and statics |
+| `prefix(-) = { s in ... }`, `infix(+) = { a, b in ... }` | operators (round 146), as a struct's — see [struct.md](struct.md) |
+| `extension Shape { let m = { } ; static let s = ... ; infix(+) = { } }` | adds methods, statics, and operators |
 
 ```swift
 Shape.circle(r: 3.0).circle     // 3.0
