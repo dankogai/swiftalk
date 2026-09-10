@@ -1996,3 +1996,13 @@ the history. (Moved out of Design.md in round 65.)
   from Swift on purpose: `min` keeps the first of equal elements and
   `max` the last. Closes the OPEN the Set page had carried since
   round 132; `last` is the one left open.
+* **2026-09-10, round 140 — `===` on Strings is scalar for scalar**
+  ("Give the *true* `===` and `!==` operators to String as well.
+  Currently `"\u{305f}\u{3099}\u{3093}" === "\u{3060}\u{3093}"`
+  returns `true` which is WRONG"). It was: `identical` had no String
+  arm and fell to `==`, which is canonical equivalence, so た plus a
+  combining dakuten was "identical" to だ. Now a String arm compares
+  the scalars in order, and since containers, tuples, and Dictionary
+  keys recurse through `identical`, the fix reaches them too. The
+  same-bits rule Doubles got in round 121, applied where it had been
+  missing; `isNormalized` had met the same fact two rounds ago.

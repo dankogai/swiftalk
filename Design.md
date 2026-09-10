@@ -639,7 +639,12 @@ for bit — `Double.nan === Double.nan`, `+0.0 !== -0.0`, `1 !== 1.0`,
 `Byte(1) !== 1` — recursive through containers, keys included, and
 never a type error: values of different types are simply not the same
 value, where `==` asks a question with no answer. Same precedence as
-`==`, unchained, continuing a line.
+`==`, unchained, continuing a line. **Round 140** ("Give the *true*
+`===` and `!==` operators to String as well"): Strings had fallen to
+`==`, which is Swift's canonical equivalence, so `"た\u{3099}ん" ===
+"だん"` said true; `===` now compares scalar for scalar, through
+containers and keys as the rest does — the same-bits rule the Doubles
+already had, and the reason `isNormalized` compares scalars too.
 
 **`eval()` in the language — DECIDED (round 122)** ("Toplevel `eval()`
 in Swiftalk is missing. It is DIFFERENT from Swift's interpreter").

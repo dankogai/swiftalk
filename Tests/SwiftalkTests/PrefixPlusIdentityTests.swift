@@ -86,6 +86,15 @@ struct PrefixPlusIdentityTests {
         #expect(try eval("Byte(1) === 1") == .bool(false))
         #expect(try eval("Byte(1) == 1") == .bool(true))
         #expect(try eval("\"a\" === \"a\"") == .bool(true))
+        // Strings scalar for scalar (round 140): == is canonical equivalence, === is not
+        #expect(try eval("\"\\u{305f}\\u{3099}\\u{3093}\" == \"\\u{3060}\\u{3093}\"") == .bool(true))
+        #expect(try eval("\"\\u{305f}\\u{3099}\\u{3093}\" === \"\\u{3060}\\u{3093}\"") == .bool(false))
+        #expect(try eval("\"\\u{305f}\\u{3099}\\u{3093}\" !== \"\\u{3060}\\u{3093}\"") == .bool(true))
+        #expect(try eval("\"e\\u{301}\" === \"\\u{e9}\"") == .bool(false))
+        #expect(try eval("\"e\\u{301}\".normalized(.nfc) === \"\\u{e9}\"") == .bool(true))
+        #expect(try eval("[\"e\\u{301}\"] === [\"\\u{e9}\"]") == .bool(false))              // through containers
+        #expect(try eval("[\"e\\u{301}\": 1] === [\"\\u{e9}\": 1]") == .bool(false))        // keys too
+        #expect(try eval("(\"e\\u{301}\",) === (\"\\u{e9}\",)") == .bool(false))
         #expect(try eval("nil === nil") == .bool(true))
         #expect(try eval("1 === nil") == .bool(false))
         #expect(try eval("[0.0] === [-0.0]") == .bool(false))

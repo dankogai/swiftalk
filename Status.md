@@ -222,6 +222,20 @@ Set(
 )
 ```
 
+**`===` on Strings is scalar for scalar** (round 140) — `==` is canonical
+equivalence, as Swift's; `===` is the same scalars:
+
+```text
+swiftalk> "\u{305f}\u{3099}\u{3093}" == "\u{3060}\u{3093}"
+true
+swiftalk> "\u{305f}\u{3099}\u{3093}" === "\u{3060}\u{3093}"
+false
+swiftalk> "\u{305f}\u{3099}\u{3093}".normalized(.nfc) === "\u{3060}\u{3093}"
+true
+swiftalk> ["e\u{301}"] !== ["\u{e9}"]
+true
+```
+
 **`first`, `min()`, `max()`** (round 139) — on every Sequence conformer;
 `first` pulls once, `min`/`max` need Comparable elements or a Function:
 

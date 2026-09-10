@@ -10,7 +10,8 @@ view (§11). `"..."` literals with `\(interpolation)`, escapes `\" \\
 | `String()` | `""` |
 | `String(x)` | `x`'s description: a String is itself, anything else its source form |
 | `s + t` | concatenation |
-| `s < t` etc., `==` | Comparable, Equatable |
+| `s < t` etc., `==` | Comparable, Equatable — `==` is **canonical equivalence**, as Swift's: `"e\u{301}" == "é"` |
+| `s === t`, `s !== t` | the same scalars, in order (round 140): `"e\u{301}" === "é"` is false; `.normalized(.nfc)` first to compare forms |
 | `s.count` | grapheme count |
 | `s.String()` | `s` itself (argless `.String()` is description) |
 | `s.String(.quoted)` | source form, escaped: `"\"hi\""` — `eval` re-enters it |

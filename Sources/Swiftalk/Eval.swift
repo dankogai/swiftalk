@@ -3072,6 +3072,10 @@ func identical(_ a: Value, _ b: Value) -> Bool {
     switch (a, b) {
     case (.double(let x), .double(let y)):
         return x.bitPattern == y.bitPattern
+    case (.string(let x), .string(let y)):
+        // scalar for scalar (round 140): Swift's String == is canonical
+        // equivalence, so "\u{305f}\u{3099}" == "\u{3060}" — === says no
+        return x.unicodeScalars.elementsEqual(y.unicodeScalars)
     case (.array(let x), .array(let y)):
         return all(x, y)
     case (.tuple(let x), .tuple(let y)):
