@@ -47,6 +47,16 @@ struct ComplexModuleTests {
         #expect(try i.eval("[Complex(1.0), Complex(0.0, 1.0)].reduce(Complex(), +) == Complex(1.0, 1.0)") == .bool(true))
         #expect(try i.eval("(*)(Complex(0.0, 1.0), Complex(0.0, 1.0)).real") == .double(-1))
         #expect(try i.eval("Complex(1.0, 2.0).String()") == .string("Complex(real: 1.0, imag: 2.0)"))
+        // polar init and the abs/arg setters (round 150)
+        #expect(try i.eval("near(Complex(abs: 2.0, arg: Double.pi / 2.0), Complex(0.0, 2.0))") == .bool(true))
+        #expect(try i.eval("near(Complex(arg: 0.0, abs: 3.0), 3.0)") == .bool(true))
+        #expect(try i.eval("near(Complex(abs: 1.0, arg: Double.pi), -1.0)") == .bool(true))
+        #expect(try i.eval("Complex(1.0, 2.0) == Complex(real: 1.0, imag: 2.0)") == .bool(true))      // positional stays rectangular
+        #expect(try i.eval("var q1 = Complex(3.0, 4.0)\nq1.abs = 10.0\nnear(q1, Complex(6.0, 8.0))") == .bool(true))
+        #expect(try i.eval("var q2 = Complex(3.0, 4.0)\nq2.arg = 0.0\nnear(q2, 5.0)") == .bool(true))
+        #expect(try i.eval("var q3 = Complex(3.0, 4.0)\nq3.arg = Double.pi / 2.0\nnear(q3, Complex(0.0, 5.0))") == .bool(true))
+        #expect(try i.eval("var q4 = Complex(1.0, 1.0)\nq4.abs = 0.0\nq4 == Complex()") == .bool(true))
+        #expect(throws: SwiftalkError.self) { try i.eval("let q5 = Complex(3.0, 4.0)\nq5.abs = 1.0") }   // a let
         #expect(throws: SwiftalkError.self) { try i.eval("Complex(1, 2)") }                 // Doubles, as std::complex<double>
         #expect(throws: SwiftalkError.self) { try i.eval("Complex(1.0) < Complex(2.0)") }   // no order, as in C++
     }

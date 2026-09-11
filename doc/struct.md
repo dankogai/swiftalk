@@ -22,7 +22,7 @@ struct Point {
 | Form | Meaning |
 |---|---|
 | `Point(x: 3, y: 4)`, `Point(3, 4)` | memberwise init: labels optional & reorderable, positionals in declaration order, defaults fill the rest — the LAST dispatch candidate |
-| `Point(7)` | a declared `init { }` matching arity/labels — first match wins |
+| `Point(7)`, `Complex(abs: 2.0, arg: 1.0)` | a declared `init { }` matching arity/labels — first match wins, so **declaration order disambiguates** (round 150): declare the primary init first and a same-arity labeled alternative after it — `init { real, imag in }` then `init { abs, arg in }` makes `Complex(1.0, 2.0)` rectangular and `Complex(abs: 2.0, arg: 1.0)` polar |
 | `p.x` | property read; `p.x = v` write (needs a `var` root; `let` properties refuse) |
 | `p.m(args)` | method call: `self` bound; leading-dot members (`.x`) mean `self.x` |
 | `p.m` | the method, bound over a *copy* of self |

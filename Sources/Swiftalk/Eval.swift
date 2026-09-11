@@ -2514,7 +2514,11 @@ private func initMatches(_ params: [String], _ args: [(label: String?, value: Va
 func constructStruct(_ st: StructType,
                      args: [(label: String?, value: Value)]) throws -> Value {
     // Declared inits multi-dispatch first (round 48): the first match
-    // wins; the memberwise init below is the last candidate.
+    // wins; the memberwise init below is the last candidate. (Round 150
+    // tried "a positional call of the properties' arity is memberwise"
+    // and took it back: Rational(3, 4) must reach the normalizing init.
+    // Declaration order is the disambiguator — declare the primary
+    // init first, a labeled alternative such as Complex(abs:arg:) after.)
     for initFn in st.inits where initMatches(initFn.parameters, args) {
         var values: [String: Value] = [:]
         for prop in st.propertyOrder {

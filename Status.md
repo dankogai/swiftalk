@@ -222,6 +222,30 @@ Set(
 )
 ```
 
+**`Complex(abs:arg:)`, settable `abs`/`arg`** (round 150) — a same-arity
+labeled init beside the positional one, by declaration order (first
+match wins); writing `abs` keeps `arg` and vice versa:
+
+```text
+swiftalk> import from "modules/Complex.swt"
+swiftalk> Complex(abs: 2.0, arg: Double.pi / 2.0)
+Complex(real: 1.2246467991473532e-16, imag: 2.0)
+swiftalk> Complex(arg: 0.0, abs: 3.0)
+Complex(real: 3.0, imag: 0.0)
+swiftalk> Complex(1.0, 2.0)
+Complex(real: 1.0, imag: 2.0)
+swiftalk> var z = Complex(3.0, 4.0)
+Complex(real: 3.0, imag: 4.0)
+swiftalk> z.abs = 10.0
+10.0
+swiftalk> z
+Complex(real: 6.0, imag: 7.999999999999999)
+swiftalk> z.arg = 0.0
+0.0
+swiftalk> z
+Complex(real: 10.0, imag: 0.0)
+```
+
 **`modules/Rational.swt`; lazy `static let`** (round 149) — exact
 fractions normalized on construction; statics are evaluated on first
 read, so they may depend on one another in any order:

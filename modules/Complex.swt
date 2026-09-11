@@ -2,6 +2,7 @@
 //
 //     import from "./modules/Complex.swt"
 //     let z = Complex(1.0, 2.0)          // 1 + 2i; Complex(3.0) is 3 + 0i
+//     Complex(abs: 2.0, arg: Double.pi)  // polar: -2 + 0i; z.abs = 1.0 rescales, z.arg = 0.0 rotates
 //     z * z.conj == z.norm               // (a + bi)(a - bi) = a² + b²
 //     Complex.exp(Double.pi.i).real      // -1.0 — Euler
 //
@@ -13,6 +14,18 @@
 export struct Complex {
     var real: Double = 0.0
     var imag: Double = 0.0
+
+    // — construction: rectangular first, so that Complex(1.0, 2.0) and
+    //   Complex(real:imag:) are this init (first match wins, round 48);
+    //   then polar, reached by its labels: Complex(abs: r, arg: θ)
+    init { real, imag in
+        self.real = real
+        self.imag = imag
+    }
+    init { abs, arg in
+        self.real = abs * Double.cos(arg)
+        self.imag = abs * Double.sin(arg)
+    }
 
     // — a scalar as a Complex: Int and Double lift, a Complex is itself
     static let lift = { x in x.Type == Self ? x : Self(x.Double(), 0.0) }
@@ -48,9 +61,24 @@ export struct Complex {
         return l.real == r.real && l.imag == r.imag
     }
 
-    // — the values of <complex>, as properties
-    var abs { Double.hypot(.real, .imag) }
-    var arg { Double.atan2(.imag, .real) }
+    // — the values of <complex>, as properties; abs and arg are settable
+    //   (round 150): writing one keeps the other
+    var abs {
+        get { Double.hypot(.real, .imag) }
+        set {
+            let a = .arg
+            .real = newValue * Double.cos(a)
+            .imag = newValue * Double.sin(a)
+        }
+    }
+    var arg {
+        get { Double.atan2(.imag, .real) }
+        set {
+            let r = .abs
+            .real = r * Double.cos(newValue)
+            .imag = r * Double.sin(newValue)
+        }
+    }
     var norm { .real * .real + .imag * .imag }
     var conj { Self(.real, -.imag) }
     var proj {

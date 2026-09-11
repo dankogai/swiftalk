@@ -292,7 +292,17 @@ Further decisions:
   (runtime-type dispatch awaits closure annotations; a param-less
   `init` is variadic per round 14 — declare it last). The memberwise
   init remains the *last* dispatch candidate (a divergence from
-  Swift's custom-init-removes-memberwise; flagged). A stored
+  Swift's custom-init-removes-memberwise; flagged). **Round 150**
+  ("Add `init(arg:abs)` to `Complex`") tested this rule and kept it: a
+  same-arity labeled alternative — `Complex(abs:arg:)` beside
+  `Complex(1.0, 2.0)` — is had by declaring the primary init first
+  (`init { real, imag in }`) and the alternative after, since the
+  first match wins and labels that name only the second reach it. A
+  rule tried and taken back the same round: "a positional call of
+  the properties' arity is memberwise" — it would have made
+  `Rational(3, 4)` skip its normalizing init, which is the whole
+  point of a declared init of that shape. Declaration order is the
+  disambiguator, and no rule beats it. A stored
   `Function` wants a `var` property — `let` + closure literal means
   method.
 

@@ -2154,3 +2154,20 @@ the history. (Moved out of Design.md in round 65.)
   `Double.frexp(-2.5)` gave a *positive* fraction — Swift's `frexp`
   overlay hands back the magnitude where C's carries the sign — so
   the sign is restored and the math test pins C's contract.
+* **2026-09-11, round 150 — `Complex(abs:arg:)`; `abs` and `arg`
+  settable** ("Add `init(arg:abs)` to `Complex`. make `.abs` and
+  `.arg` setters as well"). The setters were the easy half — a
+  computed property with `set` has existed since round 57, and
+  writing `abs` keeps `arg` and vice versa. The init taught a lesson
+  twice. Round 48's rule sends a positional call to the first
+  declared init of its arity, so `init { abs, arg in }` alone would
+  have made `Complex(1.0, 2.0)` polar; the first fix was a new rule,
+  "a positional call of the properties' arity is memberwise" — and
+  `Rational(3, 4)` broke at once, because its normalizing init has
+  exactly that shape and must be reached positionally. The rule came
+  out within the hour. The answer was in round 48 all along: first
+  match wins, so Complex declares its rectangular init first and the
+  polar one after, and `Complex(abs: 2.0, arg: θ)` reaches the second
+  by its labels. No interpreter change; one line in the module and a
+  sentence in the docs saying that declaration order is the
+  disambiguator.
