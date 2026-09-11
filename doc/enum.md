@@ -34,6 +34,7 @@ enum Shape {
 | `s.m(args)` | methods, `self` bound; `switch self` inside |
 | `s == t` | equality of case and payloads; `s.Type == Shape` |
 | `s.String()` | `"Shape.circle(r: 2.5)"` — round-trips wherever Shape is declared |
+| `let String = { $.contains(.pretty) ? "…" : .description }`, `let Int = { … }` | conversion members, as a struct's (round 151): `Int(s)` runs `let Int`; a `String` member is asked for the case's `.pretty` text at any depth of a layout |
 | `s.String(.pretty)` | the same, one payload per line, two spaces a level; a case without a payload is one line (round 118) |
 | `static let unitCircle = Self.circle(r: 1.0)`, `static var names { [...] }` | static members (round 143), as a struct's — `Shape.unitCircle`; a static may not share a case's name |
 | `prefix(-) = { s in ... }`, `infix(+) = { a, b in ... }` | operators (round 146), as a struct's — see [struct.md](struct.md) |

@@ -82,6 +82,23 @@ struct RationalModuleTests {
         #expect(throws: SwiftalkError.self) { try i.eval("Rational(Int.max, 1) + Rational(1, 1)") }   // overflow traps, as Int's does
     }
 
+    @Test("round 151: .String(.pretty) is (num/den) at any depth; Double(r), Int(r), String(r) reach the members")
+    func prettyAndConstructorForms() throws {
+        let i = try interpreter()
+        #expect(try i.eval("Rational(3, 4).String(.pretty)") == .string("(3/4)"))
+        #expect(try i.eval("Rational(2).String(.pretty)") == .string("(2/1)"))
+        #expect(try i.eval("String(Rational(-3, 4), .pretty)") == .string("(-3/4)"))
+        #expect(try i.eval("Rational(3, 4).String()") == .string("Rational(num: 3, den: 4)"))      // the plain form is the source form
+        #expect(try i.eval("String(Rational(3, 4))") == .string("Rational(num: 3, den: 4)"))
+        #expect(try i.eval("[Rational(1, 2), Rational(1, 3)].String(.pretty)") == .string("[\n  (1/2),\n  (1/3)\n]"))
+        #expect(try i.eval("[Rational(1, 2), Rational(1, 3)].String()") == .string("[Rational(num: 1, den: 2), Rational(num: 1, den: 3)]"))
+        #expect(try i.eval("Rational(7, 4).mixed.String(.pretty)") == .string("(\n  whole: 1,\n  part: (3/4)\n)"))
+        #expect(try i.eval("[\"r\": [Rational(1, 2)]].String(.pretty)") == .string("[\n  \"r\": [\n    (1/2)\n  ]\n]"))
+        #expect(try i.eval("Double(Rational(3, 4))") == .double(0.75))
+        #expect(try i.eval("Int(Rational(-7, 4))") == .int(-1))
+        #expect(try i.eval("Double(Rational(3, 4)) == Rational(3, 4).Double()") == .bool(true))
+    }
+
     private func sv(_ i: Swiftalk.Interpreter, _ n: Int64, _ d: Int64) throws -> Swiftalk.StructValue {
         guard case .structValue(let v) = try i.eval("Rational(\(n), \(d))") else { throw SwiftalkError.type("no") }
         return v

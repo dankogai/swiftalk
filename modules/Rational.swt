@@ -5,7 +5,8 @@
 //     r + 1 == Rational(7, 4)            // Ints lift; a Double on either side gives a Double
 //     Rational(0.75) == r                // a Double converts exactly (it is a binary fraction)
 //     Rational("-6/8").fraction          // "-3/4"
-//     (r ** -2).Double()                 // 1.7777…
+//     (r ** -2).Double()                 // 1.7777…; Double(r ** -2) says the same
+//     [r, -r].String(.pretty)            // "[\n  (3/4),\n  (-3/4)\n]"
 //
 // Two Ints, `num` and `den`, normalized on every construction: reduced
 // by their gcd, the sign in `num`. Equality is therefore structural —
@@ -132,9 +133,12 @@ export struct Rational {
         return (whole: whole, part: self - whole)
     }
 
-    // — conversions, by the round-47 law's spelling
+    // — conversions, by the round-47 law's spelling: r.Double() and Double(r) alike (round 151)
     let Double = { .num.Double() / .den.Double() }
     let Int = { .truncated }
+    // .String(.pretty) is "(num/den)" — at any depth of a pretty layout; the
+    // plain .String() stays the source form, which .description is
+    let String = { $.contains(.pretty) ? "(\(.num)/\(.den))" : .description }
 }
 
 // `3.Rational()`, `0.75.Rational()`: the conversion law's spelling, from

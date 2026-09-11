@@ -79,7 +79,7 @@ let i = Complex(0.0, 1.0)
 i * i == Complex(-1.0, 0.0)                   // true — and (*)(i, i), reduce(one, *), *= all reach it
 // the whole of C++'s <complex>, written in swiftalk: modules/Complex.swt (round 147)
 // import from "./modules/Complex.swt"; Complex.exp(Double.pi.i) == -1.0   — every export by name (round 148)
-// and exact fractions: modules/Rational.swt — Rational(3, 4) + 1 == Rational(7, 4), Rational(0.75) == Rational(3, 4)
+// and exact fractions: modules/Rational.swt — Rational(3, 4) + 1 == Rational(7, 4), Double(Rational(3, 4)) == 0.75, Rational(3, 4).String(.pretty) == "(3/4)"
 let hex    = 255.String(.hex)                 // "0xff"; .String(.sign, .hex) is "+0xff"; radix: 16 for bare "ff"
 let bytes  = "café".Data(.utf8)               // infallible; .Data("base64") is the literal
 let text   = bytes.String(.utf8)              // String? — bytes may not be text

@@ -3471,6 +3471,15 @@ private func compare(_ op: String, _ lhs: Value, _ rhs: Value) throws -> Value {
 /// (String's formats; Sequence's generator closure).
 func convert(_ typeName: String, subject: Value?,
              extra: [(label: String?, value: Value)]) throws -> Value {
+    // Round 151: the law reaches user types. A struct or enum that
+    // declares `let Double = { ... }` answers `Double(x)` as it answers
+    // `x.Double()` — the member, bound over x, takes the format
+    // arguments. (Inside such a member, `.description` is the builtin
+    // text; `String(self)` would be the member again.)
+    if let subject, let m = userConversion(subject, typeName) {
+        let (bound, _) = try boundMethod(m, self: subject)
+        return try apply(bound, args: extra)
+    }
     let object = (Builtins.types[typeName] ?? Builtins.protocols[typeName])!
     if extra.isEmpty {
         return try object.builtin!(subject.map { [$0] } ?? [])
@@ -3556,6 +3565,31 @@ func convert(_ typeName: String, subject: Value?,
     }
 }
 
+/// A user type's own conversion member (round 151): `let Double = {
+/// ... }` or `let String = { ... }` declared in a struct or enum body
+/// (or its extension). nil for builtins and for types without one.
+func userConversion(_ value: Value, _ typeName: String) -> FunctionObject? {
+    switch value {
+    case .structValue(let sv): return sv.type.methods[typeName]
+    case .enumCase(let ev):    return ev.type.methods[typeName]
+    default:                   return nil
+    }
+}
+
+/// `.pretty`'s callback (round 151): a struct or enum case whose type
+/// declares `let String = { ... }` owns its pretty text at every depth
+/// of a layout — the member is called as `x.String(.pretty)`. The plain
+/// source form stays the builtin's: that text is the language's round
+/// trip, not the type's to change; the layout is presentation.
+private func userPretty(_ value: Value) throws -> String? {
+    guard let m = userConversion(value, "String") else { return nil }
+    let (bound, _) = try boundMethod(m, self: value)
+    guard case .string(let text) = try apply(bound, args: [(nil, .string("pretty"))]) else {
+        throw SwiftalkError.type("\(value.typeName).String(.pretty) must return a String")
+    }
+    return text
+}
+
 /// String's format vocabulary (rounds 20–21, 42): .quoted, .hex/.oct/
 /// .bin (prefixed, literal-ready), radix: n (bare digits); two
 /// modifiers ride beside a format — .pretty (round 117) with .sion or
@@ -3583,7 +3617,7 @@ private func stringFormat(_ subject: Value,
     /// the sign to write: `-` for a negative, `+` for the rest under .sign
     func plus(_ negative: Bool) -> String { negative ? "-" : sign ? "+" : "" }
     if formats.isEmpty {
-        if pretty { return .string(subject.prettyString()) }
+        if pretty { return .string(try subject.prettyString(custom: userPretty)) }
         // .String(.sign): the plain number, signed
         switch subject {
         case .int(let i):    return .string(plus(i < 0) + String(i.magnitude))
@@ -3615,7 +3649,7 @@ private func stringFormat(_ subject: Value,
     switch format {
     case .string("quoted"), .string("sion"):
         // .sion: SION IS the source form (round 97); .pretty opens it up (round 117)
-        return .string(pretty ? subject.prettyString() : subject.sourceString())
+        return .string(pretty ? try subject.prettyString(custom: userPretty) : subject.sourceString())
     case .string("json"):
         return .string(try JSONFormat.emit(subject, pretty: pretty))
     case .string("propertyList"):

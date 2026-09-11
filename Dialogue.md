@@ -2171,3 +2171,22 @@ the history. (Moved out of Design.md in round 65.)
   by its labels. No interpreter change; one line in the module and a
   sentence in the docs saying that declaration order is the
   disambiguator.
+
+* **2026-09-11, round 151 — `Double(r)`; `.String(.pretty)` is the
+  type's** ("Add Rational.Double() to modules/Rational.swt. And
+  `rat.String(.pretty)` goes `"(num/den)"`"). `r.Double()` had been
+  in the module since round 149; what was missing was the other
+  spelling — `Double(Rational(3, 4))` said "cannot convert Rational
+  to Double", because `convert` knew only the builtins. Round 47's
+  law now reaches user types: a struct or enum with `let T = { ... }`
+  answers `T(x, formats...)` by that member. The pretty form needed
+  a hook, not a member — the member `let String` already won over
+  the builtin when called on the value directly, but a layout of
+  `[r]` knew nothing of it. `Value.prettyString` now takes a callback
+  that gets the first word on every node, and the evaluator supplies
+  one that runs a user type's `String` member with `.pretty`. The
+  Rational member is one line: `$.contains(.pretty) ?
+  "(\(.num)/\(.den))" : .description` — `(3/4)`, `(2/1)` for an
+  integer as asked, the plain form unchanged. Flagged: a type that
+  does this trades the round trip of its pretty text for legibility,
+  and `print(r)` still says `Rational(num: 3, den: 4)`.

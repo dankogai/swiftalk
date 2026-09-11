@@ -48,7 +48,12 @@ See [grammar.md](grammar.md) for the syntax as parsed.
 two spellings; the method form chains. `Type()` with no argument is
 the type's default. Conversions are **failable where the value may
 not convert** (they return `nil`) and **type errors where the type
-never converts**.
+never converts**. The law reaches user types (round 151): a struct or
+enum declaring `let Double = { ... }` answers `Double(x)` as it
+answers `x.Double()`, format arguments passed to the member; a `let
+String` member owns `.String(...)` on its values — and its
+`.String(.pretty)` text at any depth of a layout. Inside such a
+member, `.description` is the builtin text.
 
 ## Extending any type (§10)
 

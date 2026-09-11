@@ -20,5 +20,7 @@ suite.
   fraction the Double is), a `"n/d"` String, or a Rational; `+ - * /
   **`, `-`, `==`, `<` (Ints lift, a Double on either side makes a
   Double); `abs`, `sign`, `reciprocal`, `floor`, `ceil`, `rounded`,
-  `truncated`, `mixed`, `fraction`, `isInteger`; `.Double()`, `.Int()`;
+  `truncated`, `mixed`, `fraction`, `isInteger`; `.Double()`/`Double(r)`,
+  `.Int()`/`Int(r)` (round 151); `r.String(.pretty)` is `"(3/4)"` — at
+  any depth of a layout — while `r.String()` stays the source form;
   `3.Rational()`. Zero denominators and overflow are Int's own errors.

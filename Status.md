@@ -222,6 +222,39 @@ Set(
 )
 ```
 
+**`Double(r)`; a type's own `.String(.pretty)`** (round 151) — the
+conversion law reaches user types (`let Double`, `let Int`, `let
+String` members answer the constructor spelling too), and a layout
+asks a user-typed value for its pretty text at any depth; the plain
+form stays the source form:
+
+```text
+swiftalk> import from "modules/Rational.swt"
+swiftalk> let r = Rational(3, 4)
+Rational(num: 3, den: 4)
+swiftalk> r.String(.pretty)
+"(3/4)"
+swiftalk> print([r, -r, Rational(2)].String(.pretty))
+[
+  (3/4),
+  (-3/4),
+  (2/1)
+]
+swiftalk> print(Rational(7, 4).mixed.String(.pretty))
+(
+  whole: 1,
+  part: (3/4)
+)
+swiftalk> r.String()
+"Rational(num: 3, den: 4)"
+swiftalk> Double(r)
+0.75
+swiftalk> Int(Rational(7, 4))
+1
+swiftalk> String(r, .pretty)
+"(3/4)"
+```
+
 **`Complex(abs:arg:)`, settable `abs`/`arg`** (round 150) — a same-arity
 labeled init beside the positional one, by declaration order (first
 match wins); writing `abs` keeps `arg` and vice versa:
