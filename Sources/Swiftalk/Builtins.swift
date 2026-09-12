@@ -122,7 +122,7 @@ enum Builtins {
             // the identity case, which is a copy, not a quoting.
             switch args.first {
             case nil:     return .string("")
-            case let v?:  return .string(displayString(v))
+            case let v?:  return .string(try displayString(v))
             }
         },
         "Array": type("Array") { args in

@@ -2190,3 +2190,26 @@ the history. (Moved out of Design.md in round 65.)
   integer as asked, the plain form unchanged. Flagged: a type that
   does this trades the round trip of its pretty text for legibility,
   and `print(r)` still says `Rational(num: 3, den: 4)`.
+
+* **2026-09-12, round 152 — `Rational("(n/d)")`; `(num/den)` is the
+  default `.String()`; `.String(.hex)`** ("Add Rational("num/den") to
+  init and "(num/den)" as default .String(). And .String(.hex).
+  .String(.pretty) is no longer required."). Round 151's line —
+  the member speaks for `.pretty`, the plain form stays the
+  builtin's — lasted a day. Once `(3/4)` is the type's plain text,
+  `print(r)` saying `Rational(num: 3, den: 4)` is a contradiction,
+  and so is `[r]` saying it while `r` does not. So the rule is now
+  Swift's `description` rule: the member owns the type's text
+  wherever a value prints — `.String()`, `String(x)`, `print`,
+  interpolation, the REPL, inside containers and as a key.
+  `sourceString` took the same callback `prettyString` had taken,
+  the REPL's echo moved off the raw source form (and kept its quotes
+  around Strings — the first cut lost them), and `.description`
+  became the deliberate escape hatch to the builtin memberwise text,
+  which a member may return without recursing. The data formats
+  stay the builtin's throughout: SION is a document, not a
+  presentation. In the module, `.String(.hex)` forwards the format
+  to both Ints — `(0x3/0x4)` — and the init strips the parentheses,
+  so every `.String()` form reads back: `Rational(r.String(.hex)) ==
+  r`. `.pretty` needs no special case now; forwarded to an Int it is
+  the plain digits.

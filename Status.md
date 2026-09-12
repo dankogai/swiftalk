@@ -222,16 +222,44 @@ Set(
 )
 ```
 
-**`Double(r)`; a type's own `.String(.pretty)`** (round 151) — the
-conversion law reaches user types (`let Double`, `let Int`, `let
-String` members answer the constructor spelling too), and a layout
-asks a user-typed value for its pretty text at any depth; the plain
-form stays the source form:
+**A type's `String` member owns its text; `Rational("(n/d)")`,
+`.String(.hex)`** (round 152) — a struct or enum declaring `let String
+= { ... }` prints as it says wherever a value of it appears: `.String()`,
+`String(x)`, `print`, interpolation, the REPL's echo, inside a
+container or as a key; `.description` is the builtin memberwise text;
+Rational forwards a format to both Ints and its init reads every form
+back:
 
 ```text
 swiftalk> import from "modules/Rational.swt"
 swiftalk> let r = Rational(3, 4)
-Rational(num: 3, den: 4)
+(3/4)
+swiftalk> r.String()
+"(3/4)"
+swiftalk> print(r, [r, -r], (whole: 1, part: r))
+(3/4) [(3/4), (-3/4)] (whole: 1, part: (3/4))
+swiftalk> "\(r) is \(Double(r))"
+"(3/4) is 0.75"
+swiftalk> r.String(.hex)
+"(0x3/0x4)"
+swiftalk> Rational("(0x3/0x4)") == r
+true
+swiftalk> Rational("(-6/8)")
+(-3/4)
+swiftalk> r.description
+"Rational(num: 3, den: 4)"
+```
+
+**`Double(r)`; a type's own `.String(.pretty)`** (round 151) — the
+conversion law reaches user types (`let Double`, `let Int`, `let
+String` members answer the constructor spelling too), and a layout
+asks a user-typed value for its pretty text at any depth (round 152
+then made the plain form the member's too — see above):
+
+```text
+swiftalk> import from "modules/Rational.swt"
+swiftalk> let r = Rational(3, 4)
+(3/4)
 swiftalk> r.String(.pretty)
 "(3/4)"
 swiftalk> print([r, -r, Rational(2)].String(.pretty))
@@ -245,8 +273,6 @@ swiftalk> print(Rational(7, 4).mixed.String(.pretty))
   whole: 1,
   part: (3/4)
 )
-swiftalk> r.String()
-"Rational(num: 3, den: 4)"
 swiftalk> Double(r)
 0.75
 swiftalk> Int(Rational(7, 4))
@@ -280,27 +306,27 @@ Complex(real: 10.0, imag: 0.0)
 ```
 
 **`modules/Rational.swt`; lazy `static let`** (round 149) — exact
-fractions normalized on construction; statics are evaluated on first
+fractions normalized on construction (echoing as `(n/d)` since round 152); statics are evaluated on first
 read, so they may depend on one another in any order:
 
 ```text
 swiftalk> import from "modules/Rational.swt"
 swiftalk> Rational(6, -8)
-Rational(num: -3, den: 4)
+(-3/4)
 swiftalk> Rational(3, 4) + 1
-Rational(num: 7, den: 4)
+(7/4)
 swiftalk> Rational(0.75) == Rational(3, 4)
 true
 swiftalk> Rational(0.1).fraction
 "3602879701896397/36028797018963968"
 swiftalk> Rational("-6/8") ** -2
-Rational(num: 16, den: 9)
+(16/9)
 swiftalk> Rational(1, 3) + 0.5
 0.8333333333333333
 swiftalk> [Rational(1, 2), Rational(1, 3)].sorted()
-[Rational(num: 1, den: 3), Rational(num: 1, den: 2)]
+[(1/3), (1/2)]
 swiftalk> Rational(7, 4).mixed
-(whole: 1, part: Rational(num: 3, den: 4))
+(whole: 1, part: (3/4))
 swiftalk> Rational(1, 0)
 division by zero
 swiftalk> struct T { static let a = Self.b + 1; static let b = 41 }

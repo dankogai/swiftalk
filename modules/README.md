@@ -21,6 +21,9 @@ suite.
   **`, `-`, `==`, `<` (Ints lift, a Double on either side makes a
   Double); `abs`, `sign`, `reciprocal`, `floor`, `ceil`, `rounded`,
   `truncated`, `mixed`, `fraction`, `isInteger`; `.Double()`/`Double(r)`,
-  `.Int()`/`Int(r)` (round 151); `r.String(.pretty)` is `"(3/4)"` — at
-  any depth of a layout — while `r.String()` stays the source form;
+  `.Int()`/`Int(r)` (round 151); a Rational prints as `(3/4)` wherever
+  it appears — `print`, `"\(r)"`, `[r]`, the REPL (round 152) — and
+  `.String(.hex)` is `(0x3/0x4)`, a format reaching both Ints;
+  `Rational("(3/4)")` and `Rational("(0x3/0x4)")` read them back;
+  `r.description` is the memberwise `Rational(num: 3, den: 4)`;
   `3.Rational()`. Zero denominators and overflow are Int's own errors.

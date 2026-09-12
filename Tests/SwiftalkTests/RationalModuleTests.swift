@@ -30,6 +30,11 @@ struct RationalModuleTests {
         #expect(try i.eval("Rational(\"-6/8\").fraction") == .string("-3/4"))
         #expect(try i.eval("Rational(\"5\").isInteger") == .bool(true))
         #expect(try i.eval("Rational(Rational(1, 3)).fraction") == .string("1/3"))
+        #expect(try i.eval("Rational(\"(3/4)\") == Rational(3, 4)") == .bool(true))                  // its own .String() reads back (round 152)
+        #expect(try i.eval("Rational(\"(-6/8)\").fraction") == .string("-3/4"))
+        #expect(try i.eval("Rational(\"(7/1)\").isInteger") == .bool(true))
+        #expect(try i.eval("Rational(\"(0x3/0x4)\") == Rational(3, 4)") == .bool(true))              // .String(.hex) reads back too
+        #expect(try i.eval("Rational(Rational(-7, 4).String()) == Rational(-7, 4)") == .bool(true))
         #expect(try i.eval("3.Rational() / 4 == Rational(3, 4)") == .bool(true))
         #expect(try i.eval("0.75.Rational().fraction") == .string("3/4"))
         #expect(try i.eval("Rational.zero == 0 && Rational.one == 1") == .bool(true))
@@ -82,16 +87,26 @@ struct RationalModuleTests {
         #expect(throws: SwiftalkError.self) { try i.eval("Rational(Int.max, 1) + Rational(1, 1)") }   // overflow traps, as Int's does
     }
 
-    @Test("round 151: .String(.pretty) is (num/den) at any depth; Double(r), Int(r), String(r) reach the members")
-    func prettyAndConstructorForms() throws {
+    @Test("rounds 151–152: .String() is (num/den) wherever a Rational prints; formats reach both Ints; Double(r), Int(r)")
+    func textAndConstructorForms() throws {
         let i = try interpreter()
+        #expect(try i.eval("Rational(3, 4).String()") == .string("(3/4)"))
+        #expect(try i.eval("Rational(2).String()") == .string("(2/1)"))
         #expect(try i.eval("Rational(3, 4).String(.pretty)") == .string("(3/4)"))
-        #expect(try i.eval("Rational(2).String(.pretty)") == .string("(2/1)"))
-        #expect(try i.eval("String(Rational(-3, 4), .pretty)") == .string("(-3/4)"))
-        #expect(try i.eval("Rational(3, 4).String()") == .string("Rational(num: 3, den: 4)"))      // the plain form is the source form
-        #expect(try i.eval("String(Rational(3, 4))") == .string("Rational(num: 3, den: 4)"))
+        #expect(try i.eval("String(Rational(-3, 4))") == .string("(-3/4)"))
+        #expect(try i.eval("Rational(3, 4).String(.hex)") == .string("(0x3/0x4)"))
+        #expect(try i.eval("Rational(-3, 4).String(.sign, .hex)") == .string("(-0x3/+0x4)"))
+        #expect(try i.eval("Rational(3, 4).String(.bin)") == .string("(0b11/0b100)"))
+        #expect(try i.eval("Rational(3, 4).description") == .string("Rational(num: 3, den: 4)"))       // the builtin memberwise text
+        #expect(try i.eval("Rational(3, 4).debugDescription") == .string("Rational(num: +0x3, den: +0x4)"))
+        #expect(try i.eval("\"\\(Rational(3, 4)) and \\(-Rational(3, 4))\"") == .string("(3/4) and (-3/4)"))
+        #expect(try i.eval("[Rational(1, 2), Rational(1, 3)].String()") == .string("[(1/2), (1/3)]"))
+        #expect(try i.eval("[Rational(1, 2): \"half\"].String()") == .string("[(1/2): \"half\"]"))
+        #expect(try i.eval("(whole: 1, part: Rational(3, 4)).String()") == .string("(whole: 1, part: (3/4))"))
+        #expect(try i.eval("Set(Rational(1, 2)).String()") == .string("Set((1/2))"))
         #expect(try i.eval("[Rational(1, 2), Rational(1, 3)].String(.pretty)") == .string("[\n  (1/2),\n  (1/3)\n]"))
-        #expect(try i.eval("[Rational(1, 2), Rational(1, 3)].String()") == .string("[Rational(num: 1, den: 2), Rational(num: 1, den: 3)]"))
+        #expect(try i.eval("[Rational(1, 2)].description") == .string("[Rational(num: 1, den: 2)]"))
+        #expect(try i.eval("[Rational(1, 2)].String(.sion)") == .string("[Rational(num: 1, den: 2)]"))   // a data format, builtin throughout
         #expect(try i.eval("Rational(7, 4).mixed.String(.pretty)") == .string("(\n  whole: 1,\n  part: (3/4)\n)"))
         #expect(try i.eval("[\"r\": [Rational(1, 2)]].String(.pretty)") == .string("[\n  \"r\": [\n    (1/2)\n  ]\n]"))
         #expect(try i.eval("Double(Rational(3, 4))") == .double(0.75))

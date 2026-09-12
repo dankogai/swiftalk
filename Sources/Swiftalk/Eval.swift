@@ -65,7 +65,7 @@ extension Swiftalk {
             declareBuiltin("print") { args in
                 // Raw display: Strings bare, everything else source form
                 // (round 35, completing round 23's display question).
-                box.write(args.map(displayString).joined(separator: " ") + "\n")
+                box.write(try args.map(displayString).joined(separator: " ") + "\n")
                 return .nil
             }
             declareBuiltin("debugPrint") { args in
@@ -166,6 +166,12 @@ extension Swiftalk {
         /// or `var`, destructuring included — whose names replace what
         /// they had, whatever the old type or mutability. The old
         /// bindings come back if the declaration fails.
+        /// A value's source form for the REPL's echo (round 152): a
+        /// String quoted, a user type's own `String` member honored.
+        public func sourceText(_ value: Value) throws -> String {
+            try valueSourceText(value)
+        }
+
         public func redefine(_ source: String) throws -> Value {
             var lexer = Lexer(source)
             var parser = Parser(try lexer.tokenize())
@@ -259,9 +265,40 @@ final class OutputBox {
 /// The raw display form (round 35): a String shows itself bare; every
 /// other value shows its .String() source form. Shared by `print` and
 /// string interpolation.
-func displayString(_ value: Value) -> String {
+/// The builtin display text — Strings bare, everything else the source
+/// form — for the data formats' keys (JSON, property lists), which never
+/// ask a type's own member.
+func plainString(_ value: Value) -> String {
     if case .string(let s) = value { return s }
     return value.sourceString()
+}
+
+func displayString(_ value: Value) throws -> String {
+    if case .string(let s) = value { return s }
+    return try valueSourceText(value)
+}
+
+/// The source form with a type's own text (round 152): a struct or
+/// enum whose type declares `let String = { ... }` prints as that
+/// member says — on its own, in a container, in an interpolation, at
+/// the REPL (where a String stays quoted). The member's error surfaces.
+func valueSourceText(_ value: Value) throws -> String {
+    var failure: Error? = nil
+    let text = value.sourceString { v in
+        guard failure == nil, let m = userConversion(v, "String") else { return nil }
+        do {
+            let (bound, _) = try boundMethod(m, self: v)
+            guard case .string(let s) = try apply(bound, args: []) else {
+                throw SwiftalkError.type("\(v.typeName).String() must return a String")
+            }
+            return s
+        } catch {
+            failure = error
+            return ""
+        }
+    }
+    if let failure { throw failure }
+    return text
 }
 
 /// A binding: its mutability, its type lock (Design.md §3), and its value.
@@ -1906,7 +1943,7 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
         // interpolation, `print` proper still OPEN).
         var out = ""
         for part in parts {
-            out += displayString(try evaluate(part, in: env))
+            out += try displayString(try evaluate(part, in: env))
         }
         return .string(out)
     }
@@ -4058,8 +4095,11 @@ private func method(on receiver: Value, name: String,
         }
         return reshape(kept, like: receiver)
     case ("description", false):
-        // print's form: Strings bare, everything else source form.
-        return .string(displayString(receiver))
+        // The builtin text: Strings bare, everything else the memberwise
+        // source form — never a type's own `String` member (round 152),
+        // so a member can say `.description` for the builtin form.
+        if case .string(let s) = receiver { return .string(s) }
+        return .string(receiver.sourceString())
     case ("debugDescription", false):
         // debugPrint's form: quoted strings, hex numbers (round 37).
         return .string(receiver.sourceString(debug: true))

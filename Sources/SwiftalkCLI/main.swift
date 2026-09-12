@@ -122,7 +122,7 @@ let help = """
         case ":r":
             guard !rest.isEmpty else { print("usage: :r let x = ..."); return }
             let value = try interpreter.redefine(rest)
-            if value != .nil { print(value.sourceString()) }
+            if value != .nil { print(try interpreter.sourceText(value)) }
         case ":d":
             guard !rest.isEmpty, !rest.contains(" ") else { print("usage: :d name"); return }
             try interpreter.undefine(rest)
@@ -164,7 +164,7 @@ loop: while true {
             // loops, if, print(...) — all evaluate to nil; echoing it
             // is noise.
             if value != .nil {
-                print(value.sourceString())
+                print(try interpreter.sourceText(value))
             }
         } catch let error as Swiftalk.Error {
             print(error.description)

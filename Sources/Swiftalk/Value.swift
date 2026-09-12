@@ -426,14 +426,24 @@ extension Value {
     /// as `0xff`, Double as hex-float `0x1.fep7` — for the programmer's
     /// sake, recursively through collections.
     public func sourceString(debug: Bool = false) -> String {
-        sourceString(debug: debug, seen: [])
+        sourceString(debug: debug, seen: []) { _ in nil }
+    }
+
+    /// The plain form with a type's own text (round 152): `custom` gets
+    /// the first word on every node, so a struct or enum whose type
+    /// declares `let String = { ... }` prints as that member says
+    /// wherever it appears — the evaluator supplies the callback. The
+    /// debug form never asks: it is the literal, for the programmer.
+    func sourceString(custom: (Value) -> String?) -> String {
+        sourceString(debug: false, seen: [], custom: custom)
     }
 
     /// The worker: `seen` carries the reference objects already being
     /// printed on this path, so a cyclic graph (possible since round
     /// 55's class references — a.next = b; b.next = a) elides instead
     /// of recursing forever.
-    private func sourceString(debug: Bool, seen: Set<ObjectIdentifier>) -> String {
+    private func sourceString(debug: Bool, seen: Set<ObjectIdentifier>, custom: (Value) -> String?) -> String {
+        if let own = custom(self) { return own }
         switch self {
         case .nil:
             return "nil"
@@ -450,7 +460,7 @@ extension Value {
         case .string(let s):
             return Value.quote(s)
         case .array(let a):
-            return "[" + a.map { $0.sourceString(debug: debug, seen: seen) }.joined(separator: ", ") + "]"
+            return "[" + a.map { $0.sourceString(debug: debug, seen: seen, custom: custom) }.joined(separator: ", ") + "]"
         case .function(let f):
             // A type or protocol prints as its name — which round-trips,
             // since eval("Int") is the very same value (round 39).
@@ -477,11 +487,11 @@ extension Value {
             // Literal syntax — round-trips through the lexer (§3d);
             // the unbounded `a...` prints as written (round 88).
             guard let upper else {
-                return Value.int(lower).sourceString(debug: debug, seen: seen) + "..."
+                return Value.int(lower).sourceString(debug: debug, seen: seen, custom: custom) + "..."
             }
-            return Value.int(lower).sourceString(debug: debug, seen: seen)
+            return Value.int(lower).sourceString(debug: debug, seen: seen, custom: custom)
                 + (closed ? "..." : "..<")
-                + Value.int(upper).sourceString(debug: debug, seen: seen)
+                + Value.int(upper).sourceString(debug: debug, seen: seen, custom: custom)
         case .sequence:
             // Lazy and possibly infinite — a placeholder, like plain
             // Functions (source text is OPEN, §3d).
@@ -493,7 +503,7 @@ extension Value {
             // Literal syntax — round-trips; an unlabeled 1-tuple spells
             // `(x,)`, a labeled one `(x: 1)` (round 74).
             let body = zip(t.labels, t.values).map { label, value in
-                (label.map { "\($0): " } ?? "") + value.sourceString(debug: debug, seen: seen)
+                (label.map { "\($0): " } ?? "") + value.sourceString(debug: debug, seen: seen, custom: custom)
             }.joined(separator: ", ")
             let lonely = t.count == 1 && t.labels[0] == nil
             return "(" + body + (lonely ? ",)" : ")")
@@ -509,7 +519,7 @@ extension Value {
             var seen = seen
             seen.insert(ObjectIdentifier(obj))
             let props = obj.type.propertyOrder.map {
-                "\($0): \((obj.storage[$0] ?? .nil).sourceString(debug: debug, seen: seen))"
+                "\($0): \((obj.storage[$0] ?? .nil).sourceString(debug: debug, seen: seen, custom: custom))"
             }.joined(separator: ", ")
             return props.isEmpty ? "\(obj.type.name) { }" : "\(obj.type.name) { \(props) }"
         case .byte(let b):
@@ -528,13 +538,13 @@ extension Value {
             // exactly as SION serializes dates.
             // (unsigned under debug, as SION writes it — not the Double's
             // own signed debug form; round 125)
-            return ".Date(\(debug ? Value.hexFloat(epoch) : Value.double(epoch).sourceString(debug: false, seen: seen)))"
+            return ".Date(\(debug ? Value.hexFloat(epoch) : Value.double(epoch).sourceString(debug: false, seen: seen, custom: custom)))"
         case .regex(let r):
             return r.sourceForm              // /pattern/flags — a literal, re-enters
         case .structValue(let sv):
             // Memberwise source form — round-trips wherever declared.
             return sv.type.name + "(" + sv.type.propertyOrder.map { prop in
-                "\(prop): \((sv.values[prop] ?? .nil).sourceString(debug: debug, seen: seen))"
+                "\(prop): \((sv.values[prop] ?? .nil).sourceString(debug: debug, seen: seen, custom: custom))"
             }.joined(separator: ", ") + ")"
         case .enumCase(let ev):
             // Source form — round-trips wherever the enum is declared.
@@ -542,7 +552,7 @@ extension Value {
             if !ev.associated.isEmpty {
                 let params = ev.type.cases[ev.caseName] ?? []
                 out += "(" + zip(params, ev.associated).map { param, value in
-                    let v = value.sourceString(debug: debug, seen: seen)
+                    let v = value.sourceString(debug: debug, seen: seen, custom: custom)
                     return param.label.map { "\($0): \(v)" } ?? v
                 }.joined(separator: ", ") + ")"
             }
@@ -555,14 +565,14 @@ extension Value {
             // element is a Sequence, which `Set(x)` would spread:
             // that one stays `Set([x])`.
             if s.isEmpty { return "Set()" }
-            let elements = s.map { $0.sourceString(debug: debug, seen: seen) }.sorted()
+            let elements = s.map { $0.sourceString(debug: debug, seen: seen, custom: custom) }.sorted()
             if s.count == 1, Value.spreadsInSet(s.first!) { return "Set([" + elements[0] + "])" }
             return "Set(" + elements.joined(separator: ", ") + ")"
         case .dictionary(let d):
             if d.isEmpty { return "[:]" }
             // Deterministic output: order entries by their key's source form.
             let body = d
-                .map { (key: $0.key.sourceString(debug: debug, seen: seen), value: $0.value.sourceString(debug: debug, seen: seen)) }
+                .map { (key: $0.key.sourceString(debug: debug, seen: seen, custom: custom), value: $0.value.sourceString(debug: debug, seen: seen, custom: custom)) }
                 .sorted { $0.key < $1.key }
                 .map { "\($0.key): \($0.value)" }
                 .joined(separator: ", ")
@@ -601,7 +611,7 @@ extension Value {
             return "[\n" + body + "\n" + close + "]"
         case .set(let s):
             if s.isEmpty { return "Set()" }
-            let body = try s.map { (key: $0.sourceString(), text: try $0.prettyString(depth: depth + 1, custom: custom)) }
+            let body = try s.map { (key: try custom($0) ?? $0.sourceString(), text: try $0.prettyString(depth: depth + 1, custom: custom)) }
                 .sorted { $0.key < $1.key }
                 .map { pad + $0.text }
                 .joined(separator: ",\n")
@@ -610,7 +620,7 @@ extension Value {
         case .dictionary(let d):
             if d.isEmpty { return "[:]" }
             let body = try d
-                .map { (key: $0.key.sourceString(), value: try $0.value.prettyString(depth: depth + 1, custom: custom)) }
+                .map { (key: try custom($0.key) ?? $0.key.sourceString(), value: try $0.value.prettyString(depth: depth + 1, custom: custom)) }
                 .sorted { $0.key < $1.key }
                 .map { pad + "\($0.key): \($0.value)" }
                 .joined(separator: ",\n")

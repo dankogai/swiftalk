@@ -26,7 +26,7 @@ view (§11). `"..."` literals with `\(interpolation)`, escapes `\" \\
 | `String.fromCodePoint(0x1F600, ...)` | a String from scalar values — JS's name, Swift's `String(UnicodeScalar)`; a surrogate or an out-of-range Int is an error; uncalled, a Function value (round 114) |
 | `s.SION()`, `SION(json: s)`, `SION(propertyList: s)` | parse the String as SION / JSON / an XML property list — see [SION.md](SION.md) |
 | `v.String(.json)`, `v.String(.propertyList)`, `v.String(.sion)` | any SION value as JSON / an XML property list / SION text (round 97) |
-| `v.String(.pretty)`, `v.String(.json, .pretty)` | the same SION / JSON text laid out one element per line, two spaces a level — Arrays, Dictionaries, tuples, structs, and enum payloads open up (rounds 117–118), everything else stays on its line; `.pretty` alone means `.sion`. A struct or enum whose type declares `let String = { ... }` supplies its own pretty text wherever a layout reaches one of its values (round 151) — keys excepted, a key being a lookup literal |
+| `v.String(.pretty)`, `v.String(.json, .pretty)` | the same SION / JSON text laid out one element per line, two spaces a level — Arrays, Dictionaries, tuples, structs, and enum payloads open up (rounds 117–118), everything else stays on its line; `.pretty` alone means `.sion`. A struct or enum whose type declares `let String = { ... }` supplies its own text wherever a value of it prints — plain or pretty, keys included (rounds 151–152); `.sion`, `.json`, and `.propertyList` on a container are data formats and never ask |
 | `for c in s` | graphemes |
 | `s.map { }` | an **Array** of results |
 | `s.filter { }` | a **String** (Swift-compatible) |

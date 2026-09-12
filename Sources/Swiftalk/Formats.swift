@@ -175,7 +175,7 @@ enum JSONFormat {
             out += "]"
         case .dictionary(let d):
             if d.isEmpty { out += "{}"; return }
-            let pairs = d.map { (key: displayString($0.key), value: $0.value) }
+            let pairs = d.map { (key: plainString($0.key), value: $0.value) }
                 .sorted { $0.key < $1.key }
             out += "{"
             for (i, p) in pairs.enumerated() {
@@ -661,7 +661,7 @@ enum PlistBinary {
                         throw SwiftalkError.type("property-list keys are Strings, not \(k.typeName)")
                     }
                 }
-                for (k, v) in d.sorted(by: { displayString($0.key) < displayString($1.key) }) {
+                for (k, v) in d.sorted(by: { plainString($0.key) < plainString($1.key) }) {
                     _ = try flatten(k); _ = try flatten(v)
                 }
             default: throw SwiftalkError.type("a \(v.typeName) has no property-list form")
@@ -691,7 +691,7 @@ enum PlistBinary {
                 for e in a { result.append(next); next += size(e) }
             case .dictionary(let d):
                 var keys: [Int] = [], values: [Int] = []
-                for (_, val) in d.sorted(by: { displayString($0.key) < displayString($1.key) }) {
+                for (_, val) in d.sorted(by: { plainString($0.key) < plainString($1.key) }) {
                     keys.append(next); next += 1
                     values.append(next); next += size(val)
                 }

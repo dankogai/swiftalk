@@ -51,9 +51,12 @@ not convert** (they return `nil`) and **type errors where the type
 never converts**. The law reaches user types (round 151): a struct or
 enum declaring `let Double = { ... }` answers `Double(x)` as it
 answers `x.Double()`, format arguments passed to the member; a `let
-String` member owns `.String(...)` on its values — and its
-`.String(.pretty)` text at any depth of a layout. Inside such a
-member, `.description` is the builtin text.
+String` member owns the type's text wherever a value of it prints
+(round 152) — `.String(...)`, `String(x)`, `print`, `"\(x)"`, the
+REPL, inside a container. `.description` is the builtin memberwise
+text (what a member returns for the form it does not change), and
+the data formats `.sion`/`.json`/`.propertyList` on a container never
+ask the member.
 
 ## Extending any type (§10)
 

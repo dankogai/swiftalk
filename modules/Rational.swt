@@ -6,7 +6,8 @@
 //     Rational(0.75) == r                // a Double converts exactly (it is a binary fraction)
 //     Rational("-6/8").fraction          // "-3/4"
 //     (r ** -2).Double()                 // 1.7777…; Double(r ** -2) says the same
-//     [r, -r].String(.pretty)            // "[\n  (3/4),\n  (-3/4)\n]"
+//     r.String()                         // "(3/4)" — and print(r), "\(r)", [r] say the same
+//     Rational(r.String(.hex)) == r      // "(0x3/0x4)" reads back
 //
 // Two Ints, `num` and `den`, normalized on every construction: reduced
 // by their gcd, the sign in `num`. Equality is therefore structural —
@@ -43,7 +44,8 @@ export struct Rational {
             self.num = r.num
             self.den = r.den
         } else if x.Type == String {
-            let parts = x.split("/")
+            let text = x.first == "(" ? x.dropFirst().dropLast() : x     // "(n/d)" — its own .String() (round 152)
+            let parts = text.split("/")
             let r = parts.count == 1 ? Self(parts[0].Int()!, 1) : Self(parts[0].Int()!, parts[1].Int()!)
             self.num = r.num
             self.den = r.den
@@ -136,9 +138,15 @@ export struct Rational {
     // — conversions, by the round-47 law's spelling: r.Double() and Double(r) alike (round 151)
     let Double = { .num.Double() / .den.Double() }
     let Int = { .truncated }
-    // .String(.pretty) is "(num/den)" — at any depth of a pretty layout; the
-    // plain .String() stays the source form, which .description is
-    let String = { $.contains(.pretty) ? "(\(.num)/\(.den))" : .description }
+    // .String() is "(num/den)" (round 152) — wherever the value prints: print,
+    // interpolation, the REPL, inside a container; a format goes to both
+    // Ints, so .String(.hex) is "(0x3/0x4)" and Rational(that) reads it back.
+    // .description is the memberwise builtin text, Rational(num: 3, den: 4).
+    let String = {
+        if $.count == 0 { return "(\(.num)/\(.den))" }
+        if $.count == 1 { return "(\(.num.String($0))/\(.den.String($0)))" }
+        return "(\(.num.String($0, $1))/\(.den.String($0, $1)))"
+    }
 }
 
 // `3.Rational()`, `0.75.Rational()`: the conversion law's spelling, from

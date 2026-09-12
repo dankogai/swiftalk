@@ -524,7 +524,9 @@ string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bar
   ... }` answers `T(x, formats...)` with that member bound over `x`,
   formats as its arguments — the two spellings are one operation for
   user types too. Inside such a member `.description` is the builtin
-  text; `String(self)` would be the member again.
+  text; `String(self)` would be the member again. (Round 152: the
+  `String` member's reach — print, interpolation, containers — is
+  under `.pretty`'s paragraph in §3d.)
 
 ### 3c. `Any`, `Primitives`, and heterogeneous collections — DECIDED (direction)
 
@@ -1006,24 +1008,27 @@ property per line), and enum cases with payloads; a payload-less
 case, an empty tuple or struct, and the leaves — Data, Date, Regex,
 Range, the Function-family placeholders — stay on one line. The
 pretty text is still the source form, re-entering wherever its types
-are declared. **Round 151 — LEANING** ("`rat.String(.pretty)` goes
-`"(num/den)"`"): a struct or enum whose type declares `let String =
-{ ... }` owns its pretty text — `x.String(.pretty)` runs the member
-(it always did, a type's members winning over the builtins), and a
-layout that reaches such a value at any depth asks the member the
-same question, so `[Rational(1, 2)].String(.pretty)` opens to
-`(1/2)`, not `Rational(\n  num: 1, …`. The member sees its format
-arguments as `$` — `$.contains(.pretty)` — and answers the plain
-call with `.description`, the builtin text. Two lines drawn: the
-plain `.String()` of a container stays the builtin source form
-throughout (that text is the language's round trip, not a type's to
-change; the layout is presentation), and a Dictionary key is printed
-as a lookup literal, never laid out. A type that takes this offer
-gives up the round trip for its pretty text — `(1/2)` re-enters as
-an Int — which is the type's choice to make, as Swift's
-`description` is. Builtins do not take part: an `extension Int { let
-String }` is not consulted by a layout. Whether `print(x)` and
-`"\(x)"` should also ask a type's `String` member stays OPEN.
+are declared. **Round 151** ("`rat.String(.pretty)` goes
+`"(num/den)"`") first let a type's `let String = { ... }` member
+speak only for its `.pretty` text, the plain form of a container
+staying the builtin's; **round 152 — DECIDED** ("`"(num/den)"` as
+default `.String()`") widened it to the rule Swift's
+`CustomStringConvertible` has: **a struct or enum whose type declares
+`let String = { ... }` owns its text wherever a value of it prints**
+— `x.String()` and `x.String(format)` (the member sees its format
+arguments as `$`), `String(x)`, `print(x)`, `"\(x)"`, the REPL's
+echo, and inside any container, plain or `.pretty`, keys included:
+`[Rational(1, 2): 1]` prints `[(1/2): 1]`. Two forms never ask the
+member: **`.description`/`.debugDescription`**, which are the
+builtin memberwise text — so a member can say `.description` for the
+builtin form without recursing (`String(self)` would be the member
+again) — and **the data formats** `.sion`, `.json`, `.propertyList`
+on a container, whose text is SION's, not a type's to change. A type
+that takes this offer trades the round trip of its text for
+legibility — `(1/2)` re-enters as an Int — which is its choice to
+make, as Swift's `description` is; Rational's own init reads its
+text back, `Rational("(3/4)")`. Builtins do not take part: an
+`extension Int { let String }` is not consulted for a nested Int.
 
 **`nil` infers `Any` — DECIDED (round 101)**. Round 59's inference
 refused to bind a strict `let`/`var` from `nil` ("cannot infer a type
