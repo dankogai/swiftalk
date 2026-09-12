@@ -222,6 +222,34 @@ Set(
 )
 ```
 
+**`.String(.canonical)`; `1.over(3)`** (round 153) — the builtin
+memberwise source form as a format word, no type's `String` member
+asked at any depth, combining with `.pretty`; and `Int.over` in the
+module:
+
+```text
+swiftalk> import from "modules/Rational.swt"
+swiftalk> let r = 1.over(3)
+(1/3)
+swiftalk> r.String(.canonical)
+"Rational(num: 1, den: 3)"
+swiftalk> [r, 2.over(3)].String(.canonical)
+"[Rational(num: 1, den: 3), Rational(num: 2, den: 3)]"
+swiftalk> print([r].String(.canonical, .pretty))
+[
+  Rational(
+    num: 1,
+    den: 3
+  )
+]
+swiftalk> r.String(.canonical) == r.description
+true
+swiftalk> 42.String(.canonical)
+"42"
+swiftalk> r.String(.canonical, .hex)
+type error: .canonical is the source form itself — alone or with .pretty, not with another format
+```
+
 **A type's `String` member owns its text; `Rational("(n/d)")`,
 `.String(.hex)`** (round 152) — a struct or enum declaring `let String
 = { ... }` prints as it says wherever a value of it appears: `.String()`,

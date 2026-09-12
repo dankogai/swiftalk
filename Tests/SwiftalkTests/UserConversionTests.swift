@@ -73,6 +73,16 @@ struct UserConversionTests {
         #expect(try i.eval("[Temp(kelvin: 1.0)].description") == .string("[Temp(kelvin: 1.0)]"))        // the builtin text, throughout
         #expect(try i.eval("[Temp(kelvin: 1.0)].String(.sion)") == .string("[Temp(kelvin: 1.0)]"))      // a data format, builtin throughout
         #expect(try i.eval("[Temp(kelvin: 1.0)].debugDescription") == .string("[Temp(kelvin: +0x1p0)]"))
+        // .String(.canonical) (round 153): the builtin memberwise form, no member asked, at any depth
+        #expect(try i.eval("Temp(kelvin: 1.0).String(.canonical)") == .string("Temp(kelvin: 1.0)"))
+        #expect(try i.eval("String(Temp(kelvin: 1.0), .canonical)") == .string("Temp(kelvin: 1.0)"))
+        #expect(try i.eval("Coin.heads.String(.canonical)") == .string("Coin.heads"))
+        #expect(try i.eval("[Temp(kelvin: 1.0), Coin.heads].String(.canonical)") == .string("[Temp(kelvin: 1.0), Coin.heads]"))
+        #expect(try i.eval("[Temp(kelvin: 1.0)].String(.canonical, .pretty)") == .string("[\n  Temp(\n    kelvin: 1.0\n  )\n]"))
+        #expect(try i.eval("Bad().String(.canonical)") == .string("Bad(x: 1)"))                           // the member is not consulted
+        #expect(try i.eval("[1, \"a\"].String(.canonical)") == .string("[1, \"a\"]"))                    // builtins: the source form as ever
+        #expect(throws: SwiftalkError.self) { try i.eval("42.String(.canonical, .hex)") }
+        #expect(throws: SwiftalkError.self) { try i.eval("[1].String(.canonical, .json)") }
         #expect(try i.eval("[Plain()].String(.pretty)") == .string("[\n  Plain(\n    x: 1\n  )\n]"))   // no member: laid out as before
         #expect(throws: SwiftalkError.self) { try i.eval("[Bad()].String(.pretty)") }                  // must return a String
         #expect(throws: SwiftalkError.self) { try i.eval("[Bad()].String()") }

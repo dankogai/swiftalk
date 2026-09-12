@@ -25,5 +25,6 @@ suite.
   it appears — `print`, `"\(r)"`, `[r]`, the REPL (round 152) — and
   `.String(.hex)` is `(0x3/0x4)`, a format reaching both Ints;
   `Rational("(3/4)")` and `Rational("(0x3/0x4)")` read them back;
-  `r.description` is the memberwise `Rational(num: 3, den: 4)`;
-  `3.Rational()`. Zero denominators and overflow are Int's own errors.
+  `r.description` and `r.String(.canonical)` are the memberwise
+  `Rational(num: 3, den: 4)`; `3.Rational()`, `1.over(3)` (round 153).
+  Zero denominators and overflow are Int's own errors.

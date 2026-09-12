@@ -107,6 +107,15 @@ struct RationalModuleTests {
         #expect(try i.eval("[Rational(1, 2), Rational(1, 3)].String(.pretty)") == .string("[\n  (1/2),\n  (1/3)\n]"))
         #expect(try i.eval("[Rational(1, 2)].description") == .string("[Rational(num: 1, den: 2)]"))
         #expect(try i.eval("[Rational(1, 2)].String(.sion)") == .string("[Rational(num: 1, den: 2)]"))   // a data format, builtin throughout
+        #expect(try i.eval("Rational(3, 4).String(.canonical)") == .string("Rational(num: 3, den: 4)"))    // round 153
+        #expect(try i.eval("String(Rational(3, 4), .canonical)") == .string("Rational(num: 3, den: 4)"))
+        #expect(try i.eval("[Rational(1, 2)].String(.canonical)") == .string("[Rational(num: 1, den: 2)]"))
+        #expect(try i.eval("Rational(3, 4).String(.canonical, .pretty)") == .string("Rational(\n  num: 3,\n  den: 4\n)"))
+        #expect(try i.eval("1.over(3) == Rational(1, 3)") == .bool(true))
+        #expect(try i.eval("(1.over(3) + 1.over(6)).String()") == .string("(1/2)"))
+        #expect(try i.eval("(-1).over(3).String()") == .string("(-1/3)"))
+        #expect(try i.eval("3.over(-6).String()") == .string("(-1/2)"))
+        #expect(throws: SwiftalkError.self) { try i.eval("1.over(0)") }
         #expect(try i.eval("Rational(7, 4).mixed.String(.pretty)") == .string("(\n  whole: 1,\n  part: (3/4)\n)"))
         #expect(try i.eval("[\"r\": [Rational(1, 2)]].String(.pretty)") == .string("[\n  \"r\": [\n    (1/2)\n  ]\n]"))
         #expect(try i.eval("Double(Rational(3, 4))") == .double(0.75))

@@ -1029,6 +1029,16 @@ legibility — `(1/2)` re-enters as an Int — which is its choice to
 make, as Swift's `description` is; Rational's own init reads its
 text back, `Rational("(3/4)")`. Builtins do not take part: an
 `extension Int { let String }` is not consulted for a nested Int.
+**Round 153** ("Add `rat.String(.canonical)`") names the escape hatch
+as a format word: **`.String(.canonical)`** is the builtin memberwise
+source form — `.description`'s text — with no type's `String` member
+asked at any depth, so `[r].String(.canonical)` is
+`[Rational(num: 1, den: 3)]` where `[r].String()` is `[(1/3)]`. It
+combines with `.pretty` and with nothing else; on a builtin value it
+is the source form as ever. The word is the interpreter's, not the
+member's: a `String` member never receives `.canonical`, so a type
+cannot hide its memberwise form. Asked for Rational, given to every
+type — one rule is cheaper than one member per module.
 
 **`nil` infers `Any` — DECIDED (round 101)**. Round 59's inference
 refused to bind a strict `let`/`var` from `nil` ("cannot infer a type

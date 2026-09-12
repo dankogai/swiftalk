@@ -34,7 +34,7 @@ enum Shape {
 | `s.m(args)` | methods, `self` bound; `switch self` inside |
 | `s == t` | equality of case and payloads; `s.Type == Shape` |
 | `s.String()` | `"Shape.circle(r: 2.5)"` — round-trips wherever Shape is declared |
-| `let String = { … }`, `let Int = { … }` | conversion members, as a struct's (rounds 151–152): `Int(s)` runs `let Int`; a `String` member owns the case's text wherever it prints — `.String()`, `print`, `"\(s)"`, inside a container; `s.description` stays the builtin `"Shape.dot"` |
+| `let String = { … }`, `let Int = { … }` | conversion members, as a struct's (rounds 151–152): `Int(s)` runs `let Int`; a `String` member owns the case's text wherever it prints — `.String()`, `print`, `"\(s)"`, inside a container; `s.description` and `s.String(.canonical)` stay the builtin `"Shape.dot"` (round 153) |
 | `s.String(.pretty)` | the same, one payload per line, two spaces a level; a case without a payload is one line (round 118) |
 | `static let unitCircle = Self.circle(r: 1.0)`, `static var names { [...] }` | static members (round 143), as a struct's — `Shape.unitCircle`; a static may not share a case's name |
 | `prefix(-) = { s in ... }`, `infix(+) = { a, b in ... }` | operators (round 146), as a struct's — see [struct.md](struct.md) |

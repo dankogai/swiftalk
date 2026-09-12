@@ -2213,3 +2213,21 @@ the history. (Moved out of Design.md in round 65.)
   so every `.String()` form reads back: `Rational(r.String(.hex)) ==
   r`. `.pretty` needs no special case now; forwarded to an Int it is
   the plain digits.
+
+* **2026-09-12, round 153 — `.String(.canonical)`; `1.over(3)`**
+  ("Add `rat.String(.canonical)` to stringify as `"Rational(num:,
+  den:)"`. Also add `extension Int { let over = { den in
+  Rational(self, den) }` so you can build `1/3` with `1.over(3)`").
+  The first could have been one more branch in Rational's `String`
+  member — `$.contains(.canonical) ? .description : …` — but then
+  `[r].String(.canonical)` would have been an unknown format, and
+  every other type with a `String` member would have had to learn the
+  word. So `.canonical` is the interpreter's: a third modifier in
+  `stringFormat` beside `.pretty` and `.sign`, and the three places
+  that hand `.String(...)` to a user member (the call path, the
+  uncalled path, `convert`) step aside when they see it. The member
+  never sees the word, which is the point — a type's memberwise form
+  is always one question away. `over` went into the module as
+  written; `(-1).over(3)` needs its parentheses, as `-1.over(3)` is
+  the negation of `1.over(3)` — the same value here, by luck of the
+  sign normalizing into `num`.

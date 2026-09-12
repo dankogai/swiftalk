@@ -1769,7 +1769,9 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
             // changed, it writes back through the receiver's lvalue —
             // a let receiver or a temporary errors only then.
             var userMethod: FunctionObject? = nil
-            if case .structValue(let sv) = receiver, let m = sv.type.methods[name] {
+            if asksCanonical(name, evaluated) {
+                // .String(.canonical) is the interpreter's word (round 153)
+            } else if case .structValue(let sv) = receiver, let m = sv.type.methods[name] {
                 userMethod = m
             } else if case .enumCase(let ev) = receiver, let m = ev.type.methods[name] {
                 userMethod = m
@@ -3513,7 +3515,7 @@ func convert(_ typeName: String, subject: Value?,
     // `x.Double()` — the member, bound over x, takes the format
     // arguments. (Inside such a member, `.description` is the builtin
     // text; `String(self)` would be the member again.)
-    if let subject, let m = userConversion(subject, typeName) {
+    if let subject, !asksCanonical(typeName, extra), let m = userConversion(subject, typeName) {
         let (bound, _) = try boundMethod(m, self: subject)
         return try apply(bound, args: extra)
     }
@@ -3602,6 +3604,15 @@ func convert(_ typeName: String, subject: Value?,
     }
 }
 
+/// `.String(.canonical)` (round 153): the builtin memberwise source form,
+/// `Rational(num: 3, den: 4)`, no type's `String` member asked at any
+/// depth — `.description`'s text, as a format word so it combines with
+/// `.pretty`. The word is the interpreter's: a `String` member never
+/// sees it, so a type's own text can always be looked behind.
+func asksCanonical(_ name: String, _ args: [(label: String?, value: Value)]) -> Bool {
+    name == "String" && args.contains { $0.label == nil && $0.value == .string("canonical") }
+}
+
 /// A user type's own conversion member (round 151): `let Double = {
 /// ... }` or `let String = { ... }` declared in a struct or enum body
 /// (or its extension). nil for builtins and for types without one.
@@ -3636,7 +3647,7 @@ private func userPretty(_ value: Value) throws -> String? {
 private func stringFormat(_ subject: Value,
                           _ formats: [(label: String?, value: Value)]) throws -> Value {
     var formats = formats
-    var pretty = false, sign = false
+    var pretty = false, sign = false, canonical = false
     if let i = formats.firstIndex(where: { $0.label == nil && $0.value == .string("pretty") }) {
         pretty = true
         formats.remove(at: i)
@@ -3645,11 +3656,22 @@ private func stringFormat(_ subject: Value,
         sign = true
         formats.remove(at: i)
     }
+    if let i = formats.firstIndex(where: { $0.label == nil && $0.value == .string("canonical") }) {
+        canonical = true
+        formats.remove(at: i)
+    }
     guard formats.count <= 1 else {
         throw SwiftalkError.type(".String() takes at most one format argument, plus .pretty or .sign")
     }
     guard !(pretty && sign) else {
         throw SwiftalkError.type(".pretty lays out text and .sign marks a number — not both")
+    }
+    if canonical {
+        // the builtin source form, members unasked (round 153); laid out under .pretty
+        guard formats.isEmpty, !sign else {
+            throw SwiftalkError.type(".canonical is the source form itself — alone or with .pretty, not with another format")
+        }
+        return .string(pretty ? subject.prettyString() : subject.sourceString())
     }
     /// the sign to write: `-` for a negative, `+` for the rest under .sign
     func plus(_ negative: Bool) -> String { negative ? "-" : sign ? "+" : "" }
@@ -3886,11 +3908,11 @@ private func method(on receiver: Value, name: String,
     // bound Function closes over a COPY of self — value semantics; its
     // later mutations stay in the copy. (Calls route through evaluate's
     // dispatch, which write-backs actual mutation.)
-    if case .structValue(let sv) = receiver, let m = sv.type.methods[name] {
+    if case .structValue(let sv) = receiver, let m = sv.type.methods[name], !asksCanonical(name, labeledArgs) {
         let (bound, _) = try boundMethod(m, self: receiver, mutableSelf: true)
         return called ? try apply(bound, args: labeledArgs) : .function(bound)
     }
-    if case .enumCase(let ev) = receiver, let m = ev.type.methods[name] {
+    if case .enumCase(let ev) = receiver, let m = ev.type.methods[name], !asksCanonical(name, labeledArgs) {
         let (bound, _) = try boundMethod(m, self: receiver, mutableSelf: true)
         return called ? try apply(bound, args: labeledArgs) : .function(bound)
     }
