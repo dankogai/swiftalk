@@ -1038,7 +1038,12 @@ combines with `.pretty` and with nothing else; on a builtin value it
 is the source form as ever. The word is the interpreter's, not the
 member's: a `String` member never receives `.canonical`, so a type
 cannot hide its memberwise form. Asked for Rational, given to every
-type — one rule is cheaper than one member per module.
+type — one rule is cheaper than one member per module. **Round 154**
+("Make `z.String()` default to `(real+imag.i)`") had Complex take the
+same offer, and its text is an *expression*: `(1.0-2.0.i)` re-enters
+as written because `Double.i` is the imaginary unit — the round trip
+a custom text gives up is recovered by making the text source. The
+module's one-argument init reads it back too, `Complex("(1.0-2.0.i)")`.
 
 **`nil` infers `Any` — DECIDED (round 101)**. Round 59's inference
 refused to bind a strict `let`/`var` from `nil` ("cannot infer a type

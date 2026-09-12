@@ -46,7 +46,29 @@ struct ComplexModuleTests {
         #expect(try i.eval("var w = Complex(1.0)\nw *= Complex(0.0, 1.0)\nw += 1\nw == Complex(1.0, 1.0)") == .bool(true))
         #expect(try i.eval("[Complex(1.0), Complex(0.0, 1.0)].reduce(Complex(), +) == Complex(1.0, 1.0)") == .bool(true))
         #expect(try i.eval("(*)(Complex(0.0, 1.0), Complex(0.0, 1.0)).real") == .double(-1))
-        #expect(try i.eval("Complex(1.0, 2.0).String()") == .string("Complex(real: 1.0, imag: 2.0)"))
+        // text and its reading (round 154): "(real+imag.i)" re-enters as an expression; Complex(text) reads it
+        #expect(try i.eval("Complex(1.0, 2.0).String()") == .string("(1.0+2.0.i)"))
+        #expect(try i.eval("Complex(1.0, -2.0).String()") == .string("(1.0-2.0.i)"))
+        #expect(try i.eval("Complex(-0.0, -0.0).String()") == .string("(-0.0-0.0.i)"))
+        #expect(try i.eval("Complex(1.0, 2.0).String(.canonical)") == .string("Complex(real: 1.0, imag: 2.0)"))
+        #expect(try i.eval("Complex(1.0, 2.0).description") == .string("Complex(real: 1.0, imag: 2.0)"))
+        #expect(try i.eval("Complex(1.0, -2.0).String(.hex)") == .string("(0x1p0-0x1p1.i)"))
+        #expect(try i.eval("Complex(1.0, 2.0).String(.sign)") == .string("(+1.0+2.0.i)"))
+        #expect(try i.eval("[Complex(1.0, 2.0), 1.i].String()") == .string("[(1.0+2.0.i), (0.0+1.0.i)]"))
+        #expect(try i.eval("\"\\(Complex(1.0, 2.0))\"") == .string("(1.0+2.0.i)"))
+        #expect(try i.eval("Complex(\"(1.0-2.0.i)\") == Complex(1.0, -2.0)") == .bool(true))
+        #expect(try i.eval("Complex(\"1.0+2.0.i\") == Complex(1.0, 2.0)") == .bool(true))
+        #expect(try i.eval("Complex(\"2.0.i\") == 2.i && Complex(\"-2.0.i\") == -2.i") == .bool(true))
+        #expect(try i.eval("Complex(\"3.0\") == 3.0 && Complex(\"(3.0)\") == 3.0") == .bool(true))
+        #expect(try i.eval("Complex(\"(1e-05+2.0.i)\") == Complex(1e-05, 2.0)") == .bool(true))         // an exponent's sign is not a cut
+        #expect(try i.eval("Complex(\"(1.0e+5-2.0e-3.i)\") == Complex(1.0e5, -2.0e-3)") == .bool(true))
+        #expect(try i.eval("Complex(Complex(1.0, 2.0).String(.hex)) == Complex(1.0, 2.0)") == .bool(true))
+        #expect(try i.eval("let t = Complex(-3.5, 0.25)\nComplex(t.String()) == t && Complex(\"\\(t)\") == t") == .bool(true))
+        #expect(try i.eval("Complex(\"(inf+nan.i)\").real") == .double(.infinity))
+        #expect(try i.eval("Complex(3) == 3.0 && Complex(Complex(1.0, 2.0)) == Complex(1.0, 2.0)") == .bool(true))   // the one-arg init lifts and copies
+        #expect(try i.eval("Complex(real: 3.0) == 3.0") == .bool(true))                                      // a labeled one still memberwise
+        #expect(throws: SwiftalkError.self) { try i.eval("Complex(\"x\")") }
+        #expect(throws: SwiftalkError.self) { try i.eval("Complex(\"(1.0+2.0i)\")") }                    // the imaginary unit is `.i`, as written
         // polar init and the abs/arg setters (round 150)
         #expect(try i.eval("near(Complex(abs: 2.0, arg: Double.pi / 2.0), Complex(0.0, 2.0))") == .bool(true))
         #expect(try i.eval("near(Complex(arg: 0.0, abs: 3.0), 3.0)") == .bool(true))

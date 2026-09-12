@@ -12,6 +12,10 @@ suite.
   statics, `polar`, and the exponential, logarithmic, trigonometric,
   and hyperbolic functions as statics (`Complex.exp(z)`). `z.i` is
   `z * i`, and `extension Double { var i }` makes `Double.pi.i` read.
+  A Complex prints as `(1.0-2.0.i)` (round 154) — an expression that
+  re-enters as written — and `Complex("(1.0-2.0.i)")` reads it back, as
+  do `"3.0"`, `"2.0.i"`, and `.String(.hex)`'s text; `z.description`
+  and `z.String(.canonical)` are `Complex(real: 1.0, imag: -2.0)`.
   Written with rounds 143–146: statics, `Self`, and operator members.
 * **[Rational.swt](Rational.swt)** — exact fractions of Ints (round
   149): normalized on construction (reduced, the sign in `num`), so

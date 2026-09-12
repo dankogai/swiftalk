@@ -2231,3 +2231,21 @@ the history. (Moved out of Design.md in round 65.)
   written; `(-1).over(3)` needs its parentheses, as `-1.over(3)` is
   the negation of `1.over(3)` — the same value here, by luck of the
   sign normalizing into `num`.
+
+* **2026-09-13, round 154 — `(real+imag.i)`; `Complex("…")`** ("Make
+  `z.String()` default to `"(real+imag.i)"`. Implement
+  `Complex("real+imag.i")`"). Rational's pattern, a day later, with a
+  twist that makes it better than Rational's: `(1.0-2.0.i)` is not
+  just legible, it is a swiftalk expression — `Double.i` has been the
+  imaginary unit since round 147 — so the text re-enters as written,
+  and `Complex(text)` is a convenience rather than the only way back.
+  The sign is the only care: a negative or `-0.0` imaginary part
+  prints as `-` and its magnitude, and a `+` that a format like
+  `.sign` puts on the magnitude is dropped, so `.String(.hex)` gives
+  `(0x1p0-0x1p1.i)` and reads back. The reader strips the
+  parentheses and the `.i`, then cuts at the last `+` or `-` that is
+  neither the leading sign nor an exponent's — `1e-05` prints that
+  way — and hands each half to `Double()`. The one-argument init
+  that carries it also lifts an Int and copies a Complex;
+  `Complex(real: 3.0)` stays memberwise by its label. Three Status
+  transcripts were regenerated, their echoes having changed.

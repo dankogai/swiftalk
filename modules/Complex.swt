@@ -5,6 +5,8 @@
 //     Complex(abs: 2.0, arg: Double.pi)  // polar: -2 + 0i; z.abs = 1.0 rescales, z.arg = 0.0 rotates
 //     z * z.conj == z.norm               // (a + bi)(a - bi) = a² + b²
 //     Complex.exp(Double.pi.i).real      // -1.0 — Euler
+//     z.String()                         // "(1.0+2.0.i)" — print(z) and the REPL say the same; it re-enters as written
+//     Complex("(1.0-2.0.i)")             // reads it back; so do "3.0", "2.0.i", and .String(.hex)'s text
 //
 // Doubles throughout, as std::complex<double>; an Int is promoted where
 // a scalar meets a Complex. The free functions of <complex> are statics
@@ -26,9 +28,50 @@ export struct Complex {
         self.real = abs * Double.cos(arg)
         self.imag = abs * Double.sin(arg)
     }
+    // — one argument (round 154): a String in .String()'s own form, "(1.0-2.0.i)"
+    //   (parentheses and ".i" optional, so "3.0" and "2.0.i" read too); a
+    //   Complex copied; an Int or Double as the real part
+    init { x in
+        if x.Type == String {
+            var body = x.first == "(" ? x.dropFirst().dropLast() : x
+            let imaginary = body.suffix(2) == ".i"
+            if imaginary { body = body.dropLast(2) }
+            var cut = -1                                   // the last +/- that is not a sign or an exponent's
+            var prev = ""
+            for (k, c) in body.enumerated() {
+                if k > 0 && (c == "+" || c == "-") && prev != "e" && prev != "E" { cut = k }
+                prev = c
+            }
+            if cut < 0 {
+                self.real = imaginary ? 0.0 : body.Double()!
+                self.imag = imaginary ? body.Double()! : 0.0
+            } else {
+                self.real = body.prefix(cut).Double()!
+                self.imag = body.dropFirst(cut).Double()!
+            }
+        } else if x.Type == Self {
+            self.real = x.real
+            self.imag = x.imag
+        } else {
+            self.real = x.Double()
+            self.imag = 0.0
+        }
+    }
 
     // — a scalar as a Complex: Int and Double lift, a Complex is itself
     static let lift = { x in x.Type == Self ? x : Self(x.Double(), 0.0) }
+
+    // — text (round 154): "(real+imag.i)" — an expression that re-enters,
+    //   since Double.i is the imaginary unit: (1.0-2.0.i) is 1.0 - 2.0.i.
+    //   A format goes to both Doubles: .String(.hex) is "(0x1p0+0x1p1.i)".
+    //   .description and .String(.canonical) stay Complex(real:, imag:).
+    static let format = { v, fs in fs.count == 0 ? "\(v)" : fs.count == 1 ? v.String(fs[0]) : v.String(fs[0], fs[1]) }
+    let String = {
+        let negative = Double.copysign(1.0, .imag) < 0.0
+        var im = Self.format(negative ? 0.0 - .imag : .imag, $)
+        if im.first == "+" { im = im.dropFirst() }
+        return "(\(Self.format(.real, $))\(negative ? "-" : "+")\(im).i)"
+    }
 
     // — arithmetic (C++ operators; either side may be a scalar)
     infix(+) = { a, b in

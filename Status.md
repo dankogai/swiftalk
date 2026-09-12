@@ -222,6 +222,36 @@ Set(
 )
 ```
 
+**Complex prints `(real+imag.i)`; `Complex("…")`** (round 154) — the
+text is an expression that re-enters as written, since `Double.i` is
+the imaginary unit; the one-argument init reads it (and a bare real,
+a bare imaginary, `.String(.hex)`'s text), lifts an Int, copies a
+Complex:
+
+```text
+swiftalk> import from "modules/Complex.swt"
+swiftalk> let z = Complex(1.0, -2.0)
+(1.0-2.0.i)
+swiftalk> z.String()
+"(1.0-2.0.i)"
+swiftalk> print(z, [z, 1.i], "\(z) and \(z.conj)")
+(1.0-2.0.i) [(1.0-2.0.i), (0.0+1.0.i)] (1.0-2.0.i) and (1.0+2.0.i)
+swiftalk> 1.0-2.0.i == z
+true
+swiftalk> Complex("(1.0-2.0.i)") == z
+true
+swiftalk> Complex("2.0.i")
+(0.0+2.0.i)
+swiftalk> Complex("3.0") == Complex(3)
+true
+swiftalk> z.String(.hex)
+"(0x1p0-0x1p1.i)"
+swiftalk> Complex(z.String(.hex)) == z
+true
+swiftalk> z.String(.canonical)
+"Complex(real: 1.0, imag: -2.0)"
+```
+
 **`.String(.canonical)`; `1.over(3)`** (round 153) — the builtin
 memberwise source form as a format word, no type's `String` member
 asked at any depth, combining with `.pretty`; and `Int.over` in the
@@ -316,21 +346,21 @@ match wins); writing `abs` keeps `arg` and vice versa:
 ```text
 swiftalk> import from "modules/Complex.swt"
 swiftalk> Complex(abs: 2.0, arg: Double.pi / 2.0)
-Complex(real: 1.2246467991473532e-16, imag: 2.0)
+(1.2246467991473532e-16+2.0.i)
 swiftalk> Complex(arg: 0.0, abs: 3.0)
-Complex(real: 3.0, imag: 0.0)
+(3.0+0.0.i)
 swiftalk> Complex(1.0, 2.0)
-Complex(real: 1.0, imag: 2.0)
+(1.0+2.0.i)
 swiftalk> var z = Complex(3.0, 4.0)
-Complex(real: 3.0, imag: 4.0)
+(3.0+4.0.i)
 swiftalk> z.abs = 10.0
 10.0
 swiftalk> z
-Complex(real: 6.0, imag: 7.999999999999999)
+(6.0+7.999999999999999.i)
 swiftalk> z.arg = 0.0
 0.0
 swiftalk> z
-Complex(real: 10.0, imag: 0.0)
+(10.0+0.0.i)
 ```
 
 **`modules/Rational.swt`; lazy `static let`** (round 149) — exact
@@ -369,9 +399,9 @@ swiftalk> T.a
 ```text
 swiftalk> import from "modules/Complex.swt"
 swiftalk> Complex(real: 0.0, imag: 1.0)
-Complex(real: 0.0, imag: 1.0)
+(0.0+1.0.i)
 swiftalk> Complex(0.0, 1.0) ** 2
-Complex(real: -1.0, imag: 1.2246467991473532e-16)
+(-1.0+1.2246467991473532e-16.i)
 ```
 
 **`modules/Complex.swt`** (round 147) — C++'s `<complex>` written in
@@ -381,19 +411,19 @@ program-wide, so `Double.pi.i` reads:
 ```text
 swiftalk> import (Complex) from "./modules/Complex.swt"
 swiftalk> let z = Complex(1.0, 2.0)
-Complex(real: 1.0, imag: 2.0)
+(1.0+2.0.i)
 swiftalk> z * z.conj == z.norm
 true
 swiftalk> Complex.exp(Double.pi.i)
-Complex(real: -1.0, imag: 1.2246467991473532e-16)
+(-1.0+1.2246467991473532e-16.i)
 swiftalk> Complex.sqrt(Complex(-4.0))
-Complex(real: 0.0, imag: 2.0)
+(0.0+2.0.i)
 swiftalk> 2 * z / z
-Complex(real: 2.0, imag: 0.0)
+(2.0+0.0.i)
 swiftalk> Complex.asin(Complex(2.0))
-Complex(real: 1.5707963267948966, imag: 1.3169578969248166)
+(1.5707963267948966+1.3169578969248166.i)
 swiftalk> 3.i ** 2
-Complex(real: -9.000000000000002, imag: 1.1021821192326181e-15)
+(-9.000000000000002+1.1021821192326181e-15.i)
 ```
 
 **Operators on structs and enums** (round 146) — `infix(op) = { lhs,
