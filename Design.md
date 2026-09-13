@@ -1116,7 +1116,28 @@ only, both sides evaluated, with a precedence level of its own
 between `&&` and `||` (C's `^` sits between `&` and `|` for the same
 reason); `^^=` joins the `op=` family by round 104's rule. A lone `^`
 is a syntax error that names both spellings — the symbol is still
-unspent.
+unspent. **Round 155 — DECIDED** ("add logical `not`, `and`, `xor`
+operators. same as `!`, `&&`, and `^^` but in English words. see
+Perl and Ruby for operator precedences"): the words **`not`, `and`,
+`or`, `xor`** are the same operations — the parser builds the very
+same nodes, so the evaluation, the short-circuits, and the errors are
+shared (`or` was not in the request; `and` without `or` would have
+been half a set, and Perl's table, the one cited, has all four) —
+placed where Perl and Ruby place them, at the bottom of the table:
+`not` is the loosest prefix, below the ternary (`not a ? b : c`
+negates the whole); `and` is looser; `or` and `xor` loosest of all,
+left-associative on one level, as Perl's. So a word never needs
+parentheses around a symbolic expression: `not 1 == 2`, `a > 0 and b
+> 0 or c`, `x ?? false and y`. The ternary's else branch stops short
+of the words, Perl's reading: `c ? a : b or d` is `(c ? a : b) or
+d`; its middle takes anything, `:` ending it. `where` clauses take
+the words. They are keywords (`let and = 1` is an error); round 106's
+methods `b.and(c)` keep their names, a member name being free of the
+keyword rule. A word at a line's end continues the line as `&&`
+does, and a leading `and`/`or`/`xor` with a space after it continues
+too; a leading `not` starts a statement. No `and=`. Recorded as a
+divergence from Swift, which has no word operators; the symbols
+remain the primary spelling in the docs.
 
 **Math is built in, as `Double.`'s static members — DECIDED (round
 108)**. The user: "Math constants and functions should be built-in as

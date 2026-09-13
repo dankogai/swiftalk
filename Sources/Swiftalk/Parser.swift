@@ -178,6 +178,7 @@ let keywords: Set<String> = [
     "async", "await",
     "enum", "case", "switch", "default", "struct", "extension",
     "import", "export",                      // modules (round 100); `from` is contextual
+    "not", "and", "or", "xor",               // the word operators (round 155)
     // "typealias" — RETRACTED (round 111): types are values; `let I = Int` aliases
     // "actor", "class", "super" — SHELVED (round 62): the reference
     // types are off the surface; the machinery stays in-tree, dormant.
@@ -365,7 +366,7 @@ struct Parser {
             var condition: Expr? = nil
             if case .identifier("where")? = peek {
                 pos += 1
-                condition = try withTrailing(false) { try $0.parseDisjunction() }
+                condition = try withTrailing(false) { try $0.parseWordOr { try $0.parseDisjunction() } }
             }
             return .forS(pattern: pattern, sequence: sequence, condition: condition,
                          body: try parseBlock())
@@ -1128,7 +1129,7 @@ struct Parser {
         let pattern = try parsePattern()
         guard case .identifier("where")? = peek else { return (pattern, nil) }
         pos += 1
-        let condition = try withTrailing(false) { try $0.parseDisjunction() }
+        let condition = try withTrailing(false) { try $0.parseWordOr { try $0.parseDisjunction() } }
         return (pattern, condition)
     }
 
@@ -1310,13 +1311,59 @@ struct Parser {
 
     // MARK: expressions (ternary > comparison > additive > multiplicative > unary > postfix)
 
+    /// The word operators (round 155): Perl's `not`, `and`, `or`, `xor`
+    /// — the same operations as `!`, `&&`, `||`, `^^` (the same Expr
+    /// nodes), at the bottom of the table where Perl and Ruby put them:
+    /// `not` is the loosest prefix (below the ternary: `not a ? b : c`
+    /// negates the whole), `and` looser still, `or` and `xor` loosest of
+    /// all, left-associative. `operand` is the level they sit over —
+    /// the ternary in an expression, the disjunction after `where`.
     private mutating func parseExpr() throws -> Expr {
+        try parseWordOr { try $0.parseTernary() }
+    }
+
+    private mutating func parseWordOr(_ operand: (inout Parser) throws -> Expr) throws -> Expr {
+        var lhs = try parseWordAnd(operand)
+        while true {
+            if case .identifier("or")? = peek {
+                pos += 1
+                lhs = .logicalOr(lhs, try parseWordAnd(operand))
+            } else if case .identifier("xor")? = peek {
+                pos += 1
+                lhs = .logicalXor(lhs, try parseWordAnd(operand))
+            } else {
+                return lhs
+            }
+        }
+    }
+
+    private mutating func parseWordAnd(_ operand: (inout Parser) throws -> Expr) throws -> Expr {
+        var lhs = try parseWordNot(operand)
+        while case .identifier("and")? = peek {
+            pos += 1
+            lhs = .logicalAnd(lhs, try parseWordNot(operand))
+        }
+        return lhs
+    }
+
+    private mutating func parseWordNot(_ operand: (inout Parser) throws -> Expr) throws -> Expr {
+        if case .identifier("not")? = peek {
+            pos += 1
+            return .logicalNot(try parseWordNot(operand))
+        }
+        return try operand(&self)
+    }
+
+    /// `c ? a : b` — right-associative; the middle may hold anything
+    /// (`:` ends it), the else branch stops short of the word operators,
+    /// so `c ? a : d or e` is `(c ? a : d) or e`, as in Perl.
+    private mutating func parseTernary() throws -> Expr {
         let condition = try parseDisjunction()
         guard case .punct("?")? = peek else { return condition }
         pos += 1
         let thenBranch = try parseExpr()
         try expect(":")
-        let elseBranch = try parseExpr()
+        let elseBranch = try parseTernary()
         return .ternary(condition, thenBranch, elseBranch)
     }
 

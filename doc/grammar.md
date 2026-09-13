@@ -27,7 +27,7 @@ Shelved forms (`actor`, `class`, `super`) are not grammar today.
   alphanumerics/`_`. `$` and `$0`, `$1`, … are identifiers of their own.
 * **Keywords** (never identifiers): `let var true false nil in if
   else while repeat for break continue return yield async await enum
-  case switch default struct extension import export`. Contextual
+  case switch default struct extension import export not and or xor`. Contextual
   (identifiers elsewhere): `init self get set willSet didSet newValue
   oldValue where from`. (`Regex` and `SION` are type names, not
   keywords.)
@@ -55,7 +55,7 @@ Shelved forms (`actor`, `class`, `super`) are not grammar today.
     keyword) and is division after a value, a name, or a closing
     bracket — JavaScript's rule. `//` is a comment, never an empty
     regex.
-* **Operators & punctuation**: `+ - * / % **`, `| & ^` (Sets), `+= -= *= /= %= **= |= &= ^= ??= !!= &&= ||= ^^=`, `== != === !== < <= > >=`, `&& ^^ ||`,
+* **Operators & punctuation**: `+ - * / % **`, `| & ^` (Sets), `+= -= *= /= %= **= |= &= ^= ??= !!= &&= ||= ^^=`, `== != === !== < <= > >=`, `&& ^^ ||`, the words `not and or xor` (round 155),
   prefix `! - +`, `...` `..<`, `??` `!!`, `= : , . ; ( ) [ ] { }`. Four
   spacing-sensitive rules:
   * `!!` — infix (`a !! b`, round 130) only after an operand and with
@@ -124,14 +124,14 @@ condition    = expression                              (* must be a Bool *)
 
 while        = "while" conditions block ;              (* while let: fresh bindings per pass *)
 repeat       = "repeat" block "while" expression ;
-for          = "for" pattern { "," pattern } "in" expression [ "where" disjunction ] block ;
+for          = "for" pattern { "," pattern } "in" expression [ "where" wordOr ] block ;
                                                        (* for k, v in d — parens optional;
                                                           where: s.filter({ }) with the loop's names (round 82) *)
 switch       = "switch" expression "{"                (* an expression (round 79): its value is the *)
                  { "case" caseAlt { "," caseAlt } ":" { statement } }   (* chosen branch's *)
                  [ "default" ":" { statement } ]       (* last statement's value *)
                "}" ;                                   (* no match, no default: runtime error *)
-caseAlt      = casePattern [ "where" disjunction ] ;  (* the guard belongs to the pattern it follows;
+caseAlt      = casePattern [ "where" wordOr ] ;  (* the guard belongs to the pattern it follows;
                                                           it sees the pattern's bindings (round 81) *)
 casePattern  = "_"
              | "." IDENT                               (* the subject's case, any payload *)
@@ -182,8 +182,12 @@ never a trailing closure or a computed body.
 Precedence, loosest to tightest; each line is one grammar level.
 
 ```
-expression   = ternary ;
-ternary      = disjunction [ "?" expression ":" expression ] ;      (* spaced ?, right-assoc *)
+expression   = wordOr ;
+wordOr       = wordAnd { ( "or" | "xor" ) wordAnd } ;                (* round 155: Perl's words, loosest of all, one level *)
+wordAnd      = wordNot { "and" wordNot } ;
+wordNot      = "not" wordNot | ternary ;                             (* not a ? b : c negates the whole *)
+ternary      = disjunction [ "?" expression ":" ternary ] ;         (* spaced ?, right-assoc; the else branch stops
+                                                                   short of the words: c ? a : b or d is (c ? a : b) or d *)
 disjunction  = xor { "||" xor } ;                                   (* short-circuit *)
 xor          = conjunction { "^^" conjunction } ;                   (* both sides evaluated (round 106) *)
 conjunction  = comparison { "&&" comparison } ;

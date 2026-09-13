@@ -222,6 +222,42 @@ Set(
 )
 ```
 
+**`not`, `and`, `or`, `xor`** (round 155) — Perl's word operators: the
+same operations as `!`, `&&`, `||`, `^^`, at the bottom of the
+precedence table (`not` > `and` > `or` = `xor`, all below the
+ternary), keywords; `doc/Bool.md` tables both spellings and
+`doc/FlowControl.md` is new:
+
+```text
+swiftalk> not 1 == 2
+true
+swiftalk> true or false and false
+true
+swiftalk> true xor true or true
+true
+swiftalk> let x = 3
+3
+swiftalk> if not x == 4 and x > 0 { "yes" } else { "no" }
+"yes"
+swiftalk> [1, 2, 3, 4].filter { $0 > 1 and $0 < 4 }
+[2, 3]
+swiftalk> for i in 1...6 where i % 2 == 0 or i == 5 { print(i) }
+2
+4
+5
+6
+swiftalk> true ? false : true or true
+true
+swiftalk> false and print("never")
+false
+swiftalk> 1 and 2
+type error: '&&' takes Bools — nothing is truthy (§3b)
+swiftalk> let and = 1
+syntax error: 'and' cannot be declared
+swiftalk> true.and(false)
+false
+```
+
 **Complex prints `(real+imag.i)`; `Complex("…")`** (round 154) — the
 text is an expression that re-enters as written, since `Double.i` is
 the imaginary unit; the one-argument init reads it (and a bare real,

@@ -2249,3 +2249,25 @@ the history. (Moved out of Design.md in round 65.)
   that carries it also lifts an Int and copies a Complex;
   `Complex(real: 3.0)` stays memberwise by its label. Three Status
   transcripts were regenerated, their echoes having changed.
+
+* **2026-09-14, round 155 — `not`, `and`, `or`, `xor`; Bool.md and
+  FlowControl.md** ("add logical `not`, `and`, `xor` operators. same
+  as `!`, `&&`, and `^^` but in English words. see Perl and Ruby for
+  operator precedences. And document logical operations in
+  `doc/Bool.md`. Also document flow control in `doc/FlowControl.md`").
+  Perl's table settles the precedence: the words sit below
+  everything, `not` above `and` above `or`/`xor`, so `open(f) or
+  die` reads as Perl intends and `not 1 == 2` negates the
+  comparison. Ruby agrees where it has the words. The parser grew
+  three levels over the ternary and the four words became keywords;
+  the evaluator did not change a line — `and` builds the same node
+  as `&&`, so the short-circuit, the Bools-only rule, and the error
+  text (which names the symbol) come for free. `or` was added
+  unasked, with the reasoning in Design.md; the ternary's else
+  branch stops short of the words so that Perl's `c ? a : b or d`
+  holds; `where` takes them. Bool.md gained a table of both
+  spellings and a precedence section; FlowControl.md is new — `if`
+  and `switch` as expressions, the condition list, the loops, and
+  early exit (`return`, `?`, `!`, `yield`) on one page, with what is
+  absent (`guard`, `fallthrough`, labels, `do`/`catch`) named so the
+  reader stops looking.

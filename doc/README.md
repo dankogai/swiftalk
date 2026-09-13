@@ -29,7 +29,10 @@ REPL). Sections in [Design.md](../Design.md) are cited as §n.
 | `struct` | user value types | [struct.md](struct.md) |
 | `enum` | user sum types | [enum.md](enum.md) |
 
-See [grammar.md](grammar.md) for the syntax as parsed.
+See [grammar.md](grammar.md) for the syntax as parsed,
+[FlowControl.md](FlowControl.md) for `if`/`switch`/the loops/early
+exit on one page, and [Bool.md](Bool.md) for the logical operators —
+the symbols and, since round 155, the words `not and or xor`.
 
 ## Members every value has
 

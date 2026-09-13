@@ -247,6 +247,8 @@ struct Lexer {
             return ["==", "!=", "===", "!==", "<", "<=", ">", ">=", "&&", "||", "??", "!!",
                     "+=", "-=", "*=", "/=", "%=", "??=", "!!=", "&&=", "||=", "^^", "^^=", "**", "**=",
                     "&", "|", "^", "&=", "|=", "^="].contains(o)
+        case .identifier(let w)?:
+            return ["and", "or", "xor", "not"].contains(w)       // the word operators (round 155)
         default:
             return false
         }
@@ -257,6 +259,7 @@ struct Lexer {
     /// plus the spaced ternary's `?` and `:`. Not `.` — `.x = 1` at a
     /// line's start is implicit self (round 49).
     static func leadsContinuation(_ token: Token?) -> Bool {
+        if token == .identifier("not") { return false }       // a prefix: `not x` on its own line is a new statement
         if continuesLine(after: token) { return true }
         if case .punct(let p)? = token { return p == "?" || p == ":" }
         return false
