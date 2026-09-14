@@ -13,6 +13,7 @@ Dictionary, Set, Range, Tuple, and Data conform to (§10).
 | Member | Result |
 |---|---|
 | `s.map { }`, `s.filter { }` | **lazy** — another Sequence |
+| `s.forEach { }` | **eager**: pulls every element and runs the closure; `nil` (round 156). `_ = s.map { }` runs nothing — map defers |
 | `s.prefix(n)` | the first n, materialized as an Array |
 | `s.dropFirst(n)` | **lazy** — another Sequence (round 89) |
 | `s.suffix(n)`, `s.dropLast(n)`, `s.split(sep)` | drained — finite only; `split` takes a value or a predicate, pieces are Arrays (round 89) |

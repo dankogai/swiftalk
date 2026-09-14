@@ -18,6 +18,7 @@ Arrays are dense — a sparse array is a Dictionary.
 | `a + b` | concatenation |
 | `a == b` | element-wise equality |
 | `a.map { }` | an Array of results |
+| `a.forEach { }` | runs the closure on each element, eagerly; `nil` (round 156). No `break` inside — a closure is not a loop |
 | `a.filter { }` | an Array of the kept |
 | `a.reduce(init) { acc, x in }` | fold |
 | `a[1..<3]`, `a[1...2]`, `a[1...]` | a **Range subscript** (round 90): a new Array of those positions — `0 ≤ from ≤ to ≤ count`, so `a[a.count...]` is `[]` and past the end is an error |

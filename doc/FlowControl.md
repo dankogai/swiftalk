@@ -91,9 +91,42 @@ while node { node = node.next }                   // a bare variable: until nil 
 repeat { i -= 1 } while i > 0                     // the body first
 ```
 
-`break` leaves the innermost loop, `continue` starts its next pass;
-neither takes a label. A loop's value is `nil`. `for` over an infinite
-Sequence is fine as long as something breaks.
+`break` leaves the innermost loop, `continue` starts its next pass. A
+loop's value is `nil`. `for` over an infinite Sequence is fine as long
+as something breaks.
+
+### Labels
+
+```swift
+outer: for row in grid {                          // Swift's spelling: a name, a colon, the loop (round 156)
+    for cell in row {
+        if cell == 0 { continue outer }           // the next row
+        if cell < 0 { break outer }               // out of both
+    }
+}
+retry: while true { repeat { if done { break retry } } while false }
+```
+
+`label: for`, `label: while`, `label: repeat`; `break label` and
+`continue label` name the loop to act on, bare `break`/`continue` the
+innermost. The label must be an enclosing loop's — an unknown name, a
+label from a loop already closed, or one reused by a nested loop is a
+syntax error. A closure is not a loop: `break` inside `.forEach { }`
+or any other closure is an error even under a labeled loop. Labels
+live in their own namespace, so `outer` may also be a variable.
+
+### `forEach`
+
+```swift
+xs.forEach { print($0) }                          // eager, returns nil (round 156)
+dict.forEach { k, v in print(k, v) }
+Sequence { yield 1; yield 2 }.forEach { print($0) }
+```
+
+`s.forEach { }` walks any Sequence for its side effects and returns
+`nil`. It is not `_ = s.map { }`: `map` is lazy on a Sequence, so
+that line would run nothing. Use `for` when the body needs `break`,
+`continue`, or a label.
 
 ## Early exit
 
@@ -112,6 +145,6 @@ let quarter = { n in Result.success(halve(halve(n)?)?) }     // a failure in eit
 ## What is not here
 
 No `guard` (write `if not c { return }`), no `fallthrough`, no
-labeled `break`, no `do`/`catch`, no `defer`. `async`/`await` and
+`do`/`catch`, no `defer`, no labels on `if`/`switch` (loops only). `async`/`await` and
 `Task` are on [Task.md](Task.md). Swift's `if case` and `guard let`
 are syntax errors that name the swiftalk spelling.

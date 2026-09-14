@@ -30,6 +30,7 @@ view (§11). `"..."` literals with `\(interpolation)`, escapes `\" \\
 | `v.String(.canonical)`, `v.String(.canonical, .pretty)` | the **builtin memberwise source form** — `.description`'s text — with no type's `String` member asked at any depth (round 153): `[r].String(.canonical)` is `[Rational(num: 1, den: 3)]`; with `.pretty`, laid out; with any other format, an error; on a builtin value, the source form as ever |
 | `for c in s` | graphemes |
 | `s.map { }` | an **Array** of results |
+| `s.forEach { }` | each grapheme, eagerly; `nil` (round 156) |
 | `s.filter { }` | a **String** (Swift-compatible) |
 | `s.reduce(init) { }` | fold over graphemes |
 | `s.Array()` | `["h", "é", ...]` |

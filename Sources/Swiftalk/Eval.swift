@@ -480,10 +480,10 @@ func execute(_ statement: Stmt, in env: Environment, relaxed: Bool = false) thro
         return try evaluate(expr, in: env)
     case .returnS(let expr):
         throw ReturnSignal(value: try expr.map { try evaluate($0, in: env) } ?? .nil)
-    case .breakS:
-        throw ControlFlow.break
-    case .continueS:
-        throw ControlFlow.continue
+    case .breakS(let label):
+        throw ControlFlow.break(label: label)
+    case .continueS(let label):
+        throw ControlFlow.continue(label: label)
     default:
         return try executeSlow(statement, in: env, relaxed: relaxed)
     }
@@ -599,26 +599,26 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
         return value
     case .expression(let expr):
         return try evaluate(expr, in: env)
-    case .whileLetS(let conditions, let body):
+    case .whileLetS(let conditions, let body, let label):
         // Round 76: each iteration re-evaluates the list in a fresh
         // scope — the classic `while let x = next()` drain.
         while true {
             let scope = Environment(parent: env)
             guard try conditionsHold(conditions, in: scope) else { break }
-            guard try runLoopBody(body, in: scope, freshScope: false) else { break }
+            guard try runLoopBody(body, in: scope, freshScope: false, label: label) else { break }
         }
         return .nil
-    case .whileS(let condition, let body):
+    case .whileS(let condition, let body, let label):
         while true {
             guard case .bool(let flag) = try evaluate(condition, in: env) else {
                 throw SwiftalkError.type("the 'while' condition must be a Bool — nothing is truthy (§3b)")
             }
-            guard flag, try runLoopBody(body, in: env) else { break }
+            guard flag, try runLoopBody(body, in: env, label: label) else { break }
         }
         return .nil
-    case .repeatS(let body, let condition):
+    case .repeatS(let body, let condition, let label):
         while true {
-            guard try runLoopBody(body, in: env) else { break }
+            guard try runLoopBody(body, in: env, label: label) else { break }
             guard case .bool(let flag) = try evaluate(condition, in: env) else {
                 throw SwiftalkError.type("the 'repeat' condition must be a Bool — nothing is truthy (§3b)")
             }
@@ -664,7 +664,7 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             if !env.exports.contains(name) { env.exports.append(name) }
         }
         return .nil
-    case .forS(let pattern, let sequence, let condition, let body):
+    case .forS(let pattern, let sequence, let condition, let body, let label):
         let it = try iterator(of: try evaluate(sequence, in: env))
         while let element = try it.next() {
             let scope = Environment(parent: env)
@@ -679,13 +679,13 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
                 }
                 guard keep else { continue }
             }
-            guard try runLoopBody(body, in: scope, freshScope: false) else { break }
+            guard try runLoopBody(body, in: scope, freshScope: false, label: label) else { break }
         }
         return .nil
-    case .breakS:
-        throw ControlFlow.break
-    case .continueS:
-        throw ControlFlow.continue
+    case .breakS(let label):
+        throw ControlFlow.break(label: label)
+    case .continueS(let label):
+        throw ControlFlow.continue(label: label)
     case .returnS(let expr):
         throw ReturnSignal(value: try expr.map { try evaluate($0, in: env) } ?? .nil)
     case .yieldS(let expr):
@@ -1162,8 +1162,8 @@ func constructEnumCase(_ et: EnumType, _ caseName: String,
 /// `break`/`continue` travel as thrown signals; loops catch them, and
 /// `apply` refuses to let them escape a function body.
 enum ControlFlow: Swift.Error {
-    case `break`
-    case `continue`
+    case `break`(label: String?)         // `break outer` names the loop to leave (round 156)
+    case `continue`(label: String?)
 }
 
 /// `return` (round 41) travels the same way; `apply` catches it at the
@@ -1233,15 +1233,18 @@ private func conditionsHold(_ conditions: [IfCondition], in scope: Environment) 
 
 /// Runs one loop iteration; returns false when the loop should stop
 /// (`break`), true to keep going (`continue` just ends the iteration).
-private func runLoopBody(_ body: [Stmt], in env: Environment, freshScope: Bool = true) throws -> Bool {
+/// A labeled signal (round 156) is this loop's only when the label is
+/// its own; otherwise it travels on to the enclosing loop that owns it.
+private func runLoopBody(_ body: [Stmt], in env: Environment, freshScope: Bool = true,
+                         label: String? = nil) throws -> Bool {
     let scope = freshScope ? Environment(parent: env) : env
     do {
         for statement in body {
             _ = try execute(statement, in: scope)
         }
-    } catch ControlFlow.break {
+    } catch ControlFlow.break(let target) where target == nil || target == label {
         return false
-    } catch ControlFlow.continue {
+    } catch ControlFlow.continue(let target) where target == nil || target == label {
         return true
     }
     return true
@@ -4139,6 +4142,19 @@ private func method(on receiver: Value, name: String,
             out.append(try apply(fn, args: [(nil, element)]))
         }
         return .array(out)
+    case ("forEach", true):
+        // Round 156: the eager, side-effecting walk — `_ = s.map { }`
+        // would not do, map being lazy on a Sequence. nil; the closure
+        // sees each element as map's does; no break or continue inside
+        // (a closure is not a loop) — write `for` for those.
+        guard args.count == 1, case .function(let fn) = args[0] else {
+            throw SwiftalkError.type(".forEach takes a single Function")
+        }
+        let it = try iterator(of: receiver)
+        while let element = try it.next() {
+            _ = try apply(fn, args: [(nil, element)])
+        }
+        return .nil
     case ("filter", true):
         guard args.count == 1, case .function(let fn) = args[0] else {
             throw SwiftalkError.type(".filter takes a single Function")

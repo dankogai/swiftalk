@@ -1139,6 +1139,30 @@ too; a leading `not` starts a statement. No `and=`. Recorded as a
 divergence from Swift, which has no word operators; the symbols
 remain the primary spelling in the docs.
 
+**Loop labels; `forEach` — DECIDED (round 156)** ("Support loop
+labels. Without it it makes little difference from `.map{}`. Should
+we add `.forEach{}` or just `_ = seq.map{}`?"). Swift's spelling,
+loops only: `outer: for`, `label: while`, `label: repeat`, with
+`break outer` and `continue outer` naming the loop to act on; bare
+`break`/`continue` stay the innermost. The label is checked when
+parsed — an unknown name, a label whose loop has closed, or a label
+reused by a nested loop is a syntax error — and it is read only at a
+statement's start before a loop keyword, so a ternary's `:` and a
+labeled tuple are untouched; labels are their own namespace. The
+signals carry the label: a loop answers a signal that is bare or its
+own and lets any other travel up; a closure boundary still refuses
+them all. No labels on `if`/`switch` (Swift has them; nothing asked
+for them). And `forEach`, because the alternative does not work: `map`
+is lazy on a Sequence (round 41), so `_ = seq.map { }` runs nothing
+— the question answered itself. `s.forEach { }` pulls every element,
+runs the closure as `map` would (a Dictionary's pair is the argument
+list), and returns nil; `break`/`continue` inside are the closure
+error they always were, which is exactly why labeled `for` is the
+other half of this round. Noted in passing: at the REPL `_ = expr`
+gives `_` a type lock like any binding, so a second `_ =` of another
+type errors, while in a script `_ =` is "undeclared" and `let _ =`
+is the discard — a wart for a later round.
+
 **Math is built in, as `Double.`'s static members — DECIDED (round
 108)**. The user: "Math constants and functions should be built-in as
 well since they are there at (Darwin|Glibc) yet `.swt`

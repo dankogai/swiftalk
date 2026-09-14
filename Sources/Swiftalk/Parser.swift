@@ -134,12 +134,13 @@ enum Stmt {
     case expression(Expr)
     case returnS(Expr?)
     case yieldS(Expr?)
-    case whileS(condition: Expr, body: [Stmt])
-    indirect case whileLetS(conditions: [IfCondition], body: [Stmt])   // while let (round 76)
-    case repeatS(body: [Stmt], condition: Expr)
-    case forS(pattern: BindPattern, sequence: Expr, condition: Expr?, body: [Stmt])   // where (round 82)
-    case breakS
-    case continueS
+    // Loops carry an optional label (round 156): `outer: for ... { break outer }`
+    case whileS(condition: Expr, body: [Stmt], label: String?)
+    indirect case whileLetS(conditions: [IfCondition], body: [Stmt], label: String?)   // while let (round 76)
+    case repeatS(body: [Stmt], condition: Expr, label: String?)
+    case forS(pattern: BindPattern, sequence: Expr, condition: Expr?, body: [Stmt], label: String?)   // where (round 82)
+    case breakS(label: String?)
+    case continueS(label: String?)
     case enumDecl(name: String, caseOrder: [String],
                   cases: [String: [(label: String?, typeName: String?)]],
                   methods: [String: Expr], statics: StaticSpec)
@@ -192,6 +193,10 @@ struct Parser {
     /// (`if c { }` must read `{` as the block, as in Swift) and re-enabled
     /// inside any parenthesized/bracketed context.
     private var allowTrailing = true
+    /// The loop labels in scope (round 156): `break outer` must name one.
+    private var loopLabels: [String] = []
+    /// A label just read, for the loop statement that follows it.
+    private var pendingLabel: String? = nil
 
     init(_ tokens: [Token]) {
         self.tokens = tokens
@@ -266,6 +271,18 @@ struct Parser {
     }
 
     private mutating func parseStatement() throws -> Stmt {
+        // `label: for|while|repeat` (round 156, Swift's spelling): a name,
+        // a colon, a loop keyword — read at a statement's start only, so
+        // a ternary's `:` or a labeled tuple's cannot be mistaken for it.
+        if case .identifier(let name)? = peek, !keywords.contains(name), !name.hasPrefix("$"),
+           pos + 2 < tokens.count, tokens[pos + 1] == .punct(":"),
+           [.identifier("for"), .identifier("while"), .identifier("repeat")].contains(tokens[pos + 2]) {
+            guard !loopLabels.contains(name) else {
+                throw SwiftalkError.syntax("loop label '\(name)' is already in use by an enclosing loop")
+            }
+            pos += 2
+            pendingLabel = name
+        }
         switch peek {
         case .identifier("let"), .identifier("var"):
             return try parseDeclaration()
@@ -324,24 +341,27 @@ struct Parser {
             return .exportS(names: names, declaration: declaration)
         case .identifier("while"):
             pos += 1
+            let label = takeLabel()
             // `while let x = next(), x > 0 { }` (round 76) — the same
             // condition list as `if`, re-evaluated with fresh bindings
             // each iteration
             let conditions = try parseConditionList()
-            let body = try parseBlock()
+            let body = try parseLoopBody(label: label)
             if conditions.count == 1, case .boolean(let condition) = conditions[0] {
-                return .whileS(condition: condition, body: body)
+                return .whileS(condition: condition, body: body, label: label)
             }
-            return .whileLetS(conditions: conditions, body: body)
+            return .whileLetS(conditions: conditions, body: body, label: label)
         case .identifier("repeat"):
             pos += 1
-            let body = try parseBlock()
+            let label = takeLabel()
+            let body = try parseLoopBody(label: label)
             guard case .identifier("while")? = advance() else {
                 throw SwiftalkError.syntax("expected 'while' after the repeat block")
             }
-            return .repeatS(body: body, condition: try withTrailing(false) { try $0.parseExpr() })
+            return .repeatS(body: body, condition: try withTrailing(false) { try $0.parseExpr() }, label: label)
         case .identifier("for"):
             pos += 1
+            let label = takeLabel()
             // `for x in` or `for (k, v) in` (round 71): a binding pattern
             var patterns = [try parseBindPattern()]
             // `for k, v in d` — bare comma-separated names destructure
@@ -369,7 +389,7 @@ struct Parser {
                 condition = try withTrailing(false) { try $0.parseWordOr { try $0.parseDisjunction() } }
             }
             return .forS(pattern: pattern, sequence: sequence, condition: condition,
-                         body: try parseBlock())
+                         body: try parseLoopBody(label: label), label: label)
         case .identifier("enum"):
             return try parseEnum()
         case .identifier("struct"):
@@ -399,10 +419,10 @@ struct Parser {
             }
         case .identifier("break"):
             pos += 1
-            return .breakS
+            return .breakS(label: try parseLoopLabel(after: "break"))
         case .identifier("continue"):
             pos += 1
-            return .continueS
+            return .continueS(label: try parseLoopLabel(after: "continue"))
         default:
             let expr = try parseExpr()
             // `x op= y` for every binary operator that can spell one (rounds
@@ -418,6 +438,34 @@ struct Parser {
             pos += 1
             return .assignment(target: try lvalue(from: expr), expr: try parseExpr())
         }
+    }
+
+    /// The label read just before this loop keyword, if any (round 156).
+    private mutating func takeLabel() -> String? {
+        defer { pendingLabel = nil }
+        return pendingLabel
+    }
+
+    /// A loop's block, with its label in scope for `break`/`continue`.
+    private mutating func parseLoopBody(label: String?) throws -> [Stmt] {
+        if let label { loopLabels.append(label) }
+        defer { if label != nil { loopLabels.removeLast() } }
+        return try parseBlock()
+    }
+
+    /// `break outer` / `continue outer` (round 156): a name on the same
+    /// line, which must label an enclosing loop; bare `break` is the
+    /// innermost, as ever.
+    private mutating func parseLoopLabel(after keyword: String) throws -> String? {
+        guard case .identifier(let name)? = peek, !keywords.contains(name), !name.hasPrefix("$") else {
+            return nil
+        }
+        guard loopLabels.contains(name) else {
+            throw SwiftalkError.syntax("'\(keyword) \(name)': no enclosing loop is labeled '\(name)'"
+                + (loopLabels.isEmpty ? "" : " — in scope: \(loopLabels.joined(separator: ", "))"))
+        }
+        pos += 1
+        return name
     }
 
     /// Parses one `\(...)` interpolation body: a single expression,
@@ -1766,6 +1814,12 @@ struct Parser {
     /// Parses the remainder of a `{...}` function literal (§2.4): an
     /// optional `x, y in` parameter list, then a statement-list body.
     private mutating func parseFunction() throws -> Expr {
+        // A closure is not a loop (round 156): the enclosing loops' labels
+        // are out of scope inside it, so `break outer` there is the same
+        // syntax error as anywhere else outside a labeled loop.
+        let outerLabels = loopLabels
+        loopLabels = []
+        defer { loopLabels = outerLabels }
         let parameters = try parseParameterList()
         let body = try parseStatements(until: "}")
         try expect("}")

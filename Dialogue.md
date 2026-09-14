@@ -2271,3 +2271,22 @@ the history. (Moved out of Design.md in round 65.)
   early exit (`return`, `?`, `!`, `yield`) on one page, with what is
   absent (`guard`, `fallthrough`, labels, `do`/`catch`) named so the
   reader stops looking.
+
+* **2026-09-14, round 156 — loop labels; `forEach`** ("Support loop
+  labels. Without it it makes little difference from `.map{}`.
+  Should we add `.forEach{}` or just `_ = seq.map{}`?"). The
+  question had a factual answer: `_ = seq.map { }` runs nothing,
+  because `map` on a Sequence is lazy (round 41) — checked at the
+  REPL before deciding, and the counter stayed at zero. So
+  `forEach` it is, eager and nil-valued, and `for` with labels is
+  the form for anything that needs to stop or skip. Labels are
+  Swift's: `outer: for`, `break outer`, `continue outer`, loops
+  only. The parser keeps a stack of the labels in scope and checks
+  every `break x` against it, so the mistakes are syntax errors with
+  the labels in scope named; the evaluator's `break`/`continue`
+  signals gained a label and each loop lets a foreign one pass. The
+  label is read only at a statement's start before `for`/`while`/
+  `repeat`, which keeps the ternary's colon out of it. Found on the
+  way: at the REPL `_ =` locks `_`'s type like a real binding, and in
+  a script it is "undeclared" (`let _ =` discards) — logged, not
+  fixed.

@@ -78,8 +78,9 @@ program      = { statement separator } ;
 separator    = NEWLINE | ";" ;
 
 statement    = declaration | destructure | assignment | expression
-             | while | repeat | for                   (* if and switch are expressions *)
-             | "break" | "continue"
+             | [ IDENT ":" ] ( while | repeat | for )  (* if and switch are expressions; a loop
+                                                          may carry a label (round 156) *)
+             | "break" [ IDENT ] | "continue" [ IDENT ] (* the label of an enclosing loop *)
              | "return" [ expression ] | "yield" [ expression ]
              | enumDecl | structDecl | extensionDecl
              | import | export ;                       (* a file's top level only *)

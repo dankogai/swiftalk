@@ -222,6 +222,40 @@ Set(
 )
 ```
 
+**Loop labels; `forEach`** (round 156) — `outer: for`, `break outer`,
+`continue outer` (loops only, checked when parsed); `forEach` is the
+eager walk, since `map` on a Sequence is lazy and `_ = s.map { }`
+runs nothing:
+
+```text
+swiftalk> var out = []
+[]
+swiftalk> outer: for i in 1...3 { for j in 1...3 { if j == 2 { continue outer }; if i == 3 { break outer }; out.append([i, j]) } }
+swiftalk> out
+[[1, 1], [2, 1]]
+swiftalk> var n = 0
+0
+swiftalk> loop: while true { n += 1; repeat { if n > 3 { break loop }; n += 10 } while false }
+swiftalk> n
+12
+swiftalk> for i in 0..<2 { break outer }
+syntax error: 'break outer': no enclosing loop is labeled 'outer'
+swiftalk> [1, 2].forEach { print($0) }
+1
+2
+swiftalk> var c = 0
+0
+swiftalk> _ = Sequence { yield 1; yield 2 }.map { c += 1 }
+Sequence { ... }
+swiftalk> c
+0
+swiftalk> Sequence { yield 1; yield 2 }.forEach { c += 1 }
+swiftalk> c
+2
+swiftalk> [1].forEach { break }
+syntax error: 'break'/'continue' outside a loop
+```
+
 **`not`, `and`, `or`, `xor`** (round 155) — Perl's word operators: the
 same operations as `!`, `&&`, `||`, `^^`, at the bottom of the
 precedence table (`not` > `and` > `or` = `xor`, all below the
