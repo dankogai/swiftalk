@@ -222,6 +222,33 @@ Set(
 )
 ```
 
+**`_` discards** (round 158) — `_ = expr` and `let _ = expr` evaluate
+and bind nothing, in a script and at the REPL, with any type, any
+number of times; `_` is never a variable:
+
+```text
+swiftalk> _ = 1
+1
+swiftalk> _ = "a"
+"a"
+swiftalk> let _ = [1, 2]
+[1, 2]
+swiftalk> let _ = 3.0
+3.0
+swiftalk> _
+type error: undefined variable '_'
+swiftalk> var n = 0
+0
+swiftalk> (_, n) = (9, 6)
+(9, 6)
+swiftalk> n
+6
+swiftalk> _ += 1
+type error: '_' discards — it has no value to combine with
+swiftalk> let _: Int = "s"
+type error: cannot assign String to '_' of type Int
+```
+
 **`doc/toplevel.md`; `doc/flowcontrol.md`** (round 157) — the global
 functions, the types as values, and the bound names on one page;
 language pages are lowercase, type pages capitalized:

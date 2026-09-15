@@ -95,7 +95,7 @@ destructure  = ( "let" | "var" ) pattern { "," pattern } "=" expression ;
 assignment   = lvalue ( "=" | "+=" | "-=" | "*=" | "/=" | "%=" | "??=" | "&&=" | "||=" | "^^=" ) expression ;
                                                        (* op= reads, combines, writes; the target's
                                                           subscripts are evaluated once (round 102) *)
-lvalue       = IDENT
+lvalue       = IDENT                                   (* "_" discards: evaluated, never bound (round 158) *)
              | lvalue "[" expression "]"
              | lvalue "." ( IDENT | INT )
              | "." IDENT                              (* implicit self *)

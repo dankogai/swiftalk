@@ -1165,9 +1165,20 @@ other half of this round. **Round 157** settled a naming rule for
 `FlowControl.md` — and the new `toplevel.md`, which documents the
 global functions `print`/`debugPrint`/`sleep`/`eval`, the types and
 protocols as values, and the names the language binds). Noted in passing: at the REPL `_ = expr`
-gives `_` a type lock like any binding, so a second `_ =` of another
-type errors, while in a script `_ =` is "undeclared" and `let _ =`
-is the discard — a wart for a later round.
+gave `_` a type lock like any binding, so a second `_ =` of another
+type errored, while in a script `_ =` was "undeclared" — fixed in
+round 158.
+
+**`_` discards — DECIDED (round 158)** ("Fix the `_ =` type lock wart
+in scripts and the REPL"). `_ = expr` and `let _ = expr` (and `var _
+=`) evaluate the right side and bind nothing: no declaration, no
+type lock, so they repeat with any type, in a script, at the REPL, in
+a function, and as an element of a tuple target — `(_, n) = (9, 6)`.
+`_` is never a variable: reading it is "undefined", `_ += 1` is an
+error (nothing to combine with). An annotation is still checked —
+`let _: Int = "s"` errors — since writing one asks for that. This
+completes what `for _ in`, `case _:`, `let (_, b) = t`, and `{ _ in
+}` already did, one rule for the underscore everywhere: Swift's.
 
 **Math is built in, as `Double.`'s static members — DECIDED (round
 108)**. The user: "Math constants and functions should be built-in as

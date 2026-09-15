@@ -2307,3 +2307,17 @@ the history. (Moved out of Design.md in round 65.)
   *not* there is said too: no `readLine`, `exit`, `assert`, or
   `args`. README.md's "three global functions" section became a
   pointer. No code changed.
+
+* **2026-09-15, round 158 — `_` discards** ("Fix the `_ =` type lock
+  wart in scripts and the REPL"). Two rounds after noticing it. The
+  cause was that `_` reached the ordinary binding paths: relaxed
+  (REPL) assignment declared a var named `_` and locked its type, a
+  script's assignment refused an undeclared name, and `let _ =`
+  declared a real binding that a second `let _ =` then collided with
+  — only the pattern paths (`for _ in`, `let (_, b)`) had known to
+  skip it. Three short guards now: `assign` returns the value for a
+  `_` target (a compound `_ +=` is an error, having nothing to
+  combine with), relaxed mode routes `_` to `assign` instead of
+  declaring, and a declaration named `_` returns after evaluating
+  and checking any annotation. `_` cannot be read at all any more,
+  which is the point.

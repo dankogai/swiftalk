@@ -513,6 +513,12 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
         } else {
             value = try evaluate(initializer, in: env)
         }
+        if name == "_" {
+            // `let _ = expr` discards (round 158): evaluated, checked against
+            // an annotation if one is written, never bound — as `_ = expr`
+            if let annotation { try env.check(value, against: annotation, for: name) }
+            return value
+        }
         let lock: TypeAnnotation
         if let annotation {
             guard annotationIsKnown(annotation, in: env) || annotatedEnum != nil else {
@@ -2189,7 +2195,7 @@ private func assignRelaxed(_ target: LValue, _ value: Value, in env: Environment
         }
         let values = try select(tuple, by: targets.map(\.label), what: "targets")
         for (t, v) in zip(targets, values) { try assignRelaxed(t.target, v, in: env) }
-    case .variable(let name) where !env.has(name):
+    case .variable(let name) where name != "_" && !env.has(name):
         try env.declare(name, Binding(mutable: true, lock: try inferLock(value, for: name), value: value))
     default:
         try assign(target, value, in: env)
@@ -3066,6 +3072,15 @@ func isAbsent(_ value: Value) -> Bool {
 @discardableResult
 private func assign(_ target: LValue, _ value: Value, in env: Environment,
                     combine: ((Value) throws -> Value)? = nil) throws -> Value {
+    // `_ = expr` discards (round 158): evaluated, never bound, never
+    // type-locked — in a script, at the REPL, in a tuple target. As a
+    // compound target it has nothing to combine with.
+    if case .variable("_") = target {
+        guard combine == nil else {
+            throw SwiftalkError.type("'_' discards — it has no value to combine with")
+        }
+        return value
+    }
     // (a, b) = (b, a) (round 71): the right side was evaluated whole
     // before any element lands, so the swap idiom works.
     if case .tuple(let targets) = target {

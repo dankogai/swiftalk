@@ -62,7 +62,7 @@ program (round 147).
 | `self`, `.x` | inside a method, init, computed property | the receiver; a leading dot is `self.` |
 | `Self` | inside a `struct`/`enum` body and its extensions | the type itself (round 143) |
 | `newValue`, `oldValue` | inside `set`, `willSet`, `didSet` | the incoming / previous value |
-| `_` | as a pattern or a binding target | discard: `let _ = f()`, `for _ in 0..<3`, `case _:` |
+| `_` | as a pattern or an assignment/declaration target | **discard** (round 158): `_ = f()`, `let _ = f()`, `(_, n) = pair`, `for _ in 0..<3`, `case _:`, `{ _ in }` — evaluated, never bound, never type-locked; reading `_` is undefined, `_ += 1` an error |
 
 `self`, `init`, `get`, `set`, `willSet`, `didSet`, `newValue`,
 `oldValue`, `where`, `from`, `static`, `infix`, `prefix`, `postfix`
