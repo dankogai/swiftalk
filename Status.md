@@ -222,6 +222,31 @@ Set(
 )
 ```
 
+**Bare `.success(v)` / `.failure(e)`** (round 160) — Result's cases
+construct anywhere without an annotation; other leading-dot names are
+what they were:
+
+```text
+swiftalk> .success("hi")
+Result.success("hi")
+swiftalk> eval("1 + 1") == .success(2)
+true
+swiftalk> let halve = { n in n % 2 == 0 ? .success(n / 2) : .failure("odd: \(n)") }
+{ n in ... }
+swiftalk> [halve(4), halve(3)]
+[Result.success(2), Result.failure("odd: 3")]
+swiftalk> let quarter = { n in .success(halve(halve(n)?)?) }
+{ n in ... }
+swiftalk> quarter(6)
+Result.failure("odd: 3")
+swiftalk> switch halve(3) { case let v = .success: v case let e = .failure: "failed: " + e }
+"failed: odd: 3"
+swiftalk> .hex
+"hex"
+swiftalk> .nope(1)
+type error: cannot call a String
+```
+
 **`eval()` returns `Result`** (round 159) — `.success(value)` or
 `.failure(message)`, never thrown; `?`, `??`, `!`, and `switch` apply:
 

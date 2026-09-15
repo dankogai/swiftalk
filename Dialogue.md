@@ -2334,3 +2334,16 @@ the history. (Moved out of Design.md in round 65.)
   the failure's text, which turned out to be a better test — the
   message is now part of the contract. README's law line gained a
   `!`.
+
+* **2026-09-15, round 160 — bare `.success(v)`** ("Fix `.success("hi")`
+  so a bare member literal constructs a Result"). Round 159's test
+  had stumbled on it: `eval(s) == .success("hi")` was "cannot call a
+  String", because a leading-dot name is a format word unless an
+  annotation or `self` says otherwise. Result is different from every
+  other enum in one way — every program has it — so its two cases
+  can construct bare. Third in line after implicit self and a type
+  in scope, and a type's own `success` member still wins inside its
+  body. `.hex` is still a String, `.nope(1)` still cannot be called,
+  and a user enum's `.a(1)` still wants `E.a(1)` — inferring it from
+  a unique case name is logged as OPEN. The round-159 test now reads
+  as first written.

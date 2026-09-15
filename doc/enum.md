@@ -23,7 +23,7 @@ enum Shape {
 | Form | Meaning |
 |---|---|
 | `Shape.circle(r: 2.5)`, `Shape.point` | construction; labels reorderable; declared payload types checked |
-| `let s: Shape = .rect(w: 1.0, h: 2.0)` | leading-dot construction under an annotation |
+| `let s: Shape = .rect(w: 1.0, h: 2.0)` | leading-dot construction under an annotation — a user enum's cases need the type's name or an annotation; only `Result`'s `.success(v)`/`.failure(e)` construct bare (round 160) |
 | `s.circle` | **case accessor** (round 46): the payload when `s` IS that case, else `nil` — one payload bare, several as a **tuple labeled as the case declares** (round 77), none → the value itself |
 | `if let r = s.circle { }`, `if let (w, h) = s.rect { }` | **the way to test-and-bind a case** — an ordinary `if let` on the accessor; labels work too: `if let (h: h, w: w) = s.rect`; `.circle` inside a method is `self.circle`; `let` is optional (round 78): `if r = s.circle { }` |
 | `switch s { case let r = .circle: ... case let (w, h) = .rect: ... }` | the same accessor on the subject (round 78) — nil is the only "no", a misfit pattern is an error; `let` optional, `var` binds mutably; labels: `case (h: h, w: w) = .rect:`; bare `case .circle:` matches any payload; no match and no `default` is a runtime error |

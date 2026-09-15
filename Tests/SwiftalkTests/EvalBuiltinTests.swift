@@ -12,7 +12,7 @@ struct EvalBuiltinTests {
         let v = "let v: SION = [\"a\": [1, 2.5, nil], \"d\": Data(\"AQID\"), \"t\": .Date(0.0)]\n"
         #expect(try eval(v + "eval(v.String())! == v") == .bool(true))
         #expect(try eval(v + "eval(v.String(.pretty))! == v") == .bool(true))
-        #expect(try eval("eval(\"hi\".String(.quoted)) == Result.success(\"hi\")") == .bool(true))
+        #expect(try eval("eval(\"hi\".String(.quoted)) == .success(\"hi\")") == .bool(true))
         #expect(try eval("eval(255.String(.hex))! == 255") == .bool(true))
         #expect(try eval("struct P { var x: Int = 0 }\nlet p = P(x: 3)\neval(p.String())! == p") == .bool(true))
         #expect(try eval("enum E { case v(Int) }\neval(E.v(7).String())! == E.v(7)") == .bool(true))

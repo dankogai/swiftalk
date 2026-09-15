@@ -702,6 +702,20 @@ traps as the old `eval` did, `switch` takes both cases, and
 `eval()` — is still a thrown type error, as with any builtin: that
 is the caller's bug, not the program's. JavaScript throws from
 `eval`; swiftalk's errors are values (§8), so its `eval` says so.
+**Round 160 — DECIDED** ("Fix `.success("hi")` so a bare member
+literal constructs a Result"): `.success(v)` and `.failure(e)`
+construct a Result anywhere — a closure's value, a ternary's arm, an
+Array element, `r == .success(2)` — with no annotation, where round
+51 had required `Result.success(v)` or `let r: Result = .success(v)`.
+The reasoning: a leading-dot call is unambiguous exactly when every
+program knows the enum, and Result is the one built-in enum; a user
+enum's cases still need the type's name or an annotation, since
+`.a(1)` could be any enum's (inferring from a unique case name in
+scope is OPEN — Swift infers from the expected type, which swiftalk
+has only in annotations). Precedence of readings for `.name(args)`:
+implicit self's member first (round 49), a type in scope next (round
+50, `.Date(...)`), then Result's cases; an uncalled `.success` stays
+a format word, the cases both taking a payload.
 
 **`??` and `!!` — DECIDED (round 130)** ("Let's implement `??` and
 `??=` on Dictionary. Also `!!` and `!!=`. `(d0 !! d1) == (d1 ?? d0)`").

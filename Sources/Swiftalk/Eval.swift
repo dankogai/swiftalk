@@ -1543,10 +1543,16 @@ func evaluate(_ expr: Expr, in env: Environment) throws -> Value {
         return try evaluate(flag ? thenBranch : elseBranch, in: env)
     case .call(let callee, let args):
         if case .memberLiteral(let name) = callee {
+            let resultCase = Builtins.resultType.cases[name] != nil
             // Implicit self (round 49): `.method(args)` in a type body...
             if (try? env.lookup("self")) != nil {
-                return try evaluateSlow(
-                    .method(.variable("self"), name: name, args: args, called: true), in: env)
+                do {
+                    return try evaluateSlow(
+                        .method(.variable("self"), name: name, args: args, called: true), in: env)
+                } catch SwiftalkError.unknownMember where resultCase {
+                    // ...unless self has no such member and the name is a
+                    // Result case: `.failure(e)` inside a method (round 160)
+                }
             }
             // ...else the SION spelling (round 50): `.Date(...)` is
             // `Date(...)` when the name binds a type in scope.
@@ -1557,6 +1563,13 @@ func evaluate(_ expr: Expr, in env: Environment) throws -> Value {
                 case .plain, .todo, .operator:
                     break
                 }
+            }
+            // `.success(v)` / `.failure(e)` bare (round 160): Result's cases
+            // construct without an annotation — the one enum whose cases
+            // every program knows, so the leading dot is unambiguous.
+            if resultCase {
+                return try constructEnumCase(Builtins.resultType, name,
+                                             args: try evaluateArgs(args, in: env), called: true)
             }
         }
         guard case .function(let fn) = try evaluate(callee, in: env) else {

@@ -7,7 +7,8 @@ case accessors, equality, source form.
 
 | Form | Result |
 |---|---|
-| `Result.success(v)`, `Result.failure(e)` | construction; `let r: Result = .success(7)` with an annotation |
+| `Result.success(v)`, `Result.failure(e)` | construction |
+| `.success(v)`, `.failure(e)` | the same, **bare, anywhere** (round 160): in a closure's `return`, a ternary, an Array, `r == .success(2)` — no annotation needed, Result being the one enum every program knows. Inside a type body a member of the same name wins (`self.success(v)`); the payload is required |
 | `Result(x)` | error — construct via a case |
 | `r.success` | the payload, or `nil` if it is a failure (case accessor) |
 | `r.failure` | the error, or `nil` |
