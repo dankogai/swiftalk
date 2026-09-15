@@ -29,10 +29,14 @@ REPL). Sections in [Design.md](../Design.md) are cited as §n.
 | `struct` | user value types | [struct.md](struct.md) |
 | `enum` | user sum types | [enum.md](enum.md) |
 
-See [grammar.md](grammar.md) for the syntax as parsed,
-[FlowControl.md](FlowControl.md) for `if`/`switch`/the loops/early
-exit on one page, and [Bool.md](Bool.md) for the logical operators —
-the symbols and, since round 155, the words `not and or xor`.
+The pages above are the types. The rest of the language has its own
+pages, in lowercase (round 157): [grammar.md](grammar.md) for the
+syntax as parsed, [flowcontrol.md](flowcontrol.md) for `if`/`switch`/
+the loops/early exit, [toplevel.md](toplevel.md) for the global
+functions (`print`, `debugPrint`, `sleep`, `eval`), the types as
+values, and the names the language binds, [module.md](module.md) for
+`import`/`export`. [Bool.md](Bool.md) has the logical operators — the
+symbols and, since round 155, the words `not and or xor`.
 
 ## Members every value has
 
@@ -94,20 +98,11 @@ conversion the type does not have fails as it would by its real
 name. What a binding cannot alias: a parameterized or optional
 annotation (`[String]`, `Int?`) — spell those out, or annotate `Any`.
 
-## The three global functions
+## The global functions
 
-| Form | Meaning |
-|---|---|
-| `print(x, ...)` | writes each value's `description` — Strings bare, everything else source form — space-separated, newline-terminated |
-| `debugPrint(x, ...)` | the same with `debugDescription`: quoted Strings, signed hex numbers |
-| `eval(source)` | **the language's own `eval`** (round 122; Swift has none): the String is a swiftalk program, its last statement's value comes back. It runs **at the file's top level** — sees what the top level sees, declares into it as a line at the REPL would, and cannot see a caller's locals. Errors are the language's: a syntax error, an undefined name, `break` outside a loop. It is the round-trip law in the language: `eval(x.String()) == x` |
-
-`eval` is a Function value like the other two — `["1", "2"].map(eval)`
-— but unlike them it is **not a builtin: each file has its own** (round
-123). The program's `eval` runs at the program's top level; a module's
-runs at the module's, whoever calls it — `eval` resolves lexically, so
-a function a module exports evaluates in the module it came from and
-sees that module's unexported names, never the importer's.
+`print`, `debugPrint`, `sleep`, and `eval` — see
+[toplevel.md](toplevel.md), which also lists the types and protocols
+as values and the names the language binds (`$`, `self`, `Self`, …).
 
 ## Operators, by type
 

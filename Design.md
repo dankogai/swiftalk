@@ -1158,7 +1158,13 @@ is lazy on a Sequence (round 41), so `_ = seq.map { }` runs nothing
 runs the closure as `map` would (a Dictionary's pair is the argument
 list), and returns nil; `break`/`continue` inside are the closure
 error they always were, which is exactly why labeled `for` is the
-other half of this round. Noted in passing: at the REPL `_ = expr`
+other half of this round. **Round 157** settled a naming rule for
+`doc/`: a page about a type is capitalized as the type is
+(`Bool.md`, `Set.md`); a page about the language is lowercase
+(`grammar.md`, `module.md`, `flowcontrol.md` — renamed from
+`FlowControl.md` — and the new `toplevel.md`, which documents the
+global functions `print`/`debugPrint`/`sleep`/`eval`, the types and
+protocols as values, and the names the language binds). Noted in passing: at the REPL `_ = expr`
 gives `_` a type lock like any binding, so a second `_ =` of another
 type errors, while in a script `_ =` is "undeclared" and `let _ =`
 is the discard — a wart for a later round.

@@ -222,6 +222,29 @@ Set(
 )
 ```
 
+**`doc/toplevel.md`; `doc/flowcontrol.md`** (round 157) — the global
+functions, the types as values, and the bound names on one page;
+language pages are lowercase, type pages capitalized:
+
+```text
+swiftalk> print(1, "two", [3])
+1 two [3]
+swiftalk> debugPrint(1, "two", [3])
++0x1 "two" [+0x3]
+swiftalk> let r = print("x")
+x
+swiftalk> r
+swiftalk> sleep(0)
+swiftalk> eval("1 + 1")
+2
+swiftalk> ["1", "[2]"].map(eval)
+[1, [2]]
+swiftalk> [Int, Sequence, Comparable, Result].map { $0.Type }
+[Function, Function, Function, Function]
+swiftalk> sleep(-1)
+type error: sleep(seconds) — a non-negative Int or Double
+```
+
 **Loop labels; `forEach`** (round 156) — `outer: for`, `break outer`,
 `continue outer` (loops only, checked when parsed); `forEach` is the
 eager walk, since `map` on a Sequence is lazy and `_ = s.map { }`
@@ -260,7 +283,7 @@ syntax error: 'break'/'continue' outside a loop
 same operations as `!`, `&&`, `||`, `^^`, at the bottom of the
 precedence table (`not` > `and` > `or` = `xor`, all below the
 ternary), keywords; `doc/Bool.md` tables both spellings and
-`doc/FlowControl.md` is new:
+`doc/flowcontrol.md` is new (named `FlowControl.md` until round 157):
 
 ```text
 swiftalk> not 1 == 2

@@ -2290,3 +2290,20 @@ the history. (Moved out of Design.md in round 65.)
   way: at the REPL `_ =` locks `_`'s type like a real binding, and in
   a script it is "undeclared" (`let _ =` discards) — logged, not
   fixed.
+
+* **2026-09-15, round 157 — `flowcontrol.md`; `toplevel.md`** ("rename
+  FlowControl.md to flowcontrol.md since it is NOT ABOUT builtin
+  types. Document toplevel functions like `print()` in
+  `doc/toplevel.md`"). A rule the directory had been following
+  without saying so: `Bool.md` and `Set.md` are capitalized because
+  the types are, `grammar.md` and `module.md` are not because they
+  are about the language — so `FlowControl.md`, one day old, becomes
+  `flowcontrol.md`. `toplevel.md` was derived the way the type pages
+  were in round 68, from the evaluator: four `declareBuiltin`s and
+  one `installEval` make four functions (`sleep` had lived only on
+  Task.md), the type table and three protocols make the values, and
+  the rest is the names the language binds — `$`, `self`, `Self`,
+  `newValue`, `_` — with the REPL's `:` commands at the end. What is
+  *not* there is said too: no `readLine`, `exit`, `assert`, or
+  `args`. README.md's "three global functions" section became a
+  pointer. No code changed.
