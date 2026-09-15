@@ -222,6 +222,27 @@ Set(
 )
 ```
 
+**`r.then { v in }`** (round 162) — a success maps and stays a Result
+(a returned Result is taken as is), a failure passes through; chains
+stop at the first failure and `catch` settles them:
+
+```text
+swiftalk> .success(2).then { v in v * 21 }
+Result.success(42)
+swiftalk> .failure("boom").then { v in v * 21 }
+Result.failure("boom")
+swiftalk> let halve = { n in n % 2 == 0 ? .success(n / 2) : .failure("odd: \(n)") }
+{ n in ... }
+swiftalk> .success(8).then(halve).then(halve)
+Result.success(2)
+swiftalk> .success(6).then(halve).then(halve).then(halve)
+Result.failure("odd: 3")
+swiftalk> eval("6 * 7").then { $0 + 1 }.catch { _ in 0 }
+43
+swiftalk> eval("6 *").then { $0 + 1 }.catch { _ in 0 }
+0
+```
+
 **`r.catch { err in }`** (round 161) — a success unwraps as `??` does,
 a failure is the handler's value with the error as its argument:
 

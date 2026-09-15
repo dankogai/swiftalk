@@ -4169,6 +4169,22 @@ private func method(on receiver: Value, name: String,
             throw SwiftalkError.type(".catch takes a single Function: r.catch { err in ... }")
         }
         return ev.caseName == "success" ? ev.associated[0] : try apply(handler, args: [(nil, ev.associated[0])])
+    case ("then", true):
+        // `r.then { v in ... }` (round 162): a success runs the handler
+        // with its payload and is `.success` of the result — or the
+        // handler's own Result, if it returns one (Promise.then's
+        // flattening); a failure passes through untouched. So a chain
+        // `.then { }.then { }.catch { }` stops at the first failure.
+        guard case .enumCase(let ev) = receiver, ev.type === Builtins.resultType else {
+            throw SwiftalkError.type(".then is a Result's")
+        }
+        guard args.count == 1, case .function(let handler) = args[0] else {
+            throw SwiftalkError.type(".then takes a single Function: r.then { v in ... }")
+        }
+        guard ev.caseName == "success" else { return receiver }
+        let out = try apply(handler, args: [(nil, ev.associated[0])])
+        if case .enumCase(let inner) = out, inner.type === Builtins.resultType { return out }
+        return try constructEnumCase(Builtins.resultType, "success", args: [(nil, out)], called: true)
     case ("description", false):
         // The builtin text: Strings bare, everything else the memberwise
         // source form — never a type's own `String` member (round 152),

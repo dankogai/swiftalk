@@ -724,8 +724,15 @@ payload and the handler never runs; a failure is the handler's
 value, the error its argument. JavaScript's `Promise.catch`, on a
 value. Result only: nil is absence, not an error, and has nothing to
 hand a handler, so `??` stays the form that covers both. The handler
-may return a Result itself, so `catch` can re-wrap. No `then`: a
-success is already the value, and `?` propagates.
+may return a Result itself, so `catch` can re-wrap. **Round 162**
+("Add `res.then { v in ... }` too") added the other half after all:
+`r.then { v in ... }` maps a success through the handler and stays a
+Result — `.success` of the handler's value, or the handler's own
+Result taken as is (Promise.then's flattening, so `then(halve)`
+chains) — while a failure passes through untouched. A chain `.then {
+}.then { }.catch { }` therefore stops at the first failure and
+`catch` settles it: JavaScript's Promise shape on a value, with `?`
+still the short form when the enclosing function is the handler.
 
 **`??` and `!!` — DECIDED (round 130)** ("Let's implement `??` and
 `??=` on Dictionary. Also `!!` and `!!=`. `(d0 !! d1) == (d1 ?? d0)`").

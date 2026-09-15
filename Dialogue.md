@@ -2357,3 +2357,11 @@ the history. (Moved out of Design.md in round 65.)
   message pointing at `??`: a handler wants something to handle.
   `eval(s).catch { err in print(err); nil }` is the round-159 story
   finished.
+
+* **2026-09-16, round 162 — `r.then { v in }`** ("Add `res.then { v in
+  ... }` too"). Round 161's "no `then`" lasted a day; the chain is
+  the point — `eval(s).then { ... }.then { ... }.catch { ... }` reads
+  as a program, and `?` only helps inside a function. A success maps
+  and re-wraps, a handler's own Result is taken as is (so a
+  Result-returning function chains without nesting), a failure
+  passes through. Twelve lines beside `catch`.
