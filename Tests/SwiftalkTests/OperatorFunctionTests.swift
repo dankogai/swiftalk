@@ -60,7 +60,7 @@ struct OperatorFunctionTests {
         #expect(try eval("(+) == (-)") == .bool(false))
         #expect(try eval("(+).String()") == .string("(+)"))
         #expect(try eval("(**).String()") == .string("(**)"))
-        #expect(try eval("eval((**).String())(2, 3)") == .int(8))               // the round-trip law
+        #expect(try eval("eval((**).String())!(2, 3)") == .int(8))               // the round-trip law
         #expect(try eval("(+).name") == .string("(+)"))
         #expect(try eval("[(+), (*)].map { $0(2, 3) }") == .array([.int(5), .int(6)]))
         #expect(try eval("( + )(1, 2)") == .int(3))                             // spacing is free

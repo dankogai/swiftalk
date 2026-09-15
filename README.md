@@ -85,7 +85,7 @@ let hex    = 255.String(.hex)                 // "0xff"; .String(.sign, .hex) is
 let bytes  = "café".Data(.utf8)               // infallible; .Data("base64") is the literal
 let text   = bytes.String(.utf8)              // String? — bytes may not be text
 let src    = bytes.String()                   // .Data("Y2Fmw6k=") — SION
-eval(src) == bytes                            // true — eval() is the language's own (round 122)
+eval(src)! == bytes                           // true — eval() is the language's own (round 122); a Result since round 159: eval("1 +") ?? 0
 Set([3, 1, 2, 1]) == Set(1...3)               // true — Set (round 132): unordered, unique; Set<Int> annotates
 "e\u{301}".normalized(with: .nfc) == "é"       // true — NFC/NFD/NFKC/NFKD, Foundation-free (round 137); .isNormalized(.nfc) asks
 "Dan = 弾".escaped()                           // "Dan = \u{5f3e}"; .unescaped() reads it back

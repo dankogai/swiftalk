@@ -222,6 +222,34 @@ Set(
 )
 ```
 
+**`eval()` returns `Result`** (round 159) — `.success(value)` or
+`.failure(message)`, never thrown; `?`, `??`, `!`, and `switch` apply:
+
+```text
+swiftalk> eval("1 + 1")
+Result.success(2)
+swiftalk> eval("1 +")
+Result.failure("syntax error: unexpected token end of input")
+swiftalk> eval("nope") ?? 0
+0
+swiftalk> eval("1 / 0").failure
+"division by zero"
+swiftalk> ["1", "[2]", "x"].map(eval)
+[Result.success(1), Result.success([2]), Result.failure("type error: undefined variable 'x'")]
+swiftalk> let f = { s in eval(s)? + 1 }
+{ s in ... }
+swiftalk> f("41")
+42
+swiftalk> f("4 1")
+Result.failure("syntax error: expected a newline or ';' between statements")
+swiftalk> eval((1...3).String())! == 1...3
+true
+swiftalk> eval("boom")!
+type error: force-unwrapped a failure: "type error: undefined variable 'boom'"
+swiftalk> eval(1)
+type error: eval takes one String of swiftalk source
+```
+
 **`_` discards** (round 158) — `_ = expr` and `let _ = expr` evaluate
 and bind nothing, in a script and at the REPL, with any type, any
 number of times; `_` is never a variable:

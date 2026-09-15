@@ -50,7 +50,7 @@ struct PrefixPlusIdentityTests {
         #expect(try eval("Int(255.String(.sign, .hex))") == .int(255))                     // prefix + re-enters (round 121)
         #expect(try eval("Int(\"+42\")") == .int(42))
         #expect(try eval("Double(\"+1.5\")") == .double(1.5))
-        #expect(try eval("eval(255.String(.sign, .bin)) == 255") == .bool(true))
+        #expect(try eval("eval(255.String(.sign, .bin))! == 255") == .bool(true))
         #expect(throws: SwiftalkError.self) { try eval("\"s\".String(.sign)") }
         #expect(throws: SwiftalkError.self) { try eval("[1].String(.sign)") }
         #expect(throws: SwiftalkError.self) { try eval("1.String(.sign, .json)") }
@@ -68,7 +68,7 @@ struct PrefixPlusIdentityTests {
         #expect(try eval("Data([255]).debugDescription") == .string("Data([0xff])"))       // bytes have no sign
         #expect(try eval("Byte(255).debugDescription") == .string("Byte(0xff)"))
         #expect(try eval(".Date(1.0).debugDescription") == .string(".Date(0x1p0)"))       // SION's spelling, unsigned
-        #expect(try eval("eval(255.debugDescription) == 255") == .bool(true))
+        #expect(try eval("eval(255.debugDescription)! == 255") == .bool(true))
     }
 
     @Test("=== / !==: the same type and the same bits — nan === nan, +0.0 !== -0.0; never a type error")

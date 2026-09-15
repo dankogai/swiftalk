@@ -2321,3 +2321,16 @@ the history. (Moved out of Design.md in round 65.)
   declaring, and a declaration named `_` returns after evaluating
   and checking any annotation. `_` cannot be read at all any more,
   which is the point.
+
+* **2026-09-15, round 159 — `eval()` returns `Result`** ("`eval()`
+  should return `Result`"). Consistent with §8 from the start —
+  swiftalk's errors are values, and `eval` was the one place a
+  program could raise an error it had no way to catch. One `do`/
+  `catch` in `installEval`: the value becomes `.success`, a
+  `SwiftalkError` becomes `.failure` with its description. A
+  builtin's misuse (`eval(1)`) still throws — the caller's fault.
+  The tests that had said `eval(s) == v` now say `eval(s)! == v` or
+  `== .success(v)`, and the ones that had expected a throw now read
+  the failure's text, which turned out to be a better test — the
+  message is now part of the contract. README's law line gained a
+  `!`.

@@ -13,7 +13,7 @@ can be passed, aliased, and shadowed by a declaration of your own.
 | `print(x, ...)` | writes each value's display text, space-separated, newline-terminated; `nil`. A String is bare, everything else is its `.String()` — a type's own `String` member speaks here (round 152). `print()` writes an empty line |
 | `debugPrint(x, ...)` | the same with each value's `debugDescription`: quoted Strings, signed hex numbers (`.String(.sign, .hex)`, round 125), the memberwise form of a struct — a type's `String` member is not asked |
 | `sleep(seconds)` | suspends the current context for a non-negative Int or Double of seconds; parked tasks run meanwhile (§12, round 53) — at the top level, "run the loop for a while". `nil`. Not inside a `Sequence { }` coroutine body |
-| `eval(source)` | **the language's own `eval`** (round 122; Swift has none): the String is a swiftalk program, its last statement's value comes back. Runs **at the file's top level** — sees what the top level sees, declares into it as a line at the REPL would, and cannot see a caller's locals. Errors are the language's. The round-trip law in the language: `eval(x.String()) == x` |
+| `eval(source)` | **the language's own `eval`** (round 122; Swift has none): the String is a swiftalk program, and a **`Result`** comes back (round 159) — `.success(v)` with its last statement's value, or `.failure(message)` for any error the program raises (a syntax error, an undefined name, a trap), never thrown: `eval(s)?` propagates, `eval(s) ?? d` defaults, `eval(s)!` unwraps or traps. Runs **at the file's top level** — sees what the top level sees, declares into it as a line at the REPL would, and cannot see a caller's locals. The round-trip law in the language: `eval(x.String())! == x`. Calling it with anything but one String is the caller's type error, as with any builtin |
 
 `eval` is a Function value like the other three — `["1", "[2]"].map(eval)`
 — but unlike them it is **not a builtin: each file has its own** (round
@@ -27,7 +27,8 @@ print(1, "two", [3])          // 1 two [3]
 debugPrint(1, "two", [3])     // +0x1 "two" [+0x3]
 let r = print("x")            // r is nil
 sleep(0.5)
-eval("1 + 1")                 // 2
+eval("1 + 1")                 // Result.success(2); eval("1 + 1")! is 2
+eval("1 +") ?? 0              // 0 — .failure("syntax error: unexpected token end of input")
 ```
 
 There is no `readLine`, `exit`, `assert`, or `args` (yet): a script

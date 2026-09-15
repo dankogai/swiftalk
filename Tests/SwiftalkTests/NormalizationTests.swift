@@ -102,7 +102,7 @@ struct NormalizationTests {
         #expect(try eval("\"a\\\\nb\".unescaped()") == .string("a\nb"))                         // unescaped knows the literal escapes
         #expect(try eval("\"\\\\t\\\\0\\\\\\\"\\\\'\".unescaped()") == .string("\t\0\"'"))
         #expect(try eval("\"\\\\u{41}\\\\u{1F600}\".unescaped()") == .string("A😀"))
-        #expect(try eval(#"let s = "☃ \\ 弾""# + "\n" + #"eval("\"" + s.escaped() + "\"") == s"#) == .bool(true))   // the escaped text is a literal's body
+        #expect(try eval(#"let s = "☃ \\ 弾""# + "\n" + #"eval("\"" + s.escaped() + "\"")! == s"#) == .bool(true))   // the escaped text is a literal's body
         #expect(throws: SwiftalkError.self) { try eval("\"\\\\q\".unescaped()") }
         #expect(throws: SwiftalkError.self) { try eval("\"\\\\u{D800}\".unescaped()") }
         #expect(throws: SwiftalkError.self) { try eval("\"\\\\u41\".unescaped()") }

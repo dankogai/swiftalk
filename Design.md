@@ -689,7 +689,19 @@ module exports therefore evaluates in the module it came from,
 seeing its unexported names and never the importer's; the program's
 `eval` is the program's. No caller-tracking, no stack, no cost on the
 call path; what a file's top level means is settled by where the
-text was written.
+text was written. **Round 159 — DECIDED** ("`eval()` should return
+`Result`"): `eval` returns `.success(value)` or `.failure(message)`
+and never throws for what the evaluated program does — a syntax
+error, an undefined name, a trap, a redeclaration, an empty program
+all come back as a failure carrying the error's text. §8's own
+machinery then applies: `eval(s)?` propagates the failure from the
+enclosing function, `eval(s) ?? d` defaults, `eval(s)!` unwraps or
+traps as the old `eval` did, `switch` takes both cases, and
+`["1", "x"].map(eval)` is an Array of Results. The law reads
+`eval(x.String())! == x`. Only the call's own misuse — `eval(1)`,
+`eval()` — is still a thrown type error, as with any builtin: that
+is the caller's bug, not the program's. JavaScript throws from
+`eval`; swiftalk's errors are values (§8), so its `eval` says so.
 
 **`??` and `!!` — DECIDED (round 130)** ("Let's implement `??` and
 `??=` on Dictionary. Also `!!` and `!!=`. `(d0 !! d1) == (d1 ?? d0)`").

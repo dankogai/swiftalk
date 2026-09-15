@@ -16,6 +16,7 @@ case accessors, equality, source form.
 | `r ?? d` | the success payload, or `d` on failure/nil (lazy right side) |
 | `switch r { case let v = .success: ... case let e = .failure: ... }` | exhaustive; `if let e = r.failure { }` for one side |
 | `r.Type == Result`, `r == s` | as any enum |
+| `eval(source)` | a Result (round 159): `.success(value)` or `.failure(message)` — see [toplevel.md](toplevel.md) |
 
 ```swift
 let halve = { n in n / 2 * 2 == n ? Result.success(n / 2) : Result.failure("odd: \(n)") }

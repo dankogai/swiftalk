@@ -147,7 +147,18 @@ extension Swiftalk {
                 guard args.count == 1, case .string(let source) = args[0] else {
                     throw SwiftalkError.type("eval takes one String of swiftalk source")
                 }
-                return try run(source, in: scope)
+                // Round 159: a Result — the program's value as .success, any
+                // error the program raises (syntax, type, a trap) as
+                // .failure(message), never thrown: `eval(s)?` propagates,
+                // `eval(s) ?? d` defaults, `eval(s)!` traps as before.
+                // Misusing eval itself (no String) is still the caller's
+                // type error, as with any builtin.
+                do {
+                    let value = try run(source, in: scope)
+                    return try constructEnumCase(Builtins.resultType, "success", args: [(nil, value)], called: true)
+                } catch let error as SwiftalkError {
+                    return try constructEnumCase(Builtins.resultType, "failure", args: [(nil, .string(error.description))], called: true)
+                }
             }
             try! scope.declare("eval", Binding(
                 mutable: false, lock: TypeAnnotation(name: "Function", optional: false), value: .function(fn)))

@@ -21,12 +21,12 @@ struct SetTests {
         #expect(try eval("Set([[1, 2]]).String()") == .string("Set([[1, 2]])"))
         #expect(try eval("Set([1...3]).String()") == .string("Set([1...3])"))
         #expect(try eval("Set([[1, 2], [3]]).String()") == .string("Set([1, 2], [3])"))
-        #expect(try eval("let t = Set([\"one\"])\neval(t.String()) == t") == .bool(true))
-        #expect(try eval("let t = Set([[1, 2]])\neval(t.String()) == t") == .bool(true))
-        #expect(try eval("let t = Set(Set(1, 2))\neval(t.String()) == t") == .bool(true))
-        #expect(try eval("let t = Set([Set(1, 2)])\neval(t.String()) == t") == .bool(true))
+        #expect(try eval("let t = Set([\"one\"])\neval(t.String())! == t") == .bool(true))
+        #expect(try eval("let t = Set([[1, 2]])\neval(t.String())! == t") == .bool(true))
+        #expect(try eval("let t = Set(Set(1, 2))\neval(t.String())! == t") == .bool(true))
+        #expect(try eval("let t = Set([Set(1, 2)])\neval(t.String())! == t") == .bool(true))
         #expect(try eval("Set().String()") == .string("Set()"))
-        #expect(try eval("let s = Set([3, 1, 2])\neval(s.String()) == s") == .bool(true))      // the round-trip law
+        #expect(try eval("let s = Set([3, 1, 2])\neval(s.String())! == s") == .bool(true))      // the round-trip law
         #expect(try eval("Set([1, 2]).debugDescription") == .string("Set(+0x1, +0x2)"))
         #expect(try eval("Set([[1, 2], [3]]).String(.pretty)") == .string("Set(\n  [\n    1,\n    2\n  ],\n  [\n    3\n  ]\n)"))
         #expect(try eval("Set([[1]]).String(.pretty)") == .string("Set([\n  [\n    1\n  ]\n])"))

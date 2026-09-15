@@ -17,7 +17,7 @@ file: `from` is required, and the "where" is a path or a URL.
 | `export let x = ...`, `export var`, `export struct`, `export enum`, `export let (a, b) = t` | a declaration, exported |
 | `export (a, b)` | existing names, exported |
 | `extension Int { }` in a module | an extension of a **builtin** type is program-wide (round 147), as Swift's are: `modules/Complex.swt`'s `extension Double { var i }` gives the importer `Double.pi.i`. (A struct's extension always was, the type object being one.) |
-| `eval(source)` in a module | the **module's own** `eval` (round 123): runs at the module's top level — its unexported names visible, its declarations landing there — whoever calls the function that calls it; the importer's names are not visible. See [README.md](README.md) |
+| `eval(source)` in a module | the **module's own** `eval` (round 123; a `Result` since round 159): runs at the module's top level — its unexported names visible, its declarations landing there — whoever calls the function that calls it; the importer's names are not visible. See [README.md](README.md) |
 
 Exports are **values, copied at import** — a module's `var` reaches the
 importer as a snapshot in a `let`. Module-private state lives in the
