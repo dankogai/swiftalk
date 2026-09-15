@@ -222,6 +222,26 @@ Set(
 )
 ```
 
+**`r.catch { err in }`** (round 161) — a success unwraps as `??` does,
+a failure is the handler's value with the error as its argument:
+
+```text
+swiftalk> .success(2).catch { err in 0 }
+2
+swiftalk> .failure("boom").catch { err in "handled: " + err }
+"handled: boom"
+swiftalk> let safe = { s in eval(s).catch { err in print("eval failed:", err); nil } }
+{ s in ... }
+swiftalk> safe("6 * 7")
+42
+swiftalk> safe("6 *")
+eval failed: syntax error: unexpected token end of input
+swiftalk> [.success(1), .failure("e")].map { $0.catch { _ in -1 } }
+[1, -1]
+swiftalk> nil.catch { 0 }
+type error: .catch is a Result's — for nil, `??` is the form
+```
+
 **Bare `.success(v)` / `.failure(e)`** (round 160) — Result's cases
 construct anywhere without an annotation; other leading-dot names are
 what they were:

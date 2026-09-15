@@ -716,6 +716,16 @@ has only in annotations). Precedence of readings for `.name(args)`:
 implicit self's member first (round 49), a type in scope next (round
 50, `.Date(...)`), then Result's cases; an uncalled `.success` stays
 a format word, the cases both taking a payload.
+**Round 161 — DECIDED** ("Add the `res.catch { err in ... }` method.
+If `res.success` it simply unwrap like `??`. `{}` is the error
+handler iff executed on error"): `r.catch { err in ... }` is `??`
+with a Function on the right that sees the error — a success is its
+payload and the handler never runs; a failure is the handler's
+value, the error its argument. JavaScript's `Promise.catch`, on a
+value. Result only: nil is absence, not an error, and has nothing to
+hand a handler, so `??` stays the form that covers both. The handler
+may return a Result itself, so `catch` can re-wrap. No `then`: a
+success is already the value, and `?` propagates.
 
 **`??` and `!!` — DECIDED (round 130)** ("Let's implement `??` and
 `??=` on Dictionary. Also `!!` and `!!=`. `(d0 !! d1) == (d1 ?? d0)`").

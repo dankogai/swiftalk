@@ -2347,3 +2347,13 @@ the history. (Moved out of Design.md in round 65.)
   and a user enum's `.a(1)` still wants `E.a(1)` — inferring it from
   a unique case name is logged as OPEN. The round-159 test now reads
   as first written.
+
+* **2026-09-16, round 161 — `r.catch { err in }`** ("Add the
+  `res.catch { err in ... }` method. If `res.success` it simply
+  unwrap like `??`. `{}` is the error handler iff executed on
+  error"). Ten lines in the method dispatcher: a success returns its
+  payload, a failure applies the handler to the error. The one
+  choice was nil — `??` accepts it, `catch` does not, the error
+  message pointing at `??`: a handler wants something to handle.
+  `eval(s).catch { err in print(err); nil }` is the round-159 story
+  finished.

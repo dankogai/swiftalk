@@ -4158,6 +4158,17 @@ private func method(on receiver: Value, name: String,
         default:          kept = Array(all.dropLast(count))
         }
         return reshape(kept, like: receiver)
+    case ("catch", true):
+        // `r.catch { err in ... }` (round 161): a success unwraps, as `??`
+        // does; a failure runs the handler with the error and is its
+        // value. Result only — `??` is the form that also covers nil.
+        guard case .enumCase(let ev) = receiver, ev.type === Builtins.resultType else {
+            throw SwiftalkError.type(".catch is a Result's — for nil, `??` is the form")
+        }
+        guard args.count == 1, case .function(let handler) = args[0] else {
+            throw SwiftalkError.type(".catch takes a single Function: r.catch { err in ... }")
+        }
+        return ev.caseName == "success" ? ev.associated[0] : try apply(handler, args: [(nil, ev.associated[0])])
     case ("description", false):
         // The builtin text: Strings bare, everything else the memberwise
         // source form — never a type's own `String` member (round 152),
