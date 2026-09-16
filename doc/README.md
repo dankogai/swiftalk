@@ -26,6 +26,7 @@ REPL). Sections in [Design.md](../Design.md) are cited as §n.
 | `SION` | the data format, built in: SION, JSON, property lists | [SION.md](SION.md) |
 | modules | `import` / `export`, `.swt` files by path or URL | [module.md](module.md) |
 | `Result` | built-in enum: `.success` / `.failure` | [Result.md](Result.md) |
+| `Response` | `fetch`'s answer — a struct declared in swiftalk at startup (round 163) | [toplevel.md](toplevel.md#response) |
 | `struct` | user value types | [struct.md](struct.md) |
 | `enum` | user sum types | [enum.md](enum.md) |
 
@@ -33,7 +34,7 @@ The pages above are the types. The rest of the language has its own
 pages, in lowercase (round 157): [grammar.md](grammar.md) for the
 syntax as parsed, [flowcontrol.md](flowcontrol.md) for `if`/`switch`/
 the loops/early exit, [toplevel.md](toplevel.md) for the global
-functions (`print`, `debugPrint`, `sleep`, `eval`), the types as
+functions (`print`, `debugPrint`, `sleep`, `eval`, `fetch`), the types as
 values, and the names the language binds, [module.md](module.md) for
 `import`/`export`. [Bool.md](Bool.md) has the logical operators — the
 symbols and, since round 155, the words `not and or xor`.

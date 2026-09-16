@@ -13,6 +13,7 @@ can be passed, aliased, and shadowed by a declaration of your own.
 | `print(x, ...)` | writes each value's display text, space-separated, newline-terminated; `nil`. A String is bare, everything else is its `.String()` — a type's own `String` member speaks here (round 152). `print()` writes an empty line |
 | `debugPrint(x, ...)` | the same with each value's `debugDescription`: quoted Strings, signed hex numbers (`.String(.sign, .hex)`, round 125), the memberwise form of a struct — a type's `String` member is not asked |
 | `sleep(seconds)` | suspends the current context for a non-negative Int or Double of seconds; parked tasks run meanwhile (§12, round 53) — at the top level, "run the loop for a while". `nil`. Not inside a `Sequence { }` coroutine body |
+| `fetch(url)`, `fetch(url, options)` | **JS's `fetch`** (round 163): a **Task** whose value is a **Result** — `.success(Response)` for any HTTP answer (a 404 is a success with `ok == false`), `.failure(message)` when no answer came (DNS, refused, no fetcher). `await` it, then `.then`/`.catch`/`?`/`??`. Options are a Dictionary (JS's object) or a labeled tuple: `method:` (a String, any case), `headers:` (`[String: String]`), `body:` (a String or a Data). The request runs on a worker thread while the task is parked, so several fetches overlap and other tasks run meanwhile. The HTTP itself is the host's: the CLI uses curl (`-sSL`, redirects followed); an embedder sets `Interpreter.fetcher`. Bad arguments to the call itself throw |
 | `eval(source)` | **the language's own `eval`** (round 122; Swift has none): the String is a swiftalk program, and a **`Result`** comes back (round 159) — `.success(v)` with its last statement's value, or `.failure(message)` for any error the program raises (a syntax error, an undefined name, a trap), never thrown: `eval(s)?` propagates, `eval(s) ?? d` defaults, `eval(s)!` unwraps or traps. Runs **at the file's top level** — sees what the top level sees, declares into it as a line at the REPL would, and cannot see a caller's locals. The round-trip law in the language: `eval(x.String())! == x`. Calling it with anything but one String is the caller's type error, as with any builtin |
 
 `eval` is a Function value like the other three — `["1", "[2]"].map(eval)`
@@ -30,6 +31,36 @@ sleep(0.5)
 eval("1 + 1")                 // Result.success(2); eval("1 + 1")! is 2
 eval("1 +") ?? 0              // 0 — .failure("syntax error: unexpected token end of input")
 ```
+
+### `Response`
+
+What a successful `fetch` carries — a struct **declared in swiftalk**
+at startup (the first prelude), so it is an ordinary type: `Response(
+status: 200, body: "hi".Data(.utf8))` constructs one, `r.Type ==
+Response`, and it prints memberwise.
+
+| Member | Meaning |
+|---|---|
+| `r.status` | the HTTP status, an Int |
+| `r.ok` | `200 <= status < 300` |
+| `r.headers` | `[String: String]`, names lowercased: `r.headers["content-type"]` |
+| `r.body` | the bytes, a Data |
+| `r.text()` | `body.String(.utf8)` — a String, or nil when the bytes are not UTF-8 |
+| `r.json()` | `SION(json: text)` — the parsed document; a JSON error is the parser's |
+
+```swift
+let r = await fetch("https://example.com")          // a Result
+r.then { $0.status }                                 // Result.success(200)
+r.then { $0.text()!.contains("Example Domain") }     // Result.success(true)
+(await fetch("https://api.example/items", (method: "POST", headers: ["Content-Type": "application/json"], body: "{\"a\":1}")))
+    .then { $0.json() }
+    .catch { err in print("fetch failed:", err); nil }
+let a = fetch(u1); let b = fetch(u2)                 // both in flight at once
+[(await a)?.status, (await b)?.status]
+```
+
+Mind the precedence: `await fetch(u).then { }` is `await (fetch(u).then { })`,
+a `then` on a Task — parenthesize, `(await fetch(u)).then { }`, as in JS.
 
 There is no `readLine`, `exit`, `assert`, or `args` (yet): a script
 reads nothing and ends when its last statement does; a runtime error
@@ -49,6 +80,7 @@ constructs, `Set(1, 2)`, `Sequence { }`, `Task { }`.
 | `Sequence` | a type (a lazy generator or coroutine) and the protocol every iterable conforms to — [Sequence.md](Sequence.md) |
 | `Equatable` `Hashable` `Comparable` | protocols: `T.conforms(to: Comparable)`; every value is Equatable and Hashable, Comparable is Int/Double/String/Date/Byte and any struct or enum with `infix(<)` (round 146) |
 | `Result` | the built-in enum, `.success(v)` / `.failure(e)` — [Result.md](Result.md) |
+| `Response` | `fetch`'s answer, a struct declared in swiftalk at startup (round 163) — below |
 | `Primitives` `Any` | annotation-only names (round 59): not values, a type error as one |
 
 A `struct`, `enum`, or `import` adds to this table for the rest of the

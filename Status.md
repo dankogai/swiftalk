@@ -222,6 +222,33 @@ Set(
 )
 ```
 
+**`fetch`** (round 163) — JS's, at the top level: a Task of a Result of a
+`Response` (a struct declared in swiftalk at startup); the request runs
+on a worker thread while the task is parked; curl underneath in the CLI:
+
+```text
+swiftalk> let t = fetch("https://example.com")
+Task { ... }
+swiftalk> t.Type
+Task
+swiftalk> let r = await t
+Result.success(Response(status: 200, headers: ["accept-ranges": "bytes", "age": "6", "allow": "GET, HEAD", "cf-cache-status": "HIT", "cf-ray": "a3bf8cf0bd1bccea-NRT", "content-type": "text/html", "date": "Wed, 16 Sep 2026 11:32:26 GMT", "last-modified": "Tue, 15 Sep 2026 23:38:37 GMT", "server": "cloudflare"], body: .Data("PCFkb2N0eXBlIGh0bWw+PGh0bWwgbGFuZz0iZW4iPjxoZWFkPjx0aXRsZT5FeGFtcGxlIERvbWFpbjwvdGl0bGU+PGxpbmsgcmVsPSJpY29uIiBocmVmPSJkYXRhOiwiPjxtZXRhIG5hbWU9InZpZXdwb3J0IiBjb250ZW50PSJ3aWR0aD1kZXZpY2Utd2lkdGgsIGluaXRpYWwtc2NhbGU9MSI+PHN0eWxlPmJvZHl7YmFja2dyb3VuZDojZWVlO3dpZHRoOjYwdnc7bWFyZ2luOjE1dmggYXV0bztmb250LWZhbWlseTpzeXN0ZW0tdWksc2Fucy1zZXJpZn1oMXtmb250LXNpemU6MS41ZW19ZGl2e29wYWNpdHk6MC44fWE6bGluayxhOnZpc2l0ZWR7Y29sb3I6IzM0OH08L3N0eWxlPjwvaGVhZD48Ym9keT48ZGl2PjxoMT5FeGFtcGxlIERvbWFpbjwvaDE+PHA+VGhpcyBkb21haW4gaXMgZm9yIHVzZSBpbiBkb2N1bWVudGF0aW9uIGV4YW1wbGVzIHdpdGhvdXQgbmVlZGluZyBwZXJtaXNzaW9uLiBBdm9pZCB1c2UgaW4gb3BlcmF0aW9ucy48L3A+PHA+PGEgaHJlZj0iaHR0cHM6Ly9pYW5hLm9yZy9kb21haW5zL2V4YW1wbGUiPkxlYXJuIG1vcmU8L2E+PC9wPjwvZGl2PjwvYm9keT48L2h0bWw+Cg==")))
+swiftalk> r.then { [$0.status, $0.ok, $0.headers["content-type"]] }
+Result.success([200, true, "text/html"])
+swiftalk> r.then { $0.text()!.contains("Example Domain") }
+Result.success(true)
+swiftalk> (await fetch("https://httpbin.org/post", (method: "POST", headers: ["Content-Type": "application/json"], body: "{\"a\":1}"))).then { $0.json()["json"] }
+Result.success(["a": 1])
+swiftalk> (await fetch("https://example.com/nope")).then { [$0.status, $0.ok] }
+Result.success([404, false])
+swiftalk> (await fetch("https://no.such.host.invalid/")).catch { err in err }
+"type error: curl: (6) Could not resolve host: no.such.host.invalid"
+swiftalk> Response(status: 200, body: "[1, 2]".Data(.utf8)).json()
+[1, 2]
+swiftalk> fetch(1)
+type error: fetch(url) or fetch(url, options) — the url a String
+```
+
 **`r.then { v in }`** (round 162) — a success maps and stays a Result
 (a returned Result is taken as is), a failure passes through; chains
 stop at the first failure and `catch` settles them:

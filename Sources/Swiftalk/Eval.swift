@@ -22,6 +22,9 @@ extension Swiftalk {
         /// How a resolved module spec becomes source. nil: files are
         /// read directly and URLs are refused; the CLI supplies curl.
         public var moduleLoader: ((String) throws -> String)? = nil
+        /// How `fetch` reaches the network (round 163). nil: every fetch
+        /// is a `.failure` saying so; the CLI supplies curl.
+        public var fetcher: ((FetchRequest) throws -> FetchResponse)? = nil
         private let relaxed: Bool
         private let outputBox = OutputBox()
         /// The cooperative scheduler (§12, round 53): tasks spawned in
@@ -44,6 +47,7 @@ extension Swiftalk {
             environment.isFileScope = true
             modules = ModuleSystem(builtins: builtins)
             installBuiltins()
+            installPrelude()                                               // round 163: Response
             installEval(in: environment)                                   // round 122/123
             modules.fileScopeSetup = { [unowned self] scope in installEval(in: scope) }
         }
@@ -92,6 +96,7 @@ extension Swiftalk {
                 try ctx.scheduler.sleep(seconds: seconds, from: ctx)
                 return .nil
             }
+            installFetch()                                                 // round 163
             // Types and protocols are values too (round 39): the global
             // names Int, String, ..., Sequence, ... bind the singleton
             // objects that `.type` returns — identity comparison works.
@@ -106,6 +111,59 @@ extension Swiftalk {
                 mutable: false,
                 lock: TypeAnnotation(name: "Function", optional: false),
                 value: .function(Builtins.resultType.constructor!)))
+        }
+
+        /// Types the core declares in swiftalk rather than Swift (round
+        /// 163): evaluated once into the builtins scope at startup.
+        private func installPrelude() {
+            do {
+                _ = try run(fetchPrelude, in: builtins)
+            } catch {
+                fatalError("swiftalk prelude failed to load: \(error)")
+            }
+        }
+
+        /// `fetch(url[, options])` (round 163): a Task whose value is a
+        /// Result. The request goes to `fetcher` on a worker thread while
+        /// the task is parked — other tasks run, fetches overlap.
+        private func installFetch() {
+            declareBuiltin("fetch") { [unowned self] args in
+                let request = try FetchRequest(arguments: args)
+                guard let ctx = Scheduler.current else {
+                    throw SwiftalkError.type("fetch inside a Sequence coroutine body is not (yet) supported")
+                }
+                let fetcher = self.fetcher
+                let builtins = self.builtins
+                let body = FunctionObject(parameters: [], body: [], closure: builtins) { _ in
+                    func failure(_ message: String) throws -> Value {
+                        try constructEnumCase(Builtins.resultType, "failure", args: [(nil, .string(message))], called: true)
+                    }
+                    guard let fetcher else {
+                        return try failure("fetch needs a fetcher — the swiftalk CLI uses curl; an embedder sets Interpreter.fetcher")
+                    }
+                    guard let me = Scheduler.current else {
+                        return try failure("fetch: no running context")
+                    }
+                    let outcome: Result<FetchResponse, Swift.Error> = try me.scheduler.offload(from: me) {
+                        Result { try fetcher(request) }
+                    }
+                    switch outcome {
+                    case .failure(let error):
+                        return try failure((error as? SwiftalkError)?.description ?? "\(error)")
+                    case .success(let r):
+                        guard case .function(let f) = try builtins.lookup("Response"),
+                              case .structType(let st) = f.role else {
+                            return try failure("fetch: the Response type is missing")
+                        }
+                        var headers: [Value: Value] = [:]
+                        for (k, v) in r.headers { headers[.string(k.lowercased())] = .string(v) }
+                        let response = try constructStruct(st, args: [
+                            ("status", .int(Int64(r.status))), ("headers", .dictionary(headers)), ("body", .data(r.body))])
+                        return try constructEnumCase(Builtins.resultType, "success", args: [(nil, response)], called: true)
+                    }
+                }
+                return try ctx.scheduler.spawn(body, from: ctx)
+            }
         }
 
         private func declareBuiltin(_ name: String, _ body: @escaping ([Value]) throws -> Value) {
@@ -3282,6 +3340,8 @@ func apply(_ fn: FunctionObject, args: [(label: String?, value: Value)]) throws 
 /// from it as the next state.
 func run(_ fn: FunctionObject, ordered: [Value]) throws -> (result: Value, local: Environment) {
     let local = Environment(parent: fn.closure)
+    // A builtin body (round 163: fetch's task) has no statements to run.
+    if let builtin = fn.builtin { return (try builtin(ordered), local) }
     for (name, value) in zip(fn.parameters, ordered) where name != "_" {
         // `_` (round 61): positional-only — no binding; $N still holds.
         try local.declare(name, Binding(

@@ -2365,3 +2365,20 @@ the history. (Moved out of Design.md in round 65.)
   and re-wraps, a handler's own Result is taken as is (so a
   Result-returning function chains without nesting), a failure
   passes through. Twelve lines beside `catch`.
+
+* **2026-09-16, round 163 — `fetch`** ("add toplevel `async fetch()` a
+  la JS. Swift's `URLSession` is too cumbersome"). Three pieces. The
+  scheduler learned to park a context while a blocking call runs on
+  a worker thread — `offload`, thirty lines beside `sleep` — so a
+  fetch does not hold the baton and two fetches overlap (the test
+  times two 0.15 s stubs at under 0.28 s). The core asks a `fetcher`
+  hook, as it asks the `moduleLoader`; the CLI's answer is curl with
+  `-i`, and the header block parser lost its first hour to Swift
+  treating `\r\n` as one Character, which `split(separator: "\n")`
+  never finds — the fix splits on either. And `Response` is written
+  in swiftalk, a prelude the interpreter evaluates into its builtins
+  at startup: the first type the language declares for itself. The
+  shape — a Task of a Result of a Response — fell out of rounds
+  159–162; `(await fetch(u)).then { $0.json() }.catch { … }` was the
+  target sentence and it runs. Probed live against example.com, the
+  GitHub API, and httpbin's redirect and POST echo.

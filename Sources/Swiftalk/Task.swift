@@ -65,6 +65,7 @@ final class Scheduler {
     private var running: Context?          // the baton: who may execute interpreter code
     private var ready: [Context] = []      // resumable, FIFO
     private var sleepers: [(deadline: Double, ctx: Context)] = []
+    private var offloaded = 0              // contexts parked on work outside the interpreter (round 163)
     private var cancelled = false
 
     init() {
@@ -158,6 +159,50 @@ final class Scheduler {
         try waitUntilRunning(me)
     }
 
+    /// A blocking call outside the interpreter (round 163, `fetch`): run
+    /// `work` on a thread of its own while `me` is parked — the baton is
+    /// free, so other contexts run meanwhile — and resume `me` with the
+    /// result once it returns. The work must not touch interpreter state.
+    func offload<T>(from me: Context, _ work: @escaping () -> T) throws -> T {
+        let cell = OffloadCell<T>()
+        pthread_mutex_lock(mutex)
+        defer { pthread_mutex_unlock(mutex) }
+        let box = OffloadBox(scheduler: self, context: me) { cell.value = work() }
+        if let error = startOffloadThread(box) { throw error }
+        offloaded += 1
+        running = nil
+        try waitUntilRunning(me)
+        return cell.value!
+    }
+
+    /// The offload thread is done: ready the parked context.
+    fileprivate func finishOffload(_ ctx: Context) {
+        pthread_mutex_lock(mutex)
+        offloaded -= 1
+        ready.append(ctx)
+        pthread_cond_broadcast(cond)
+        pthread_mutex_unlock(mutex)
+    }
+
+    private func startOffloadThread(_ box: OffloadBox) -> Swift.Error? {
+        var attr = pthread_attr_t()
+        pthread_attr_init(&attr)
+        pthread_attr_setdetachstate(&attr, Int32(PTHREAD_CREATE_DETACHED))
+        let argument = Unmanaged.passRetained(box).toOpaque()
+        #if canImport(Darwin)
+        var thread: pthread_t? = nil
+        #else
+        var thread = pthread_t()
+        #endif
+        let rc = pthread_create(&thread, &attr, offloadThreadMain, argument)
+        pthread_attr_destroy(&attr)
+        guard rc == 0 else {
+            Unmanaged<OffloadBox>.fromOpaque(argument).release()
+            return SwiftalkError.type("could not start a worker thread (errno \(rc))")
+        }
+        return nil
+    }
+
     /// Interpreter teardown: wake every parked task into a `Cancelled`
     /// throw so its thread unwinds and exits.
     func shutdown() {
@@ -185,6 +230,10 @@ final class Scheduler {
                     pthread_cond_broadcast(cond)   // it is parked in this same loop
                 } else if let deadline = sleepers.map(\.deadline).min() {
                     timedWait(until: deadline)
+                } else if offloaded > 0 {
+                    // work is out on a worker thread; its context returns
+                    // to `ready` when it finishes (round 163)
+                    pthread_cond_wait(cond, mutex)
                 } else {
                     // Nothing ready, nothing sleeping, nobody running:
                     // what I wait for can never happen. Claim the baton
@@ -309,6 +358,43 @@ extension Scheduler {
             ready.append(next)
         }
     }
+}
+
+/// A result slot for `offload`, written on the worker thread before the
+/// parked context is readied, read after — the mutex orders the two.
+private final class OffloadCell<T> {
+    var value: T? = nil
+}
+
+/// The worker thread's baggage (round 163): the scheduler and context it
+/// must report back to, and the work itself.
+private final class OffloadBox {
+    let scheduler: Scheduler
+    let context: Scheduler.Context
+    let work: () -> Void
+    init(scheduler: Scheduler, context: Scheduler.Context, work: @escaping () -> Void) {
+        self.scheduler = scheduler
+        self.context = context
+        self.work = work
+    }
+}
+
+#if canImport(Darwin)
+private func offloadThreadMain(_ argument: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer? {
+    offloadThreadBody(argument)
+    return nil
+}
+#else
+private func offloadThreadMain(_ argument: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
+    offloadThreadBody(argument!)
+    return nil
+}
+#endif
+
+private func offloadThreadBody(_ argument: UnsafeMutableRawPointer) {
+    let box = Unmanaged<OffloadBox>.fromOpaque(argument).takeRetainedValue()
+    box.work()
+    box.scheduler.finishOffload(box.context)
 }
 
 /// Keeps the scheduler (and the context) alive for as long as the task

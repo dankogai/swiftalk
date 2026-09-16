@@ -5,48 +5,121 @@ import Darwin
 import Glibc
 #endif
 
-/// The CLI's module loader (round 100): files through the core's POSIX
-/// read; `http://`/`https://` through `curl -fsSL`, spawned without
-/// Foundation — "urls like https:// are okay so long as CORS allows".
-func loadModule(_ spec: String) throws -> String {
-    guard spec.hasPrefix("http://") || spec.hasPrefix("https://") else {
-        return try Swiftalk.Interpreter.readModule(at: spec)
-    }
-    var fds: [Int32] = [0, 0]
-    guard pipe(&fds) == 0 else { throw Swiftalk.Error.type("cannot fetch '\(spec)': pipe failed") }
+/// Runs curl with `args` (round 100's spawn, generalized in round 163):
+/// stdout comes back as bytes; `input`, if any, goes to curl's stdin.
+/// No Foundation — posix_spawn and pipes.
+func runCurl(_ args: [String], input: [UInt8]? = nil) throws -> [UInt8] {
+    var out: [Int32] = [0, 0]
+    var inp: [Int32] = [0, 0]
+    guard pipe(&out) == 0, pipe(&inp) == 0 else { throw Swiftalk.Error.type("curl: pipe failed") }
     #if canImport(Darwin)
     var actions: posix_spawn_file_actions_t? = nil      // an opaque pointer on Darwin
     #else
     var actions = posix_spawn_file_actions_t()
     #endif
     posix_spawn_file_actions_init(&actions)
-    posix_spawn_file_actions_adddup2(&actions, fds[1], 1)
-    posix_spawn_file_actions_addclose(&actions, fds[0])
-    posix_spawn_file_actions_addclose(&actions, fds[1])
+    posix_spawn_file_actions_adddup2(&actions, out[1], 1)
+    posix_spawn_file_actions_adddup2(&actions, out[1], 2)      // curl's own message rides along; it is the error text on failure
+    posix_spawn_file_actions_adddup2(&actions, inp[0], 0)
+    for fd in [out[0], out[1], inp[0], inp[1]] { posix_spawn_file_actions_addclose(&actions, fd) }
     var argv: [UnsafeMutablePointer<CChar>?] = []
-    for a in ["curl", "-fsSL", spec] { argv.append(strdup(a)) }
+    for a in ["curl"] + args { argv.append(strdup(a)) }
     argv.append(nil)
     defer { for p in argv { free(p) } }
     var pid: pid_t = 0
     let rc = posix_spawnp(&pid, "curl", &actions, nil, argv, nil)
     posix_spawn_file_actions_destroy(&actions)
-    close(fds[1])
+    close(out[1])
+    close(inp[0])
     guard rc == 0 else {
-        close(fds[0])
-        throw Swiftalk.Error.type("cannot fetch '\(spec)': curl is not available (\(rc))")
+        close(out[0]); close(inp[1])
+        throw Swiftalk.Error.type("curl is not available (\(rc))")
     }
+    if let input, !input.isEmpty {
+        _ = input.withUnsafeBufferPointer { write(inp[1], $0.baseAddress, $0.count) }
+    }
+    close(inp[1])
     var data: [UInt8] = []
     var chunk = [UInt8](repeating: 0, count: 65536)
     while true {
-        let n = read(fds[0], &chunk, chunk.count)
+        let n = read(out[0], &chunk, chunk.count)
         guard n > 0 else { break }
         data.append(contentsOf: chunk[0..<n])
     }
-    close(fds[0])
+    close(out[0])
     var status: Int32 = 0
     waitpid(pid, &status, 0)
-    guard status == 0 else { throw Swiftalk.Error.type("cannot fetch '\(spec)' (curl exit \(status >> 8))") }
-    return String(decoding: data, as: UTF8.self)
+    guard status == 0 else {
+        let message = String(decoding: data, as: UTF8.self).split(whereSeparator: { $0 == "\n" || $0 == "\r\n" }).last.map(String.init) ?? ""
+        throw Swiftalk.Error.type(message.isEmpty ? "curl exit \(status >> 8)" : message)
+    }
+    return data
+}
+
+/// The CLI's module loader (round 100): files through the core's POSIX
+/// read; `http://`/`https://` through `curl -fsSL` — "urls like
+/// https:// are okay so long as CORS allows".
+func loadModule(_ spec: String) throws -> String {
+    guard spec.hasPrefix("http://") || spec.hasPrefix("https://") else {
+        return try Swiftalk.Interpreter.readModule(at: spec)
+    }
+    do {
+        return String(decoding: try runCurl(["-fsSL", spec]), as: UTF8.self)
+    } catch let error as Swiftalk.Error {
+        throw Swiftalk.Error.type("cannot fetch '\(spec)': \(error.description)")
+    }
+}
+
+/// The CLI's fetcher (round 163): `curl -sSL -i`, the response parsed
+/// here — the last header block's status line and headers (redirects
+/// and `100 Continue` leave earlier blocks), the rest the body.
+func fetchWithCurl(_ request: Swiftalk.FetchRequest) throws -> Swiftalk.FetchResponse {
+    var args = ["-sS", "-L", "-i", "-X", request.method]
+    for (name, value) in request.headers.sorted(by: { $0.key < $1.key }) { args += ["-H", "\(name): \(value)"] }
+    if request.body != nil { args += ["--data-binary", "@-"] }
+    args.append(request.url)
+    let raw = try runCurl(args, input: request.body)
+    var rest = raw[...]
+    var status = 0
+    var headers: [String: String] = [:]
+    while rest.starts(with: Array("HTTP/".utf8)) {
+        // one header block: up to the blank line
+        var end = rest.startIndex
+        var blank: Range<Int>? = nil
+        while end < rest.endIndex {
+            if rest[end] == 10 {
+                let lineEnd = end
+                let next = end + 1
+                if next < rest.endIndex, rest[next] == 10 { blank = lineEnd..<(next + 1); break }
+                if next + 1 < rest.endIndex, rest[next] == 13, rest[next + 1] == 10 { blank = lineEnd..<(next + 2); break }
+            }
+            end += 1
+        }
+        let blockEnd = blank?.lowerBound ?? rest.endIndex
+        let block = String(decoding: rest[rest.startIndex..<blockEnd], as: UTF8.self)
+        status = 0
+        headers = [:]
+        // "\r\n" is ONE Character to Swift, so split on either ending
+        for (n, line) in block.split(whereSeparator: { $0 == "\n" || $0 == "\r\n" }).enumerated() {
+            let line = line.hasSuffix("\r") ? String(line.dropLast()) : String(line)
+            if n == 0 {
+                let parts = line.split(separator: " ")
+                if parts.count > 1 { status = Int(parts[1]) ?? 0 }
+            } else if let colon = line.firstIndex(of: ":") {
+                let name = line[..<colon].lowercased()
+                let value = line[line.index(after: colon)...].trimmingLeadingSpaces()
+                headers[name] = value
+            }
+        }
+        rest = rest[(blank?.upperBound ?? rest.endIndex)...]
+    }
+    return Swiftalk.FetchResponse(status: status, headers: headers, body: Array(rest))
+}
+
+extension Substring {
+    func trimmingLeadingSpaces() -> String {
+        String(drop(while: { $0 == " " || $0 == "\t" }))
+    }
 }
 
 // Milestone 1: the REPL — a read–eval–print loop around eval()
@@ -77,6 +150,7 @@ if CommandLine.arguments.count > 1 {
         let interp = Swiftalk.Interpreter()
         interp.scriptPath = path                     // `import` resolves beside the script (round 100)
         interp.moduleLoader = loadModule
+        interp.fetcher = fetchWithCurl                // round 163
         _ = try interp.eval(String(decoding: data, as: UTF8.self))
     } catch let error as Swiftalk.Error {
         let msg = "\(path): \(error.description)\n"
@@ -88,6 +162,7 @@ if CommandLine.arguments.count > 1 {
 
 let interpreter = Swiftalk.Interpreter(relaxed: true)
 interpreter.moduleLoader = loadModule            // URLs via curl, files directly
+interpreter.fetcher = fetchWithCurl              // fetch() via curl (round 163)
 let isTTY = isatty(0) != 0
 // On a terminal, LineEditor (round 64) supplies raw-mode editing,
 // arrow-key history, and ~/.swiftalk_history; pipes keep plain reads.

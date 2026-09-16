@@ -12,6 +12,7 @@ threads: they interleave only at suspension points (`await`,
 | `async { ... }` | sugar for `Task { ... }` |
 | `await t` | the task's value, memoized; a body error rethrows at every `await`; prefix at unary precedence (`await a + await b`) |
 | `sleep(seconds)` | a builtin: suspends the current context; parked tasks run meanwhile |
+| `fetch(url)` | a builtin returning a Task (round 163): the request runs on a worker thread while the task is parked, so fetches overlap and other tasks run — see [toplevel.md](toplevel.md) |
 | `t.Type` | `Task` |
 | `t == u` | identity |
 | `t.String()` | `"Task { ... }"` |

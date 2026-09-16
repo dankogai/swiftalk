@@ -734,6 +734,33 @@ chains) — while a failure passes through untouched. A chain `.then {
 `catch` settles it: JavaScript's Promise shape on a value, with `?`
 still the short form when the enclosing function is the handler.
 
+**`fetch` — DECIDED (round 163)** ("add toplevel `async fetch()` a la
+JS. Swift's `URLSession` is too cumbersome"). `fetch(url)` and
+`fetch(url, options)` return a **Task** — `await` it — whose value is
+a **Result**: `.success(Response)` for any HTTP answer, a 404
+included (`ok` says 2xx, as JS's does), `.failure(message)` when no
+answer came. Rounds 159–162 made that the natural shape: `(await
+fetch(u)).then { $0.json() }.catch { … }`. Three decisions under it.
+**The network is the host's**: the core stays Foundation-free, so
+`fetch` asks `Interpreter.fetcher` — the CLI answers with curl
+(`-sSL -i`, redirects followed, the last header block parsed, curl's
+own message the failure text), an embedder answers however it likes,
+the tests with a stub. **It is truly asynchronous**: the scheduler
+gained a suspension point, `offload`, that runs a blocking call on a
+worker thread while the calling context is parked with the baton
+free — other tasks run, several fetches overlap — and readies it
+with the result; the deadlock detector knows to wait while work is
+out. **`Response` is a struct declared in swiftalk** at startup — the
+first *prelude*: `status`, `headers` (lowercased names), `body` (a
+Data), `ok`, `text()`, `json()` are six lines of the language, not
+of Swift, constructible and printable like any struct. Options are a
+Dictionary (JS's object) or a labeled tuple — `method:`, `headers:`,
+`body:` (String or Data). A bad call (`fetch(1)`) throws, as any
+builtin's does. OPEN: `then`/`catch` on a Task itself (JS's Promise
+shape, which would let `fetch(u).then { }` read without the
+parentheses `await`'s precedence forces), a timeout, streaming
+bodies, and `fetch` inside a coroutine body.
+
 **`??` and `!!` — DECIDED (round 130)** ("Let's implement `??` and
 `??=` on Dictionary. Also `!!` and `!!=`. `(d0 !! d1) == (d1 ?? d0)`").
 Round 126's `merge` without a function overwrote, and the user wanted
