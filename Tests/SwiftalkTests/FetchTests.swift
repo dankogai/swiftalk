@@ -16,9 +16,20 @@ struct FetchTests {
         var requests: [Swiftalk.FetchRequest] = []
         var answers: [String: Swiftalk.FetchResponse] = [:]
         var delay: UInt32 = 0
+        /// (start, finish) per request, for the overlap test — written on
+        /// worker threads, so under a lock.
+        var spans: [(start: Double, finish: Double)] = []
+        private var lock = pthread_mutex_t()
+        init() { pthread_mutex_init(&lock, nil) }
+        static func now() -> Double {
+            var ts = timespec(); clock_gettime(CLOCK_REALTIME, &ts)
+            return Double(ts.tv_sec) + Double(ts.tv_nsec) / 1e9
+        }
         func fetch(_ request: Swiftalk.FetchRequest) throws -> Swiftalk.FetchResponse {
-            requests.append(request)
+            let start = Stub.now()
+            pthread_mutex_lock(&lock); requests.append(request); pthread_mutex_unlock(&lock)
             if delay > 0 { usleep(delay) }
+            pthread_mutex_lock(&lock); spans.append((start, Stub.now())); pthread_mutex_unlock(&lock)
             guard let answer = answers[request.url] else { throw SwiftalkError.type("no route to \(request.url)") }
             return answer
         }
@@ -85,12 +96,14 @@ struct FetchTests {
         stub.answers["https://x/a"] = .init(status: 200)
         stub.answers["https://x/b"] = .init(status: 200)
         let i = interpreter(stub)
-        var ts = timespec(); clock_gettime(CLOCK_REALTIME, &ts)
-        let start = Double(ts.tv_sec) + Double(ts.tv_nsec) / 1e9
         #expect(try i.eval("let a = fetch(\"https://x/a\")\nlet b = fetch(\"https://x/b\")\nvar ticks = 0\nlet t = async { while ticks < 3 { ticks += 1; sleep(0.01) } }\n[(await a)!.status, (await b)!.status, await t, ticks]") == .array([.int(200), .int(200), .nil, .int(3)]))
-        clock_gettime(CLOCK_REALTIME, &ts)
-        let elapsed = Double(ts.tv_sec) + Double(ts.tv_nsec) / 1e9 - start
-        #expect(elapsed < 0.28, "two 0.15 s fetches took \(elapsed) s — they should overlap")
         #expect(stub.requests.count == 2)
+        // Structural, not a stopwatch (a loaded CI runner is no judge of
+        // wall time): the second request began before the first ended.
+        let spans = stub.spans.sorted { $0.start < $1.start }
+        #expect(spans.count == 2)
+        if spans.count == 2 {
+            #expect(spans[1].start < spans[0].finish, "the fetches ran one after the other: \(spans)")
+        }
     }
 }
