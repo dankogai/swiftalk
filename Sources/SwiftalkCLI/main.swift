@@ -167,6 +167,7 @@ let isTTY = isatty(0) != 0
 // On a terminal, LineEditor (round 64) supplies raw-mode editing,
 // arrow-key history, and ~/.swiftalk_history; pipes keep plain reads.
 let editor: LineEditor? = isTTY ? LineEditor() : nil
+editor?.completer = { interpreter.complete($0) }   // Tab (round 164)
 
 // The continuation prompt is two quiet spaces (round 63) — dots were
 // noise. (Recommended indent in .swt files is 4 spaces.)

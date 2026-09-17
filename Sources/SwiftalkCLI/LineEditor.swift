@@ -19,6 +19,10 @@ final class LineEditor {
     private var history: [String] = []
     private let historyPath: String?
     private let maxHistory = 1000
+    /// Tab (round 164): given the line up to the cursor, where the word
+    /// being completed starts and what it could become. nil: Tab is a
+    /// tab.
+    var completer: ((String) -> (start: Int, candidates: [String]))? = nil
 
     init() {
         if let home = getenv("HOME") {
@@ -133,6 +137,24 @@ final class LineEditor {
                     cursor -= 1
                     buffer.remove(at: cursor)
                 }
+            case 9:                                   // Tab — complete (round 164)
+                guard let completer else {
+                    buffer.insert("\t", at: cursor)
+                    cursor += 1
+                    break
+                }
+                let (start, candidates) = completer(String(buffer[..<cursor]))
+                guard !candidates.isEmpty, start <= cursor else { break }
+                let word = String(buffer[start..<cursor])
+                let shared = LineEditor.commonPrefix(candidates)
+                if shared.count > word.count {
+                    // one candidate, or the part they all share
+                    buffer.replaceSubrange(start..<cursor, with: Array(shared))
+                    cursor = start + shared.count
+                } else if candidates.count > 1 {
+                    // nothing more to insert: show the choices, then the line again
+                    emit("\n" + LineEditor.columns(candidates) + "\n")
+                }
             case 1:  cursor = 0                       // ^A
             case 5:  cursor = buffer.count            // ^E
             case 2:  if cursor > 0 { cursor -= 1 }    // ^B
@@ -190,6 +212,28 @@ final class LineEditor {
         }
     }
 
+    /// The longest prefix every candidate shares.
+    static func commonPrefix(_ candidates: [String]) -> String {
+        guard var prefix = candidates.first else { return "" }
+        for candidate in candidates.dropFirst() {
+            while !candidate.hasPrefix(prefix) { prefix.removeLast() }
+            if prefix.isEmpty { break }
+        }
+        return prefix
+    }
+
+    /// Candidates laid out in columns, 80 wide.
+    static func columns(_ names: [String], width: Int = 80) -> String {
+        let cell = (names.map(\.count).max() ?? 0) + 2
+        let perLine = max(1, width / cell)
+        var lines: [String] = []
+        for row in stride(from: 0, to: names.count, by: perLine) {
+            lines.append(names[row..<min(row + perLine, names.count)]
+                .map { $0.padding(to: cell) }.joined().trimmingTrailingSpaces())
+        }
+        return lines.joined(separator: "\n")
+    }
+
     /// Writes straight to fd 1 — Glibc's `stdout` is a shared
     /// mutable var Swift 6 refuses to touch, and raw fd writes need
     /// no flushing anyway.
@@ -216,5 +260,16 @@ final class LineEditor {
             bytes.append(b)
         }
         return String(decoding: bytes, as: UTF8.self).first
+    }
+}
+
+private extension String {
+    func padding(to width: Int) -> String {
+        count >= width ? self : self + String(repeating: " ", count: width - count)
+    }
+    func trimmingTrailingSpaces() -> String {
+        var s = self
+        while s.hasSuffix(" ") { s.removeLast() }
+        return s
     }
 }

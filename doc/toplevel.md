@@ -109,3 +109,17 @@ is a command (round 131): `:h` help, `:r let x = ...` redefine a
 top-level binding (also `:r struct P { }`, `:r extension T { }`),
 `:d x` undefine one. A non-nil value echoes in its source form,
 Strings quoted, a type's own `String` member honored (round 152).
+
+**Tab completes** (round 164). A name: everything in scope — your
+bindings, the types, `print`/`fetch`/…, the keywords — and `:h`/`:r`/
+`:d` at a line's start. A member, after a dot: the receiver is read
+(a chain of names, `p.origin.`, or a literal — `[1, 2].`, `"s".` —
+never a call or a subscript, which are not run for completion) and
+its value says what it has — a struct's properties, computed
+properties, and methods; an enum's cases and methods; a type's
+statics (`Double.sq` → `sqrt sqrt2 sqrtHalf`); a builtin value's
+members and any `extension` members; a bare dot offers the format
+words and `.success`/`.failure`. One candidate is inserted; several
+insert what they share, and a second Tab lists them. The engine is
+`Interpreter.complete(text)` — the text up to the cursor in, the
+word's start and the candidates out — for an embedder's editor.

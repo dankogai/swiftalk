@@ -14,7 +14,7 @@ extension Swiftalk {
         /// module's, which is how a module sees Int and print but not
         /// the importer's variables.
         private let builtins = Environment()
-        private var environment: Environment
+        var environment: Environment                                   // internal since round 164: completion reads its names
         private let modules: ModuleSystem
         /// The main program's file, when it has one (the CLI's script
         /// mode): `import` specs resolve beside it. nil: the cwd.
@@ -443,6 +443,14 @@ final class Environment {
         try check(value, against: binding.lock, for: name)
         binding.value = value
         bindings[name] = binding
+    }
+
+    /// Every name bound here or in an enclosing scope (round 164, for
+    /// completion) — hidden `@` bindings included; the caller filters.
+    func names() -> [String] {
+        var out = Set(bindings.keys)
+        if let parent { out.formUnion(parent.names()) }
+        return Array(out)
     }
 
     func has(_ name: String) -> Bool {
