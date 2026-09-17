@@ -2382,3 +2382,20 @@ the history. (Moved out of Design.md in round 65.)
   159–162; `(await fetch(u)).then { $0.json() }.catch { … }` was the
   target sentence and it runs. Probed live against example.com, the
   GitHub API, and httpbin's redirect and POST echo.
+
+* **2026-09-17, round 164 — Tab completion** ("Can we add completion
+  to SwiftalkCLI?"). Yes, and most of it is not in the CLI: the
+  engine is `Interpreter.complete(text)` in the core, twenty lines
+  of the editor read Tab and ask it. The names side was free — the
+  environment already knows what is bound. The members side had a
+  choice to make: the evaluator dispatches builtin members by a
+  string switch, not a table, so there is nothing to enumerate; the
+  first probe asked the evaluator "is this name unknown?" for every
+  name on every type and learned that a known name on the wrong
+  receiver is a *type* error, not an unknown member — the probe
+  accepted everything. So the builtin table is curated from the
+  docs (which round 68 derived from the evaluator) and a test keeps
+  it from rotting in the direction that matters. A receiver is read
+  but never called: `p.origin.` and `[1, 2].` complete, `f().` does
+  not. The Regex page had lent String four members and the table had
+  believed it; the test caught them.

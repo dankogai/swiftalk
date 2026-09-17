@@ -222,6 +222,14 @@ Set(
 )
 ```
 
+**Tab completion** (round 164) — at the REPL: names in scope, keywords,
+`:` commands, and members after a dot from the receiver's value
+(`p.` → its properties and methods; `Double.sq` → `sqrt sqrt2
+sqrtHalf`; `[1, 2].ma` → `map max`); one candidate inserts, several
+insert their shared prefix and list on a second Tab. The engine is
+`Interpreter.complete(text)`, tested against the evaluator; a
+transcript cannot show a keystroke, so none here.
+
 **`fetch`** (round 163) — JS's, at the top level: a Task of a Result of a
 `Response` (a struct declared in swiftalk at startup); the request runs
 on a worker thread while the task is parked; curl underneath in the CLI:

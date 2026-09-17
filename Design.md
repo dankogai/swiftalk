@@ -761,6 +761,28 @@ shape, which would let `fetch(u).then { }` read without the
 parentheses `await`'s precedence forces), a timeout, streaming
 bodies, and `fetch` inside a coroutine body.
 
+**Completion — DECIDED (round 164)** ("Can we add completion to
+SwiftalkCLI?"). Tab in the REPL, on round 64's editor; the engine in
+the core as `Interpreter.complete(text)`, so an embedder's editor
+has it too. Names complete from what is actually in scope — the
+environment chain's bindings, the builtins, the keywords, the `:`
+commands at a line's start. Members complete from the *value*: the
+receiver before the dot is read and asked what it has — a chain of
+names (`p.origin.`) or a literal of literals (`[1, 2].`, `"s".`), and
+never a call, a subscript, or a parenthesized expression, since
+completion must not run code with effects (reading a computed
+property is the one concession, Python's rlcompleter's too). A
+struct, enum, or type object answers from its own tables; a builtin
+value answers from a table in `Completion.swift`, curated from the
+type pages, and a test asks the evaluator that every listed name is
+one it still knows — a name removed from the evaluator fails the
+build, a name added to the evaluator is missing from Tab until
+listed, the tolerable direction. The editor inserts the one
+candidate or the prefix several share, and lists them when nothing
+more can be inserted. OPEN: labels inside a call (`sorted(by:`),
+completion of module names in `import`, a member table generated
+from the evaluator rather than curated.
+
 **`??` and `!!` — DECIDED (round 130)** ("Let's implement `??` and
 `??=` on Dictionary. Also `!!` and `!!=`. `(d0 !! d1) == (d1 ?? d0)`").
 Round 126's `merge` without a function overwrote, and the user wanted
