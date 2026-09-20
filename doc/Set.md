@@ -45,7 +45,7 @@ bitwise operations stay methods (`bitAnd`, `bitOr`, `bitXor`), and
 | `s.filter { }` | a **Set** (Swift-compatible), of `s`'s element type (round 168) |
 | `s.sorted()`, `s.sorted { }` | an Array — the way to a deterministic order |
 | `s.first`, `s.min()`, `s.max()` | Sequence's (round 139): `first` is *some* element, the Set's own order being unspecified; `min`/`max` need Comparable elements |
-| `s.reduce(init) { }`, `s.enumerated()`, `s.prefix(n)`, … | every Sequence member; slices and `enumerated()` are Arrays, an order having been imposed |
+| `s.reduce(init) { }`, `s.enumerated()`, `s.prefix(n)`, … | every Sequence member; a slice is a Set of `s`'s element type (round 169 — this row had said Arrays; they were Sets since round 132), `enumerated()` an Array, an order having been imposed |
 | `Array(s)`, `s.Array()` | the elements, in the Set's own order |
 | `s.String()`, `s.String(.pretty)` | `Set(1, 2)`, sorted — re-enters; `Set(["one"])`, `Set([[1, 2]])` for a lone Sequence element (round 134) |
 | `s.String(.json)`, `s.String(.propertyList)` | a sorted **array** — JSON and property lists have no sets (lossy, as Data's base64 is); a Set is not a SION value |

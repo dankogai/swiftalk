@@ -2477,3 +2477,11 @@ the history. (Moved out of Design.md in round 65.)
   its own Dictionary and needed the helper too. The other slices
   (`dropLast`, `suffix`, `prefix`) were left as they were: each is
   the same line, and the round was two names, not a family.
+
+* **2026-09-20, round 169 — `dropLast`, `suffix`, `prefix` keep the
+  stamp too** ("Make `dropLast`, `suffix`, and `prefix` keep the
+  stamp too"). The family round 168 had declined to widen on its
+  own, asked for one message later: the same helper at `prefix`'s two
+  return sites, and the `dropFirst` condition at the shared one
+  dropped. Nothing else moved; `map` is now the only derivation that
+  erases, and it must.

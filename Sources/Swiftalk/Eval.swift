@@ -1444,8 +1444,8 @@ private func lazyBase(_ receiver: Value) -> SequenceObject? {
 /// String's graphemes back to a String, a Dictionary's pairs back to
 /// a Dictionary, anything else an Array.
 /// Carries the receiver's stamp (round 165) onto a container derived
-/// from it (round 168): `filter` and `dropFirst` keep the elements they
-/// keep, so `[Int]().filter { }` is still an Array of Int. Only where
+/// from it (rounds 168–169): `filter` and the slicing family keep the
+/// elements they keep, so `[Int]().filter { }` is still an Array of Int. Only where
 /// the result has the receiver's shape; a Sequence, String, or Data has
 /// no stamp to carry.
 private func restamp(_ result: Value, like receiver: Value) -> Value {
@@ -4370,7 +4370,7 @@ private func method(on receiver: Value, name: String,
             while let element = try it.next(), try holds(fn, element, for: "prefix") {
                 kept.append(element)
             }
-            return reshape(kept, like: receiver)
+            return restamp(reshape(kept, like: receiver), like: receiver)   // round 169
         }
         guard args.count == 1, case .int(let n) = args[0], n >= 0 else {
             throw SwiftalkError.type(".prefix takes a non-negative Int, or a Function x -> Bool")
@@ -4382,7 +4382,7 @@ private func method(on receiver: Value, name: String,
         }
         // shaped like the receiver (round 89, revising 41's Array for a
         // String): a String's prefix is a String, as Swift's is
-        return reshape(out, like: receiver)
+        return restamp(reshape(out, like: receiver), like: receiver)    // round 169
     case ("suffix", true), ("dropFirst", true), ("dropLast", true):
         // The slicing family (round 89), Swift's names and semantics:
         // n clamps to the count; dropFirst()/dropLast() default to 1;
@@ -4431,8 +4431,7 @@ private func method(on receiver: Value, name: String,
         case "dropFirst": kept = Array(all.dropFirst(count))
         default:          kept = Array(all.dropLast(count))
         }
-        let shaped = reshape(kept, like: receiver)
-        return name == "dropFirst" ? restamp(shaped, like: receiver) : shaped   // round 168: dropFirst keeps the stamp
+        return restamp(reshape(kept, like: receiver), like: receiver)   // rounds 168–169: the slices keep the stamp
     case ("catch", true):
         // `r.catch { err in ... }` (round 161): a success unwraps, as `??`
         // does; a failure runs the handler with the error and is its

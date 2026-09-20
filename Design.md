@@ -1364,9 +1364,9 @@ property whose lock is parameterized stamps the value (`var a: [Int]
 stamp before it looks at the contents, so the empty `T()` binds as
 `[Int]` and the binding's lock — the round-59 machinery, unchanged —
 refuses the String. The stamp is not part of equality or hashing
-(`[Int]() == [String]()`), and a container *derived* by `map` or
-slicing is unstamped: empty, it is the erased type (`filter` and
-`dropFirst` keep it since round 168). (2)
+(`[Int]() == [String]()`), and a container *derived* by `map` is
+unstamped: empty, it is the erased type (`filter` and the slices
+keep it since rounds 168–169). (2)
 **`.Type` reports the parameters**: the stamp, else what the contents
 infer — `[0].Type` is `[Int]`, `[1: "a"].Type` is `[Int: String]`,
 `Set([1]).Type` is `Set<Int>`, `[[1], [2]].Type` is `[[Int]]`; a
@@ -1405,10 +1405,18 @@ result, for an Array, a Set, and a Dictionary alike — `[Int]().filter
 `Set<Int>().filter { }` a `Set<Int>` — so an empty result binds as
 what its source was and refuses what its source refused. `map` cannot
 (a new element type), and an unstamped receiver has nothing to pass
-on. The other slices — `dropLast`, `suffix`, `prefix` — are the same
-one-line change each and stay unstamped until asked: the round did
+on. The other slices — `dropLast`, `suffix`, `prefix` — were the same
+one-line change each and stayed unstamped until asked: the round did
 what it was asked, not the family. A lazy Sequence's `filter` is a
 Sequence, stampless as ever.
+
+**`dropLast`, `suffix`, `prefix` keep the stamp too — DECIDED (round
+169)** ("Make `dropLast`, `suffix`, and `prefix` keep the stamp
+too"). The rest of the slicing family, asked for the next message:
+every slice of a stamped Array, Set, or Dictionary is stamped the
+same, `prefix { }` included; `map` remains the one derivation that
+cannot. (Found on the way: the Set page had called a Set's slices
+Arrays; they have been Sets since round 132, and the row now says so.)
 
 **`.Element`, `.Key`, `.Value` — DECIDED (round 166)** ("Add
 `.Element`, `.Key`, and `.Value` to parameterized types"). Swift's

@@ -222,6 +222,30 @@ Set(
 )
 ```
 
+**`dropLast`, `suffix`, `prefix` keep the stamp too** (round 169) — the
+rest of the slicing family; `map` alone erases:
+
+```text
+swiftalk> var a = [Int]()
+[]
+swiftalk> a.dropLast().Type
+[Int]
+swiftalk> a.suffix(1).Type
+[Int]
+swiftalk> a.prefix(1).Type
+[Int]
+swiftalk> var b = a.prefix { $0 < 2 }
+[]
+swiftalk> b.append("s")
+type error: cannot assign String to 'b'[0] of type Int
+swiftalk> var d = [Int: String]()
+[:]
+swiftalk> d.suffix(1).Type
+[Int: String]
+swiftalk> a.map { $0 }.Type
+Array
+```
+
 **`filter` and `dropFirst` keep the stamp** (round 168) — a container
 derived by either is still an Array, Set, or Dictionary *of* what its
 source was, empty or not; `map` and the other slices stay erased:
