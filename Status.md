@@ -222,6 +222,65 @@ Set(
 )
 ```
 
+**Parameterized container types** (round 165) — a container carries its
+element type: `.Type` reports `[Int]`, `[Int: String]`, `Set<Int>`;
+`[Int]` and `[K: V]` are expressions; `[Int]()` is an empty Array
+that is still an Array of Int, and the binding it lands in enforces
+that. Type equality is by name, the erased `Array` admitting any
+`[T]`; `Function` stays `Function`:
+
+```text
+swiftalk> var a = [0]
+[0]
+swiftalk> a.Type
+[Int]
+swiftalk> let T = a.Type
+[Int]
+swiftalk> var a1 = T()
+[]
+swiftalk> a1.append("one")
+type error: cannot assign String to 'a1'[0] of type Int
+swiftalk> a1.append(1)
+swiftalk> a1
+[1]
+swiftalk> [0].Type == [Int]
+true
+swiftalk> [0].Type == Array
+true
+swiftalk> [Int] == [String]
+false
+swiftalk> [1, "one"].Type
+Array
+swiftalk> [1: "a"].Type
+[Int: String]
+swiftalk> Set([1]).Type
+Set<Int>
+swiftalk> [[1, 2], [3]].Type
+[[Int]]
+swiftalk> var m = [[Int]]()
+[]
+swiftalk> m.append(["x"])
+type error: cannot assign String to 'm'[0][0] of type Int
+swiftalk> var d = [Int: String]()
+[:]
+swiftalk> d["x"] = 1
+type error: cannot assign String to a key of 'd' of type Int
+swiftalk> let e: [Int] = [String]()
+type error: cannot assign [String] to 'e' of type [Int]
+swiftalk> let Names = [String]
+[String]
+swiftalk> var xs: Names = []
+[]
+swiftalk> xs.append(1)
+type error: cannot assign Int to 'xs'[0] of type String
+swiftalk> [Int](1...3)
+[1, 2, 3]
+swiftalk> { $0 }.Type
+Function
+swiftalk> [Int].Type
+Function
+```
+
 **Tab completion** (round 164) — at the REPL: names in scope, keywords,
 `:` commands, and members after a dot from the receiver's value
 (`p.` → its properties and methods; `Double.sq` → `sqrt sqrt2

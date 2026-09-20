@@ -124,10 +124,10 @@ enum SIONFormat {
 /// as a Data's base64 is. Recursive, so nested Sets follow.
 func setsAsArrays(_ value: Value) -> Value {
     switch value {
-    case .set(let s):
+    case .set(let s, _):
         return .array(s.map { (key: $0.sourceString(), value: setsAsArrays($0)) }.sorted { $0.key < $1.key }.map(\.value))
-    case .array(let a):      return .array(a.map(setsAsArrays))
-    case .dictionary(let d): return .dictionary(Dictionary(uniqueKeysWithValues: d.map { ($0.key, setsAsArrays($0.value)) }))
+    case .array(let a, _):      return .array(a.map(setsAsArrays))
+    case .dictionary(let d, _): return .dictionary(Dictionary(uniqueKeysWithValues: d.map { ($0.key, setsAsArrays($0.value)) }))
     default:                 return value
     }
 }
@@ -163,7 +163,7 @@ enum JSONFormat {
         case .string(let s): writeString(s, into: &out)
         case .data(let b):   writeString(Base64.encode(b), into: &out)
         case .date(let t):   out += Value.double(t).sourceString()
-        case .array(let a):
+        case .array(let a, _):
             if a.isEmpty { out += "[]"; return }
             out += "["
             for (i, e) in a.enumerated() {
@@ -173,7 +173,7 @@ enum JSONFormat {
             }
             newline(depth, into: &out)
             out += "]"
-        case .dictionary(let d):
+        case .dictionary(let d, _):
             if d.isEmpty { out += "{}"; return }
             let pairs = d.map { (key: plainString($0.key), value: $0.value) }
                 .sorted { $0.key < $1.key }
@@ -447,12 +447,12 @@ enum PlistXML {
         case .string(let s): out += tab + "<string>\(escape(s))</string>\n"
         case .data(let b):   out += tab + "<data>\(Base64.encode(b))</data>\n"
         case .date(let t):   out += tab + "<date>\(CivilDate.iso8601(t))</date>\n"
-        case .array(let a):
+        case .array(let a, _):
             if a.isEmpty { out += tab + "<array/>\n"; return }
             out += tab + "<array>\n"
             for e in a { try write(e, depth: depth + 1, into: &out) }
             out += tab + "</array>\n"
-        case .dictionary(let d):
+        case .dictionary(let d, _):
             if d.isEmpty { out += tab + "<dict/>\n"; return }
             var pairs: [(String, Value)] = []
             for (k, v) in d {
@@ -653,9 +653,9 @@ enum PlistBinary {
             switch v {
             case .nil: throw SwiftalkError.type("property lists have no nil")
             case .bool, .int, .double, .string, .data, .date: break
-            case .array(let a):
+            case .array(let a, _):
                 for e in a { _ = try flatten(e) }
-            case .dictionary(let d):
+            case .dictionary(let d, _):
                 for k in d.keys {
                     guard case .string = k else {
                         throw SwiftalkError.type("property-list keys are Strings, not \(k.typeName)")
@@ -681,15 +681,15 @@ enum PlistBinary {
             var next = index + 1
             func size(_ v: Value) -> Int {
                 switch v {
-                case .array(let a): return 1 + a.reduce(0) { $0 + size($1) }
-                case .dictionary(let d): return 1 + d.reduce(0) { $0 + 1 + size($1.value) }
+                case .array(let a, _): return 1 + a.reduce(0) { $0 + size($1) }
+                case .dictionary(let d, _): return 1 + d.reduce(0) { $0 + 1 + size($1.value) }
                 default: return 1
                 }
             }
             switch v {
-            case .array(let a):
+            case .array(let a, _):
                 for e in a { result.append(next); next += size(e) }
-            case .dictionary(let d):
+            case .dictionary(let d, _):
                 var keys: [Int] = [], values: [Int] = []
                 for (_, val) in d.sorted(by: { plainString($0.key) < plainString($1.key) }) {
                     keys.append(next); next += 1
@@ -725,10 +725,10 @@ enum PlistBinary {
                     out += marker(0x60, count: units.count)
                     for u in units { out += bigEndian(UInt64(u), 2) }
                 }
-            case .array(let a):
+            case .array(let a, _):
                 out += marker(0xA0, count: a.count)
                 for c in childIndices(of: v, at: index) { out += bigEndian(UInt64(c), refSize) }
-            case .dictionary(let d):
+            case .dictionary(let d, _):
                 out += marker(0xD0, count: d.count)
                 for c in childIndices(of: v, at: index) { out += bigEndian(UInt64(c), refSize) }
             default: break

@@ -49,7 +49,7 @@ extension Swiftalk.FetchRequest {
         if args.count == 2 {
             let options: [(String, Value)]
             switch args[1] {
-            case .dictionary(let d):
+            case .dictionary(let d, _):
                 options = try d.map { pair in
                     guard case .string(let key) = pair.key else {
                         throw SwiftalkError.type("fetch options: String keys — method, headers, body")
@@ -67,7 +67,7 @@ extension Swiftalk.FetchRequest {
             for (key, value) in options {
                 switch (key, value) {
                 case ("method", .string(let m)):    method = m.uppercased()
-                case ("headers", .dictionary(let d)):
+                case ("headers", .dictionary(let d, _)):
                     for (k, v) in d {
                         guard case .string(let name) = k, case .string(let text) = v else {
                             throw SwiftalkError.type("fetch headers: [String: String]")

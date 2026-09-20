@@ -421,6 +421,8 @@ final class Environment {
         if isFileScope, let parent, parent.bindings[name] != nil {
             throw SwiftalkError.type("redeclaration of '\(name)' — a builtin")
         }
+        var binding = binding
+        binding.value = stamp(binding.value, with: binding.lock)     // round 165
         bindings[name] = binding
     }
 
@@ -441,7 +443,7 @@ final class Environment {
             }
         }
         try check(value, against: binding.lock, for: name)
-        binding.value = value
+        binding.value = stamp(value, with: binding.lock)             // round 165
         bindings[name] = binding
     }
 
@@ -476,8 +478,8 @@ final class Environment {
 func isPrimitives(_ value: Value) -> Bool {
     switch value {
     case .nil, .bool, .int, .double, .string: return true
-    case .array(let a):      return a.allSatisfy(isPrimitives)
-    case .dictionary(let d): return d.allSatisfy { isPrimitives($0.key) && isPrimitives($0.value) }
+    case .array(let a, _):      return a.allSatisfy(isPrimitives)
+    case .dictionary(let d, _): return d.allSatisfy { isPrimitives($0.key) && isPrimitives($0.value) }
     default: return false
     }
 }
@@ -487,8 +489,8 @@ func isPrimitives(_ value: Value) -> Bool {
 func isSION(_ value: Value) -> Bool {
     switch value {
     case .nil, .bool, .int, .double, .string, .data, .date: return true
-    case .array(let a):      return a.allSatisfy(isSION)
-    case .dictionary(let d): return d.allSatisfy { isSION($0.key) && isSION($0.value) }
+    case .array(let a, _):      return a.allSatisfy(isSION)
+    case .dictionary(let d, _): return d.allSatisfy { isSION($0.key) && isSION($0.value) }
     default: return false
     }
 }
@@ -524,6 +526,10 @@ private let knownTypeNames: Set<String> =
 func resolveTypeNames(_ annotation: TypeAnnotation, in env: Environment) -> TypeAnnotation {
     var name = annotation.name
     if !knownTypeNames.contains(name), case .function(let f)? = try? env.lookup(name) {
+        if let held = f.annotation {                     // let Names = [String] (round 165)
+            return TypeAnnotation(name: held.name, optional: annotation.optional || held.optional,
+                                  parameters: held.parameters)
+        }
         switch f.role {
         case .type(let t):        name = t
         case .enumType(let et):   name = et.name
@@ -625,7 +631,7 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
         // nil, or a Result failure — exactly when `??` would take it.
         if op == "??" {
             return try assign(target, .nil, in: env) { old in
-                if case .dictionary(let d) = old {          // d ??= defaults (round 130)
+                if case .dictionary(let d, _) = old {          // d ??= defaults (round 130)
                     return .dictionary(try coalesceDictionaries(base: d, fill: try evaluate(expr, in: env), op: "??="))
                 }
                 return try isAbsent(old) ? evaluate(expr, in: env) : old
@@ -635,7 +641,7 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
             // x !!= y is x = y ?? x (round 130): both sides evaluated
             let rhs = try evaluate(expr, in: env)
             return try assign(target, .nil, in: env) { old in
-                if case .dictionary(let e) = rhs {
+                if case .dictionary(let e, _) = rhs {
                     return .dictionary(try coalesceDictionaries(base: e, fill: old, op: "!!="))
                 }
                 return try isAbsent(rhs) ? old : rhs
@@ -1352,16 +1358,16 @@ final class ValueIterator {
 
 func iterator(of sequence: Value) throws -> ValueIterator {
     switch sequence {
-    case .array(let a):
+    case .array(let a, _):
         var it = a.makeIterator()
         return ValueIterator { it.next() }
     case .string(let s):
         var it = s.makeIterator()
         return ValueIterator { it.next().map { .string(String($0)) } }
-    case .set(let s):
+    case .set(let s, _):
         var it = s.makeIterator()          // the Set's own order, like a Dictionary's
         return ValueIterator { it.next() }
-    case .dictionary(let d):
+    case .dictionary(let d, _):
         var it = d.makeIterator()
         // Dictionary pairs are (key:, value:) tuples (rounds 70/74)
         return ValueIterator {
@@ -1497,7 +1503,7 @@ extension SequenceObject {
                     done = true      // returning nil ends the sequence
                     return nil
                 }
-                guard case .array(let newState) = try local.lookup("$") else {
+                guard case .array(let newState, _) = try local.lookup("$") else {
                     throw SwiftalkError.type("a Sequence generator's '$' must stay an Array")
                 }
                 state = newState
@@ -1691,11 +1697,22 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
         return .tuple(try elements.map { try evaluate($0.expr, in: env) },
                       labels: elements.map(\.label))
     case .array(let elements):
-        return .array(try elements.map { try evaluate($0, in: env) })
+        let values = try elements.map { try evaluate($0, in: env) }
+        // `[Int]` (round 165): one element that is a type is the type
+        // `[Int]` — Swift's spelling, as a value. `[Int, String]` stays
+        // an Array of two types.
+        if values.count == 1, let element = annotationOfType(values[0]) {
+            return typeValue(for: TypeAnnotation(name: "Array", optional: false, parameters: [element]))
+        }
+        return .array(values)
     case .dictionary(let pairs):
         var dict: [Value: Value] = [:]
         for (k, v) in pairs {
             dict[try evaluate(k, in: env)] = try evaluate(v, in: env)
+        }
+        if pairs.count == 1, let (k, v) = dict.first,
+           let key = annotationOfType(k), let val = annotationOfType(v) {
+            return typeValue(for: TypeAnnotation(name: "Dictionary", optional: false, parameters: [key, val]))
         }
         return .dictionary(dict)
     case .unaryMinus(let e):
@@ -1758,11 +1775,11 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
             throw SwiftalkError.type("cannot mutate an immutable \(container.typeName) — bind it to a var first")
         }
         switch container {
-        case .dictionary(var d):
+        case .dictionary(var d, _):
             let removed = d.removeValue(forKey: try evaluate(argExprs[0].expr, in: env)) ?? .nil
             try assign(target, .dictionary(d), in: env)
             return removed
-        case .set(var s):
+        case .set(var s, _):
             let removed = s.remove(try evaluate(argExprs[0].expr, in: env)) ?? .nil
             try assign(target, .set(s), in: env)
             return removed
@@ -1774,7 +1791,7 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
         guard argExprs.count == 1, argExprs[0].label == nil else {
             throw SwiftalkError.type(".insert(x) takes exactly one unlabeled argument")
         }
-        guard case .set(var s) = try evaluate(receiverExpr, in: env) else {
+        guard case .set(var s, _) = try evaluate(receiverExpr, in: env) else {
             throw SwiftalkError.unknownMember("\(try evaluate(receiverExpr, in: env).typeName).insert()")
         }
         guard let target = asLValue(receiverExpr) else {
@@ -1795,9 +1812,9 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
         let args = try argExprs.map { (label: $0.label == "uniquingKeysWith" ? nil : $0.label,
                                        value: try evaluate($0.expr, in: env)) }
         switch container {
-        case .dictionary(let d):
+        case .dictionary(let d, _):
             try assign(target, .dictionary(try mergeDictionaries(d, try plainValues(args, for: ".merge"))), in: env)
-        case .set(var s):
+        case .set(var s, _):
             let values = try plainValues(args, for: ".merge")
             guard values.count == 1 else { throw SwiftalkError.type("Set.merge takes one Set, or any Sequence") }
             s.formUnion(try setElements(values[0]))
@@ -1819,12 +1836,12 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
                                      for: ".subtract")
         guard values.count == 1 else { throw SwiftalkError.type(".subtract takes one Set, or any Sequence") }
         switch container {
-        case .set(var s):
+        case .set(var s, _):
             s.subtract(try setElements(values[0]))
             try assign(target, .set(s), in: env)
-        case .dictionary(var d):
+        case .dictionary(var d, _):
             let keys: Set<Value>
-            if case .dictionary(let other) = values[0] { keys = Set(other.keys) } else { keys = try setElements(values[0]) }
+            if case .dictionary(let other, _) = values[0] { keys = Set(other.keys) } else { keys = try setElements(values[0]) }
             for key in keys { d.removeValue(forKey: key) }
             try assign(target, .dictionary(d), in: env)
         default:
@@ -1851,7 +1868,7 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
             }
             // Builtin Array mutator (round 49): a.append(x) — the family
             // grows as needed.
-            if name == "append", case .array(var a) = receiver {
+            if name == "append", case .array(var a, _) = receiver {
                 guard let target = asLValue(receiverExpr) else {
                     throw SwiftalkError.type("'.append' mutates — call it on a var Array")
                 }
@@ -2015,7 +2032,7 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
             return try evaluate(rhs, in: env)
         case .enumCase(let ev) where ev.type === Builtins.resultType:
             return ev.caseName == "success" ? ev.associated[0] : try evaluate(rhs, in: env)
-        case .dictionary(let d):
+        case .dictionary(let d, _):
             return .dictionary(try coalesceDictionaries(base: d, fill: try evaluate(rhs, in: env), op: "??"))
         case let v:
             return v
@@ -2026,7 +2043,7 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
         // right is per key, and wants a Dictionary on the left.
         let a = try evaluate(lhs, in: env)
         let b = try evaluate(rhs, in: env)
-        if case .dictionary(let e) = b {
+        if case .dictionary(let e, _) = b {
             return .dictionary(try coalesceDictionaries(base: e, fill: a, op: "!!"))
         }
         return try isAbsent(b) ? a : b
@@ -2076,7 +2093,7 @@ private func sliceBounds(_ index: Value, lower: Int64, upper: Int64?, closed: Bo
 
 private func subscriptRead(_ container: Value, _ index: Value) throws -> Value {
     switch container {
-    case .array(let a):
+    case .array(let a, _):
         if case .range(let lower, let upper, let closed) = index {
             // a[1..<3] / a[1...2] / a[1...] (round 90): a new Array — a
             // value, not a view. Swift's bounds rule: 0 ≤ from ≤ to ≤ count,
@@ -2090,7 +2107,7 @@ private func subscriptRead(_ container: Value, _ index: Value) throws -> Value {
             throw SwiftalkError.type("index \(i) out of range (count \(a.count))")
         }
         return a[Int(i)]
-    case .dictionary(let d):
+    case .dictionary(let d, _):
         return d[index] ?? .nil
     case .range(let lower, let upper, let closed):
         // Offset subscript: r[i] is the i-th element, bounds-checked;
@@ -2136,7 +2153,7 @@ private func subscriptRead(_ container: Value, _ index: Value) throws -> Value {
 /// and a key holding nil stay semantically distinct.
 private func subscriptWrite(_ container: Value, _ index: Value, _ newValue: Value) throws -> Value {
     switch container {
-    case .array(var a):
+    case .array(var a, _):
         if case .range(let lower, let upper, let closed) = index {
             // a[0..<1] = [9] (round 91): Swift's replaceSubrange — the
             // positions in the range are replaced by the Array on the
@@ -2144,7 +2161,7 @@ private func subscriptWrite(_ container: Value, _ index: Value, _ newValue: Valu
             // shrink, or vanish; a[a.count...] = xs appends. Bounds as
             // for reading. The elements' types are checked against the
             // variable's lock when the rebuilt Array lands (round 59).
-            guard case .array(let replacement) = newValue else {
+            guard case .array(let replacement, _) = newValue else {
                 throw SwiftalkError.type(
                     "assigning through a Range takes an Array, not a \(newValue.typeName)")
             }
@@ -2160,7 +2177,7 @@ private func subscriptWrite(_ container: Value, _ index: Value, _ newValue: Valu
         }
         a[Int(i)] = newValue
         return .array(a)
-    case .dictionary(var d):
+    case .dictionary(var d, _):
         d[index] = newValue
         return .dictionary(d)
     case .data(var bytes):
@@ -2435,10 +2452,10 @@ enum OperatorFunctions {
                 }
                 return .bool(op == "&&" ? x && y : op == "||" ? x || y : x != y)
             case "??":
-                if case .dictionary(let d) = a { return .dictionary(try coalesceDictionaries(base: d, fill: b, op: "??")) }
+                if case .dictionary(let d, _) = a { return .dictionary(try coalesceDictionaries(base: d, fill: b, op: "??")) }
                 return try isAbsent(a) ? b : a
             case "!!":
-                if case .dictionary(let e) = b { return .dictionary(try coalesceDictionaries(base: e, fill: a, op: "!!")) }
+                if case .dictionary(let e, _) = b { return .dictionary(try coalesceDictionaries(base: e, fill: a, op: "!!")) }
                 return try isAbsent(b) ? a : b
             default:
                 throw SwiftalkError.type("(\(op)) is not a function")
@@ -2701,7 +2718,7 @@ func constructStruct(_ st: StructType,
     var values: [String: Value] = [:]
     for prop in st.propertyOrder {
         let def = st.properties[prop]!
-        let value: Value
+        var value: Value
         if let given = slots[prop] {
             value = given
         } else if !remaining.isEmpty {
@@ -2713,6 +2730,7 @@ func constructStruct(_ st: StructType,
         }
         if let annotation = def.annotation {
             try checkValue(value, against: annotation, context: "\(st.name).\(prop)")
+            value = stamp(value, with: annotation)                          // round 165
         }
         values[prop] = value
     }
@@ -2979,17 +2997,23 @@ func checkValue(_ value: Value, against lock: TypeAnnotation, context: String) t
         throw SwiftalkError.type(
             "cannot assign \(value.typeName) to \(context) of type \(lock.display)")
     }
-    if lock.name == "Array", lock.parameters.count == 1, case .array(let a) = value {
+    // Round 165: an empty `[String]()` is still a [String] — its stamp
+    // must be one the lock admits (`Any` and an erased name admit all).
+    if !lock.parameters.isEmpty, let stamp = containerStamp(value), !admits(lock, stamp) {
+        throw SwiftalkError.type(
+            "cannot assign \(stamp.display) to \(context) of type \(lock.display)")
+    }
+    if lock.name == "Array", lock.parameters.count == 1, case .array(let a, _) = value {
         for (index, element) in a.enumerated() {
             try checkValue(element, against: lock.parameters[0], context: "\(context)[\(index)]")
         }
     }
-    if lock.name == "Set", lock.parameters.count == 1, case .set(let s) = value {
+    if lock.name == "Set", lock.parameters.count == 1, case .set(let s, _) = value {
         for element in s {
             try checkValue(element, against: lock.parameters[0], context: "an element of \(context)")
         }
     }
-    if lock.name == "Dictionary", lock.parameters.count == 2, case .dictionary(let d) = value {
+    if lock.name == "Dictionary", lock.parameters.count == 2, case .dictionary(let d, _) = value {
         for (key, val) in d {
             try checkValue(key, against: lock.parameters[0], context: "a key of \(context)")
             if val != .nil {
@@ -2998,6 +3022,84 @@ func checkValue(_ value: Value, against lock: TypeAnnotation, context: String) t
             }
         }
     }
+}
+
+/// The stamp a container carries (round 165), if any.
+func containerStamp(_ value: Value) -> TypeAnnotation? {
+    switch value {
+    case .array(_, let s), .dictionary(_, let s), .set(_, let s): return s
+    default: return nil
+    }
+}
+
+/// Does the annotation `lock` admit a container stamped `other`? Same
+/// base, and parameter by parameter: `Any` admits anything, an erased
+/// name (no parameters) admits any parameters, an optional admits the
+/// non-optional, and the rest must agree, recursively.
+func admits(_ lock: TypeAnnotation, _ other: TypeAnnotation) -> Bool {
+    if lock.name == "Any" { return true }
+    guard lock.name == other.name else { return false }
+    if lock.parameters.isEmpty || other.parameters.isEmpty { return true }
+    guard lock.parameters.count == other.parameters.count else { return false }
+    if other.optional && !lock.optional { return false }
+    return zip(lock.parameters, other.parameters).allSatisfy { admits($0, $1) }
+}
+
+/// Stamps a container with a parameterized lock (round 165): the value
+/// then knows its element type even when empty — `var a: [Int] = []`,
+/// `let b = a`, `b.Type` is `[Int]`. A lock without parameters (`Array`,
+/// `Any`, a scalar's) leaves the value as it is, stamp and all. Nested
+/// containers are stamped through (`[[Int]]` reaches the rows) only
+/// when there is a nested parameter to stamp with.
+func stamp(_ value: Value, with lock: TypeAnnotation) -> Value {
+    guard !lock.parameters.isEmpty else { return value }
+    let own = TypeAnnotation(name: lock.name, optional: false, parameters: lock.parameters)
+    switch value {
+    case .array(let a, _) where lock.name == "Array":
+        let e = lock.parameters[0]
+        return .array(e.parameters.isEmpty ? a : a.map { stamp($0, with: e) }, lock: own)
+    case .set(let s, _) where lock.name == "Set":
+        let e = lock.parameters[0]
+        return .set(e.parameters.isEmpty ? s : Set(s.map { stamp($0, with: e) }), lock: own)
+    case .dictionary(let d, _) where lock.name == "Dictionary" && lock.parameters.count == 2:
+        let v = lock.parameters[1]
+        return .dictionary(v.parameters.isEmpty ? d : d.mapValues { stamp($0, with: v) }, lock: own)
+    default:
+        return value
+    }
+}
+
+/// The annotation a type value stands for (round 165): `Int` is `Int`,
+/// `[Int]` is Array of Int, a struct is its name. Nil for a non-type.
+func annotationOfType(_ value: Value) -> TypeAnnotation? {
+    guard case .function(let f) = value else { return nil }
+    switch f.role {
+    case .type(let n):        return f.annotation ?? TypeAnnotation(name: n, optional: false)
+    case .protocol("Sequence"): return TypeAnnotation(name: "Sequence", optional: false)
+    case .enumType(let et):   return TypeAnnotation(name: et.name, optional: false)
+    case .structType(let st): return TypeAnnotation(name: st.name, optional: false)
+    case .actorType(let at):  return TypeAnnotation(name: at.name, optional: false)
+    default:                  return nil
+    }
+}
+
+/// The type value for a builtin container annotation (round 165):
+/// `Array` itself when there are no parameters (so identity holds), else
+/// a fresh Function that calls the base constructor, checks what it
+/// built against the parameters, and stamps it — `[Int]()` is an empty
+/// Array of Int, `[Int](1...3)` checks and keeps its elements.
+func typeValue(for annotation: TypeAnnotation) -> Value {
+    guard let base = Builtins.types[annotation.name] else { return .nil }
+    guard !annotation.parameters.isEmpty else { return .function(base) }
+    let own = TypeAnnotation(name: annotation.name, optional: false, parameters: annotation.parameters)
+    return .function(FunctionObject(
+        parameters: [], body: [], closure: base.closure,
+        builtin: { args in
+            let built = try base.builtin!(args)          // (apply routes calls through convert and stamps there)
+            try checkValue(built, against: own, context: "\(own.display)()")
+            return stamp(built, with: own)
+        },
+        role: .type(annotation.name), annotation: own))
 }
 
 /// Infers the lock a binding takes from its initializer (round 59):
@@ -3012,7 +3114,8 @@ func inferLock(_ value: Value, for name: String) throws -> TypeAnnotation {
         // Round 101: nil says nothing about the type, so the lock is Any —
         // `let v = Int(text)` binds, `var x = nil` takes anything later.
         return TypeAnnotation(name: "Any", optional: true)
-    case .array(let a):
+    case .array(let a, let stamp):
+        if let stamp { return stamp }                    // round 165: the container knows
         guard !a.isEmpty else { return TypeAnnotation(name: "Array", optional: false) }
         var element: TypeAnnotation? = nil
         var sawNil = false
@@ -3028,12 +3131,14 @@ func inferLock(_ value: Value, for name: String) throws -> TypeAnnotation {
         guard let element else { return TypeAnnotation(name: "Array", optional: false, parameters: [TypeAnnotation(name: "Any", optional: true)]) }
         let elementLock = sawNil ? TypeAnnotation(name: element.name, optional: true, parameters: element.parameters) : element
         return TypeAnnotation(name: "Array", optional: false, parameters: [elementLock])
-    case .set(let s):
+    case .set(let s, let stamp):
+        if let stamp { return stamp }
         // as an Array's element (round 132): homogeneous, a nil making it optional
         guard !s.isEmpty else { return TypeAnnotation(name: "Set", optional: false) }
         let elements = try inferLock(.array(Array(s)), for: name)
         return TypeAnnotation(name: "Set", optional: false, parameters: elements.parameters)
-    case .dictionary(let d):
+    case .dictionary(let d, let stamp):
+        if let stamp { return stamp }
         guard !d.isEmpty else { return TypeAnnotation(name: "Dictionary", optional: false) }
         var key: TypeAnnotation? = nil
         var val: TypeAnnotation? = nil
@@ -3110,8 +3215,10 @@ private func propertyWrite(_ container: Value, _ name: String, _ newValue: Value
     guard def.mutable else {
         throw SwiftalkError.type("cannot assign to let property '\(sv.type.name).\(name)'")
     }
+    var newValue = newValue
     if let annotation = def.annotation {
         try checkValue(newValue, against: annotation, context: "\(sv.type.name).\(name)")
+        newValue = stamp(newValue, with: annotation)                        // round 165
     } else if current != .nil, newValue.typeName != current.typeName {
         throw SwiftalkError.type(
             "cannot assign \(newValue.typeName) to \(sv.type.name).\(name) of type \(current.typeName)")
@@ -3294,7 +3401,14 @@ func apply(_ fn: FunctionObject, args: [(label: String?, value: Value)]) throws 
                 extra.append(arg)
             }
         }
-        return try convert(typeName, subject: subject, extra: extra)
+        let built = try convert(typeName, subject: subject, extra: extra)
+        // A parameterized container type (round 165): `[Int]()` builds
+        // through Array and then checks and stamps — an empty Array of Int.
+        if let own = fn.annotation {
+            try checkValue(built, against: own, context: "\(own.display)()")
+            return stamp(built, with: own)
+        }
+        return built
     }
     // Tuple splat (round 73, revising 72): a sole Tuple argument IS the
     // argument list — "a rigid Array" — so `$` holds its elements, `$0`
@@ -3450,15 +3564,15 @@ private func binary(_ op: Character, _ lhs: Value, _ rhs: Value) throws -> Value
         }
     case (.string(let a), .string(let b)) where op == "+":
         return .string(a + b)
-    case (.array(let a), .array(let b)) where op == "+":
+    case (.array(let a, _), .array(let b, _)) where op == "+":
         return .array(a + b)
-    case (.set(let a), .set(let b)) where op == "|":
+    case (.set(let a, _), .set(let b, _)) where op == "|":
         return .set(a.union(b))                 // union: `|` (round 135; round 133's `+` removed in 136)…
-    case (.set(let a), .set(let b)) where op == "-":
+    case (.set(let a, _), .set(let b, _)) where op == "-":
         return .set(a.subtracting(b))           // …and - is subtraction
-    case (.set(let a), .set(let b)) where op == "&":
+    case (.set(let a, _), .set(let b, _)) where op == "&":
         return .set(a.intersection(b))          // round 135: Swift's SetAlgebra spelled as operators
-    case (.set(let a), .set(let b)) where op == "^":
+    case (.set(let a, _), .set(let b, _)) where op == "^":
         return .set(a.symmetricDifference(b))
     default:
         throw SwiftalkError.type(
@@ -3469,7 +3583,7 @@ private func binary(_ op: Character, _ lhs: Value, _ rhs: Value) throws -> Value
 /// The other side of a Set operation (rounds 132–133): a Set as it is,
 /// anything else a finite Sequence's elements.
 func setElements(_ value: Value) throws -> Set<Value> {
-    if case .set(let s) = value { return s }
+    if case .set(let s, _) = value { return s }
     return Set(try collect(value))
 }
 
@@ -3478,7 +3592,7 @@ func setElements(_ value: Value) throws -> Set<Value> {
 /// `d[k] ??= v` has treated it since round 103. `a !! b` is `b ?? a`,
 /// so its callers pass the right side as the base.
 func coalesceDictionaries(base: [Value: Value], fill: Value, op: String) throws -> [Value: Value] {
-    guard case .dictionary(let other) = fill else {
+    guard case .dictionary(let other, _) = fill else {
         throw SwiftalkError.type("'\(op)' between a Dictionary and a \(fill.typeName) — a Dictionary coalesces with a Dictionary")
     }
     var out = base
@@ -3494,7 +3608,7 @@ func coalesceDictionaries(base: [Value: Value], fill: Value, op: String) throws 
 /// one the new value wins — Swift requires the function; swiftalk's
 /// default is the spread's (a recorded divergence).
 func mergeDictionaries(_ base: [Value: Value], _ args: [Value]) throws -> [Value: Value] {
-    guard args.count == 1 || args.count == 2, case .dictionary(let other) = args[0] else {
+    guard args.count == 1 || args.count == 2, case .dictionary(let other, _) = args[0] else {
         throw SwiftalkError.type(".merging(dictionary) { current, new in } — a Dictionary, and optionally a function")
     }
     var combine: FunctionObject? = nil
@@ -3531,11 +3645,11 @@ func identical(_ a: Value, _ b: Value) -> Bool {
         // scalar for scalar (round 140): Swift's String == is canonical
         // equivalence, so "\u{305f}\u{3099}" == "\u{3060}" — === says no
         return x.unicodeScalars.elementsEqual(y.unicodeScalars)
-    case (.array(let x), .array(let y)):
+    case (.array(let x, _), .array(let y, _)):
         return all(x, y)
     case (.tuple(let x), .tuple(let y)):
         return all(x.values, y.values)
-    case (.dictionary(let x), .dictionary(let y)):
+    case (.dictionary(let x, _), .dictionary(let y, _)):
         return x.count == y.count && x.allSatisfy { k, v in
             y.contains { identical(k, $0.key) && identical(v, $0.value) }
         }
@@ -3674,7 +3788,7 @@ func convert(_ typeName: String, subject: Value?,
         // zero-extend, exactly 64 is the two's-complement word, more is
         // an overflow.
         guard subject == nil, extra.count == 1, extra[0].label == "bits",
-              case .array(let bits) = extra[0].value else {
+              case .array(let bits, _) = extra[0].value else {
             throw SwiftalkError.type("Int(bits: [Bool]) — the bits, bit 0 first")
         }
         guard bits.count <= 64 else {
@@ -4091,6 +4205,14 @@ private func method(on receiver: Value, name: String,
         if case .actor(let obj) = receiver {
             return .function(obj.type.constructor!)
         }
+        // A container's Type carries its element type (round 165): the
+        // stamp if it has one, else what its contents infer — `[0].Type`
+        // is `[Int]`, `[1, "one"].Type` and `[].Type` the erased `Array`.
+        switch receiver {
+        case .array, .dictionary, .set:
+            if let inferred = try? inferLock(receiver, for: "") { return typeValue(for: inferred) }
+        default: break
+        }
         return .function(Builtins.types[receiver.typeName]
                          ?? Builtins.protocols[receiver.typeName]!)
     case ("name", false):
@@ -4109,10 +4231,10 @@ private func method(on receiver: Value, name: String,
         }
     case ("count", false):
         switch receiver {
-        case .array(let a):      return .int(Int64(a.count))
+        case .array(let a, _):      return .int(Int64(a.count))
         case .string(let s):     return .int(Int64(s.count))   // graphemes (§11)
-        case .dictionary(let d): return .int(Int64(d.count))
-        case .set(let s):        return .int(Int64(s.count))
+        case .dictionary(let d, _): return .int(Int64(d.count))
+        case .set(let s, _):        return .int(Int64(s.count))
         case .range(let lower, let upper, let closed):
             guard let upper else {
                 throw SwiftalkError.type(
@@ -4482,7 +4604,7 @@ private func method(on receiver: Value, name: String,
         }
         var sep: [Value] = []
         if let separator {
-            guard case .array(let a) = separator else {
+            guard case .array(let a, _) = separator else {
                 throw SwiftalkError.type(
                     ".joined of Arrays takes an Array separator, not a \(separator.typeName)")
             }
@@ -4490,7 +4612,7 @@ private func method(on receiver: Value, name: String,
         }
         var out: [Value] = []
         for (i, element) in elements.enumerated() {
-            guard case .array(let a) = element else {
+            guard case .array(let a, _) = element else {
                 throw SwiftalkError.type(
                     ".joined of Arrays met a \(element.typeName)")
             }
@@ -4702,7 +4824,7 @@ private func method(on receiver: Value, name: String,
     case ("merging", true):
         // d.merging(other) { current, new in } (round 126): a new
         // Dictionary; d.merge(...) is the in-place form, in evaluate.
-        guard case .dictionary(let d) = receiver else {
+        guard case .dictionary(let d, _) = receiver else {
             throw SwiftalkError.unknownMember("\(receiver.typeName).merging()")
         }
         return .dictionary(try mergeDictionaries(d, args))
@@ -4710,7 +4832,7 @@ private func method(on receiver: Value, name: String,
         // d.keys / d.values (round 127): Swift's properties. keys is a Set
         // since round 132 — unordered and unique, so d0.keys == d1.keys
         // whenever d0 == d1; values an Array in the Dictionary's own order.
-        guard case .dictionary(let d) = receiver else {
+        guard case .dictionary(let d, _) = receiver else {
             throw SwiftalkError.unknownMember("\(receiver.typeName).\(name)")
         }
         return name == "keys" ? .set(Set(d.keys)) : .array(Array(d.values))
@@ -4719,7 +4841,7 @@ private func method(on receiver: Value, name: String,
          ("isDisjoint", true):
         // Set algebra (round 132): Swift's names; the other side a Set or
         // any finite Sequence, as Swift's take a sequence.
-        guard case .set(let s) = receiver else {
+        guard case .set(let s, _) = receiver else {
             throw SwiftalkError.unknownMember("\(receiver.typeName).\(name)()")
         }
         guard args.count == 1 else {
@@ -4746,7 +4868,7 @@ private func method(on receiver: Value, name: String,
         // Presence, distinct from value (round 35): d.has(k) is true for
         // a key holding nil, false for a missing key — the question
         // d[k] cannot answer.
-        guard case .dictionary(let d) = receiver else {
+        guard case .dictionary(let d, _) = receiver else {
             throw SwiftalkError.unknownMember("\(receiver.typeName).has()")
         }
         guard args.count == 1 else {

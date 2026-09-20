@@ -15,9 +15,14 @@ extension Swiftalk {
         case int(Int64)
         case double(Double)
         case string(String)
-        indirect case array([Value])
-        indirect case dictionary([Value: Value])
-        indirect case set(Set<Value>)                         // round 132: unordered, unique, Hashable elements
+        // Round 165: a container remembers the element type it was declared
+        // with — `[Int]()` is an empty Array that is still an Array of Int.
+        // The stamp is set by a parameterized constructor and by every
+        // write into a binding or property whose lock is parameterized;
+        // it is not part of equality or hashing (`[Int]() == [String]()`).
+        indirect case array([Value], lock: TypeAnnotation? = nil)
+        indirect case dictionary([Value: Value], lock: TypeAnnotation? = nil)
+        indirect case set(Set<Value>, lock: TypeAnnotation? = nil)   // round 132: unordered, unique, Hashable elements
         case function(FunctionObject)
         /// `Range<I>` (round 38): lazy, first-class, integer-only —
         /// `I` is Int today, BigInt someday, never Double (a deliberate
@@ -343,21 +348,38 @@ extension Swiftalk {
         let closure: Environment      // lexical capture
         let builtin: (([Value]) throws -> Value)?
         let role: Role
+        /// A parameterized builtin type (round 165): `[Int]`, `[String:
+        /// Int]`, `Set<Int>` — the role is still `.type("Array")`, so
+        /// everything that dispatches on the base keeps working; the
+        /// annotation is what `.Type` reports, what prints, and what a
+        /// call stamps on the container it builds. Nil for every other
+        /// Function.
+        let annotation: TypeAnnotation?
 
         init(parameters: [String], body: [Stmt], closure: Environment,
-             builtin: (([Value]) throws -> Value)? = nil, role: Role = .plain) {
+             builtin: (([Value]) throws -> Value)? = nil, role: Role = .plain,
+             annotation: TypeAnnotation? = nil) {
             self.parameters = parameters
             self.body = body
             self.closure = closure
             self.builtin = builtin
             self.role = role
+            self.annotation = annotation
         }
 
+        /// Identity, except for builtin types (round 165): `[0].Type` is
+        /// a fresh object each time, so types compare by what they name —
+        /// `[Int] == [Int]`; and the erased `Array` equals any `[T]`, the
+        /// way the annotation `Array` admits any Array (so `x.Type ==
+        /// Array` still asks "is it an Array?"). `[Int] != [String]`.
         public static func == (lhs: FunctionObject, rhs: FunctionObject) -> Bool {
-            lhs === rhs
+            if lhs === rhs { return true }
+            guard case .type(let a) = lhs.role, case .type(let b) = rhs.role, a == b else { return false }
+            guard let l = lhs.annotation, let r = rhs.annotation else { return true }
+            return l.parameters == r.parameters
         }
         public func hash(into hasher: inout Hasher) {
-            hasher.combine(ObjectIdentifier(self))
+            if case .type(let name) = role { hasher.combine(name) } else { hasher.combine(ObjectIdentifier(self)) }
         }
     }
 }
@@ -459,7 +481,7 @@ extension Value {
             return debug ? Value.hexFloat(d, signed: true) : String(d)     // .String(.sign, .hex) (round 125)
         case .string(let s):
             return Value.quote(s)
-        case .array(let a):
+        case .array(let a, _):
             return "[" + a.map { $0.sourceString(debug: debug, seen: seen, custom: custom) }.joined(separator: ", ") + "]"
         case .function(let f):
             // A type or protocol prints as its name — which round-trips,
@@ -467,7 +489,9 @@ extension Value {
             // Ordinary Function.String() as source text is OPEN (§3d);
             // until then, a non-round-tripping placeholder.
             switch f.role {
-            case .type(let name), .protocol(let name):
+            case .type(let name):
+                return f.annotation?.display ?? name        // [Int], [String: Int], Set<Int> (round 165)
+            case .protocol(let name):
                 return name
             case .enumType(let et):
                 return et.name
@@ -557,7 +581,7 @@ extension Value {
                 }.joined(separator: ", ") + ")"
             }
             return out
-        case .set(let s):
+        case .set(let s, _):
             // No literal of its own (Swift has none), so the constructor
             // over the elements, sorted by source form: deterministic,
             // and it re-enters. `Set(1, 2)` since round 134 (round 132
@@ -568,7 +592,7 @@ extension Value {
             let elements = s.map { $0.sourceString(debug: debug, seen: seen, custom: custom) }.sorted()
             if s.count == 1, Value.spreadsInSet(s.first!) { return "Set([" + elements[0] + "])" }
             return "Set(" + elements.joined(separator: ", ") + ")"
-        case .dictionary(let d):
+        case .dictionary(let d, _):
             if d.isEmpty { return "[:]" }
             // Deterministic output: order entries by their key's source form.
             let body = d
@@ -605,11 +629,11 @@ extension Value {
         let pad = String(repeating: "  ", count: depth + 1)
         let close = String(repeating: "  ", count: depth)
         switch self {
-        case .array(let a):
+        case .array(let a, _):
             if a.isEmpty { return "[]" }
             let body = try a.map { try pad + $0.prettyString(depth: depth + 1, custom: custom) }.joined(separator: ",\n")
             return "[\n" + body + "\n" + close + "]"
-        case .set(let s):
+        case .set(let s, _):
             if s.isEmpty { return "Set()" }
             let body = try s.map { (key: try custom($0) ?? $0.sourceString(), text: try $0.prettyString(depth: depth + 1, custom: custom)) }
                 .sorted { $0.key < $1.key }
@@ -617,7 +641,7 @@ extension Value {
                 .joined(separator: ",\n")
             let (open, shut) = s.count == 1 && Value.spreadsInSet(s.first!) ? ("Set([\n", "])") : ("Set(\n", ")")
             return open + body + "\n" + close + shut
-        case .dictionary(let d):
+        case .dictionary(let d, _):
             if d.isEmpty { return "[:]" }
             let body = try d
                 .map { (key: try custom($0.key) ?? $0.key.sourceString(), value: try $0.value.prettyString(depth: depth + 1, custom: custom)) }
@@ -716,9 +740,9 @@ extension Swiftalk.Value {
         case (.int(let a), .byte(let b)): return a == Int64(b)
         case (.double(let a), .double(let b)): return a == b
         case (.string(let a), .string(let b)): return a == b
-        case (.array(let a), .array(let b)): return a == b
-        case (.dictionary(let a), .dictionary(let b)): return a == b
-        case (.set(let a), .set(let b)): return a == b
+        case (.array(let a, _), .array(let b, _)): return a == b
+        case (.dictionary(let a, _), .dictionary(let b, _)): return a == b
+        case (.set(let a, _), .set(let b, _)): return a == b
         case (.function(let a), .function(let b)): return a == b
         case (.range(let a, let b, let c), .range(let d, let e, let f)): return a == d && b == e && c == f
         case (.sequence(let a), .sequence(let b)): return a == b
@@ -742,8 +766,8 @@ extension Swiftalk.Value {
         case .byte(let b): hasher.combine(2); hasher.combine(Int64(b))     // as the Int it equals
         case .double(let d): hasher.combine(3); hasher.combine(d)
         case .string(let s): hasher.combine(4); hasher.combine(s)
-        case .array(let a): hasher.combine(5); hasher.combine(a)
-        case .dictionary(let d): hasher.combine(6); hasher.combine(d)
+        case .array(let a, _): hasher.combine(5); hasher.combine(a)
+        case .dictionary(let d, _): hasher.combine(6); hasher.combine(d)
         case .function(let f): hasher.combine(7); hasher.combine(f)
         case .range(let a, let b, let c): hasher.combine(8); hasher.combine(a); hasher.combine(b); hasher.combine(c)
         case .sequence(let s): hasher.combine(9); hasher.combine(s)
@@ -755,7 +779,7 @@ extension Swiftalk.Value {
         case .tuple(let t): hasher.combine(15); hasher.combine(t)
         case .actor(let a): hasher.combine(16); hasher.combine(a)
         case .regex(let r): hasher.combine(17); hasher.combine(r)
-        case .set(let s): hasher.combine(18); hasher.combine(s)
+        case .set(let s, _): hasher.combine(18); hasher.combine(s)
         }
     }
 }

@@ -3,12 +3,16 @@
 `[Key: Value]` — the spelling that started the language. A **COW
 value** (§4). Any Hashable value is a key (`1`, `"1"`, and `1.0` are
 three keys), as SION allows. A homogeneous literal infers `[K: V]`
-(round 59); `[:]` is untyped. **`nil` is a storable value** (round
+(round 59); `[:]` is untyped, `[Int: String]()` is not (round 165) —
+a Dictionary remembers the key and value types it was built or bound
+under, and `d.Type` reports them. **`nil` is a storable value** (round
 35): `d[k] = nil` stores nil, presence is a separate question.
 
 | Member / constructor | Result |
 |---|---|
 | `Dictionary()` | `[:]` |
+| `[Int: String]()` | the same, typed (round 165): an empty Dictionary that still refuses a String key or an Int value |
+| `d.Type` | `[Int: String]` — the type with its parameters (round 165); a mixed or untyped-empty Dictionary's is the erased `Dictionary`. `d.Type == Dictionary` holds for every Dictionary |
 | `d[k]` | the value, or `nil` when absent |
 | `d[k] = v` | insert or replace (`v` may be `nil`); needs a `var` root |
 | `d.has(k)` | presence — true for a key holding nil, false for a missing key |

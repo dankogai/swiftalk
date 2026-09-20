@@ -74,6 +74,18 @@ identities, and `let I = Int` aliases (round 111). Calling one
 converts — `Int("42")` is `"42".Int()`, the round-47 law — or
 constructs, `Set(1, 2)`, `Sequence { }`, `Task { }`.
 
+The container types carry their parameters (round 165): `[Int]` and
+`[Int: String]` are expressions — an Array literal of exactly one
+type, a Dictionary literal of one type-to-type pair — and `[0].Type`
+is `[Int]`, `Set([1]).Type` is `Set<Int>` (which has no expression
+spelling of its own). Calling one builds a container that remembers:
+`[Int]()` is empty and still an Array of Int, so `var a = [Int]()`
+then `a.append("x")` is a type error; `[Int](1...3)` checks its
+elements. Types compare by name, and the erased `Array` equals any
+`[T]`: `[0].Type == Array` and `[0].Type == [Int]` are both true,
+`[Int] == [String]` false. `Function` carries nothing: `{ $0 }.Type`
+is `Function`, whatever its arguments and result.
+
 | Names | Kind |
 |---|---|
 | `Nil` `Bool` `Byte` `Int` `Double` `String` `Array` `Dictionary` `Set` `Range` `Function` `Data` `Date` `Task` `Tuple` `Regex` `SION` | the built-in types — one page each in [README.md](README.md) |

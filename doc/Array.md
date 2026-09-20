@@ -4,13 +4,17 @@ An ordered collection — a **COW value** (§4): assignment and passing
 copy logically, mutation never leaks through an alias. A homogeneous
 literal infers its element type and the binding **enforces** it
 (round 59): `var a = [1, 2]` rejects `a.append("x")`. Mixed literals
-bind only under `[Primitives]`, `SION`, or `Any`; `[]` is untyped.
+bind only under `[Primitives]`, `SION`, or `Any`; `[]` is untyped —
+but `[Int]()` is not (round 165): an Array remembers the element type
+it was built or bound under, empty or not, and `a.Type` reports it.
 Arrays are dense — a sparse array is a Dictionary.
 
 | Member / constructor | Result |
 |---|---|
 | `Array()` | `[]` |
 | `Array(seq)` | materializes any Sequence conformer |
+| `[Int]()`, `[Int](seq)` | the same, typed (round 165): the elements are checked against `Int` and the result is an Array of Int even when empty — `var a = [Int]()` then `a.append("x")` is a type error |
+| `a.Type` | `[Int]`, `[[Int]]`, … — the type with its element type (round 165); a mixed or untyped-empty Array's is the erased `Array`. `a.Type == Array` holds for every Array, `a.Type == [Int]` for Arrays of Int |
 | `a[i]` | element; Int index, bounds-checked (error out of range) |
 | `a[i] = v` | write, through any path (`m[1][0] = 30`); needs a `var` root |
 | `a.count` | length |

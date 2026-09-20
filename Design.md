@@ -341,7 +341,8 @@ Details:
   compares identity against the very object the global `Int` binds,
   `Int("42")`-style construction calls, `.conforms(to:)` tests
   protocol conformance. (**OPEN**: whether `is` / `as?` / `as!` also
-  survive as sugar.)
+  survive as sugar.) A container's `.Type` carries its element type —
+  `[0].Type` is `[Int]` — since round 165 (below, §3c's end).
 
 ### 3b. Basic types — DECIDED (core)
 
@@ -1346,6 +1347,55 @@ failing by the real name when the conversion does not exist. A
 parameterized or optional annotation has no value to bind and so no
 alias; that is the one thing `typealias` did that a binding cannot,
 and it is not worth a keyword.
+
+**Parameterized container types — DECIDED (round 165)** ("Type of
+collection types must be preserved. `var a = [0]` and `a.Type` should
+be `Array<Int>` or `[Int]`, not just `Array`. `var T = a.Type` then
+`var a1 = T()` then `a1.append("one")` must be considered an error.
+Note `Function` is still just `Function`, arguments and return types
+are omitted to make type inference easier. But `Container<Element>`
+still holds.") Three things follow. (1) **A container remembers its
+element type**: every Array, Dictionary, and Set value carries an
+optional *stamp* — the parameterized annotation it was built or bound
+under. A parameterized constructor stamps what it builds (`[Int]()`
+is an empty Array of Int), and every write into a binding or struct
+property whose lock is parameterized stamps the value (`var a: [Int]
+= []`, then `let b = a`, and `b` is `[Int]` too); inference trusts a
+stamp before it looks at the contents, so the empty `T()` binds as
+`[Int]` and the binding's lock — the round-59 machinery, unchanged —
+refuses the String. The stamp is not part of equality or hashing
+(`[Int]() == [String]()`), and a container *derived* by `map`,
+`filter`, slicing is unstamped: empty, it is the erased type. (2)
+**`.Type` reports the parameters**: the stamp, else what the contents
+infer — `[0].Type` is `[Int]`, `[1: "a"].Type` is `[Int: String]`,
+`Set([1]).Type` is `Set<Int>`, `[[1], [2]].Type` is `[[Int]]`; a
+mixed or empty literal's is the erased `Array`. A parameterized type
+value is a Function whose role is still `.type("Array")` — everything
+that dispatches on the base name keeps working — with the annotation
+attached; it prints as the annotation, `.name` is the base. **Type
+equality is by name**, not identity, for builtin types, and **the
+erased name admits any parameters**: `[0].Type == [Int]`, `[0].Type
+== Array` (so the idiom "is it an Array?" survives), `[Int] !=
+[String]`. That rule is not transitive (`[Int] == Array == [String]`)
+— it is the same rule the annotation `Array` follows, admitting any
+Array, and the price of keeping `x.Type == Array` meaningful without
+an `is`. (3) **`[Int]` and `[K: V]` are expressions**: an Array
+literal of exactly one type is the type `[Int]` (Swift's spelling, as
+a value), a Dictionary literal of one type-to-type pair is `[K: V]`;
+`[Int, String]` is still an Array of two types. `Set<Int>` has no
+expression spelling (generic angle brackets do not parse as an
+expression) — `Set([1]).Type` is how to get one; nor has `Int?`, so
+`[Int?]` is annotation-only. Calling a parameterized type builds
+through the base constructor, checks the result against the
+parameters (`[Int]([1, "a"])` fails, `[Int](1...3)` is `[1, 2, 3]`),
+and stamps it. Round 111's one limit — "a parameterized or optional
+annotation has no value to bind and so no alias" — is lifted for the
+parameterized half: `let Names = [String]; var xs: Names = []` locks
+`xs` to `[String]`. `Function` is untouched: `{ $0 }.Type` is
+`Function`, `[Int].Type` is `Function`. OPEN: a spelling for
+`Set<T>` and `T?` as values; whether derived containers should
+inherit a stamp (`filter` could, `map` cannot); `.Element` / `.Key` /
+`.Value` on a parameterized type.
 
 ## 3a. Optionals & nil — DECIDED
 

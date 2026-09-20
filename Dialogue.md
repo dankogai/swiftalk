@@ -2399,3 +2399,30 @@ the history. (Moved out of Design.md in round 65.)
   but never called: `p.origin.` and `[1, 2].` complete, `f().` does
   not. The Regex page had lent String four members and the table had
   believed it; the test caught them.
+
+* **2026-09-20, round 165 — Parameterized container types** ("Type
+  of collection types must be preserved. `var a = [0]` and `a.Type`
+  should be `Array<Int>` or `[Int]`, not just `Array`. `var T =
+  a.Type` then `var a1 = T()` then `a1.append("one")` must be
+  considered an error. Note `Function` is still just `Function`,
+  arguments and return types are omitted to make type inference
+  easier. But `Container<Element>` still holds." — in the middle of
+  sizing a swiftalk-to-JS transpiler, whose assessment had called
+  everything dynamically typed). The gap was real: the round-59 lock
+  lives on the *binding*, so `T()` handed back a bare `[]` that a new
+  binding inferred as the erased Array and then took anything. The
+  fix is one field: a container value carries the parameterized
+  annotation it was built or bound under — a stamp, set by
+  parameterized constructors and by every write into a parameterized
+  binding or property, trusted by inference before the contents are
+  looked at, ignored by equality. `.Type` then reports it (or what
+  the contents infer), `[Int]` and `[K: V]` became expressions (an
+  Array literal of one type, a Dictionary literal of one pair of
+  types), and type equality for builtins moved from identity to name,
+  with the erased `Array` admitting any `[T]` so that `x.Type ==
+  Array` still asks what it always asked. Mechanically the round was
+  a sed over ninety pattern sites (`case .array(let a)` grew a `, _`)
+  plus a hundred lines; round 111's "no alias for a parameterized
+  annotation" limit fell out of it. Not done: a spelling for `Set<T>`
+  or `T?` as expressions, and derived containers (`map`, `filter`) do
+  not inherit a stamp.

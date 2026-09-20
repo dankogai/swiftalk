@@ -80,6 +80,7 @@ i * i == Complex(-1.0, 0.0)                   // true — and (*)(i, i), reduce(
 // the whole of C++'s <complex>, written in swiftalk: modules/Complex.swt (round 147)
 // import from "./modules/Complex.swt"; Complex.exp(Double.pi.i) == -1.0   — every export by name (round 148)
 // Tab completes at the REPL (round 164): names in scope, and members from the receiver's value — p.<Tab>, Double.sq<Tab>
+// [0].Type == [Int], [1: "a"].Type == [Int: String] — and [Int]() is an empty Array that still refuses a String (round 165)
 // Complex(1.0, -2.0).String() == "(1.0-2.0.i)" — an expression that re-enters; Complex("(1.0-2.0.i)") reads it (round 154)
 // and exact fractions: modules/Rational.swt — Rational(3, 4) + 1 == Rational(7, 4), Double(Rational(3, 4)) == 0.75, Rational(3, 4).String() == "(3/4)", Rational("(3/4)"), 1.over(3)
 let hex    = 255.String(.hex)                 // "0xff"; .String(.sign, .hex) is "+0xff"; radix: 16 for bare "ff"

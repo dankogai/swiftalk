@@ -35,7 +35,7 @@ struct TypeValueAliasTests {
 
     @Test("what a binding cannot alias, and the keyword that is gone")
     func limits() throws {
-        #expect(throws: SwiftalkError.self) { try eval("let Names = [String]\nlet xs: Names = []") }
+        // `let Names = [String]` aliases too since round 165 — ParameterizedTypeTests
         #expect(throws: SwiftalkError.self) { try eval("let n = 3\nlet x: n = 1") }
         #expect(throws: SwiftalkError.self) { try eval("typealias N = Int") }
         #expect(try eval("let typealias = 1\ntypealias") == .int(1))                 // just an identifier again

@@ -128,14 +128,14 @@ enum Builtins {
         "Array": type("Array") { args in
             switch args.first {
             case nil:            return .array([])
-            case .array(let a)?: return .array(a)
+            case .array(let a, _)?: return .array(a)
             case let v?:         return .array(try collect(v))  // any Sequence
             }
         },
         "Dictionary": type("Dictionary") { args in
             switch args.first {
             case nil:                 return .dictionary([:])
-            case .dictionary(let d)?: return .dictionary(d)
+            case .dictionary(let d, _)?: return .dictionary(d)
             case let v?: throw SwiftalkError.type("cannot convert \(v.typeName) to Dictionary")
             }
         },
@@ -148,7 +148,7 @@ enum Builtins {
             // one-element Set — so Set(3) is {3} and Set("one") graphemes.
             switch args.first {
             case nil:          return .set([])
-            case .set(let s)?: return .set(s)
+            case .set(let s, _)?: return .set(s)
             case let v? where conformance["Sequence"]!.contains(v.typeName):
                                return .set(Set(try collect(v)))
             case let v?:       return .set([v])
@@ -174,7 +174,7 @@ enum Builtins {
             case .data(let b)?:    return .data(b)
             case .string(let s)?:  // Data(base64) — SION's literal (round 97); nil if not base64.
                 return Base64.decode(s).map(Value.data) ?? .nil
-            case .array(let a)?:
+            case .array(let a, _)?:
                 // Data([255, 1]) — Bytes or Ints; a non-byte is nil (failable)
                 var bytes: [UInt8] = []
                 for v in a {
@@ -277,7 +277,7 @@ enum Builtins {
                     return .sequence(SequenceObject(kind: .coroutine(body: f)))
                 }
                 guard args.count == 2,
-                      case .array(let initial) = args[0],
+                      case .array(let initial, _) = args[0],
                       case .function(let next) = args[1] else {
                     throw SwiftalkError.type(
                         "Sequence(f) wraps a yielding Function; Sequence(initialState) { next } generates")

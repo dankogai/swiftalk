@@ -65,7 +65,7 @@ indirect enum BindPattern {
 
 /// A type annotation: `: Int` or `: Int?` (the flat optional of §3a —
 /// `Int?` permits `nil` in the slot, it is not a wrapper type).
-struct TypeAnnotation: Equatable {
+public struct TypeAnnotation: Equatable {   // public: a Value payload since round 165
     let name: String
     let optional: Bool
     /// Round 59: `[T]` is Array with one parameter, `[K: V]` is
