@@ -2550,3 +2550,11 @@ the history. (Moved out of Design.md in round 65.)
   Dictionary's `enumerated()` is itself, a lazy one's `.Array()`
   knew since round 171 — so only the empty eager case had been
   erased.
+
+* **2026-09-20, round 176 — `reversed()` and `sorted()` keep the
+  stamp** ("Make `reversed()` and `sorted()` keep the stamp too").
+  Both answer an Array from any receiver, so the stamp to keep is
+  the element type carried across the shape — one helper, the
+  Array-shaped twin of round 172's Set one, at three return sites.
+  A Dictionary's known element type, Tuple, joined the table on the
+  way; `Array(d)` empty is a `[Tuple]` now too.

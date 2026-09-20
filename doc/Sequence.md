@@ -25,7 +25,7 @@ Dictionary, Set, Range, Tuple, and Data conform to (§10).
 | `s.first` | the first element, or `nil` — one pull, so an infinite Sequence answers (round 139); a property, as Swift's |
 | `s.min()`, `s.max()`, `s.min { a, b in }`, `s.max(by:)` | the least / greatest, or `nil` when empty — drained, finite only (round 139). Bare, the elements must be Comparable (Int, Double, String, Date, Byte): tuples, pairs, Arrays, Bools are `<`'s type error; with a Function, Swift's areInIncreasingOrder — `min` keeps the first of equals, `max` the last |
 | `s.contains(x)`, `s.contains { }` | equality / predicate; short-circuits — an infinite Sequence answers on the first hit (round 83) |
-| `s.reversed()` | an Array, drained — finite only (round 84) |
+| `s.reversed()` | an Array, drained — finite only (round 84); of the element type the source is known to yield (round 176) |
 | `s.prefix { }`, `s.dropFirst { }` | **lazy** — another Sequence; the predicate is asked until its first miss and never again (round 88). `(0...)` is a lazy base too |
 | `s.joined()`, `s.joined(sep)` | Strings → a String, Arrays → a flat Array; `separator:` accepted (round 84) |
 | `for x in s` | pull one at a time; `break` stops a coroutine cleanly |

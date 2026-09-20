@@ -31,11 +31,11 @@ Arrays are dense — a sparse array is a Dictionary.
 | `a.prefix(n)`, `a.suffix(n)` | the first / last n; n clamps to the count; of `a`'s element type (round 169) |
 | `a.dropFirst(n)`, `a.dropLast(n)` | all but the first / last n; `n` defaults to 1 (round 89). both keep `a`'s element type (rounds 168–169) |
 | `a.split(x)`, `a.split { }`, `a.split(separator:)`, `a.split(whereSeparator:)` | pieces between separators, as Arrays; empty pieces omitted, as Swift's (round 89) |
-| `a.sorted()`, `a.sorted { a, b in }`, `a.sorted(by:)` | a new Array; bare needs Comparable elements (Int, Double, String, Date) — mixed is `<`'s type error (round 83) |
+| `a.sorted()`, `a.sorted { a, b in }`, `a.sorted(by:)` | a new Array; bare needs Comparable elements (Int, Double, String, Date) — mixed is `<`'s type error (round 83); of `a`'s element type (round 176) |
 | `a.first` | the first element or `nil` (round 139) |
 | `a.min()`, `a.max()`, `a.min(by:)` | the least / greatest or `nil`; bare needs Comparable elements, else a type error (round 139) |
 | `a.contains(x)`, `a.contains { }`, `a.contains(where:)` | equality (everything is Equatable) / predicate (round 83) |
-| `a.reversed()` | a new Array (round 84) |
+| `a.reversed()` | a new Array (round 84), of `a`'s element type (round 176) |
 | `a.prefix { }`, `a.dropFirst { }` | the leading elements while the predicate holds / from its first miss on (round 88); of `a`'s element type (rounds 168–169) |
 | `a.joined()`, `a.joined(", ")`, `a.joined(separator:)` | Strings concatenate into a String; Arrays flatten into an Array (`[[1], [2]].joined([0])`); a mix is a type error (round 84) |
 | `a.enumerated()` | an Array of `(key:, value:)` tuples — the index as `key` (round 73; labels round 128, a divergence from Swift's `offset:`/`element:` so a Dictionary's pairs and an Array's look alike); stamped `[Tuple]` even when empty (round 175) |

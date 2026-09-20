@@ -222,6 +222,29 @@ Set(
 )
 ```
 
+**`reversed()` and `sorted()` keep the stamp** (round 176) — an Array of
+the receiver's element type, even when empty, from an Array, a Set, a
+Range, a String, or a Dictionary:
+
+```text
+swiftalk> [Int]().reversed().Type
+[Int]
+swiftalk> [Int]().sorted().Type
+[Int]
+swiftalk> Set<Int>().sorted().Type
+[Int]
+swiftalk> "".reversed().Type
+[String]
+swiftalk> [Int: String]().reversed().Type
+[Tuple]
+swiftalk> var r = [Int]().sorted()
+[]
+swiftalk> r.append("s")
+type error: cannot assign String to 'r'[0] of type Int
+swiftalk> [Int]().map { $0 }.reversed().Type
+Array
+```
+
 **`enumerated()` keeps the stamp** (round 175) — an eager enumeration
 is `[Tuple]` even when empty; a Dictionary's is itself, stamp and all:
 

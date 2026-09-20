@@ -1501,6 +1501,19 @@ element type it can have. A Dictionary's `enumerated()` is itself
 had known since round 171. With this, every eager derivation that
 knows its element type without looking says so.
 
+**`reversed()` and `sorted()` keep the stamp — DECIDED (round 176)**
+("Make `reversed()` and `sorted()` keep the stamp too"). Both always
+answer an Array (rounds 83–84), whatever the receiver, so "keep" is
+carrying the receiver's *element* type across the shape: what the
+elements infer when there are any, else what the receiver is known to
+yield — a `[T]`'s or `Set<T>`'s `T`, a Range's Int, a String's String,
+a Dictionary's Tuple — so `Set<Int>().sorted()` is an empty `[Int]`,
+`"".reversed()` a `[String]`, `[Int: String]().reversed()` a
+`[Tuple]`. Erased only when nothing is inferred and nothing known: an
+empty `map`'s, a mixed Array's. The Dictionary's known element type
+(Tuple, its `(key:, value:)` pairs) is new here and reaches
+`Array(d)` and `Set(d)` as well.
+
 **`.Element`, `.Key`, `.Value` — DECIDED (round 166)** ("Add
 `.Element`, `.Key`, and `.Value` to parameterized types"). Swift's
 associated-type names, as members of a parameterized type value:

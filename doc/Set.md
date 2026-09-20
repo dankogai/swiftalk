@@ -43,7 +43,7 @@ bitwise operations stay methods (`bitAnd`, `bitOr`, `bitXor`), and
 | `for x in s` | iteration, in the Set's own order (unspecified, like a Dictionary's) |
 | `s.map { }` | an **Array** (Swift-compatible) |
 | `s.filter { }` | a **Set** (Swift-compatible), of `s`'s element type (round 168) |
-| `s.sorted()`, `s.sorted { }` | an Array — the way to a deterministic order |
+| `s.sorted()`, `s.sorted { }` | an Array — the way to a deterministic order; a `[T]` of `s`'s `T` (round 176) |
 | `s.first`, `s.min()`, `s.max()` | Sequence's (round 139): `first` is *some* element, the Set's own order being unspecified; `min`/`max` need Comparable elements |
 | `s.reduce(init) { }`, `s.enumerated()`, `s.prefix(n)`, … | every Sequence member; a slice is a Set of `s`'s element type (round 169 — this row had said Arrays; they were Sets since round 132), `enumerated()` an Array, an order having been imposed |
 | `Array(s)`, `s.Array()` | the elements, in the Set's own order |

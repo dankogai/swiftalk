@@ -3138,6 +3138,7 @@ func knownElementLock(of value: Value) -> TypeAnnotation? {
     case .data:                  return TypeAnnotation(name: "Byte", optional: false)
     case .array(_, let stamp?), .set(_, let stamp?):
         return stamp.parameters.first
+    case .dictionary:            return TypeAnnotation(name: "Tuple", optional: false)   // (key:, value:) pairs
     case .sequence(let obj):
         switch obj.kind {
         case .counting:                            return TypeAnnotation(name: "Int", optional: false)
@@ -3148,6 +3149,20 @@ func knownElementLock(of value: Value) -> TypeAnnotation? {
         }
     default:                     return nil
     }
+}
+
+/// An Array derived from a receiver's own elements, reordered — `sorted`,
+/// `reversed` (round 176): stamped by what the elements infer, else by
+/// what the receiver is known to yield (a `[T]`'s or `Set<T>`'s `T`, a
+/// Range's Int, a String's String, a Dictionary's Tuple), else erased.
+func stampedArray(_ elements: [Value], from receiver: Value) -> Value {
+    if let inferred = try? inferLock(.array(elements), for: "Array"), !inferred.parameters.isEmpty {
+        return .array(elements, lock: inferred)
+    }
+    if let known = knownElementLock(of: receiver) {
+        return .array(elements, lock: TypeAnnotation(name: "Array", optional: false, parameters: [known]))
+    }
+    return .array(elements)
 }
 
 /// The stamp a container carries (round 165), if any.
@@ -4660,20 +4675,20 @@ private func method(on receiver: Value, name: String,
         let elements = try collect(receiver)
         switch args.count {
         case 0:
-            return .array(try elements.sorted { a, b in
+            return stampedArray(try elements.sorted { a, b in
                 guard case .bool(let ascending) = try compare("<", a, b) else { return false }
                 return ascending
-            })
+            }, from: receiver)                                                   // round 176
         case 1:
             guard case .function(let fn) = args[0] else {
                 throw SwiftalkError.type(".sorted takes no argument, or one Function (a, b) -> Bool")
             }
-            return .array(try elements.sorted { a, b in
+            return stampedArray(try elements.sorted { a, b in
                 guard case .bool(let ascending) = try apply(fn, args: [(nil, a), (nil, b)]) else {
                     throw SwiftalkError.type("the .sorted Function must return a Bool")
                 }
                 return ascending
-            })
+            }, from: receiver)                                                   // round 176
         default:
             throw SwiftalkError.type(".sorted takes no argument, or one Function (a, b) -> Bool")
         }
@@ -4716,7 +4731,7 @@ private func method(on receiver: Value, name: String,
         guard args.isEmpty else {
             throw SwiftalkError.type(".reversed() takes no arguments")
         }
-        return .array(try collect(receiver).reversed())
+        return stampedArray(try collect(receiver).reversed(), from: receiver)   // round 176
     case ("joined", true):
         // Swift's joined() / joined(separator:) (round 84): Strings
         // concatenate into a String, Arrays flatten into an Array —
