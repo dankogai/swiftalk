@@ -2542,3 +2542,11 @@ the history. (Moved out of Design.md in round 65.)
   and a new lazy kind whose two sides are Values rather than
   SequenceObjects, so an Array zips with a Sequence without being
   wrapped. `Dictionary(zip(keys, values))` is the payoff.
+
+* **2026-09-20, round 175 — `enumerated()` keeps the stamp** ("Make
+  `enumerated()` keep the stamp too"). One line: the eager
+  enumeration's Array is stamped `[Tuple]`, as round 174's `zip` was
+  from the start. The probe showed the rest already held — a
+  Dictionary's `enumerated()` is itself, a lazy one's `.Array()`
+  knew since round 171 — so only the empty eager case had been
+  erased.

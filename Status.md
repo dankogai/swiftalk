@@ -222,6 +222,24 @@ Set(
 )
 ```
 
+**`enumerated()` keeps the stamp** (round 175) — an eager enumeration
+is `[Tuple]` even when empty; a Dictionary's is itself, stamp and all:
+
+```text
+swiftalk> [1, 2].enumerated()
+[(key: 0, value: 1), (key: 1, value: 2)]
+swiftalk> [Int]().enumerated().Type
+[Tuple]
+swiftalk> var e = [Int]().enumerated()
+[]
+swiftalk> e.append(1)
+type error: cannot assign Int to 'e'[0] of type Tuple
+swiftalk> [Int: String]().enumerated().Type
+[Int: String]
+swiftalk> Dictionary(["a", "b"].enumerated())
+[0: "a", 1: "b"]
+```
+
 **`zip(a, b)`** (round 174) — Swift's: pairs until the shorter side
 ends, lazy when a side is, an Array stamped `[Tuple]` otherwise;
 `Dictionary(zip(keys, values))` builds `[K: V]`:

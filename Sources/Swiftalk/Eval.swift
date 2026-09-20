@@ -4410,7 +4410,10 @@ private func method(on receiver: Value, name: String,
             // serves both
             out.append(.tuple([.int(Int64(out.count)), element], labels: ["key", "value"]))
         }
-        return .array(out)
+        // Stamped [Tuple] (round 175): the one element type an enumeration
+        // can have, so an empty one binds as one too.
+        return .array(out, lock: TypeAnnotation(name: "Array", optional: false,
+                                                parameters: [TypeAnnotation(name: "Tuple", optional: false)]))
     case ("prefix", true):
         // prefix(n) — the lazy world's terminal (round 41): the first n,
         // materialized. prefix { } / prefix(while:) (round 98, folding

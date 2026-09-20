@@ -17,7 +17,7 @@ Dictionary, Set, Range, Tuple, and Data conform to (§10).
 | `s.prefix(n)` | the first n, materialized as an Array |
 | `s.dropFirst(n)` | **lazy** — another Sequence (round 89) |
 | `s.suffix(n)`, `s.dropLast(n)`, `s.split(sep)` | drained — finite only; `split` takes a value or a predicate, pieces are Arrays (round 89) |
-| `s.enumerated()` | `(key:, value:)` tuples — the index as `key` (round 128; Swift says `offset:`/`element:`) — lazy on a Sequence, an Array of tuples on Array/String/Range/Tuple (rounds 73/74); `e.key`/`e.value`, `for i, x in xs.enumerated()`, `.map { i, x in }`. **A Dictionary's `enumerated()` is itself** (round 129): its pairs are `(key:, value:)` already |
+| `s.enumerated()` | `(key:, value:)` tuples — the index as `key` (round 128; Swift says `offset:`/`element:`) — lazy on a Sequence, an Array of tuples on Array/String/Range/Tuple (rounds 73/74); `e.key`/`e.value`, `for i, x in xs.enumerated()`, `.map { i, x in }`. **A Dictionary's `enumerated()` is itself** (round 129): its pairs are `(key:, value:)` already; stamped `[Tuple]` even when empty (round 175) |
 | `zip(s, t)` | a lazy Sequence of `(x, y)` pairs until the shorter side ends (round 174) — a top-level function, see [toplevel.md](toplevel.md); `Array(zip(1..., "ab"))` is `[(1, "a"), (2, "b")]` |
 | `s.Array()` | everything (do not ask an infinite one) — a `[T]` by stamp when the elements are homogeneous, or when the source is known to yield `T` — a Range's Ints through `filter`, `prefix`, `dropFirst`, lazy or eager — so `(1...3).filter { false }` and `Array((1...).prefix(0))` are empty `[Int]`s (round 171); after `map`, or from a generator or coroutine, an empty result is erased |
 | `s.reduce(init) { }` | fold (consumes the whole sequence) |

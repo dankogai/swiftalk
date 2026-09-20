@@ -83,7 +83,7 @@ i * i == Complex(-1.0, 0.0)                   // true — and (*)(i, i), reduce(
 // [0].Type == [Int], [1: "a"].Type == [Int: String] — and [Int]() is an empty Array that still refuses a String (round 165)
 // [Int].Element == Int, [Int: String].Key == Int, Set([1]).Type.Element == Int; [Int].Element("42") is Int("42") (round 166)
 // Int?, Optional<Int>, Set<Int>, [Int?] — the spellings as expressions: Int?("x") is nil, var s = Set<Int>() refuses a String (round 167)
-// [Int]().filter { }.Type == [Int], [1].dropFirst().Type == [Int] — filter and the slices keep the element type (rounds 168–169); map infers one from its results (round 170); seq.Array(), Set(seq), Array([Int]()) keep theirs (rounds 171–172); Dictionary(pairs) builds from (k, v) tuples and infers [K: V] (round 173); zip(keys, values) pairs them, lazily when a side is (round 174)
+// [Int]().filter { }.Type == [Int], [1].dropFirst().Type == [Int] — filter and the slices keep the element type (rounds 168–169); map infers one from its results (round 170); seq.Array(), Set(seq), Array([Int]()) keep theirs (rounds 171–172); Dictionary(pairs) builds from (k, v) tuples and infers [K: V] (round 173); zip(keys, values) pairs them, lazily when a side is (round 174); enumerated() is [Tuple] even when empty (round 175)
 // Complex(1.0, -2.0).String() == "(1.0-2.0.i)" — an expression that re-enters; Complex("(1.0-2.0.i)") reads it (round 154)
 // and exact fractions: modules/Rational.swt — Rational(3, 4) + 1 == Rational(7, 4), Double(Rational(3, 4)) == 0.75, Rational(3, 4).String() == "(3/4)", Rational("(3/4)"), 1.over(3)
 let hex    = 255.String(.hex)                 // "0xff"; .String(.sign, .hex) is "+0xff"; radix: 16 for bare "ff"

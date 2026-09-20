@@ -1492,6 +1492,15 @@ partner is round 173: `Dictionary(zip(keys, values))` builds `[K: V]`.
 Not a method — Swift has only the function, and `a.zip(b)` would
 suggest a receiver where there are two equals.
 
+**`enumerated()` keeps the stamp — DECIDED (round 175)** ("Make
+`enumerated()` keep the stamp too"). The eager enumeration of an
+Array, Set, String, or Data is an Array of `(key:, value:)` tuples and
+now says so when empty: stamped `[Tuple]`, as `zip`'s is, the one
+element type it can have. A Dictionary's `enumerated()` is itself
+(round 128) and had kept its stamp all along; a lazy one's `.Array()`
+had known since round 171. With this, every eager derivation that
+knows its element type without looking says so.
+
 **`.Element`, `.Key`, `.Value` — DECIDED (round 166)** ("Add
 `.Element`, `.Key`, and `.Value` to parameterized types"). Swift's
 associated-type names, as members of a parameterized type value:
