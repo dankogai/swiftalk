@@ -36,7 +36,7 @@ view (§11). `"..."` literals with `\(interpolation)`, escapes `\" \\
 | `s.Array()` | `["h", "é", ...]` |
 | `s.prefix(n)`, `s.suffix(n)` | the first / last n graphemes, **as a String** (round 89, revising 41's Array) |
 | `s.dropFirst(n)`, `s.dropLast(n)` | all but the first / last n graphemes, a String; `n` defaults to 1 (round 89) |
-| `s.split { }` | pieces between graphemes the predicate accepts, as Strings — beside `split(", ")` and `split(/re/)` (round 89) |
+| `s.split { }` | pieces between graphemes the predicate accepts, as Strings — beside `split(", ")` and `split(/re/)` (round 89); a `[String]` even when none (round 177) |
 
 Literals (round 94): `"..."` with escapes and `\(expr)`; `"""` multi-line
 (content on the lines between the delimiters, the closing `"""`'s
@@ -51,7 +51,7 @@ lines); raw `#"..."#` / `#"""..."""#` (backslashes and `"` verbatim,
 | `s.joined("-")` | the graphemes interleaved: `"abc".joined("-")` is `"a-b-c"` (round 84) |
 | `s.contains(/re/)`, `s.firstMatch(/re/)`, `s.wholeMatch(/re/)`, `s.matches(/re/)` | Regex search (round 86) — see [Regex.md](Regex.md) for the match shape |
 | `s.replacing(/re/, "x")`, `s.replacing(/re/) { }`, `s.replacing("a", "b")` | replace every match / substring (round 86) |
-| `s.split(/re/)`, `s.split(", ")` | the pieces, empty ones omitted (round 86) |
+| `s.split(/re/)`, `s.split(", ")` | the pieces, empty ones omitted (round 86); a `[String]` even when none (round 177) |
 | `s[i]` | undecided (§11) — an error for now |
 
 ```swift

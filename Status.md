@@ -222,6 +222,31 @@ Set(
 )
 ```
 
+**`joined()` and `split()` keep the stamp** (round 177) — the stamp
+moves a level: split's pieces and their Array, join's flattening; and
+an empty `[[Int]]` joins to an empty `[Int]`, not `""`:
+
+```text
+swiftalk> "".split(",").Type
+[String]
+swiftalk> [1, 0, 2].split(0)
+[[1], [2]]
+swiftalk> [1, 0, 2].split(0).Type
+[[Int]]
+swiftalk> var p = [Int]().split(0)
+[]
+swiftalk> p.append(["s"])
+type error: cannot assign String to 'p'[0][0] of type Int
+swiftalk> [[Int]]().joined()
+[]
+swiftalk> [[Int]]().joined().Type
+[Int]
+swiftalk> [[1], [2]].joined().Type
+[Int]
+swiftalk> [String]().joined(",")
+""
+```
+
 **`reversed()` and `sorted()` keep the stamp** (round 176) — an Array of
 the receiver's element type, even when empty, from an Array, a Set, a
 Range, a String, or a Dictionary:

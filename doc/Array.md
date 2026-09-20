@@ -30,14 +30,14 @@ Arrays are dense — a sparse array is a Dictionary.
 | `a[0..<1] = [9]`, `a[1...] = []`, `a[a.count...] = xs` | **assignment through a Range** (round 91): Swift's `replaceSubrange` — the positions are replaced by the right side's elements, however many, so the slice grows, shrinks, or vanishes; the right side must be an Array of the variable's element type (a type error otherwise) |
 | `a.prefix(n)`, `a.suffix(n)` | the first / last n; n clamps to the count; of `a`'s element type (round 169) |
 | `a.dropFirst(n)`, `a.dropLast(n)` | all but the first / last n; `n` defaults to 1 (round 89). both keep `a`'s element type (rounds 168–169) |
-| `a.split(x)`, `a.split { }`, `a.split(separator:)`, `a.split(whereSeparator:)` | pieces between separators, as Arrays; empty pieces omitted, as Swift's (round 89) |
+| `a.split(x)`, `a.split { }`, `a.split(separator:)`, `a.split(whereSeparator:)` | pieces between separators, as Arrays; empty pieces omitted, as Swift's (round 89); `[[T]]` of `a`'s `T`, each piece a `[T]`, even when empty (round 177) |
 | `a.sorted()`, `a.sorted { a, b in }`, `a.sorted(by:)` | a new Array; bare needs Comparable elements (Int, Double, String, Date) — mixed is `<`'s type error (round 83); of `a`'s element type (round 176) |
 | `a.first` | the first element or `nil` (round 139) |
 | `a.min()`, `a.max()`, `a.min(by:)` | the least / greatest or `nil`; bare needs Comparable elements, else a type error (round 139) |
 | `a.contains(x)`, `a.contains { }`, `a.contains(where:)` | equality (everything is Equatable) / predicate (round 83) |
 | `a.reversed()` | a new Array (round 84), of `a`'s element type (round 176) |
 | `a.prefix { }`, `a.dropFirst { }` | the leading elements while the predicate holds / from its first miss on (round 88); of `a`'s element type (rounds 168–169) |
-| `a.joined()`, `a.joined(", ")`, `a.joined(separator:)` | Strings concatenate into a String; Arrays flatten into an Array (`[[1], [2]].joined([0])`); a mix is a type error (round 84) |
+| `a.joined()`, `a.joined(", ")`, `a.joined(separator:)` | Strings concatenate into a String; Arrays flatten into an Array (`[[1], [2]].joined([0])`); a mix is a type error (round 84); a flattened `[[T]]` is a `[T]` — and an empty one joins to `[]`, not `""`, the stamp deciding what the contents cannot (round 177) |
 | `a.enumerated()` | an Array of `(key:, value:)` tuples — the index as `key` (round 73; labels round 128, a divergence from Swift's `offset:`/`element:` so a Dictionary's pairs and an Array's look alike); stamped `[Tuple]` even when empty (round 175) |
 | `a.String()`, `a.String(.pretty)` | source form; `.pretty` puts each element on its own line, nested two spaces a level (round 117); `.String(.json, .pretty)` likewise for JSON |
 | `a.Array()` | `a`, stamp and all (round 171); `Set<Int>().Array()` is a `[Int]` |

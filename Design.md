@@ -1514,6 +1514,22 @@ empty `map`'s, a mixed Array's. The Dictionary's known element type
 (Tuple, its `(key:, value:)` pairs) is new here and reaches
 `Array(d)` and `Set(d)` as well.
 
+**`joined()` and `split()` keep the stamp — DECIDED (round 177)**
+("Make `joined()` and `split()` keep the stamp too"). The two that
+change nesting depth. `split`: a String's pieces are Strings, so the
+result is `[String]` even when there are none; any other receiver's
+pieces are shaped like it (round 89) and each keeps its stamp, and
+the Array of pieces is stamped by the pieces' shape — `[Int]().split
+(0)` is `[[Int]]`, `(1...5).split(3)` too, a Set's `[Set<T>]`, a
+Data's `[Data]`, a Dictionary's `[[K: V]]` — erased only when the
+receiver's element type is not known. `joined`: a flattened Array is
+stamped by what its elements infer, else by the receiver's element's
+element, `[[Int]]` to `[Int]`; and the stamp now settles the one case
+that had nothing to look at — an empty `[[Int]]` joined to `""`
+(string mode was the default when the first element was missing) and
+now joins to an empty `[Int]`, as `[String]()` still joins to `""`.
+An unstamped empty Array joins to `""` as before.
+
 **`.Element`, `.Key`, `.Value` — DECIDED (round 166)** ("Add
 `.Element`, `.Key`, and `.Value` to parameterized types"). Swift's
 associated-type names, as members of a parameterized type value:

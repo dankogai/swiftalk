@@ -4744,8 +4744,12 @@ private func method(on receiver: Value, name: String,
         let elements = try collect(receiver)
         let separator = args.first
         let stringMode: Bool
+        // With nothing to look at, the receiver's stamp decides (round
+        // 177): an empty `[[Int]]` joins to an empty `[Int]`, not to "".
+        let elementLock = knownElementLock(of: receiver)
         switch separator ?? elements.first {
-        case nil, .string?:  stringMode = true
+        case nil:            stringMode = elementLock?.name != "Array"
+        case .string?:       stringMode = true
         case .array?:        stringMode = false
         case let v?:
             throw SwiftalkError.type(
@@ -4786,6 +4790,14 @@ private func method(on receiver: Value, name: String,
             }
             if i > 0 { out.append(contentsOf: sep) }
             out.append(contentsOf: a)
+        }
+        // Stamped (round 177): by what the elements infer, else by the
+        // receiver's element's element — `[[Int]]` flattens to `[Int]`.
+        if let inferred = try? inferLock(.array(out), for: "joined"), !inferred.parameters.isEmpty {
+            return .array(out, lock: inferred)
+        }
+        if let elementLock, elementLock.name == "Array", let inner = elementLock.parameters.first {
+            return .array(out, lock: TypeAnnotation(name: "Array", optional: false, parameters: [inner]))
         }
         return .array(out)
     // ---- Regex (round 86): the String side of the API, Swift's names ----
@@ -4846,10 +4858,11 @@ private func method(on receiver: Value, name: String,
         guard args.count == 1 else {
             throw SwiftalkError.type(".split takes one separator: a value, a Function, or (on a String) a Regex")
         }
+        let strings = TypeAnnotation(name: "Array", optional: false, parameters: [TypeAnnotation(name: "String", optional: false)])
         if case .string(let s) = receiver {
             switch args[0] {
-            case .regex(let r):    return .array(s.split(separator: r.regex).map { .string(String($0)) })
-            case .string(let sep): return .array(s.split(separator: sep).map { .string(String($0)) })
+            case .regex(let r):    return .array(s.split(separator: r.regex).map { .string(String($0)) }, lock: strings)   // [String] (round 177)
+            case .string(let sep): return .array(s.split(separator: sep).map { .string(String($0)) }, lock: strings)
             case .function:        break            // a grapheme predicate: below
             default: throw SwiftalkError.type("String.split takes a String, a Regex, or a Function of a grapheme")
             }
@@ -4870,7 +4883,21 @@ private func method(on receiver: Value, name: String,
             }
         }
         if !current.isEmpty { pieces.append(current) }
-        return .array(pieces.map { reshape($0, like: receiver) })
+        // Each piece keeps the receiver's stamp (round 177), and the Array
+        // of pieces is stamped by the pieces' shape: a String's are
+        // Strings, a Data's Data, a `[T]`'s or a Range's `[T]`, a Set's
+        // `Set<T>`, a Dictionary's its own `[K: V]` — erased only when
+        // the receiver's element type is not known.
+        let pieceLock: TypeAnnotation?
+        switch receiver {
+        case .string:                 pieceLock = TypeAnnotation(name: "String", optional: false)
+        case .data:                   pieceLock = TypeAnnotation(name: "Data", optional: false)
+        case .set:                    pieceLock = knownElementLock(of: receiver).map { TypeAnnotation(name: "Set", optional: false, parameters: [$0]) }
+        case .dictionary(_, let stamp): pieceLock = stamp
+        default:                      pieceLock = knownElementLock(of: receiver).map { TypeAnnotation(name: "Array", optional: false, parameters: [$0]) }
+        }
+        let shaped = pieces.map { restamp(reshape($0, like: receiver), like: receiver) }
+        return .array(shaped, lock: pieceLock.map { TypeAnnotation(name: "Array", optional: false, parameters: [$0]) })
     // ---- logical, as methods on a Bool (round 106): and, or, xor, not
     // — eager, as any method is (a method evaluates its argument; &&
     // and || do not always) ----

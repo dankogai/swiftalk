@@ -2558,3 +2558,13 @@ the history. (Moved out of Design.md in round 65.)
   Array-shaped twin of round 172's Set one, at three return sites.
   A Dictionary's known element type, Tuple, joined the table on the
   way; `Array(d)` empty is a `[Tuple]` now too.
+
+* **2026-09-21, round 177 — `joined()` and `split()` keep the
+  stamp** ("Make `joined()` and `split()` keep the stamp too"). The
+  two that change nesting depth, so the stamp moves a level: split's
+  outer Array is stamped by its pieces' shape and each piece by the
+  receiver's, join's result by the receiver's element's element. The
+  probe found a real bug beside the erasure: `[[Int]]().joined()` had
+  answered `""`, because with no element to look at the mode had
+  defaulted to Strings; the stamp now answers the question the
+  contents cannot, and an empty `[[Int]]` joins to an empty `[Int]`.
