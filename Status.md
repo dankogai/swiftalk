@@ -222,6 +222,29 @@ Set(
 )
 ```
 
+**`zip(a, b)`** (round 174) — Swift's: pairs until the shorter side
+ends, lazy when a side is, an Array stamped `[Tuple]` otherwise;
+`Dictionary(zip(keys, values))` builds `[K: V]`:
+
+```text
+swiftalk> zip([1, 2, 3], ["a", "b"])
+[(1, "a"), (2, "b")]
+swiftalk> zip([1, 2], ["a", "b"]).Type
+[Tuple]
+swiftalk> zip([Int](), [String]()).Type
+[Tuple]
+swiftalk> Dictionary(zip([1, 2], ["a", "b"]))
+[1: "a", 2: "b"]
+swiftalk> zip(1..., "abc")
+Sequence { ... }
+swiftalk> zip(1..., "abc").Array()
+[(1, "a"), (2, "b"), (3, "c")]
+swiftalk> zip(1..., 10...).prefix(2).Array()
+[(1, 10), (2, 11)]
+swiftalk> zip([1], 2)
+type error: zip(a, b): Int is not a Sequence
+```
+
 **`Dictionary(pairs)`** (round 173) — a Dictionary from any Sequence of
 `(key, value)` tuples, keys unique, stamped by what the pairs infer;
 `Array(d)` round-trips:

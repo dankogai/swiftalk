@@ -78,6 +78,24 @@ extension Swiftalk {
                 box.write(args.map { $0.sourceString(debug: true) }.joined(separator: " ") + "\n")
                 return .nil
             }
+            declareBuiltin("zip") { args in
+                // Swift's zip(a, b) (round 174): pairs until the shorter side
+                // ends, as unlabeled 2-tuples. Lazy when either side is a
+                // lazy Sequence (or `a...`), else an Array stamped `[Tuple]`
+                // — the one element type a zip can have, even when empty.
+                guard args.count == 2 else { throw SwiftalkError.type("zip(a, b) takes exactly two Sequences") }
+                for side in args where !Builtins.conformance["Sequence"]!.contains(side.typeName) {
+                    throw SwiftalkError.type("zip(a, b): \(side.typeName) is not a Sequence")
+                }
+                if lazyBase(args[0]) != nil || lazyBase(args[1]) != nil {
+                    return .sequence(SequenceObject(kind: .zipped(args[0], args[1])))
+                }
+                let a = try iterator(of: args[0]), b = try iterator(of: args[1])
+                var pairs: [Value] = []
+                while let x = try a.next(), let y = try b.next() { pairs.append(.tuple([x, y], labels: [nil, nil])) }
+                return .array(pairs, lock: TypeAnnotation(name: "Array", optional: false,
+                                                          parameters: [TypeAnnotation(name: "Tuple", optional: false)]))
+            }
             declareBuiltin("sleep") { args in
                 // sleep(seconds) suspends only the *current* context
                 // (§12, round 53) — parked tasks run meanwhile. At the
@@ -1575,6 +1593,15 @@ extension SequenceObject {
                     return nil
                 }
                 return element
+            }
+        case .zipped(let lhs, let rhs):
+            // The sides' iterators are made on the first pull (making one
+            // can throw; a fresh pair per iteration keeps it re-iterable).
+            var sides: (ValueIterator, ValueIterator)? = nil
+            return ValueIterator {
+                if sides == nil { sides = (try iterator(of: lhs), try iterator(of: rhs)) }
+                guard let a = try sides!.0.next(), let b = try sides!.1.next() else { return nil }
+                return .tuple([a, b], labels: [nil, nil])
             }
         case .dropped(let base, let n):
             let it = base.makeIterator()
@@ -3116,7 +3143,7 @@ func knownElementLock(of value: Value) -> TypeAnnotation? {
         case .counting:                            return TypeAnnotation(name: "Int", optional: false)
         case .filtered(let base, _), .takenWhile(let base, _), .droppedWhile(let base, _), .dropped(let base, _):
             return knownElementLock(of: .sequence(base))
-        case .enumerated:                          return TypeAnnotation(name: "Tuple", optional: false)
+        case .enumerated, .zipped:                 return TypeAnnotation(name: "Tuple", optional: false)
         case .mapped, .generator, .coroutine:      return nil
         }
     default:                     return nil

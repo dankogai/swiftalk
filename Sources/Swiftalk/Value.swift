@@ -296,6 +296,10 @@ extension Swiftalk {
             /// `.dropFirst(n)` (round 89), lazily — the only one of the
             /// slicing family that need not see the end.
             case dropped(SequenceObject, Int)
+            /// `zip(a, b)` (round 174) with a lazy side: pairs, as
+            /// unlabeled 2-tuples, until the shorter side ends. The sides
+            /// are Values — an Array may be zipped with a Sequence.
+            case zipped(Value, Value)
         }
         let kind: Kind
 

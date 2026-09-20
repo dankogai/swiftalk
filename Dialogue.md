@@ -2533,3 +2533,12 @@ the history. (Moved out of Design.md in round 65.)
   Swift's `uniqueKeysWithValues` does, rather than last-wins as JS's
   `Object.fromEntries`. Empty pairs stay erased: a Sequence of tuples
   knows nothing of K and V.
+
+* **2026-09-20, round 174 — `zip(a, b)`** ("Make `zip` infer the
+  stamp too"). Like round 173's Dictionary, there was nothing to make
+  infer: swiftalk had no `zip`. So the round is Swift's `zip` — a
+  top-level function, lazy when a side is, an Array otherwise — with
+  the only stamp it can have, `[Tuple]`, set even on an empty result,
+  and a new lazy kind whose two sides are Values rather than
+  SequenceObjects, so an Array zips with a Sequence without being
+  wrapped. `Dictionary(zip(keys, values))` is the payoff.

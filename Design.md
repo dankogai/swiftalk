@@ -1479,6 +1479,19 @@ pair list is a bug more often than a choice. Not pairs, or not
 mixed pairs build but stay erased, as everywhere. `xs.Dictionary()`
 is the same by the conversion law.
 
+**`zip(a, b)` — DECIDED (round 174)** ("Make `zip` infer the stamp
+too"). There was no `zip` to make infer, so here is Swift's: a top-level
+function of two Sequence conformers, pairing until the shorter side
+ends, each pair an unlabeled 2-tuple. It follows the laziness rule
+everything else follows (round 41): with a lazy Sequence or `a...` on
+either side it is a lazy Sequence — `zip(1..., "abc")` pulls three
+pairs and stops, re-iterable — otherwise an Array. The stamp is the
+one thing a zip can only be, `[Tuple]`, so it is stamped even when
+empty; `Array(z)` and `Set(z)` of a lazy zip know it too. The natural
+partner is round 173: `Dictionary(zip(keys, values))` builds `[K: V]`.
+Not a method — Swift has only the function, and `a.zip(b)` would
+suggest a receiver where there are two equals.
+
 **`.Element`, `.Key`, `.Value` — DECIDED (round 166)** ("Add
 `.Element`, `.Key`, and `.Value` to parameterized types"). Swift's
 associated-type names, as members of a parameterized type value:
