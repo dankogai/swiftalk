@@ -222,6 +222,27 @@ Set(
 )
 ```
 
+**`Set(x)` keeps or infers the stamp** (round 172) — the mirror of
+round 171: a Set built from elements is stamped by what they infer,
+or — empty — by what its source is known to yield:
+
+```text
+swiftalk> Set([Int]()).Type
+Set<Int>
+swiftalk> [Int]().Set().Type
+Set<Int>
+swiftalk> var s = Set((1...3).filter { false })
+Set()
+swiftalk> s.Type
+Set<Int>
+swiftalk> s.insert("x")
+type error: cannot assign String to an element of 's' of type Int
+swiftalk> Set(1, 2).Type
+Set<Int>
+swiftalk> Set([1, "a"]).Type
+Set
+```
+
 **`Array(x)` keeps or infers the stamp** (round 171) — a Sequence
 materializes with the stamp its elements infer; the identity
 conversions hand back the stamp they were handed; a Set's `.Array()`

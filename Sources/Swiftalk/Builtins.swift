@@ -51,6 +51,19 @@ enum Builtins {
                        builtin: construct, role: .type(name))
     }
 
+    /// A Set built from elements, stamped (round 172) the way Array(x) is
+    /// (round 171): by what the elements infer, else — empty — by what
+    /// the source is known to yield; `Set<T>` for a `[T]`'s or a Range's.
+    static func stampedSet(_ elements: Set<Value>, from source: Value?) -> Value {
+        if let inferred = try? inferLock(.set(elements), for: "Set"), !inferred.parameters.isEmpty {
+            return .set(elements, lock: inferred)
+        }
+        if elements.isEmpty, let source, let known = knownElementLock(of: source) {
+            return .set(elements, lock: TypeAnnotation(name: "Set", optional: false, parameters: [known]))
+        }
+        return .set(elements)
+    }
+
     private static func protocolObject(_ name: String) -> FunctionObject {
         FunctionObject(parameters: [], body: [], closure: emptyEnvironment,
                        builtin: { _ in
@@ -169,8 +182,8 @@ enum Builtins {
             case nil:          return .set([])
             case .set(let s, let lock)?: return .set(s, lock: lock)             // its own stamp (round 171)
             case let v? where conformance["Sequence"]!.contains(v.typeName):
-                               return .set(Set(try collect(v)))
-            case let v?:       return .set([v])
+                               return stampedSet(Set(try collect(v)), from: v)   // round 172
+            case let v?:       return stampedSet([v], from: nil)
             }
         },
         "Range": type("Range") { args in

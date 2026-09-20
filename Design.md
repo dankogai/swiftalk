@@ -1448,9 +1448,20 @@ And the conversions that were
 handed a stamp now hand it back: `Array([Int]())` had come out bare
 `Array`, `Set(Set<Int>())` bare `Set`, `Dictionary([Int: String]())`
 bare `Dictionary` — the identity cases rebuilt the value without its
-stamp — and a Set's `.Array()` is `[T]` of the Set's `T`. Not done:
-`Set(array)` and `Set(seq)` inferring or carrying, the mirror image,
-which is the same few lines.
+stamp — and a Set's `.Array()` is `[T]` of the Set's `T`. (`Set(array)`
+and `Set(seq)`, the mirror image: round 172.)
+
+**`Set(x)` keeps or infers the stamp — DECIDED (round 172)** ("Make
+`Set(seq)` and `Set(array)` keep the stamp too"). Round 171's rule,
+mirrored: a Set built from elements is stamped by what they infer,
+and — empty — by what its source is known to yield, so `Set([Int]())`
+and `[Int]().Set()` are `Set<Int>`, `Set((1...3).filter { false })`
+too, `Set("")` a `Set<String>`; `Set(a, b, …)` infers from its
+arguments the same way. Mixed elements, or an empty result of an
+unknowable source, leave the erased `Set`. With this, every builtin
+way of building a container from another carries or infers the
+element type; `Dictionary` has only its identity conversion, kept
+since round 171.
 
 **`.Element`, `.Key`, `.Value` — DECIDED (round 166)** ("Add
 `.Element`, `.Key`, and `.Value` to parameterized types"). Swift's

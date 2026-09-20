@@ -3928,7 +3928,7 @@ func convert(_ typeName: String, subject: Value?,
         guard let subject, extra.allSatisfy({ $0.label == nil }) else {
             throw SwiftalkError.type("Set(a, b, ...) takes unlabeled elements")
         }
-        return .set(Set([subject] + extra.map(\.value)))
+        return Builtins.stampedSet(Set([subject] + extra.map(\.value)), from: nil)   // round 172
     case "Sequence":
         // state.Sequence { next } == Sequence(state) { next } — the law's
         // bonus: trailing-closure generator construction.

@@ -87,7 +87,7 @@ then `a.append("x")` is a type error; `[Int](1...3)` checks its
 elements. Types compare by name, and the erased `Array` equals any
 `[T]`: `[0].Type == Array` and `[0].Type == [Int]` are both true,
 `[Int] == [String]` false; `filter` and the slices keep the element
-type, `map` infers one from its results, `Array(x)` keeps or infers (rounds 168–171); an optional is its own type, `Int? != Int`,
+type, `map` infers one from its results, `Array(x)` and `Set(x)` keep or infer (rounds 168–172); an optional is its own type, `Int? != Int`,
 and `Int?("x")` constructs through `Int` with nil as a possible
 answer. `Function` carries nothing: `{ $0 }.Type`
 is `Function`, whatever its arguments and result. A parameterized

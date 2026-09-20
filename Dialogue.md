@@ -2513,3 +2513,12 @@ the history. (Moved out of Design.md in round 65.)
   Fixed together; a Set's `.Array()` carries the element type across
   the shape change as `[T]`. `Set(x)` inferring or carrying is the
   mirror and was not asked.
+
+* **2026-09-20, round 172 — `Set(x)` keeps or infers the stamp**
+  ("Make `Set(seq)` and `Set(array)` keep the stamp too"). The mirror
+  round 171 had named and not taken: one helper beside the Set
+  constructor, doing for a Set what the Array constructor does —
+  infer from the elements, else take what the source is known to
+  yield — and the `Set(a, b, …)` arm of the conversion law routed
+  through it. Nothing new to decide; the container constructors now
+  all agree.

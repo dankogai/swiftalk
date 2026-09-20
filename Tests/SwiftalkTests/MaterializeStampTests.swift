@@ -30,6 +30,6 @@ struct MaterializeStampTests {
         #expect(try eval("Array(Set<Set<Int>>()).Type.String()") == .string("[Set<Int>]"))
         #expect(throws: SwiftalkError.self) { try eval("var a = Set<Int>().Array()\na.append(\"s\")") }
         #expect(try eval("Array(Set(1, 2)).count") == .int(2))
-        #expect(try eval("[Int]().Set().Type.String()") == .string("Set"))     // the mirror is not this round's
+        #expect(try eval("[Int]().Set().Type.String()") == .string("Set<Int>"))   // the mirror: round 172
     }
 }
