@@ -1449,7 +1449,11 @@ private func lazyBase(_ receiver: Value) -> SequenceObject? {
 /// the result has the receiver's shape; a Sequence, String, or Data has
 /// no stamp to carry.
 private func restamp(_ result: Value, like receiver: Value) -> Value {
-    guard let stamp = containerStamp(receiver) else { return result }
+    // A receiver without a stamp may still be known to yield one type
+    // (round 171): a Range's slice or filter is an Array of Int.
+    guard let stamp = containerStamp(receiver)
+            ?? knownElementLock(of: receiver).map({ TypeAnnotation(name: "Array", optional: false, parameters: [$0]) })
+    else { return result }
     switch result {
     case .array(let a, nil) where stamp.name == "Array":           return .array(a, lock: stamp)
     case .set(let s, nil) where stamp.name == "Set":               return .set(s, lock: stamp)
@@ -3091,6 +3095,31 @@ func checkValue(_ value: Value, against lock: TypeAnnotation, context: String) t
                                context: "\(context)[\(key.sourceString())]")
             }
         }
+    }
+}
+
+/// What a value is known to yield without running it (round 171): a
+/// Range or `a...` yields Ints, a String Strings (graphemes), a Data
+/// Bytes, a stamped container its parameter; a lazy Sequence keeps its
+/// base's element type through `filter`, `prefix { }`, `dropFirst`,
+/// while `map`, a generator, and a coroutine yield what they please.
+/// Nil when nothing is known.
+func knownElementLock(of value: Value) -> TypeAnnotation? {
+    switch value {
+    case .range:                 return TypeAnnotation(name: "Int", optional: false)
+    case .string:                return TypeAnnotation(name: "String", optional: false)
+    case .data:                  return TypeAnnotation(name: "Byte", optional: false)
+    case .array(_, let stamp?), .set(_, let stamp?):
+        return stamp.parameters.first
+    case .sequence(let obj):
+        switch obj.kind {
+        case .counting:                            return TypeAnnotation(name: "Int", optional: false)
+        case .filtered(let base, _), .takenWhile(let base, _), .droppedWhile(let base, _), .dropped(let base, _):
+            return knownElementLock(of: .sequence(base))
+        case .enumerated:                          return TypeAnnotation(name: "Tuple", optional: false)
+        case .mapped, .generator, .coroutine:      return nil
+        }
+    default:                     return nil
     }
 }
 

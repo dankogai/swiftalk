@@ -130,16 +130,31 @@ enum Builtins {
         // nothing new: Optional(x) is x, the flat union's own rule (§3a).
         "Optional": type("Optional") { args in args.first ?? .nil },
         "Array": type("Array") { args in
+            // The result keeps a stamp (round 171): an Array's own, a Set's
+            // element type as `[T]`, and anything else's inferred from the
+            // elements it materializes — round 170's rule for map — so
+            // `(1...).prefix(0).Array()` is erased, `seq.Array()` of Ints
+            // a `[Int]`, and `Array([Int]())` still a `[Int]`.
             switch args.first {
-            case nil:            return .array([])
-            case .array(let a, _)?: return .array(a)
-            case let v?:         return .array(try collect(v))  // any Sequence
+            case nil:                      return .array([])
+            case .array(let a, let lock)?: return .array(a, lock: lock)
+            case .set(let s, let lock)?:
+                return .array(Array(s), lock: lock.map { TypeAnnotation(name: "Array", optional: false, parameters: $0.parameters) })
+            case let v?:
+                let out = try collect(v)                          // any Sequence
+                if let inferred = try? inferLock(.array(out), for: "Array"), !inferred.parameters.isEmpty {
+                    return .array(out, lock: inferred)
+                }
+                if out.isEmpty, let known = knownElementLock(of: v) {   // a Range's Ints, through filter/prefix/dropFirst
+                    return .array(out, lock: TypeAnnotation(name: "Array", optional: false, parameters: [known]))
+                }
+                return .array(out)
             }
         },
         "Dictionary": type("Dictionary") { args in
             switch args.first {
             case nil:                 return .dictionary([:])
-            case .dictionary(let d, _)?: return .dictionary(d)
+            case .dictionary(let d, let lock)?: return .dictionary(d, lock: lock)   // its own stamp (round 171)
             case let v?: throw SwiftalkError.type("cannot convert \(v.typeName) to Dictionary")
             }
         },
@@ -152,7 +167,7 @@ enum Builtins {
             // one-element Set — so Set(3) is {3} and Set("one") graphemes.
             switch args.first {
             case nil:          return .set([])
-            case .set(let s, _)?: return .set(s)
+            case .set(let s, let lock)?: return .set(s, lock: lock)             // its own stamp (round 171)
             case let v? where conformance["Sequence"]!.contains(v.typeName):
                                return .set(Set(try collect(v)))
             case let v?:       return .set([v])

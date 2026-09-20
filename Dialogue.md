@@ -2496,3 +2496,20 @@ the history. (Moved out of Design.md in round 65.)
   and `map` had none to give. Now it gives the one its results infer,
   by round 59's rule; mixed results or an empty receiver leave it
   erased, honestly. Five lines.
+
+* **2026-09-20, round 171 — `Array(x)` keeps or infers the stamp**
+  ("Make `Sequence.Array()` keep the stamp too"). A Sequence has no
+  stamp — it has not run — so "keep" means "infer from what comes
+  out", the rule map took in round 170, in the Array constructor's
+  materializing arm; and when nothing comes out, what the source is
+  known to yield — a Range's Ints through filter or prefix, lazy or
+  eager — which the first draft of the test had wrongly expected to
+  be erased, and whose eager half the second draft had missed (a
+  bounded Range filters eagerly, straight to an Array). The probe
+  found the larger leak beside it: the
+  identity arms — `Array(array)`, `Set(set)`, `Dictionary(dict)` —
+  rebuilt the value from its elements and dropped the stamp they had
+  been handed, so `Array([Int]())` had been erased since round 165.
+  Fixed together; a Set's `.Array()` carries the element type across
+  the shape change as `[T]`. `Set(x)` inferring or carrying is the
+  mirror and was not asked.

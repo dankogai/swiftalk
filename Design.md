@@ -1433,6 +1433,25 @@ ever. (The example itself already printed `[String]` before this
 round — `.Type` infers from contents — the round is what happens
 after the contents are gone.)
 
+**`Array(x)` keeps or infers the stamp — DECIDED (round 171)** ("Make
+`Sequence.Array()` keep the stamp too"). A lazy Sequence has no stamp
+to keep — nothing has run — so materializing infers one from what
+comes out, round 170's rule: `(1...3).Array()` is a `[Int]` by stamp,
+a mixed materialization erased. When nothing comes out, what the
+source is *known* to yield decides: a Range yields Ints, a String
+Strings, a Data Bytes, and `filter`, `prefix`, `dropFirst` keep their
+source's element type — eagerly on a bounded Range, lazily on `a...`
+— so `(1...3).filter { false }` and `Array((1...).prefix(0))` are
+empty `[Int]`s that refuse a String; `map`, a generator, and a
+coroutine yield what they please, so an empty one of those is erased.
+And the conversions that were
+handed a stamp now hand it back: `Array([Int]())` had come out bare
+`Array`, `Set(Set<Int>())` bare `Set`, `Dictionary([Int: String]())`
+bare `Dictionary` — the identity cases rebuilt the value without its
+stamp — and a Set's `.Array()` is `[T]` of the Set's `T`. Not done:
+`Set(array)` and `Set(seq)` inferring or carrying, the mirror image,
+which is the same few lines.
+
 **`.Element`, `.Key`, `.Value` — DECIDED (round 166)** ("Add
 `.Element`, `.Key`, and `.Value` to parameterized types"). Swift's
 associated-type names, as members of a parameterized type value:

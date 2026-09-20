@@ -222,6 +222,32 @@ Set(
 )
 ```
 
+**`Array(x)` keeps or infers the stamp** (round 171) — a Sequence
+materializes with the stamp its elements infer; the identity
+conversions hand back the stamp they were handed; a Set's `.Array()`
+is `[T]`:
+
+```text
+swiftalk> (1...3).Array().Type
+[Int]
+swiftalk> var a = Array((1...3).filter { false })
+[]
+swiftalk> a.Type
+[Int]
+swiftalk> a.append("s")
+type error: cannot assign String to 'a'[0] of type Int
+swiftalk> (1...).prefix(0).Array().Type
+[Int]
+swiftalk> (1...).prefix(0).map { $0 }.Array().Type
+Array
+swiftalk> Array([Int]()).Type
+[Int]
+swiftalk> Set<Int>().Array().Type
+[Int]
+swiftalk> Set(Set<Int>()).Type
+Set<Int>
+```
+
 **`map` infers a stamp from its results** (round 170) — homogeneous
 results stamp the Array, so the type survives an emptying `filter`;
 mixed results, or none, leave it erased:
