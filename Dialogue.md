@@ -2466,3 +2466,14 @@ the history. (Moved out of Design.md in round 65.)
   is a clone of its constructor with the annotation, which is why
   type equality now looks through to the type object rather than
   the name alone.
+
+* **2026-09-20, round 168 — `filter` and `dropFirst` keep the stamp**
+  ("Make `filter` and `dropFirst` keep the stamp"). Round 165's stamp
+  had stopped at the receiver: anything derived was unstamped, which
+  round 165 had listed as OPEN with the observation that `filter`
+  could keep it and `map` cannot. One helper — the receiver's stamp
+  onto a result of the same shape — at the three return sites of
+  `filter` and the two of `dropFirst`; a Dictionary's `filter` builds
+  its own Dictionary and needed the helper too. The other slices
+  (`dropLast`, `suffix`, `prefix`) were left as they were: each is
+  the same line, and the round was two names, not a family.

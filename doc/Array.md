@@ -24,12 +24,12 @@ Arrays are dense — a sparse array is a Dictionary.
 | `a == b` | element-wise equality |
 | `a.map { }` | an Array of results |
 | `a.forEach { }` | runs the closure on each element, eagerly; `nil` (round 156). No `break` inside — a closure is not a loop |
-| `a.filter { }` | an Array of the kept |
+| `a.filter { }` | an Array of the kept — of the same element type as `a` (round 168): `[Int]().filter { }.Type` is `[Int]` |
 | `a.reduce(init) { acc, x in }` | fold |
 | `a[1..<3]`, `a[1...2]`, `a[1...]` | a **Range subscript** (round 90): a new Array of those positions — `0 ≤ from ≤ to ≤ count`, so `a[a.count...]` is `[]` and past the end is an error |
 | `a[0..<1] = [9]`, `a[1...] = []`, `a[a.count...] = xs` | **assignment through a Range** (round 91): Swift's `replaceSubrange` — the positions are replaced by the right side's elements, however many, so the slice grows, shrinks, or vanishes; the right side must be an Array of the variable's element type (a type error otherwise) |
 | `a.prefix(n)`, `a.suffix(n)` | the first / last n; n clamps to the count |
-| `a.dropFirst(n)`, `a.dropLast(n)` | all but the first / last n; `n` defaults to 1 (round 89) |
+| `a.dropFirst(n)`, `a.dropLast(n)` | all but the first / last n; `n` defaults to 1 (round 89). `dropFirst` keeps `a`'s element type, `dropLast` does not (round 168) |
 | `a.split(x)`, `a.split { }`, `a.split(separator:)`, `a.split(whereSeparator:)` | pieces between separators, as Arrays; empty pieces omitted, as Swift's (round 89) |
 | `a.sorted()`, `a.sorted { a, b in }`, `a.sorted(by:)` | a new Array; bare needs Comparable elements (Int, Double, String, Date) — mixed is `<`'s type error (round 83) |
 | `a.first` | the first element or `nil` (round 139) |

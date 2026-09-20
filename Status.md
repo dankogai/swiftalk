@@ -222,6 +222,35 @@ Set(
 )
 ```
 
+**`filter` and `dropFirst` keep the stamp** (round 168) — a container
+derived by either is still an Array, Set, or Dictionary *of* what its
+source was, empty or not; `map` and the other slices stay erased:
+
+```text
+swiftalk> var a = [Int]()
+[]
+swiftalk> let b = a.filter { $0 > 0 }
+[]
+swiftalk> b.Type
+[Int]
+swiftalk> var c = a.dropFirst()
+[]
+swiftalk> c.append("s")
+type error: cannot assign String to 'c'[0] of type Int
+swiftalk> var s = Set<Int>()
+Set()
+swiftalk> s.filter { $0 > 0 }.Type
+Set<Int>
+swiftalk> var d = [Int: String]()
+[:]
+swiftalk> d.filter { k, v in k > 0 }.Type
+[Int: String]
+swiftalk> a.map { $0 }.Type
+Array
+swiftalk> a.dropLast().Type
+Array
+```
+
 **`Optional<T>`, `T?`, `Set<T>` as expressions** (round 167) — postfix
 `?` on a type is the optional type, `Name<T, …>` is Swift's generic
 spelling in expression position (backing off to a comparison when an

@@ -86,7 +86,8 @@ is `[Int]`, `Set([1]).Type` is `Set<Int>`, `[nil, 1].Type` is
 then `a.append("x")` is a type error; `[Int](1...3)` checks its
 elements. Types compare by name, and the erased `Array` equals any
 `[T]`: `[0].Type == Array` and `[0].Type == [Int]` are both true,
-`[Int] == [String]` false; an optional is its own type, `Int? != Int`,
+`[Int] == [String]` false; `filter` and `dropFirst` keep the element
+type, `map` and the other slices do not (round 168); an optional is its own type, `Int? != Int`,
 and `Int?("x")` constructs through `Int` with nil as a possible
 answer. `Function` carries nothing: `{ $0 }.Type`
 is `Function`, whatever its arguments and result. A parameterized

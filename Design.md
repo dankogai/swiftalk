@@ -1364,8 +1364,9 @@ property whose lock is parameterized stamps the value (`var a: [Int]
 stamp before it looks at the contents, so the empty `T()` binds as
 `[Int]` and the binding's lock — the round-59 machinery, unchanged —
 refuses the String. The stamp is not part of equality or hashing
-(`[Int]() == [String]()`), and a container *derived* by `map`,
-`filter`, slicing is unstamped: empty, it is the erased type. (2)
+(`[Int]() == [String]()`), and a container *derived* by `map` or
+slicing is unstamped: empty, it is the erased type (`filter` and
+`dropFirst` keep it since round 168). (2)
 **`.Type` reports the parameters**: the stamp, else what the contents
 infer — `[0].Type` is `[Int]`, `[1: "a"].Type` is `[Int: String]`,
 `Set([1]).Type` is `Set<Int>`, `[[1], [2]].Type` is `[[Int]]`; a
@@ -1392,9 +1393,22 @@ and stamps it. Round 111's one limit — "a parameterized or optional
 annotation has no value to bind and so no alias" — is lifted for the
 parameterized half: `let Names = [String]; var xs: Names = []` locks
 `xs` to `[String]`. `Function` is untouched: `{ $0 }.Type` is
-`Function`, `[Int].Type` is `Function`. OPEN: whether derived
-containers should inherit a stamp (`filter` could, `map` cannot).
-(A spelling for `Set<T>` and `T?` as values: round 167.)
+`Function`, `[Int].Type` is `Function`. (A spelling for `Set<T>`
+and `T?` as values: round 167; `filter` and `dropFirst` keeping the
+stamp: round 168.)
+
+**`filter` and `dropFirst` keep the stamp — DECIDED (round 168)**
+("Make `filter` and `dropFirst` keep the stamp"). The two derivations
+that keep the receiver's own elements carry its stamp onto the
+result, for an Array, a Set, and a Dictionary alike — `[Int]().filter
+{ }` is still an Array of Int, `[1].dropFirst()` an empty `[Int]`,
+`Set<Int>().filter { }` a `Set<Int>` — so an empty result binds as
+what its source was and refuses what its source refused. `map` cannot
+(a new element type), and an unstamped receiver has nothing to pass
+on. The other slices — `dropLast`, `suffix`, `prefix` — are the same
+one-line change each and stay unstamped until asked: the round did
+what it was asked, not the family. A lazy Sequence's `filter` is a
+Sequence, stampless as ever.
 
 **`.Element`, `.Key`, `.Value` — DECIDED (round 166)** ("Add
 `.Element`, `.Key`, and `.Value` to parameterized types"). Swift's

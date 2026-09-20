@@ -1443,6 +1443,21 @@ private func lazyBase(_ receiver: Value) -> SequenceObject? {
 /// An eager result shaped like its receiver, as `filter` does: a
 /// String's graphemes back to a String, a Dictionary's pairs back to
 /// a Dictionary, anything else an Array.
+/// Carries the receiver's stamp (round 165) onto a container derived
+/// from it (round 168): `filter` and `dropFirst` keep the elements they
+/// keep, so `[Int]().filter { }` is still an Array of Int. Only where
+/// the result has the receiver's shape; a Sequence, String, or Data has
+/// no stamp to carry.
+private func restamp(_ result: Value, like receiver: Value) -> Value {
+    guard let stamp = containerStamp(receiver) else { return result }
+    switch result {
+    case .array(let a, nil) where stamp.name == "Array":           return .array(a, lock: stamp)
+    case .set(let s, nil) where stamp.name == "Set":               return .set(s, lock: stamp)
+    case .dictionary(let d, nil) where stamp.name == "Dictionary": return .dictionary(d, lock: stamp)
+    default:                                                       return result
+    }
+}
+
 private func reshape(_ kept: [Value], like receiver: Value) -> Value {
     switch receiver {
     case .string:
@@ -4389,7 +4404,7 @@ private func method(on receiver: Value, name: String,
                 }
                 kept.append(element)
             }
-            return reshape(kept, like: receiver)
+            return restamp(reshape(kept, like: receiver), like: receiver)     // round 168
         }
         let n: Int64
         switch args.count {
@@ -4416,7 +4431,8 @@ private func method(on receiver: Value, name: String,
         case "dropFirst": kept = Array(all.dropFirst(count))
         default:          kept = Array(all.dropLast(count))
         }
-        return reshape(kept, like: receiver)
+        let shaped = reshape(kept, like: receiver)
+        return name == "dropFirst" ? restamp(shaped, like: receiver) : shaped   // round 168: dropFirst keeps the stamp
     case ("catch", true):
         // `r.catch { err in ... }` (round 161): a success unwraps, as `??`
         // does; a failure runs the handler with the error and is its
@@ -4496,9 +4512,12 @@ private func method(on receiver: Value, name: String,
             }
             if keep { kept.append(element) }
         }
+        // The result keeps the receiver's stamp (round 168): the kept
+        // elements are the receiver's own, so `[Int]().filter { }` is
+        // still an Array of Int.
         switch receiver {
         case .data, .set:
-            return reshape(kept, like: receiver)          // Data.filter gives back a Data (round 115), Set a Set (round 132)
+            return restamp(reshape(kept, like: receiver), like: receiver)   // Data.filter gives back a Data (round 115), Set a Set (round 132)
         case .string:
             // Swift-compatible: String.filter gives back a String.
             return .string(kept.map { if case .string(let s) = $0 { s } else { "" } }.joined())
@@ -4508,9 +4527,9 @@ private func method(on receiver: Value, name: String,
             for pair in kept {
                 if case .tuple(let kv) = pair, kv.count == 2 { d[kv[0]] = kv[1] }
             }
-            return .dictionary(d)
+            return restamp(.dictionary(d), like: receiver)
         default:
-            return .array(kept)
+            return restamp(.array(kept), like: receiver)
         }
     case ("reduce", true):
         guard args.count == 2, case .function(let fn) = args[1] else {

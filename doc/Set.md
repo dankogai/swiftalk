@@ -42,7 +42,7 @@ bitwise operations stay methods (`bitAnd`, `bitOr`, `bitXor`), and
 | `s.isSubset(of: t)`, `s.isSuperset(of: t)`, `s.isStrictSubset(of: t)`, `s.isStrictSuperset(of: t)`, `s.isDisjoint(with: t)` | Bools; the labels optional, as Swift's labels are elsewhere |
 | `for x in s` | iteration, in the Set's own order (unspecified, like a Dictionary's) |
 | `s.map { }` | an **Array** (Swift-compatible) |
-| `s.filter { }` | a **Set** (Swift-compatible) |
+| `s.filter { }` | a **Set** (Swift-compatible), of `s`'s element type (round 168) |
 | `s.sorted()`, `s.sorted { }` | an Array — the way to a deterministic order |
 | `s.first`, `s.min()`, `s.max()` | Sequence's (round 139): `first` is *some* element, the Set's own order being unspecified; `min`/`max` need Comparable elements |
 | `s.reduce(init) { }`, `s.enumerated()`, `s.prefix(n)`, … | every Sequence member; slices and `enumerated()` are Arrays, an order having been imposed |
