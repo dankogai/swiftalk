@@ -222,6 +222,29 @@ Set(
 )
 ```
 
+**`Dictionary(pairs)`** (round 173) — a Dictionary from any Sequence of
+`(key, value)` tuples, keys unique, stamped by what the pairs infer;
+`Array(d)` round-trips:
+
+```text
+swiftalk> Dictionary([(1, "a"), (2, "b")])
+[1: "a", 2: "b"]
+swiftalk> Dictionary([(1, "a")]).Type
+[Int: String]
+swiftalk> let d = [1: "a", 2: "b"]
+[1: "a", 2: "b"]
+swiftalk> Dictionary(Array(d)) == d
+true
+swiftalk> var e = Dictionary((1...3).map { ($0, $0 * $0) })
+[1: 1, 2: 4, 3: 9]
+swiftalk> e["x"] = 0
+type error: cannot assign String to a key of 'e' of type Int
+swiftalk> Dictionary([(1, "a"), (1, "b")])
+type error: Dictionary(pairs): duplicate key 1
+swiftalk> Dictionary([]).Type
+Dictionary
+```
+
 **`Set(x)` keeps or infers the stamp** (round 172) — the mirror of
 round 171: a Set built from elements is stamped by what they infer,
 or — empty — by what its source is known to yield:

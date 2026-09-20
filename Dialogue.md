@@ -2522,3 +2522,14 @@ the history. (Moved out of Design.md in round 65.)
   yield — and the `Set(a, b, …)` arm of the conversion law routed
   through it. Nothing new to decide; the container constructors now
   all agree.
+
+* **2026-09-20, round 173 — `Dictionary(pairs)`** ("Make
+  `Dictionary(seq)` infer the stamp too"). The one container
+  constructor with nothing to infer from, because it had no
+  Sequence arm at all: `Dictionary(x)` refused everything but a
+  Dictionary. So the round is the arm itself — a Sequence of
+  2-tuples, `Array(d)` round-tripping, labels ignored — plus the
+  stamp its pairs infer, and one decision: duplicate keys error, as
+  Swift's `uniqueKeysWithValues` does, rather than last-wins as JS's
+  `Object.fromEntries`. Empty pairs stay erased: a Sequence of tuples
+  knows nothing of K and V.

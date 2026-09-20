@@ -168,6 +168,25 @@ enum Builtins {
             switch args.first {
             case nil:                 return .dictionary([:])
             case .dictionary(let d, let lock)?: return .dictionary(d, lock: lock)   // its own stamp (round 171)
+            case let v? where conformance["Sequence"]!.contains(v.typeName):
+                // Dictionary(pairs) (round 173): a Sequence of 2-tuples —
+                // `Array(d)`'s (key:, value:) or any (k, v) — keys unique,
+                // as Swift's Dictionary(uniqueKeysWithValues:) insists; the
+                // stamp is what the pairs infer, `[K: V]`.
+                var d: [Value: Value] = [:]
+                for pair in try collect(v) {
+                    guard case .tuple(let kv) = pair, kv.count == 2 else {
+                        throw SwiftalkError.type("Dictionary(pairs) takes a Sequence of (key, value) tuples, not a \(pair.typeName)")
+                    }
+                    guard d[kv[0]] == nil, !d.keys.contains(kv[0]) else {
+                        throw SwiftalkError.type("Dictionary(pairs): duplicate key \(kv[0].sourceString())")
+                    }
+                    d[kv[0]] = kv[1]
+                }
+                if let inferred = try? inferLock(.dictionary(d), for: "Dictionary"), !inferred.parameters.isEmpty {
+                    return .dictionary(d, lock: inferred)
+                }
+                return .dictionary(d)
             case let v?: throw SwiftalkError.type("cannot convert \(v.typeName) to Dictionary")
             }
         },

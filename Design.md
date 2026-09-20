@@ -1460,8 +1460,24 @@ too, `Set("")` a `Set<String>`; `Set(a, b, …)` infers from its
 arguments the same way. Mixed elements, or an empty result of an
 unknowable source, leave the erased `Set`. With this, every builtin
 way of building a container from another carries or infers the
-element type; `Dictionary` has only its identity conversion, kept
-since round 171.
+element type; `Dictionary` had only its identity conversion, kept
+since round 171 — until round 173 gave it `Dictionary(pairs)`.
+
+**`Dictionary(pairs)` — DECIDED (round 173)** ("Make `Dictionary(seq)`
+infer the stamp too"). There was no `Dictionary(seq)` to make infer:
+the constructor took a Dictionary or nothing. Now it takes any
+Sequence of 2-tuples — `Array(d)`'s `(key:, value:)` pairs, so
+`Dictionary(Array(d)) == d`, or any `(k, v)`, labels ignored — and
+builds the Dictionary, stamped by what the pairs infer (`[Int:
+String]`), so an empty-later result refuses the wrong key or value.
+Duplicate keys are an error naming the key, as Swift's
+`Dictionary(uniqueKeysWithValues:)` insists and unlike JS's
+`Object.fromEntries`, where the last silently wins: a duplicate in a
+pair list is a bug more often than a choice. Not pairs, or not
+2-tuples, is a type error. Empty pairs give the erased `Dictionary`
+— a tuple Sequence's element type says nothing about K and V — and
+mixed pairs build but stay erased, as everywhere. `xs.Dictionary()`
+is the same by the conversion law.
 
 **`.Element`, `.Key`, `.Value` — DECIDED (round 166)** ("Add
 `.Element`, `.Key`, and `.Value` to parameterized types"). Swift's
