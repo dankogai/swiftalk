@@ -222,6 +222,27 @@ Set(
 )
 ```
 
+**`map` infers a stamp from its results** (round 170) — homogeneous
+results stamp the Array, so the type survives an emptying `filter`;
+mixed results, or none, leave it erased:
+
+```text
+swiftalk> [0, 1, 2, 3].map { "\($0)" }.Type
+[String]
+swiftalk> [0, 1, 2, 3].map { "\($0)" }.filter { false }.Type
+[String]
+swiftalk> var a = [0, 1].map { "\($0)" }.filter { false }
+[]
+swiftalk> a.append(1)
+type error: cannot assign Int to 'a'[0] of type String
+swiftalk> [1, nil].map { $0 }.Type
+[Int?]
+swiftalk> [Int]().map { "\($0)" }.Type
+Array
+swiftalk> [1, 2].map { $0 == 1 ? 1 : "a" }.Type
+Array
+```
+
 **`dropLast`, `suffix`, `prefix` keep the stamp too** (round 169) — the
 rest of the slicing family; `map` alone erases:
 

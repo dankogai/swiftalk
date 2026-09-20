@@ -22,7 +22,7 @@ Arrays are dense — a sparse array is a Dictionary.
 | `a.append(v, ...)` | appends in place; needs a `var` root |
 | `a + b` | concatenation |
 | `a == b` | element-wise equality |
-| `a.map { }` | an Array of results |
+| `a.map { }` | an Array of results — stamped with their type when they are homogeneous (round 170): `[0, 1].map { "\($0)" }.filter { false }.Type` is `[String]`; mixed or no results leave it the erased `Array` |
 | `a.forEach { }` | runs the closure on each element, eagerly; `nil` (round 156). No `break` inside — a closure is not a loop |
 | `a.filter { }` | an Array of the kept — of the same element type as `a` (round 168): `[Int]().filter { }.Type` is `[Int]` |
 | `a.reduce(init) { acc, x in }` | fold |

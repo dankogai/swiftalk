@@ -1364,9 +1364,8 @@ property whose lock is parameterized stamps the value (`var a: [Int]
 stamp before it looks at the contents, so the empty `T()` binds as
 `[Int]` and the binding's lock — the round-59 machinery, unchanged —
 refuses the String. The stamp is not part of equality or hashing
-(`[Int]() == [String]()`), and a container *derived* by `map` is
-unstamped: empty, it is the erased type (`filter` and the slices
-keep it since rounds 168–169). (2)
+(`[Int]() == [String]()`); `filter` and the slices keep it (rounds
+168–169) and `map` infers one from its results (round 170). (2)
 **`.Type` reports the parameters**: the stamp, else what the contents
 infer — `[0].Type` is `[Int]`, `[1: "a"].Type` is `[Int: String]`,
 `Set([1]).Type` is `Set<Int>`, `[[1], [2]].Type` is `[[Int]]`; a
@@ -1414,9 +1413,25 @@ Sequence, stampless as ever.
 169)** ("Make `dropLast`, `suffix`, and `prefix` keep the stamp
 too"). The rest of the slicing family, asked for the next message:
 every slice of a stamped Array, Set, or Dictionary is stamped the
-same, `prefix { }` included; `map` remains the one derivation that
-cannot. (Found on the way: the Set page had called a Set's slices
-Arrays; they have been Sets since round 132, and the row now says so.)
+same, `prefix { }` included; `map` remained the one derivation that
+could not carry — until round 170 had it infer. (Found on the way:
+the Set page had called a Set's slices Arrays; they have been Sets
+since round 132, and the row now says so.)
+
+**`map` infers a stamp from its results — DECIDED (round 170)**
+("Should `map` infer a stamp from the closure's results? Yes!
+`[0,1,2,3].map{"\($0)"}.Type` should be `[String]`."). It could not
+*carry* the receiver's stamp — the closure makes a new element type —
+but it can *infer* one the way a binding does (round 59): homogeneous
+results stamp the Array, so `[0, 1].map { "\($0)" }` is a `[String]`
+not just by its contents but by its stamp, and stays one through an
+emptying `filter` or slice, where round 168's carrying now has
+something to carry. Mixed results, or none, leave it erased: `[Int]()
+.map { }` has nothing to infer from, and a stamp cannot be guessed
+from a closure's text. A lazy Sequence's `map` is a Sequence, as
+ever. (The example itself already printed `[String]` before this
+round — `.Type` infers from contents — the round is what happens
+after the contents are gone.)
 
 **`.Element`, `.Key`, `.Value` — DECIDED (round 166)** ("Add
 `.Element`, `.Key`, and `.Value` to parameterized types"). Swift's

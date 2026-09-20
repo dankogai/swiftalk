@@ -4481,6 +4481,13 @@ private func method(on receiver: Value, name: String,
         while let element = try it.next() {
             out.append(try apply(fn, args: [(nil, element)]))
         }
+        // The result's stamp is inferred from the closure's results
+        // (round 170): homogeneous, `[0, 1].map { "\($0)" }` is a
+        // `[String]` that stays one through an emptying filter; mixed
+        // results, or none, leave it erased — there is nothing to infer.
+        if let inferred = try? inferLock(.array(out), for: "map"), !inferred.parameters.isEmpty {
+            return .array(out, lock: inferred)
+        }
         return .array(out)
     case ("forEach", true):
         // Round 156: the eager, side-effecting walk — `_ = s.map { }`

@@ -2485,3 +2485,14 @@ the history. (Moved out of Design.md in round 65.)
   return sites, and the `dropFirst` condition at the shared one
   dropped. Nothing else moved; `map` is now the only derivation that
   erases, and it must.
+
+* **2026-09-20, round 170 — `map` infers a stamp** ("Should `map`
+  infer a stamp from the closure's results? Yes! `[0,1,2,3].map{
+  "\($0)"}.Type` should be `[String]`."). It already did print
+  `[String]` — `.Type` infers from contents — so the round is about
+  the stamp, which is what survives once the contents are gone:
+  `.map { "\($0)" }.filter { false }` had been the erased `Array`,
+  since round 168 carries a stamp only from a receiver that has one,
+  and `map` had none to give. Now it gives the one its results infer,
+  by round 59's rule; mixed results or an empty receiver leave it
+  erased, honestly. Five lines.
