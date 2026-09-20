@@ -2426,3 +2426,20 @@ the history. (Moved out of Design.md in round 65.)
   annotation" limit fell out of it. Not done: a spelling for `Set<T>`
   or `T?` as expressions, and derived containers (`map`, `filter`) do
   not inherit a stamp.
+
+* **2026-09-20, round 166 — `.Element`, `.Key`, `.Value`** ("Add
+  `.Element`, `.Key`, and `.Value` to parameterized types"). Round
+  165's last OPEN item, closed the next morning: the parameters of a
+  parameterized type, as type values, under Swift's associated-type
+  names. Thirty lines in the static-member path — a parameterized
+  type has an annotation, so the member is the annotation's
+  parameter turned back into a value: a builtin by its table, a user
+  type by its name in scope, and an annotation-only spelling (`Int?`,
+  `Any`) refused as round 59 refuses it everywhere. The one design
+  point was the call: `[Int].Element("42")` reads as "construct an
+  Element from 42" in Swift, so a called member applies the type it
+  names rather than complaining, and `[[Int]].Element()` is an empty
+  `[Int]` that keeps its stamp. The erased `Array.Element` errors
+  with the parameterized spelling in the message, rather than
+  answering `Any` — `Any` is not a value, and an erased type has
+  nothing to say.

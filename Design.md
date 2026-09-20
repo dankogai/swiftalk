@@ -1394,8 +1394,22 @@ parameterized half: `let Names = [String]; var xs: Names = []` locks
 `xs` to `[String]`. `Function` is untouched: `{ $0 }.Type` is
 `Function`, `[Int].Type` is `Function`. OPEN: a spelling for
 `Set<T>` and `T?` as values; whether derived containers should
-inherit a stamp (`filter` could, `map` cannot); `.Element` / `.Key` /
-`.Value` on a parameterized type.
+inherit a stamp (`filter` could, `map` cannot).
+
+**`.Element`, `.Key`, `.Value` — DECIDED (round 166)** ("Add
+`.Element`, `.Key`, and `.Value` to parameterized types"). Swift's
+associated-type names, as members of a parameterized type value:
+`[Int].Element` is `Int`, `[K: V].Key` and `.Value` are `K` and `V`,
+`Set<T>.Element` is `T`; nested types come back parameterized
+(`[[Int]].Element == [Int]`), user types as themselves (`[P()].Type
+.Element == P`). Read, the member is the type; called, it constructs
+through it — `[Int].Element("42")` is `Int("42")`, and `[[Int]]
+.Element()` an empty `[Int]` that remembers. The erased `Array` has
+no parameters to give and says so (`Array.Element` is a type error
+naming the parameterized spelling), an Array has no `Key`, a
+Dictionary no `Element`, and a parameter that is annotation-only —
+`Int?`, `Any`, `Primitives`, `SION` — is an error by its spelling,
+since round 59's rule that those are not values stands.
 
 ## 3a. Optionals & nil — DECIDED
 

@@ -222,6 +222,37 @@ Set(
 )
 ```
 
+**`.Element`, `.Key`, `.Value`** (round 166) — a parameterized type's
+parameters, as type values; called, they construct; the erased type
+has none to give:
+
+```text
+swiftalk> [0].Type.Element
+Int
+swiftalk> [1: "a"].Type.Key
+Int
+swiftalk> [Int: String].Value
+String
+swiftalk> Set([1]).Type.Element
+Int
+swiftalk> [[1]].Type.Element
+[Int]
+swiftalk> [Int].Element("42")
+42
+swiftalk> let E = [0].Type.Element
+Int
+swiftalk> E("7") + 1
+8
+swiftalk> struct P { var x: Int = 0 }
+P
+swiftalk> [P()].Type.Element
+P
+swiftalk> Array.Element
+type error: Array is the erased type and has no Element — a parameterized one does: [Int].Element
+swiftalk> [nil, 1].Type.Element
+type error: Int? is an annotation, not a value
+```
+
 **Parameterized container types** (round 165) — a container carries its
 element type: `.Type` reports `[Int]`, `[Int: String]`, `Set<Int>`;
 `[Int]` and `[K: V]` are expressions; `[Int]()` is an empty Array

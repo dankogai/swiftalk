@@ -16,7 +16,7 @@ annotation is Swift's generic spelling, `Set<Int>`, `Set<String>?`,
 | Member / constructor | Result |
 |---|---|
 | `Set()` | the empty Set |
-| `Set([1]).Type` | `Set<Int>` — the type with its element type (round 165); calling it builds a Set that remembers, so `var s = Set([1]).Type()` … `s.insert("x")` is a type error. `Set<Int>` has no expression spelling of its own; `s.Type == Set` holds for every Set |
+| `Set([1]).Type` | `Set<Int>` — the type with its element type (round 165); calling it builds a Set that remembers, so `var s = Set([1]).Type()` … `s.insert("x")` is a type error. `Set<Int>` has no expression spelling of its own; `s.Type == Set` holds for every Set. `s.Type.Element` is the element type, `Int` (round 166) |
 | `Set(seq)` | the distinct elements of any finite Sequence — an Array, a Range, a String's graphemes, a Data's bytes, a Dictionary's `(key:, value:)` pairs; `Set(0...)` is an error |
 | `Set(a, b, ...)`, `Set(x)` | two or more arguments are the elements (round 133): `Set("one", "two")`; one argument that is not a Sequence is the one-element Set, `Set(3)`. Mind the one Sequence: `Set("one")` is a String's graphemes, `Set(["one"])` the one-element Set |
 | `xs.Set()` | the same, by the conversion law (§3d) |

@@ -2578,12 +2578,52 @@ private func userTyped(_ v: Value) -> Bool {
     return false
 }
 
+/// `[Int].Element`, `[K: V].Key` / `.Value`, `Set<T>.Element` (round 166):
+/// a parameterized type's parameters, as type values — `[0].Type.Element
+/// == Int`, and `[Int].Element("42")` constructs through it. The erased
+/// `Array` has none to give and says so; a parameter that is not a value
+/// (`Int?`, `Any`) is an error by its spelling.
+private func parameterMember(_ f: FunctionObject, _ name: String,
+                             env: Environment) throws -> Value? {
+    guard case .type(let base) = f.role else { return nil }
+    let wanted: Int
+    switch (base, name) {
+    case ("Array", "Element"), ("Set", "Element"), ("Dictionary", "Key"): wanted = 0
+    case ("Dictionary", "Value"):                                          wanted = 1
+    default: return nil
+    }
+    guard let own = f.annotation, own.parameters.count > wanted else {
+        throw SwiftalkError.type("\(base) is the erased type and has no \(name) — a parameterized one does: \(base == "Dictionary" ? "[Int: String]" : base == "Set" ? "Set([1]).Type" : "[Int]").\(name)")
+    }
+    let parameter = own.parameters[wanted]
+    return try typeValue(forParameter: parameter, in: env)
+}
+
+/// The value of an annotation (round 166): a builtin type, parameterized
+/// or not; a user type by its name in scope. `Int?`, `Any`, `Primitives`,
+/// and `SION` are annotation-only and have none (round 59).
+func typeValue(forParameter annotation: TypeAnnotation, in env: Environment) throws -> Value {
+    guard !annotation.optional, !["Any", "Primitives", "SION"].contains(annotation.name) else {
+        throw SwiftalkError.type("\(annotation.display) is an annotation, not a value")
+    }
+    if Builtins.types[annotation.name] != nil { return typeValue(for: annotation) }
+    if let p = Builtins.protocols[annotation.name] { return .function(p) }
+    guard case .function(let t)? = try? env.lookup(annotation.name), annotationOfType(.function(t)) != nil else {
+        throw SwiftalkError.type("no type named \(annotation.display) is in scope")
+    }
+    return .function(t)
+}
+
 /// `T.name` on a type value (round 143): a user type's static, or an
 /// extension's static on a builtin. nil when there is none — the caller
 /// falls through to the type's other members.
 private func staticMember(_ f: FunctionObject, _ name: String,
                           args: [(label: String?, value: Value)], called: Bool,
                           env: Environment) throws -> Value? {
+    if let v = try parameterMember(f, name, env: env) {                              // [Int].Element (round 166)
+        guard called, case .function(let t) = v else { return v }
+        return try apply(t, args: args)                                               // [Int].Element("42") is Int("42")
+    }
     var stored: Value? = nil
     var getter: FunctionObject? = nil
     let typeName: String

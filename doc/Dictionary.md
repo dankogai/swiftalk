@@ -13,6 +13,7 @@ under, and `d.Type` reports them. **`nil` is a storable value** (round
 | `Dictionary()` | `[:]` |
 | `[Int: String]()` | the same, typed (round 165): an empty Dictionary that still refuses a String key or an Int value |
 | `d.Type` | `[Int: String]` — the type with its parameters (round 165); a mixed or untyped-empty Dictionary's is the erased `Dictionary`. `d.Type == Dictionary` holds for every Dictionary |
+| `[Int: String].Key`, `.Value`, `d.Type.Key` | the key and value types, `Int` and `String` (round 166); called, they construct. The erased `Dictionary.Key` is a type error |
 | `d[k]` | the value, or `nil` when absent |
 | `d[k] = v` | insert or replace (`v` may be `nil`); needs a `var` root |
 | `d.has(k)` | presence — true for a key holding nil, false for a missing key |

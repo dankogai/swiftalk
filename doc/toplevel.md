@@ -84,7 +84,13 @@ then `a.append("x")` is a type error; `[Int](1...3)` checks its
 elements. Types compare by name, and the erased `Array` equals any
 `[T]`: `[0].Type == Array` and `[0].Type == [Int]` are both true,
 `[Int] == [String]` false. `Function` carries nothing: `{ $0 }.Type`
-is `Function`, whatever its arguments and result.
+is `Function`, whatever its arguments and result. A parameterized
+type gives its parameters back under Swift's names (round 166):
+`[Int].Element`, `[Int: String].Key` and `.Value`, `Set([1]).Type
+.Element` are the types `Int`, `Int`, `String`, `Int`; called, they
+construct — `[Int].Element("42")` is `42`. The erased `Array` has no
+`Element` to give (a type error), and a parameter that is not a value
+(`Int?`, `Any`) is one too.
 
 | Names | Kind |
 |---|---|
