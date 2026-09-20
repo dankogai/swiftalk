@@ -367,19 +367,37 @@ extension Swiftalk {
             self.annotation = annotation
         }
 
-        /// Identity, except for builtin types (round 165): `[0].Type` is
-        /// a fresh object each time, so types compare by what they name —
-        /// `[Int] == [Int]`; and the erased `Array` equals any `[T]`, the
-        /// way the annotation `Array` admits any Array (so `x.Type ==
-        /// Array` still asks "is it an Array?"). `[Int] != [String]`.
+        /// What a type value is a type *of* — a builtin's name, a user
+        /// type's object (round 167: `P?` is a clone of P's constructor
+        /// with an annotation, and must still be P's). Nil for a plain
+        /// Function.
+        var typeBase: AnyHashable? {
+            switch role {
+            case .type(let n):        return n
+            case .protocol(let n):    return "protocol:" + n
+            case .structType(let st): return ObjectIdentifier(st)
+            case .enumType(let et):   return ObjectIdentifier(et)
+            case .actorType(let at):  return ObjectIdentifier(at)
+            case .plain, .operator, .todo: return nil
+            }
+        }
+
+        /// Identity, except for types (round 165): `[0].Type` is a fresh
+        /// object each time, so types compare by what they name — `[Int]
+        /// == [Int]`; the erased `Array` equals any `[T]`, the way the
+        /// annotation `Array` admits any Array (so `x.Type == Array`
+        /// still asks "is it an Array?"); `[Int] != [String]`. An
+        /// optional is its own type (round 167): `Int? != Int`.
         public static func == (lhs: FunctionObject, rhs: FunctionObject) -> Bool {
             if lhs === rhs { return true }
-            guard case .type(let a) = lhs.role, case .type(let b) = rhs.role, a == b else { return false }
-            guard let l = lhs.annotation, let r = rhs.annotation else { return true }
+            guard let a = lhs.typeBase, let b = rhs.typeBase, a == b else { return false }
+            let l = lhs.annotation, r = rhs.annotation
+            guard (l?.optional ?? false) == (r?.optional ?? false) else { return false }
+            guard let l, let r, !l.parameters.isEmpty, !r.parameters.isEmpty else { return true }
             return l.parameters == r.parameters
         }
         public func hash(into hasher: inout Hasher) {
-            if case .type(let name) = role { hasher.combine(name) } else { hasher.combine(ObjectIdentifier(self)) }
+            if let base = typeBase { hasher.combine(base) } else { hasher.combine(ObjectIdentifier(self)) }
         }
     }
 }
@@ -488,10 +506,11 @@ extension Value {
             // since eval("Int") is the very same value (round 39).
             // Ordinary Function.String() as source text is OPEN (§3d);
             // until then, a non-round-tripping placeholder.
+            // A parameterized or optional type prints as its annotation
+            // (rounds 165/167): [Int], [String: Int], Set<Int>, Int?, P?.
+            if let annotation = f.annotation { return annotation.display }
             switch f.role {
-            case .type(let name):
-                return f.annotation?.display ?? name        // [Int], [String: Int], Set<Int> (round 165)
-            case .protocol(let name):
+            case .type(let name), .protocol(let name):
                 return name
             case .enumType(let et):
                 return et.name

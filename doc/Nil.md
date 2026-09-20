@@ -24,6 +24,7 @@ var x: Int? = nil   // annotate: nil alone infers nothing
 | `nil?` | early-returns nil from the enclosing function (§3a/§8) |
 | `nil!` | type error: force-unwrapped nil |
 | `nil?.m` | `nil`, without evaluating the member or its arguments |
+| `Int?`, `Optional<Int>` | the optional type, as a value (round 167): its own type (`Int? != Int`), `Int?("x")` is `nil` where `Int("x")` is, `[Int?]` the Array of it; `let OI = Int?` then `var v: OI = nil` annotates. `Int??` is `Int?` — flat |
 
 Dictionary lookups read `nil` for absent keys — and `nil` is also a
 storable value; `.has(k)` tells them apart (round 35).

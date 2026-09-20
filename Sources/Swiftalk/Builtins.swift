@@ -125,6 +125,10 @@ enum Builtins {
             case let v?:  return .string(try displayString(v))
             }
         },
+        // `Optional` (round 167): only its parameterized form means anything —
+        // `Optional<Int>` is the type `Int?` — so the bare name constructs
+        // nothing new: Optional(x) is x, the flat union's own rule (§3a).
+        "Optional": type("Optional") { args in args.first ?? .nil },
         "Array": type("Array") { args in
             switch args.first {
             case nil:            return .array([])

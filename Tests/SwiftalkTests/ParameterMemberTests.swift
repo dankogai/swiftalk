@@ -31,7 +31,7 @@ struct ParameterMemberTests {
         #expect(throws: SwiftalkError.self) { try eval("[].Type.Element") }
         #expect(throws: SwiftalkError.self) { try eval("[Int].Key") }             // an Array has no Key
         #expect(throws: SwiftalkError.self) { try eval("[Int: String].Element") } // a Dictionary has no Element
-        #expect(throws: SwiftalkError.self) { try eval("[nil, 1].Type.Element") } // Int? is not a value
+        #expect(try eval("[nil, 1].Type.Element == Int?") == .bool(true))         // Int? is a value since round 167
         #expect(throws: SwiftalkError.self) { try eval("let a: [Any] = [1]\na.Type.Element") }
     }
 }

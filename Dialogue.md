@@ -2443,3 +2443,26 @@ the history. (Moved out of Design.md in round 65.)
   with the parameterized spelling in the message, rather than
   answering `Any` — `Any` is not a value, and an erased type has
   nothing to say.
+
+* **2026-09-20, round 167 — `Optional<T>`, `T?`, `Set<T>` as
+  expressions** ("Add `Optional<T>` so `[Int?]` and `Set<Int>` have
+  expression spellings. You can shorthand `Optional<T>` as `T?`."
+  — closing the last spelling gap round 165 had left open). The
+  shorthand was nearly free: round 51's lexer already tells the
+  unspaced postfix `?` from the spaced ternary, so `Int?` reaches the
+  evaluator as "propagate Int", and a type there now answers with
+  the optional type instead of itself. The generic spelling was the
+  work: `<` after a name is a comparison until proven otherwise, so
+  the postfix parser tries the type-parameter reading and keeps it
+  only when what follows cannot start an operand — Swift's own
+  rule — and backs up otherwise. That left one trap in the lexer:
+  `>` at a line's end had continued the line since round 95, so
+  `Set<Int>` alone swallowed the next statement; an unspaced `>`
+  after a name, `]`, `?`, or `>` now closes the line, and the REPL's
+  "needs more input" check learned the same. `Optional<T>` is
+  folded to `T?` in the parser, so annotations and expressions
+  share one form, and the bare `Optional` is the identity
+  constructor: an optional of anything is itself. A user type's `P?`
+  is a clone of its constructor with the annotation, which is why
+  type equality now looks through to the type object rather than
+  the name alone.

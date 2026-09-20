@@ -222,6 +222,61 @@ Set(
 )
 ```
 
+**`Optional<T>`, `T?`, `Set<T>` as expressions** (round 167) — postfix
+`?` on a type is the optional type, `Name<T, …>` is Swift's generic
+spelling in expression position (backing off to a comparison when an
+operand follows), and `Optional<T>` is `T?` in both places:
+
+```text
+swiftalk> Int?
+Int?
+swiftalk> Optional<Int> == Int?
+true
+swiftalk> Int? == Int
+false
+swiftalk> Int?("42")
+42
+swiftalk> Int?("x")
+swiftalk> [Int?]
+[Int?]
+swiftalk> [nil, 1].Type == [Int?]
+true
+swiftalk> var a = [Int?]()
+[]
+swiftalk> a.append(nil)
+swiftalk> a.append("s")
+type error: cannot assign String to 'a'[1] of type Int?
+swiftalk> Set<Int>
+Set<Int>
+swiftalk> Set<Int> == Set([1]).Type
+true
+swiftalk> var s = Set<Int>()
+Set()
+swiftalk> s.insert("x")
+type error: cannot assign String to an element of 's' of type Int
+swiftalk> Set<Set<Int>>
+Set<Set<Int>>
+swiftalk> Dictionary<Int, String>
+[Int: String]
+swiftalk> struct P { var x: Int = 0 }
+P
+swiftalk> P?
+P?
+swiftalk> let OP = P?
+P?
+swiftalk> var v: OP = nil
+swiftalk> v = P(x: 1)
+P(x: 1)
+swiftalk> let a1 = 1
+1
+swiftalk> let b1 = 2
+2
+swiftalk> a1 < b1
+true
+swiftalk> Optional(3)
+3
+```
+
 **`.Element`, `.Key`, `.Value`** (round 166) — a parameterized type's
 parameters, as type values; called, they construct; the erased type
 has none to give:

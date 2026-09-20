@@ -20,7 +20,8 @@ indirect enum Expr {
     case range(String, Expr, Expr?)                       // a...b / a..<b; a... unbounded (round 88)
     case interpolation([Expr])                            // "a\(x)b" — parts concatenate
     case memberLiteral(String)                            // .quoted, .hex — format members (§3d)
-    case propagate(Expr)                                  // x? — unwrap or early-return (§3a/§8)
+    case propagate(Expr)                                  // x? — unwrap or early-return (§3a/§8); T? — an optional type (round 167)
+    case typeSpelling(TypeAnnotation)                     // Set<Int>, Optional<Int>, Dictionary<K, V> — a type with its parameters, as a value (round 167)
     case forceUnwrap(Expr)                                // x! — unwrap or trap
     case awaitE(Expr)                                     // await t — join a Task (§12)
     case tuple([(label: String?, expr: Expr)])            // (a, b, ...) / (x: 1, y: 2) — a grab bag (rounds 70/74)
@@ -949,7 +950,51 @@ struct Parser {
             pos += 1
             optional = true
         }
-        return TypeAnnotation(name: typeName, optional: optional, parameters: parameters)
+        return try Parser.annotation(typeName, parameters, optional: optional)
+    }
+
+    /// Builds an annotation from its parts, folding `Optional<T>` into
+    /// `T?` (round 167): the two spellings are one annotation, and bare
+    /// `Optional` is nothing without its T.
+    static func annotation(_ name: String, _ parameters: [TypeAnnotation], optional: Bool) throws -> TypeAnnotation {
+        guard name == "Optional" else { return TypeAnnotation(name: name, optional: optional, parameters: parameters) }
+        guard parameters.count == 1 else {
+            throw SwiftalkError.syntax("Optional<T> takes exactly one type — or write T?")
+        }
+        return TypeAnnotation(name: parameters[0].name, optional: true, parameters: parameters[0].parameters)
+    }
+
+    /// `Set<Int>`, `Optional<Int>`, `Dictionary<Int, String>` as an
+    /// expression (round 167): a name followed by `<`, type parameters,
+    /// `>`, and then a token that cannot begin an operand — Swift's own
+    /// disambiguation, so `a < b > c` stays two comparisons. Nil, with
+    /// the cursor untouched, when it does not parse as one.
+    private mutating func parseGenericArguments() -> [TypeAnnotation]? {
+        let start = pos
+        guard case .op("<")? = peek else { return nil }
+        pos += 1
+        do {
+            var parameters = [try parseTypeAnnotation()]
+            while case .punct(",")? = peek {
+                pos += 1
+                parameters.append(try parseTypeAnnotation())
+            }
+            guard case .op(">")? = advance() else { pos = start; return nil }
+            switch peek {
+            case nil, .newline?:
+                return parameters
+            case .punct(let c)? where ")],.(?:;}".contains(c):
+                return parameters
+            case .op(let o)? where ["==", "!=", "?.", "?", "!", "??", "&&", "||"].contains(o):
+                return parameters
+            default:
+                pos = start
+                return nil
+            }
+        } catch {
+            pos = start
+            return nil
+        }
     }
 
     /// Does a `{` at `index` open a willSet/didSet observer block?
@@ -1604,6 +1649,11 @@ struct Parser {
             case .op("!"):
                 pos += 1
                 expr = .forceUnwrap(expr)
+            case .op("<"):
+                // `Set<Int>` (round 167): a type name's parameters, when
+                // they parse as such and nothing operand-like follows.
+                guard case .variable(let name) = expr, let parameters = parseGenericArguments() else { break loop }
+                expr = .typeSpelling(try Parser.annotation(name, parameters, optional: false))
             case .op("?."):
                 pos += 1
                 guard case .identifier(let name)? = advance(), !keywords.contains(name) else {

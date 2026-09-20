@@ -1392,9 +1392,9 @@ and stamps it. Round 111's one limit — "a parameterized or optional
 annotation has no value to bind and so no alias" — is lifted for the
 parameterized half: `let Names = [String]; var xs: Names = []` locks
 `xs` to `[String]`. `Function` is untouched: `{ $0 }.Type` is
-`Function`, `[Int].Type` is `Function`. OPEN: a spelling for
-`Set<T>` and `T?` as values; whether derived containers should
-inherit a stamp (`filter` could, `map` cannot).
+`Function`, `[Int].Type` is `Function`. OPEN: whether derived
+containers should inherit a stamp (`filter` could, `map` cannot).
+(A spelling for `Set<T>` and `T?` as values: round 167.)
 
 **`.Element`, `.Key`, `.Value` — DECIDED (round 166)** ("Add
 `.Element`, `.Key`, and `.Value` to parameterized types"). Swift's
@@ -1408,8 +1408,41 @@ through it — `[Int].Element("42")` is `Int("42")`, and `[[Int]]
 no parameters to give and says so (`Array.Element` is a type error
 naming the parameterized spelling), an Array has no `Key`, a
 Dictionary no `Element`, and a parameter that is annotation-only —
-`Int?`, `Any`, `Primitives`, `SION` — is an error by its spelling,
-since round 59's rule that those are not values stands.
+`Any`, `Primitives`, `SION` — is an error by its spelling, since
+round 59's rule that those are not values stands. (`Int?` was on that
+list for one round; round 167 made it a value.)
+
+**`Optional<T>`, `T?`, `Set<T>` as expressions — DECIDED (round 167)**
+("Add `Optional<T>` so `[Int?]` and `Set<Int>` have expression
+spellings. You can shorthand `Optional<T>` as `T?`.") Three spellings,
+one machinery. **Postfix `?` on a type value is the optional type**:
+`Int?` is a Function whose role is still Int's, with the annotation
+`Int?` attached — it prints as `Int?`, `Int? == Int?` and `Int? !=
+Int` (an optional is its own type; equality is by base *and*
+optionality, parameters as round 165 says), `Int?("x")` constructs
+through `Int` and may answer nil, `Int??` is `Int?` (flat, §3a). A user
+type's `P?` is a clone of P's constructor carrying the annotation, so
+it constructs as P does and `P? == P?` holds — equality reaches the
+type object through the clone. The lexer already told unspaced `?`
+from the ternary's, so `T?` cost the evaluator one line: a `?` on a
+type is the type, on a value it propagates as ever. **`Name<T, …>` is
+a generic spelling in expression position** — `Set<Int>`,
+`Optional<Int>`, `Dictionary<Int, String>`, nested `Set<Set<Int>>` —
+parsed the way Swift disambiguates it: after a name, `<`, type
+parameters, and `>`, the parse stands only when the next token cannot
+begin an operand (a newline, `) ] , . ( ? : ; }`, `==`…), else the
+cursor backs up and `a < b > c` is the two comparisons it always was.
+`Optional<T>` folds to `T?` in the parser, in expressions and
+annotations alike (`let x: Optional<Int> = nil`), and bare
+`Optional` is refused in an annotation (`Optional<T> takes exactly
+one type — or write T?`); as a value it is the identity constructor
+(`Optional(3)` is `3`), the flat union's own rule. One lexer rule
+follows: an unspaced `>` closing a generic at a line's end is not a
+trailing operator asking for the next line — `Set<Int>` alone is a
+statement — while `a >` with a space continues as round 95 decided.
+`[Int?]` now spells itself, `[nil, 1].Type == [Int?]`, and
+`[Int?].Element` is `Int?`. Not done: `Array<Int>` parses (any name
+takes parameters) and prints as `[Int]`, the canonical form.
 
 ## 3a. Optionals & nil — DECIDED
 

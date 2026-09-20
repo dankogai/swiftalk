@@ -15,7 +15,7 @@ Arrays are dense — a sparse array is a Dictionary.
 | `Array(seq)` | materializes any Sequence conformer |
 | `[Int]()`, `[Int](seq)` | the same, typed (round 165): the elements are checked against `Int` and the result is an Array of Int even when empty — `var a = [Int]()` then `a.append("x")` is a type error |
 | `a.Type` | `[Int]`, `[[Int]]`, … — the type with its element type (round 165); a mixed or untyped-empty Array's is the erased `Array`. `a.Type == Array` holds for every Array, `a.Type == [Int]` for Arrays of Int |
-| `[Int].Element`, `a.Type.Element` | the element type, `Int` (round 166); `[[Int]].Element` is `[Int]`; called, it constructs: `a.Type.Element("42")`. The erased `Array.Element` is a type error, as is an `Int?` or `Any` element |
+| `[Int].Element`, `a.Type.Element` | the element type, `Int` (round 166); `[[Int]].Element` is `[Int]`; called, it constructs: `a.Type.Element("42")`. The erased `Array.Element` is a type error, as is an `Any` element; `[Int?].Element` is `Int?` (round 167) |
 | `a[i]` | element; Int index, bounds-checked (error out of range) |
 | `a[i] = v` | write, through any path (`m[1][0] = 30`); needs a `var` root |
 | `a.count` | length |

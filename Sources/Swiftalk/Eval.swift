@@ -309,8 +309,9 @@ extension Swiftalk {
         } catch {
             return false
         }
-        // a line ending in a binary operator wants the next one (round 95)
-        if Lexer.continuesLine(after: tokens.last) { return true }
+        // a line ending in a binary operator wants the next one (round 95) —
+        // unless the operator is the `>` closing `Set<Int>` (round 167)
+        if Lexer.continuesLine(after: tokens.last), !(tokens.last == .op(">") && lexer.closingAngle) { return true }
         var depth = 0
         for token in tokens {
             switch token {
@@ -1987,12 +1988,20 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
             throw SwiftalkError.type("prefix '!' takes a Bool — nothing is truthy (§3b)")
         }
         return .bool(!a)
+    case .typeSpelling(let annotation):
+        // `Set<Int>`, `Optional<Int>`, `Dictionary<K, V>` (round 167): the
+        // annotation, names resolved through scope (`let I = Int` — round
+        // 111), as the type value `[Int]` and `.Type` already give.
+        return try typeValue(forParameter: resolveTypeNames(annotation, in: env), in: env)
     case .propagate(let inner):
         // Postfix ? (§3a/§8, unified): unwrap .success; early-return
         // .failure or nil from the enclosing function; anything else is
         // already its unwrapped self (flat optionals). A type's own
         // postfix ? first (round 146).
         let v = try evaluate(inner, in: env)
+        // `Int?`, `P?`, `[Int]?` (round 167): postfix ? on a type is the
+        // optional type — Optional<T>'s shorthand, as a value.
+        if case .function(let f) = v, annotationOfType(v) != nil { return try optionalType(of: f, in: env) }
         if let r = try userOperator("postfix:?", [v]) { return r }
         switch v {
         case .nil:
@@ -2582,7 +2591,7 @@ private func userTyped(_ v: Value) -> Bool {
 /// a parameterized type's parameters, as type values — `[0].Type.Element
 /// == Int`, and `[Int].Element("42")` constructs through it. The erased
 /// `Array` has none to give and says so; a parameter that is not a value
-/// (`Int?`, `Any`) is an error by its spelling.
+/// (`Any`) is an error by its spelling — `Int?` is one since round 167.
 private func parameterMember(_ f: FunctionObject, _ name: String,
                              env: Environment) throws -> Value? {
     guard case .type(let base) = f.role else { return nil }
@@ -2600,18 +2609,24 @@ private func parameterMember(_ f: FunctionObject, _ name: String,
 }
 
 /// The value of an annotation (round 166): a builtin type, parameterized
-/// or not; a user type by its name in scope. `Int?`, `Any`, `Primitives`,
-/// and `SION` are annotation-only and have none (round 59).
+/// or not; a user type by its name in scope; optional since round 167
+/// (`Int?`, `P?`). `Any`, `Primitives`, and `SION` are annotation-only
+/// and have none (round 59).
 func typeValue(forParameter annotation: TypeAnnotation, in env: Environment) throws -> Value {
-    guard !annotation.optional, !["Any", "Primitives", "SION"].contains(annotation.name) else {
+    guard !["Any", "Primitives", "SION"].contains(annotation.name) else {
         throw SwiftalkError.type("\(annotation.display) is an annotation, not a value")
     }
     if Builtins.types[annotation.name] != nil { return typeValue(for: annotation) }
-    if let p = Builtins.protocols[annotation.name] { return .function(p) }
-    guard case .function(let t)? = try? env.lookup(annotation.name), annotationOfType(.function(t)) != nil else {
-        throw SwiftalkError.type("no type named \(annotation.display) is in scope")
+    let plain: FunctionObject
+    if let p = Builtins.protocols[annotation.name] {
+        plain = p
+    } else {
+        guard case .function(let t)? = try? env.lookup(annotation.name), annotationOfType(.function(t)) != nil else {
+            throw SwiftalkError.type("no type named \(annotation.display) is in scope")
+        }
+        plain = t
     }
-    return .function(t)
+    return annotation.optional ? try optionalType(of: plain, in: env) : .function(plain)
 }
 
 /// `T.name` on a type value (round 143): a user type's static, or an
@@ -3079,9 +3094,9 @@ func containerStamp(_ value: Value) -> TypeAnnotation? {
 func admits(_ lock: TypeAnnotation, _ other: TypeAnnotation) -> Bool {
     if lock.name == "Any" { return true }
     guard lock.name == other.name else { return false }
+    if other.optional && !lock.optional { return false }          // Int? is not an Int (round 167)
     if lock.parameters.isEmpty || other.parameters.isEmpty { return true }
     guard lock.parameters.count == other.parameters.count else { return false }
-    if other.optional && !lock.optional { return false }
     return zip(lock.parameters, other.parameters).allSatisfy { admits($0, $1) }
 }
 
@@ -3113,8 +3128,9 @@ func stamp(_ value: Value, with lock: TypeAnnotation) -> Value {
 /// `[Int]` is Array of Int, a struct is its name. Nil for a non-type.
 func annotationOfType(_ value: Value) -> TypeAnnotation? {
     guard case .function(let f) = value else { return nil }
+    if let own = f.annotation { return own }
     switch f.role {
-    case .type(let n):        return f.annotation ?? TypeAnnotation(name: n, optional: false)
+    case .type(let n):        return TypeAnnotation(name: n, optional: false)
     case .protocol("Sequence"): return TypeAnnotation(name: "Sequence", optional: false)
     case .enumType(let et):   return TypeAnnotation(name: et.name, optional: false)
     case .structType(let st): return TypeAnnotation(name: st.name, optional: false)
@@ -3123,15 +3139,28 @@ func annotationOfType(_ value: Value) -> TypeAnnotation? {
     }
 }
 
-/// The type value for a builtin container annotation (round 165):
-/// `Array` itself when there are no parameters (so identity holds), else
-/// a fresh Function that calls the base constructor, checks what it
-/// built against the parameters, and stamps it — `[Int]()` is an empty
-/// Array of Int, `[Int](1...3)` checks and keeps its elements.
+/// `T?` from a type value (round 167): the same type object's clone with
+/// the optional annotation — calling it constructs as T does, and nil is
+/// then an answer the call may give (`Int?("x")`).
+func optionalType(of f: FunctionObject, in env: Environment) throws -> Value {
+    guard let base = annotationOfType(.function(f)) else { return .function(f) }
+    if base.optional { return .function(f) }                       // flat: an optional of an optional is itself (§3a)
+    let own = TypeAnnotation(name: base.name, optional: true, parameters: base.parameters)
+    if case .type = f.role, Builtins.types[base.name] != nil { return typeValue(for: own) }
+    return .function(FunctionObject(parameters: f.parameters, body: f.body, closure: f.closure,
+                                    builtin: f.builtin, role: f.role, annotation: own))
+}
+
+/// The type value for a builtin annotation (round 165): `Array` itself
+/// when there is nothing to attach (so identity holds), else a fresh
+/// Function that calls the base constructor, checks what it built
+/// against the annotation, and stamps it — `[Int]()` is an empty Array
+/// of Int, `[Int](1...3)` checks and keeps its elements, `Int?("x")`
+/// may answer nil (round 167).
 func typeValue(for annotation: TypeAnnotation) -> Value {
     guard let base = Builtins.types[annotation.name] else { return .nil }
-    guard !annotation.parameters.isEmpty else { return .function(base) }
-    let own = TypeAnnotation(name: annotation.name, optional: false, parameters: annotation.parameters)
+    guard !annotation.parameters.isEmpty || annotation.optional else { return .function(base) }
+    let own = annotation
     return .function(FunctionObject(
         parameters: [], body: [], closure: base.closure,
         builtin: { args in

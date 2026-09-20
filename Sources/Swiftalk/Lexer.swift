@@ -46,6 +46,10 @@ enum StringSegment: Equatable {
 struct Lexer {
     private let scalars: [Unicode.Scalar]
     private var pos = 0
+    /// The last `>` closed a generic argument list — unspaced after a
+    /// name, `]`, `?`, or another `>` (round 167: `Set<Int>` at a line's
+    /// end is a statement, not a comparison waiting for its right side).
+    private(set) var closingAngle = false
 
     init(_ source: String) {
         self.scalars = Array(source.unicodeScalars)
@@ -82,7 +86,7 @@ struct Lexer {
             case "\n":
                 pos += 1
                 if !suppressNewlines, tokens.last != nil, tokens.last != .newline,
-                   !Lexer.continuesLine(after: tokens.last) {
+                   !Lexer.continuesLine(after: tokens.last) || (tokens.last == .op(">") && closingAngle) {
                     tokens.append(.newline)
                 }
             case "/":
@@ -182,6 +186,13 @@ struct Lexer {
                 } else if c == "=" {
                     tokens.append(.punct("="))
                 } else if c == "<" || c == ">" {
+                    if c == ">" {
+                        let unspaced = pos >= 2 && !" \t\n\r".unicodeScalars.contains(scalars[pos - 2])
+                        switch tokens.last {
+                        case .identifier?, .punct("]")?, .op("?")?, .op(">")?: closingAngle = unspaced
+                        default: closingAngle = false
+                        }
+                    }
                     tokens.append(.op(String(c)))
                 } else {
                     tokens.append(.op("!"))   // postfix force-unwrap (round 51)

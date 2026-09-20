@@ -62,7 +62,11 @@ Shelved forms (`actor`, `class`, `super`) are not grammar today.
     whitespace before it; otherwise two `!`s: `x!!` unwraps twice,
     `!!b` negates twice.
   * `?` — `??` coalesces; *unspaced* `?.` chains, *unspaced* postfix
-    `?` propagates; *spaced* `?` is the ternary.
+    `?` propagates (on a type: the optional type, round 167); *spaced*
+    `?` is the ternary.
+  * `>` — at a line's end a *spaced* `>` continues the line (round 95);
+    an *unspaced* one after a name, `]`, `?`, or `>` closes a generic
+    (`Set<Int>`) and the line with it (round 167).
   * `!` — `!=` compares; `!` before an operand is logical not; `!`
     after one is force-unwrap.
   * `.` — digits directly after `.` are a tuple index (`t.0.1`), never
@@ -101,7 +105,7 @@ lvalue       = IDENT                                   (* "_" discards: evaluate
              | "." IDENT                              (* implicit self *)
              | "(" [ IDENT ":" ] lvalue { "," [ IDENT ":" ] lvalue } ")" ;
 
-type         = IDENT [ "<" type { "," type } ">" ] [ "?" ]          (* Set<Int> (round 132) *)
+type         = IDENT [ "<" type { "," type } ">" ] [ "?" ]          (* Set<Int> (round 132); Optional<T> is T? (round 167) *)
              | "[" type "]" [ "?" ]
              | "[" type ":" type "]" [ "?" ] ;
 
@@ -206,7 +210,8 @@ suffix       = "." IDENT [ args ]                      (* member, method *)
              | "(" args ")"                            (* call; $(...) recurses *)
              | "[" expression "]"                      (* subscript *)
              | closure                                 (* trailing closure: the pinned last argument *)
-             | "?"                                     (* unspaced: propagate nil/.failure *)
+             | "?"                                     (* unspaced: propagate nil/.failure; on a type, T? (round 167) *)
+             | "<" type { "," type } ">"               (* Set<Int>, Optional<Int> — after a name, when no operand follows (round 167) *)
              | "!"                                     (* force-unwrap *)
              | "?." IDENT [ args ] ;                   (* optional chaining *)
 

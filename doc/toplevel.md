@@ -76,14 +76,19 @@ constructs, `Set(1, 2)`, `Sequence { }`, `Task { }`.
 
 The container types carry their parameters (round 165): `[Int]` and
 `[Int: String]` are expressions — an Array literal of exactly one
-type, a Dictionary literal of one type-to-type pair — and `[0].Type`
-is `[Int]`, `Set([1]).Type` is `Set<Int>` (which has no expression
-spelling of its own). Calling one builds a container that remembers:
+type, a Dictionary literal of one type-to-type pair — and so are
+Swift's generic and optional spellings (round 167): `Set<Int>`,
+`Dictionary<Int, String>`, `Optional<Int>` and its shorthand `Int?`,
+nested as you like (`Set<Set<Int>>`, `[Int?]`, `[Int]?`). `[0].Type`
+is `[Int]`, `Set([1]).Type` is `Set<Int>`, `[nil, 1].Type` is
+`[Int?]`. Calling one builds a container that remembers:
 `[Int]()` is empty and still an Array of Int, so `var a = [Int]()`
 then `a.append("x")` is a type error; `[Int](1...3)` checks its
 elements. Types compare by name, and the erased `Array` equals any
 `[T]`: `[0].Type == Array` and `[0].Type == [Int]` are both true,
-`[Int] == [String]` false. `Function` carries nothing: `{ $0 }.Type`
+`[Int] == [String]` false; an optional is its own type, `Int? != Int`,
+and `Int?("x")` constructs through `Int` with nil as a possible
+answer. `Function` carries nothing: `{ $0 }.Type`
 is `Function`, whatever its arguments and result. A parameterized
 type gives its parameters back under Swift's names (round 166):
 `[Int].Element`, `[Int: String].Key` and `.Value`, `Set([1]).Type
@@ -99,6 +104,7 @@ construct — `[Int].Element("42")` is `42`. The erased `Array` has no
 | `Equatable` `Hashable` `Comparable` | protocols: `T.conforms(to: Comparable)`; every value is Equatable and Hashable, Comparable is Int/Double/String/Date/Byte and any struct or enum with `infix(<)` (round 146) |
 | `Result` | the built-in enum, `.success(v)` / `.failure(e)` — [Result.md](Result.md) |
 | `Response` | `fetch`'s answer, a struct declared in swiftalk at startup (round 163) — below |
+| `Optional` | `Optional<Int>` is the type `Int?` (round 167) — the bare name is the identity constructor, `Optional(x)` is `x`, and no annotation |
 | `Primitives` `Any` | annotation-only names (round 59): not values, a type error as one |
 
 A `struct`, `enum`, or `import` adds to this table for the rest of the
