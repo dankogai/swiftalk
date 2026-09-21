@@ -2568,3 +2568,11 @@ the history. (Moved out of Design.md in round 65.)
   answered `""`, because with no element to look at the mode had
   defaulted to Strings; the stamp now answers the question the
   contents cannot, and an empty `[[Int]]` joins to an empty `[Int]`.
+
+* **2026-09-22, round 178 — `eg/` is `examples/`** ("rename `eg/` to
+  `examples/`"). A rename and the references that follow it: the
+  README, the doc pages that link an example, the Status transcripts
+  that import one, the three tests that resolve paths beside one
+  (`EgTests` is `ExamplesTests`), and the `// Run:` lines in the
+  examples themselves. This log keeps its history as written — the
+  `eg/` of rounds 66 to 177 was the directory's name then.

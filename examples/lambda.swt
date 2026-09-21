@@ -6,7 +6,7 @@
 // swiftalk has exactly ONE Function type (§2.4), and the classical
 // terms transcribe directly.
 //
-// Run: swift run swiftalk eg/lambda.swt
+// Run: swift run swiftalk examples/lambda.swt
 
 // ---- Church booleans: a boolean IS a two-way choice
 let TRUE   = { t, f in t }

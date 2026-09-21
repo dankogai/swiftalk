@@ -11,7 +11,7 @@ struct RationalModuleTests {
     }()
     func interpreter() throws -> Swiftalk.Interpreter {
         let i = Swiftalk.Interpreter()
-        i.scriptPath = Self.root + "/eg/_.swt"
+        i.scriptPath = Self.root + "/examples/_.swt"
         _ = try i.eval("import from \"../modules/Rational.swt\"")
         return i
     }

@@ -17,7 +17,7 @@ for every value type. RegExp was never missed, and neither were
 String subscripts.
 
 ```sh
-swift run swiftalk eg/sion.swt
+swift run swiftalk examples/sion.swt
 ```
 
 ```text

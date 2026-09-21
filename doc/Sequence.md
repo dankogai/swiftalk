@@ -45,4 +45,4 @@ let naturals = Sequence { var n = 0; while true { yield n; n = n + 1 } }
 naturals.filter { $0 / 2 * 2 == $0 }.prefix(3)  // [0, 2, 4]
 ```
 
-See [eg/sequence.swt](../eg/sequence.swt) for infinite primes.
+See [examples/sequence.swt](../examples/sequence.swt) for infinite primes.

@@ -2,7 +2,7 @@
 // Curried, as the calculus demands; swiftalk's single Function type
 // makes S's x(z)(y(z)) — call results called again — unremarkable.
 //
-// Run: swift run swiftalk eg/ski.swt
+// Run: swift run swiftalk examples/ski.swt
 
 let I = { x in x }
 let K = { x in { y in x } }

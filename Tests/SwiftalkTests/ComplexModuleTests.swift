@@ -12,7 +12,7 @@ struct ComplexModuleTests {
 
     func interpreter() -> Swiftalk.Interpreter {
         let i = Swiftalk.Interpreter()
-        i.scriptPath = Self.root + "/eg/_.swt"   // imports resolve beside this
+        i.scriptPath = Self.root + "/examples/_.swt"   // imports resolve beside this
         return i
     }
     let prelude = "import from \"../modules/Complex.swt\"\nlet near = { a, b in (Complex.lift(a) - Complex.lift(b)).abs < 1e-9 }\n"

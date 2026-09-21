@@ -1,7 +1,7 @@
 // Dictionaries — [Key: Value], the spelling that started it all (round 0):
 // any Hashable key, nil as a value, and the sparse-array idiom.
 //
-// Run: swift run swiftalk eg/dictionary.swt
+// Run: swift run swiftalk examples/dictionary.swt
 
 // a homogeneous literal infers [String: Int] (round 59)
 var years = ["swift": 2014, "smalltalk": 1972]

@@ -55,20 +55,20 @@ private func onBigStack(_ body: @escaping () throws -> String) throws -> String 
     return try job.result!.get()
 }
 
-/// The eg/ examples, kept honest (round 66): quine laws are checked
+/// The examples/ examples, kept honest (round 66): quine laws are checked
 /// byte-for-byte against the actual files, outputs line-for-line —
 /// the same discipline as Status.md's verified transcripts.
-@Suite("eg/ — the examples run, and the quines are quines (round 66)")
-struct EgTests {
+@Suite("examples/ — the examples run, and the quines are quines (round 66)")
+struct ExamplesTests {
     private func slurp(_ name: String) throws -> String {
-        // Tests/SwiftalkTests/EgTests.swift → ../../../eg/<name>
+        // Tests/SwiftalkTests/ExamplesTests.swift → ../../../examples/<name>
         let root = #filePath
             .split(separator: "/", omittingEmptySubsequences: false)
             .dropLast(3)
             .joined(separator: "/")
-        let fd = open("\(root)/eg/\(name)", O_RDONLY)
+        let fd = open("\(root)/examples/\(name)", O_RDONLY)
         guard fd >= 0 else {
-            throw SwiftalkError.type("cannot open eg/\(name)")
+            throw SwiftalkError.type("cannot open examples/\(name)")
         }
         defer { close(fd) }
         var data: [UInt8] = []
@@ -242,7 +242,7 @@ struct EgTests {
     @Test("import.swt + geometry.swt: modules — one instance, a namespace tuple, named imports (round 100)")
     func modules() throws {
         let root = #filePath.split(separator: "/", omittingEmptySubsequences: false).dropLast(3).joined(separator: "/")
-        #expect(try output(of: try slurp("import.swt"), scriptPath: "\(root)/eg/import.swt") == """
+        #expect(try output(of: try slurp("import.swt"), scriptPath: "\(root)/examples/import.swt") == """
             12.0 1.0
             Point(x: 3.0, y: 6.0)
             10.0 2 2

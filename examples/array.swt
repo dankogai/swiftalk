@@ -1,7 +1,7 @@
 // Arrays — COW values, element-typed by inference, and what the three
 // great methods can build.
 //
-// Run: swift run swiftalk eg/array.swt
+// Run: swift run swiftalk examples/array.swt
 
 // a homogeneous literal infers its element type (round 59): [Int]
 var primes = [2, 3, 5, 7, 11]

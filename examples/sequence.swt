@@ -1,7 +1,7 @@
 // Sequences — lazy by default (round 41), made two ways: a state-machine
 // generator, or a coroutine that yields (round 52).
 //
-// Run: swift run swiftalk eg/sequence.swt
+// Run: swift run swiftalk examples/sequence.swt
 
 // Range is the first Sequence: lazy, O(1), never an array unless asked
 print((1...1000000000000).count)             // 1000000000000 — no array behind it

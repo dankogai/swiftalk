@@ -56,5 +56,5 @@ snapshot                              // [2, 3, 5] — a copy is a copy
 ```
 
 Not yet builtin (OPEN): `sort`, `contains`, `reverse`, `join`,
-`insert`, `removeLast` — [eg/array.swt](../eg/array.swt) writes each
+`insert`, `removeLast` — [examples/array.swt](../examples/array.swt) writes each
 in a line or a loop.

@@ -1316,7 +1316,7 @@ added Swift's static properties: `Int.min`, `Int.max`, `Int.bitWidth`,
 a surrogate or out-of-range Int is an error), and §11's views on
 instances — `unicodeScalars`/`utf32` as the scalar values and `utf8`
 as the bytes, each `[Int]`, no `.utf16`. Round 85's hand-rolled UTF-8
-encoder in `eg/sion.swt` is thereby optional; it stays as the
+encoder in `examples/sion.swt` is thereby optional; it stays as the
 bitwise demonstration.
 
 **`typealias` — DECIDED (round 110)** ("We haven't implemented
@@ -2054,7 +2054,7 @@ subscripting String. Should we consider adding RegExp?" — and then,
 before deciding, "I want to know how far we can go WITHOUT RegExp.
 It is powerful but heavy on footprint. I am considering making it a
 module (oh, we haven't even talked about `import`)". The experiment
-is `eg/sion.swt` + `eg/sion.md`: a complete SION parser in swiftalk,
+is `examples/sion.swt` + `examples/sion.md`: a complete SION parser in swiftalk,
 no RegExp, no String subscripts — it went all the way on graphemes
 via `.Array()`, labeled tuples, and `Result` + `?`. Positions:
 **no integer subscripts on String** (that is the mistake both

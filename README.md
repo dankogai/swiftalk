@@ -121,8 +121,8 @@ when.y                                        // "2026"
 
 * **[doc/](doc/README.md)** — the type reference: every member of
   every type, one page per type.
-* **[eg/](eg/README.md)** — runnable examples: quines, lambda
-  calculus up to Z, SKI (`swift run swiftalk eg/lambda.swt`).
+* **[examples/](examples/README.md)** — runnable examples: quines, lambda
+  calculus up to Z, SKI (`swift run swiftalk examples/lambda.swt`).
 * **[Status.md](Status.md)** — what is implemented, with verified
   REPL transcripts, milestone by milestone.
 * **[Design.md](Design.md)** — the design document: every decision,

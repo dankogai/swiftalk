@@ -2085,18 +2085,18 @@ once, its exports as a namespace tuple or by name; from a path beside
 the importer (the cwd, in the REPL) or a URL:
 
 ```text
-swiftalk> import G from "eg/geometry.swt"
+swiftalk> import G from "examples/geometry.swt"
 swiftalk> G.area(2.0, 3.0)
 6.0
 swiftalk> G
 (Point: Point, area: { w, h in ... }, count: { ... }, unit: 1.0)
-swiftalk> import (unit, count) from "./eg/geometry.swt"
+swiftalk> import (unit, count) from "./examples/geometry.swt"
 swiftalk> [unit, count()]
 [1.0, 1]
 swiftalk> G.Point(x: 1.0, y: 2.0).scaled(2.0)
 Point(x: 2.0, y: 4.0)
-swiftalk> import (secret) from "eg/geometry.swt"
-type error: module 'eg/geometry.swt' exports no 'secret' — it exports Point, area, count, unit
+swiftalk> import (secret) from "examples/geometry.swt"
+type error: module 'examples/geometry.swt' exports no 'secret' — it exports Point, area, count, unit
 ```
 
 **`let a, b = t`** — destructuring without the parentheses (round 99),
@@ -2423,13 +2423,13 @@ swiftalk> /(?u)./
 syntax error: invalid regex /(?u)./: unicode scalar semantic mode is not currently supported
 ```
 
-**MySION — a SION parser in swiftalk** (round 85, `eg/sion.swt`,
-write-up in [eg/sion.md](eg/sion.md)): swift-sion's README sample,
+**MySION — a SION parser in swiftalk** (round 85, `examples/sion.swt`,
+write-up in [examples/sion.md](examples/sion.md)): swift-sion's README sample,
 every literal form, and the round-trip law through it — no RegExp,
-no String subscripts. Verified by `EgTests`, output line for line:
+no String subscripts. Verified by `ExamplesTests`, output line for line:
 
 ```sh
-swift run swiftalk eg/sion.swt
+swift run swiftalk examples/sion.swt
 ```
 
 ```text
@@ -2807,7 +2807,7 @@ page per type, every member, verified against the evaluator.
 
 **Script mode** is in (round 66): `swift run swiftalk file.swt`
 evaluates the whole file as one strict program — no echoes, only
-`print()` output. Examples live in [eg/](eg/README.md): two quines,
+`print()` output. Examples live in [examples/](examples/README.md): two quines,
 lambda calculus up to the Z combinator, SKI, and the collection
 types (Array, Dictionary, Sequence) — each verified by the test
 suite.
