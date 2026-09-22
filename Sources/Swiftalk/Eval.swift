@@ -5027,10 +5027,26 @@ private func method(on receiver: Value, name: String,
         // d.keys / d.values (round 127): Swift's properties. keys is a Set
         // since round 132 — unordered and unique, so d0.keys == d1.keys
         // whenever d0 == d1; values an Array in the Dictionary's own order.
-        guard case .dictionary(let d, _) = receiver else {
+        guard case .dictionary(let d, let stamp) = receiver else {
             throw SwiftalkError.unknownMember("\(receiver.typeName).\(name)")
         }
-        return name == "keys" ? .set(Set(d.keys)) : .array(Array(d.values))
+        // Stamped (round 180): a `[K: V]`'s keys are a `Set<K>`, its
+        // values a `[V]`, even when there are none; an unstamped
+        // Dictionary's infer from what is there.
+        if name == "keys" {
+            if let k = stamp?.parameters.first {
+                return .set(Set(d.keys), lock: TypeAnnotation(name: "Set", optional: false, parameters: [k]))
+            }
+            return Builtins.stampedSet(Set(d.keys), from: nil)
+        }
+        let values = Array(d.values)
+        if let stamp, stamp.parameters.count == 2 {
+            return .array(values, lock: TypeAnnotation(name: "Array", optional: false, parameters: [stamp.parameters[1]]))
+        }
+        if let inferred = try? inferLock(.array(values), for: "values"), !inferred.parameters.isEmpty {
+            return .array(values, lock: inferred)
+        }
+        return .array(values)
     case ("union", true), ("intersection", true), ("subtracting", true), ("symmetricDifference", true),
          ("isSubset", true), ("isSuperset", true), ("isStrictSubset", true), ("isStrictSuperset", true),
          ("isDisjoint", true):

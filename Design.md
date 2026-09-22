@@ -1530,6 +1530,13 @@ that had nothing to look at — an empty `[[Int]]` joined to `""`
 now joins to an empty `[Int]`, as `[String]()` still joins to `""`.
 An unstamped empty Array joins to `""` as before.
 
+**`keys` and `values` keep the stamp — DECIDED (round 180)** ("Make
+`keys` and `values` keep the stamp too"). A `[K: V]`'s `keys` are a
+`Set<K>` and its `values` a `[V]` by stamp, empty or not — the
+parameters split between the two properties — so `var v = [Int:
+String]().values` refuses an Int; an unstamped Dictionary's infer
+from what is there, and `[:]`'s are the erased `Set` and `Array`.
+
 **`.Element`, `.Key`, `.Value` — DECIDED (round 166)** ("Add
 `.Element`, `.Key`, and `.Value` to parameterized types"). Swift's
 associated-type names, as members of a parameterized type value:

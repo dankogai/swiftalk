@@ -222,6 +222,24 @@ Set(
 )
 ```
 
+**`keys` and `values` keep the stamp** (round 180) — a `[K: V]`'s keys
+are a `Set<K>`, its values a `[V]`, empty or not:
+
+```text
+swiftalk> [Int: String]().keys.Type
+Set<Int>
+swiftalk> [Int: String]().values.Type
+[String]
+swiftalk> var v = [Int: String]().values
+[]
+swiftalk> v.append(1)
+type error: cannot assign Int to 'v'[0] of type String
+swiftalk> [1: "a"].values.filter { false }.Type
+[String]
+swiftalk> [:].keys.Type
+Set
+```
+
 **`joined()` and `split()` keep the stamp** (round 177) — the stamp
 moves a level: split's pieces and their Array, join's flattening; and
 an empty `[[Int]]` joins to an empty `[Int]`, not `""`:

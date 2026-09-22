@@ -2583,3 +2583,8 @@ the history. (Moved out of Design.md in round 65.)
   Design, the modules' README, and one comment in the completion
   engine — with it. The pages link each other relatively, so none of
   them changed. The log keeps `doc/` where history wrote it.
+
+* **2026-09-22, round 180 — `keys` and `values` keep the stamp**
+  ("Make `keys` and `values` keep the stamp too"). The Dictionary's
+  two parameters go one each: keys a `Set<K>`, values a `[V]`. Ten
+  lines at one site; the unstamped case infers as everything does.
