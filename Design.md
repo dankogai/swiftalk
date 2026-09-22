@@ -1252,7 +1252,7 @@ runs the closure as `map` would (a Dictionary's pair is the argument
 list), and returns nil; `break`/`continue` inside are the closure
 error they always were, which is exactly why labeled `for` is the
 other half of this round. **Round 157** settled a naming rule for
-`doc/`: a page about a type is capitalized as the type is
+`documents/`: a page about a type is capitalized as the type is
 (`Bool.md`, `Set.md`); a page about the language is lowercase
 (`grammar.md`, `module.md`, `flowcontrol.md` — renamed from
 `FlowControl.md` — and the new `toplevel.md`, which documents the

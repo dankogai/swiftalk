@@ -2576,3 +2576,10 @@ the history. (Moved out of Design.md in round 65.)
   (`EgTests` is `ExamplesTests`), and the `// Run:` lines in the
   examples themselves. This log keeps its history as written — the
   `eg/` of rounds 66 to 177 was the directory's name then.
+
+* **2026-09-22, round 179 — `doc/` is `documents/`** ("rename `doc/`
+  to `documents/` as well"). The twin of round 178: the directory
+  renamed, and the five files that name it — the README, Status,
+  Design, the modules' README, and one comment in the completion
+  engine — with it. The pages link each other relatively, so none of
+  them changed. The log keeps `doc/` where history wrote it.

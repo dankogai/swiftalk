@@ -17,7 +17,7 @@ enum Completion {
     static let common = ["Type", "String", "description", "debugDescription"]
 
     /// The builtin types' members, by type name — curated from the type
-    /// pages in doc/, which are derived from the evaluator; a test asks
+    /// pages in documents/, which are derived from the evaluator; a test asks
     /// the evaluator that each name is still one it knows.
     static let members: [String: [String]] = [
         "Nil": [],

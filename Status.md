@@ -756,7 +756,7 @@ swiftalk> let _: Int = "s"
 type error: cannot assign String to '_' of type Int
 ```
 
-**`doc/toplevel.md`; `doc/flowcontrol.md`** (round 157) — the global
+**`documents/toplevel.md`; `documents/flowcontrol.md`** (round 157) — the global
 functions, the types as values, and the bound names on one page;
 language pages are lowercase, type pages capitalized:
 
@@ -816,8 +816,8 @@ syntax error: 'break'/'continue' outside a loop
 **`not`, `and`, `or`, `xor`** (round 155) — Perl's word operators: the
 same operations as `!`, `&&`, `||`, `^^`, at the bottom of the
 precedence table (`not` > `and` > `or` = `xor`, all below the
-ternary), keywords; `doc/Bool.md` tables both spellings and
-`doc/flowcontrol.md` is new (named `FlowControl.md` until round 157):
+ternary), keywords; `documents/Bool.md` tables both spellings and
+`documents/flowcontrol.md` is new (named `FlowControl.md` until round 157):
 
 ```text
 swiftalk> not 1 == 2
@@ -2604,7 +2604,7 @@ swiftalk> if x = Int("x") { x } else { -1 }
 
 **`while let`** is in (round 76) — `if let`'s condition list, re-evaluated
 with fresh bindings each pass; the grammar is documented in
-[doc/grammar.md](doc/grammar.md):
+[documents/grammar.md](documents/grammar.md):
 
 ```text
 swiftalk> let d = [0: "a", 1: "b", 2: "c"]
@@ -2802,7 +2802,7 @@ swiftalk> 1 & 2
 syntax error: unexpected '&' — did you mean '&&'?
 ```
 
-**The type reference** is in (round 68): [doc/](doc/README.md), one
+**The type reference** is in (round 68): [documents/](documents/README.md), one
 page per type, every member, verified against the evaluator.
 
 **Script mode** is in (round 66): `swift run swiftalk file.swt`
