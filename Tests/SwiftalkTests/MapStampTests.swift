@@ -16,9 +16,9 @@ struct MapStampTests {
         #expect(try eval("var a = [0, 1].map { \"\\($0)\" }.filter { false }\na.append(\"x\")\na") == .array([.string("x")]))
     }
 
-    @Test("nothing to infer: no results, or mixed ones, leave the Array erased; a lazy Sequence's map stays a Sequence")
+    @Test("nothing to infer: no results take the data default (round 181), mixed ones leave the Array erased; a lazy Sequence's map stays a Sequence")
     func erased() throws {
-        #expect(try eval("[Int]().map { \"\\($0)\" }.Type.String()") == .string("Array"))
+        #expect(try eval("[Int]().map { \"\\($0)\" }.Type.String()") == .string("[SION]"))
         #expect(try eval("[1, 2].map { $0 == 1 ? 1 : \"a\" }.Type.String()") == .string("Array"))
         #expect(try eval("[1, 2].map { $0 == 1 ? 1 : \"a\" }") == .array([.int(1), .string("a")]))   // still evaluates
         #expect(try eval("(1...).map { $0 }.Type.String()") == .string("Sequence"))

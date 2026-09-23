@@ -4,9 +4,10 @@ An ordered collection — a **COW value** (§4): assignment and passing
 copy logically, mutation never leaks through an alias. A homogeneous
 literal infers its element type and the binding **enforces** it
 (round 59): `var a = [1, 2]` rejects `a.append("x")`. Mixed literals
-bind only under `[Primitives]`, `SION`, or `Any`; `[]` is untyped —
-but `[Int]()` is not (round 165): an Array remembers the element type
-it was built or bound under, empty or not, and `a.Type` reports it.
+bind only under `[SION]`, `SION`, or `Any`; `[]` bound without an
+annotation is `[SION]`, data (round 181); `[Int]()` is an Array of Int
+(round 165): an Array remembers the element type it was built or
+bound under, empty or not, and `a.Type` reports it.
 Arrays are dense — a sparse array is a Dictionary.
 
 | Member / constructor | Result |
@@ -14,7 +15,7 @@ Arrays are dense — a sparse array is a Dictionary.
 | `Array()` | `[]` |
 | `Array(seq)` | materializes any Sequence conformer |
 | `[Int]()`, `[Int](seq)` | the same, typed (round 165): the elements are checked against `Int` and the result is an Array of Int even when empty — `var a = [Int]()` then `a.append("x")` is a type error |
-| `a.Type` | `[Int]`, `[[Int]]`, … — the type with its element type (round 165); a mixed or untyped-empty Array's is the erased `Array`. `a.Type == Array` holds for every Array, `a.Type == [Int]` for Arrays of Int |
+| `a.Type` | `[Int]`, `[[Int]]`, … — the type with its element type (round 165); a mixed Array's is the erased `Array`, an empty unstamped one's `[SION]` (round 181). `a.Type == Array` holds for every Array, `a.Type == [Int]` for Arrays of Int |
 | `[Int].Element`, `a.Type.Element` | the element type, `Int` (round 166); `[[Int]].Element` is `[Int]`; called, it constructs: `a.Type.Element("42")`. The erased `Array.Element` is a type error, as is an `Any` element; `[Int?].Element` is `Int?` (round 167) |
 | `a[i]` | element; Int index, bounds-checked (error out of range) |
 | `a[i] = v` | write, through any path (`m[1][0] = 30`); needs a `var` root |
@@ -22,7 +23,7 @@ Arrays are dense — a sparse array is a Dictionary.
 | `a.append(v, ...)` | appends in place; needs a `var` root |
 | `a + b` | concatenation |
 | `a == b` | element-wise equality |
-| `a.map { }` | an Array of results — stamped with their type when they are homogeneous (round 170): `[0, 1].map { "\($0)" }.filter { false }.Type` is `[String]`; mixed or no results leave it the erased `Array` |
+| `a.map { }` | an Array of results — stamped with their type when they are homogeneous (round 170): `[0, 1].map { "\($0)" }.filter { false }.Type` is `[String]`; mixed results leave it the erased `Array`, none read as `[SION]` |
 | `a.forEach { }` | runs the closure on each element, eagerly; `nil` (round 156). No `break` inside — a closure is not a loop |
 | `a.filter { }` | an Array of the kept — of the same element type as `a` (round 168): `[Int]().filter { }.Type` is `[Int]` |
 | `a.reduce(init) { acc, x in }` | fold |

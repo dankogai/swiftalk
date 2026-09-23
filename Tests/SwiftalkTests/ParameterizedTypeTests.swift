@@ -3,14 +3,14 @@ import Testing
 
 @Suite("parameterized container types (round 165): [Int], [K: V], Set<T> are values, and a container remembers its element type")
 struct ParameterizedTypeTests {
-    @Test(".Type of a container carries its element type; a mixed or empty literal is the erased type; Function stays Function")
+    @Test(".Type of a container carries its element type; a mixed literal is the erased type, an empty one the data default; Function stays Function")
     func typeOf() throws {
         #expect(try eval("[0].Type.String()") == .string("[Int]"))
         #expect(try eval("[1: \"a\"].Type.String()") == .string("[Int: String]"))
         #expect(try eval("Set([1]).Type.String()") == .string("Set<Int>"))
         #expect(try eval("[[1, 2], [3]].Type.String()") == .string("[[Int]]"))
         #expect(try eval("[1, \"one\"].Type.String()") == .string("Array"))
-        #expect(try eval("[].Type.String()") == .string("Array"))
+        #expect(try eval("[].Type.String()") == .string("[SION]"))
         #expect(try eval("[nil, 1].Type.String()") == .string("[Int?]"))
         #expect(try eval("[0].Type.name") == .string("Array"))
         #expect(try eval("{ $0 }.Type.String()") == .string("Function"))
@@ -58,7 +58,7 @@ struct ParameterizedTypeTests {
         #expect(try eval("let g: [Any] = [String]()\ng.Type.String()") == .string("[Any]"))     // the lock's word wins
         #expect(try eval("let h: Array = [String]()\nh.Type.String()") == .string("[String]"))  // an erased lock keeps the stamp
         #expect(try eval("[Int]() == [String]()") == .bool(true))                    // equality ignores the stamp
-        #expect(try eval("[Int]().map { $0 }.Type.String()") == .string("Array"))    // a derived empty is erased
+        #expect(try eval("[Int]().map { $0 }.Type.String()") == .string("[SION]"))   // a derived empty reads as the data default (round 181)
     }
 
     @Test("a binding holding [String] is an alias for annotations — lifting round 111's one limit")

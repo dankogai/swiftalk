@@ -32,7 +32,7 @@ struct SortedContainsTests {
 
     @Test("sorted refuses what < refuses: mixed elements, a non-Bool Function, extra arguments")
     func sortedErrors() throws {
-        #expect(throws: SwiftalkError.self) { try eval("let m: [Primitives] = [1, \"a\"]\nm.sorted()") }
+        #expect(throws: SwiftalkError.self) { try eval("let m: [SION] = [1, \"a\"]\nm.sorted()") }
         #expect(throws: SwiftalkError.self) { try eval("[[1], [2]].sorted()") }
         #expect(throws: SwiftalkError.self) { try eval("[3, 1, 2].sorted { 1 }") }
         #expect(throws: SwiftalkError.self) { try eval("[3, 1, 2].sorted(1)") }

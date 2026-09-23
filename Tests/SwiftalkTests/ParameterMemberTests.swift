@@ -28,7 +28,7 @@ struct ParameterMemberTests {
         #expect(try eval("enum C { case a, b }\n[C.a].Type.Element == C") == .bool(true))
         #expect(throws: SwiftalkError.self) { try eval("Array.Element") }
         #expect(throws: SwiftalkError.self) { try eval("Dictionary.Key") }
-        #expect(throws: SwiftalkError.self) { try eval("[].Type.Element") }
+        #expect(throws: SwiftalkError.self) { try eval("[1, \"a\"].Type.Element") }
         #expect(throws: SwiftalkError.self) { try eval("[Int].Key") }             // an Array has no Key
         #expect(throws: SwiftalkError.self) { try eval("[Int: String].Element") } // a Dictionary has no Element
         #expect(try eval("[nil, 1].Type.Element == Int?") == .bool(true))         // Int? is a value since round 167

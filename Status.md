@@ -17,7 +17,7 @@ library claims exactly one top-level name:
 import Swiftalk
 
 try Swiftalk.eval("(0.1 + 0.2).String()")   // .string("0.30000000000000004")
-try Swiftalk.eval(#"[1, "one", 2.0]"#)      // heterogeneous — [Primitives], not [Any]
+try Swiftalk.eval(#"[1, "one", 2.0]"#)      // heterogeneous — evaluates; binding it wants [SION] or Any
 try Swiftalk.eval("0xff")                   // .int(255)
 try Swiftalk.eval("1 + 1.5")                // throws Swiftalk.Error: Int ≠ Double
 try Swiftalk.eval("9223372036854775807 + 1")// throws: overflow traps
@@ -222,6 +222,42 @@ Set(
 )
 ```
 
+**`[]` is `[SION]`, `[:]` is `[SION: SION]`** (round 181) — an empty
+container bound without an annotation holds data: SION's roster and
+nothing else. `Primitives` is retired, SION covering what it did:
+
+```text
+swiftalk> [].Type
+[SION]
+swiftalk> [:].Type
+[SION: SION]
+swiftalk> Set().Type
+Set<SION>
+swiftalk> var a = []
+[]
+swiftalk> a.append(1, "one", Data([255]), nil, [1: "a"])
+swiftalk> a.append({ $0 })
+type error: cannot assign Function to 'a'[5] of type SION
+swiftalk> a.Type.Element
+SION
+swiftalk> var d = [:]
+[:]
+swiftalk> d[{ $0 }] = 1
+type error: cannot assign Function to a key of 'd' of type SION
+swiftalk> [[], [1]].Type                // an empty element adopts its siblings'
+[[Int]]
+swiftalk> var b: [Int] = []             // an unbound empty lands anywhere
+[]
+swiftalk> b.Type
+[Int]
+swiftalk> let xs = [1, 2]
+[1, 2]
+swiftalk> var s: [SION] = xs            // a SION lock admits a [Int]
+[1, 2]
+swiftalk> let p: [Primitives] = [1]
+type error: unknown type '[Primitives]'
+```
+
 **`keys` and `values` keep the stamp** (round 180) — a `[K: V]`'s keys
 are a `Set<K>`, its values a `[V]`, empty or not:
 
@@ -236,8 +272,8 @@ swiftalk> v.append(1)
 type error: cannot assign Int to 'v'[0] of type String
 swiftalk> [1: "a"].values.filter { false }.Type
 [String]
-swiftalk> [:].keys.Type
-Set
+swiftalk> [:].keys.Type                // nothing known: the data default (round 181)
+Set<SION>
 ```
 
 **`joined()` and `split()` keep the stamp** (round 177) — the stamp
@@ -3289,15 +3325,15 @@ swiftalk> log
 
 **Type inference** is in — homogeneous-or-annotate: collections infer
 element types and the locks enforce them; mixed literals bind only
-under `[Primitives]`, `SION`, or `Any`; and hex-float literals close
+under `[SION]`, `SION`, or `Any`; and hex-float literals close
 the debug round trip:
 
 ```text
 swiftalk> let ary = [0, 1, 2, 3]        // [Int]
 [0, 1, 2, 3]
 swiftalk> let bad = [0.0, 1, 2, 3]
-type error: cannot infer one element type for 'bad' (Double vs Int) — annotate it: [Primitives], SION, or Any
-swiftalk> let ok: [Primitives] = [0.0, 1, 2, 3]
+type error: cannot infer one element type for 'bad' (Double vs Int) — annotate it: [SION], SION, or Any
+swiftalk> let ok: [SION] = [0.0, 1, 2, 3]
 [0.0, 1, 2, 3]
 swiftalk> var a = [1, 2]
 [1, 2]

@@ -492,19 +492,10 @@ final class Environment {
     }
 }
 
-/// Is `value` a Primitive (§3c, rounds 19–20): the scalar roster plus
-/// Arrays and Dictionaries thereof — SION-complete minus Data/Date.
-func isPrimitives(_ value: Value) -> Bool {
-    switch value {
-    case .nil, .bool, .int, .double, .string: return true
-    case .array(let a, _):      return a.allSatisfy(isPrimitives)
-    case .dictionary(let d, _): return d.allSatisfy { isPrimitives($0.key) && isPrimitives($0.value) }
-    default: return false
-    }
-}
-
-/// Is `value` SION-serializable (§3b's full roster, round 59):
-/// Primitives plus Data and Date, recursively.
+/// Is `value` SION-serializable (§3c's roster, round 59): nil, Bool,
+/// Int, Double, String, Data, Date, and Arrays and Dictionaries of
+/// them, recursively. (`Primitives`, the roster minus Data and Date,
+/// was retired in round 181 — SION covers it.)
 func isSION(_ value: Value) -> Bool {
     switch value {
     case .nil, .bool, .int, .double, .string, .data, .date: return true
@@ -532,9 +523,9 @@ func typeMatches(_ value: Value, _ lockName: String) -> Bool {
 private let knownTypeNames: Set<String> =
     ["Nil", "Bool", "Int", "Double", "String", "Array", "Dictionary", "Set", "Function",
      "Range", "Sequence", "Data", "Date", "Task", "Tuple", "Regex", "Byte",
-     // Round 59: annotation vocabulary — Any admits everything,
-     // Primitives/SION admit their rosters. Not (yet) values.
-     "Primitives", "SION", "Any"]
+     // Round 59: annotation vocabulary — Any admits everything, SION
+     // its roster. Any is not a value; SION is a type (round 97).
+     "SION", "Any"]
 
 /// A parameterized annotation is known iff its name and every
 /// parameter's are (round 59) — `[Int]`, `[String: [Wat]]` checks Wat.
@@ -2656,10 +2647,11 @@ private func parameterMember(_ f: FunctionObject, _ name: String,
 
 /// The value of an annotation (round 166): a builtin type, parameterized
 /// or not; a user type by its name in scope; optional since round 167
-/// (`Int?`, `P?`). `Any`, `Primitives`, and `SION` are annotation-only
-/// and have none (round 59).
+/// (`Int?`, `P?`). `Any` is annotation-only and has none (round 59);
+/// `SION` is the type of that name (round 181), so `[].Type.Element`
+/// answers it.
 func typeValue(forParameter annotation: TypeAnnotation, in env: Environment) throws -> Value {
-    guard !["Any", "Primitives", "SION"].contains(annotation.name) else {
+    guard annotation.name != "Any" else {
         throw SwiftalkError.type("\(annotation.display) is an annotation, not a value")
     }
     if Builtins.types[annotation.name] != nil { return typeValue(for: annotation) }
@@ -3062,15 +3054,15 @@ func actorWrite(_ obj: ActorObject, _ name: String, _ newValue: Value,
 }
 
 /// The §3 lock check, standalone (shared by bindings and properties).
-/// Round 59 additions: `Any` admits everything, `Primitives`/`SION`
-/// admit their rosters (nil included — nil IS a Primitive), and
+/// Round 59 additions: `Any` admits everything, `SION` admits its
+/// roster (nil included — nil IS SION), and
 /// parameterized locks (`[Int]`, `[String: Int]`) check elements,
 /// keys, and values recursively. Per round 35, a Dictionary's values
 /// are implicitly optional — nil is a right value for a key.
 func checkValue(_ value: Value, against lock: TypeAnnotation, context: String) throws {
     if case .nil = value {
         guard lock.optional || lock.name == "Nil" || lock.name == "Any"
-                || lock.name == "Primitives" || lock.name == "SION" else {
+                || lock.name == "SION" else {
             throw SwiftalkError.type(
                 "cannot assign nil to \(context) of type \(lock.display) — declare it \(lock.display)?")
         }
@@ -3078,12 +3070,6 @@ func checkValue(_ value: Value, against lock: TypeAnnotation, context: String) t
     }
     switch lock.name {
     case "Any":
-        return
-    case "Primitives":
-        guard isPrimitives(value) else {
-            throw SwiftalkError.type(
-                "cannot assign \(value.typeName) to \(context) of type Primitives")
-        }
         return
     case "SION":
         guard isSION(value) else {
@@ -3156,7 +3142,7 @@ func knownElementLock(of value: Value) -> TypeAnnotation? {
 /// what the receiver is known to yield (a `[T]`'s or `Set<T>`'s `T`, a
 /// Range's Int, a String's String, a Dictionary's Tuple), else erased.
 func stampedArray(_ elements: [Value], from receiver: Value) -> Value {
-    if let inferred = try? inferLock(.array(elements), for: "Array"), !inferred.parameters.isEmpty {
+    if let inferred = try? inferLock(.array(elements), for: "Array", defaulting: false), !inferred.parameters.isEmpty {
         return .array(elements, lock: inferred)
     }
     if let known = knownElementLock(of: receiver) {
@@ -3179,11 +3165,23 @@ func containerStamp(_ value: Value) -> TypeAnnotation? {
 /// non-optional, and the rest must agree, recursively.
 func admits(_ lock: TypeAnnotation, _ other: TypeAnnotation) -> Bool {
     if lock.name == "Any" { return true }
+    if lock.name == "SION" { return isSIONType(other) }         // round 181: [SION] takes a [Int]
     guard lock.name == other.name else { return false }
     if other.optional && !lock.optional { return false }          // Int? is not an Int (round 167)
     if lock.parameters.isEmpty || other.parameters.isEmpty { return true }
     guard lock.parameters.count == other.parameters.count else { return false }
     return zip(lock.parameters, other.parameters).allSatisfy { admits($0, $1) }
+}
+
+/// Is every value of a type SION-serializable (round 181): the §3c
+/// roster, an Array or Dictionary of such, or SION itself; an optional
+/// too, since nil is SION. What a `SION` lock admits by stamp.
+func isSIONType(_ t: TypeAnnotation) -> Bool {
+    switch t.name {
+    case "Nil", "Bool", "Int", "Double", "String", "Data", "Date", "SION": return true
+    case "Array", "Dictionary": return t.parameters.allSatisfy(isSIONType)
+    default: return false
+    }
 }
 
 /// Stamps a container with a parameterized lock (round 165): the value
@@ -3260,10 +3258,18 @@ func typeValue(for annotation: TypeAnnotation) -> Value {
 /// Infers the lock a binding takes from its initializer (round 59):
 /// scalars lock to their type as ever; an Array must be HOMOGENEOUS —
 /// `[0, 1, 2]` is `[Int]`, `[0.0, 1, 2]` is an error unless annotated
-/// (`[Primitives]`, `SION`, or `Any`); a Dictionary infers `[K: V]`
-/// from homogeneous keys and non-nil values (a sparse array is a
-/// Dictionary, like JS and PHP — round 59's own words).
-func inferLock(_ value: Value, for name: String) throws -> TypeAnnotation {
+/// (`[SION]`, `SION`, or `Any`); a Dictionary infers `[K: V]` from
+/// homogeneous keys and non-nil values (a sparse array is a
+/// Dictionary, like JS and PHP — round 59's own words). An empty
+/// container has nothing to infer from and takes the data default
+/// (round 181): `[]` is `[SION]`, `[:]` is `[SION: SION]`, `Set()` is
+/// `Set<SION>`, and an empty element adopts its siblings' type
+/// (`[[], [1]]` is `[[Int]]`, `[[]]` is `[[SION]]`). The sites that
+/// stamp a derived container from its contents pass `defaulting:
+/// false`: a default is a binding's decision, not a stamp to carry,
+/// and an unstamped empty still lands in any typed slot.
+func inferLock(_ value: Value, for name: String, defaulting: Bool = true) throws -> TypeAnnotation {
+    let sion = TypeAnnotation(name: "SION", optional: false)
     switch value {
     case .nil:
         // Round 101: nil says nothing about the type, so the lock is Any —
@@ -3271,49 +3277,72 @@ func inferLock(_ value: Value, for name: String) throws -> TypeAnnotation {
         return TypeAnnotation(name: "Any", optional: true)
     case .array(let a, let stamp):
         if let stamp { return stamp }                    // round 165: the container knows
-        guard !a.isEmpty else { return TypeAnnotation(name: "Array", optional: false) }
+        guard !a.isEmpty else {
+            return TypeAnnotation(name: "Array", optional: false, parameters: defaulting ? [sion] : [])
+        }
         var element: TypeAnnotation? = nil
         var sawNil = false
         for v in a {
             guard v != .nil else { sawNil = true; continue }   // a nil element makes the lock optional
-            let t = try inferLock(v, for: name)
-            if let element, element != t {
-                throw SwiftalkError.type(
-                    "cannot infer one element type for '\(name)' (\(element.display) vs \(t.display)) — annotate it: [Primitives], SION, or Any")
+            let t = try inferLock(v, for: name, defaulting: false)
+            if let e = element {
+                guard let joined = unify(e, t) else {
+                    throw SwiftalkError.type(
+                        "cannot infer one element type for '\(name)' (\(e.display) vs \(t.display)) — annotate it: [SION], SION, or Any")
+                }
+                element = joined
+            } else {
+                element = t
             }
-            element = t
         }
-        guard let element else { return TypeAnnotation(name: "Array", optional: false, parameters: [TypeAnnotation(name: "Any", optional: true)]) }
+        guard var element else { return TypeAnnotation(name: "Array", optional: false, parameters: [TypeAnnotation(name: "Any", optional: true)]) }
+        if defaulting { element = defaulted(element) }
         let elementLock = sawNil ? TypeAnnotation(name: element.name, optional: true, parameters: element.parameters) : element
         return TypeAnnotation(name: "Array", optional: false, parameters: [elementLock])
     case .set(let s, let stamp):
         if let stamp { return stamp }
         // as an Array's element (round 132): homogeneous, a nil making it optional
-        guard !s.isEmpty else { return TypeAnnotation(name: "Set", optional: false) }
-        let elements = try inferLock(.array(Array(s)), for: name)
+        guard !s.isEmpty else {
+            return TypeAnnotation(name: "Set", optional: false, parameters: defaulting ? [sion] : [])
+        }
+        let elements = try inferLock(.array(Array(s)), for: name, defaulting: defaulting)
         return TypeAnnotation(name: "Set", optional: false, parameters: elements.parameters)
     case .dictionary(let d, let stamp):
         if let stamp { return stamp }
-        guard !d.isEmpty else { return TypeAnnotation(name: "Dictionary", optional: false) }
+        guard !d.isEmpty else {
+            return TypeAnnotation(name: "Dictionary", optional: false, parameters: defaulting ? [sion, sion] : [])
+        }
         var key: TypeAnnotation? = nil
         var val: TypeAnnotation? = nil
         var sawNilKey = false
         for (k, v) in d {
             if k == .nil { sawNilKey = true } else {
-                let kt = try inferLock(k, for: name)
-                if let key, key != kt {
-                    throw SwiftalkError.type(
-                        "cannot infer one key type for '\(name)' (\(key.display) vs \(kt.display)) — annotate it, e.g. [Primitives: Any]")
+                let kt = try inferLock(k, for: name, defaulting: false)
+                if let k0 = key {
+                    guard let joined = unify(k0, kt) else {
+                        throw SwiftalkError.type(
+                            "cannot infer one key type for '\(name)' (\(k0.display) vs \(kt.display)) — annotate it, e.g. [SION: SION]")
+                    }
+                    key = joined
+                } else {
+                    key = kt
                 }
-                key = kt
             }
             guard v != .nil else { continue }        // round 35: nil shapes nothing
-            let vt = try inferLock(v, for: name)
-            if let val, val != vt {
-                throw SwiftalkError.type(
-                    "cannot infer one value type for '\(name)' (\(val.display) vs \(vt.display)) — annotate it, e.g. [\(key?.display ?? "Any"): Any]")
+            let vt = try inferLock(v, for: name, defaulting: false)
+            if let v0 = val {
+                guard let joined = unify(v0, vt) else {
+                    throw SwiftalkError.type(
+                        "cannot infer one value type for '\(name)' (\(v0.display) vs \(vt.display)) — annotate it, e.g. [\(key?.display ?? "SION"): SION]")
+                }
+                val = joined
+            } else {
+                val = vt
             }
-            val = vt
+        }
+        if defaulting {
+            key = key.map(defaulted)
+            val = val.map(defaulted)
         }
         var keyLock = key ?? TypeAnnotation(name: "Any", optional: true)
         if sawNilKey, let key { keyLock = TypeAnnotation(name: key.name, optional: true, parameters: key.parameters) }
@@ -3322,6 +3351,39 @@ func inferLock(_ value: Value, for name: String) throws -> TypeAnnotation {
         return TypeAnnotation(name: "Dictionary", optional: false, parameters: [keyLock, valLock])
     default:
         return TypeAnnotation(name: value.typeName, optional: false)
+    }
+}
+
+/// Two inferred element types agree when they are equal, or when one
+/// is the erased container the other parameterizes (round 181): an
+/// empty element has nothing to say and adopts its siblings' type, so
+/// `[[], [1]]` is `[[Int]]` and `[[1: "a"], [:]]` is `[[Int: String]]`.
+private func unify(_ a: TypeAnnotation, _ b: TypeAnnotation) -> TypeAnnotation? {
+    if a == b { return a }
+    guard a.name == b.name, a.optional == b.optional else { return nil }
+    if a.parameters.isEmpty { return b }
+    if b.parameters.isEmpty { return a }
+    guard a.parameters.count == b.parameters.count else { return nil }
+    var parameters: [TypeAnnotation] = []
+    for (x, y) in zip(a.parameters, b.parameters) {
+        guard let joined = unify(x, y) else { return nil }
+        parameters.append(joined)
+    }
+    return TypeAnnotation(name: a.name, optional: a.optional, parameters: parameters)
+}
+
+/// An erased container an empty element left behind takes the data
+/// default, recursively (round 181): `[[]]` is `[[SION]]`, `[[:]]` is
+/// `[[SION: SION]]`.
+private func defaulted(_ t: TypeAnnotation) -> TypeAnnotation {
+    let sion = TypeAnnotation(name: "SION", optional: false)
+    switch (t.name, t.parameters.isEmpty) {
+    case ("Array", true), ("Set", true):
+        return TypeAnnotation(name: t.name, optional: t.optional, parameters: [sion])
+    case ("Dictionary", true):
+        return TypeAnnotation(name: t.name, optional: t.optional, parameters: [sion, sion])
+    default:
+        return TypeAnnotation(name: t.name, optional: t.optional, parameters: t.parameters.map(defaulted))
     }
 }
 
@@ -4362,7 +4424,8 @@ private func method(on receiver: Value, name: String,
         }
         // A container's Type carries its element type (round 165): the
         // stamp if it has one, else what its contents infer — `[0].Type`
-        // is `[Int]`, `[1, "one"].Type` and `[].Type` the erased `Array`.
+        // is `[Int]`, `[1, "one"].Type` the erased `Array`, and `[].Type`
+        // the data default `[SION]` (round 181).
         switch receiver {
         case .array, .dictionary, .set:
             if let inferred = try? inferLock(receiver, for: "") { return typeValue(for: inferred) }
@@ -4559,7 +4622,7 @@ private func method(on receiver: Value, name: String,
         // (round 170): homogeneous, `[0, 1].map { "\($0)" }` is a
         // `[String]` that stays one through an emptying filter; mixed
         // results, or none, leave it erased — there is nothing to infer.
-        if let inferred = try? inferLock(.array(out), for: "map"), !inferred.parameters.isEmpty {
+        if let inferred = try? inferLock(.array(out), for: "map", defaulting: false), !inferred.parameters.isEmpty {
             return .array(out, lock: inferred)
         }
         return .array(out)
@@ -4793,7 +4856,7 @@ private func method(on receiver: Value, name: String,
         }
         // Stamped (round 177): by what the elements infer, else by the
         // receiver's element's element — `[[Int]]` flattens to `[Int]`.
-        if let inferred = try? inferLock(.array(out), for: "joined"), !inferred.parameters.isEmpty {
+        if let inferred = try? inferLock(.array(out), for: "joined", defaulting: false), !inferred.parameters.isEmpty {
             return .array(out, lock: inferred)
         }
         if let elementLock, elementLock.name == "Array", let inner = elementLock.parameters.first {
@@ -5043,7 +5106,7 @@ private func method(on receiver: Value, name: String,
         if let stamp, stamp.parameters.count == 2 {
             return .array(values, lock: TypeAnnotation(name: "Array", optional: false, parameters: [stamp.parameters[1]]))
         }
-        if let inferred = try? inferLock(.array(values), for: "values"), !inferred.parameters.isEmpty {
+        if let inferred = try? inferLock(.array(values), for: "values", defaulting: false), !inferred.parameters.isEmpty {
             return .array(values, lock: inferred)
         }
         return .array(values)

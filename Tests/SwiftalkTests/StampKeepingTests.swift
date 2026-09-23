@@ -30,8 +30,8 @@ struct StampKeepingTests {
 
     @Test("what does not carry a stamp: map (a new element type), an unstamped receiver, a lazy Sequence")
     func notKept() throws {
-        #expect(try eval("var a = [Int]()\na.map { $0 }.Type.String()") == .string("Array"))
-        #expect(try eval("[].filter { $0 > 0 }.Type.String()") == .string("Array"))
+        #expect(try eval("var a = [Int]()\na.map { $0 }.Type.String()") == .string("[SION]"))   // nothing inferred: the data default (round 181)
+        #expect(try eval("[].filter { $0 > 0 }.Type.String()") == .string("[SION]"))
         #expect(try eval("(1...).filter { $0 > 0 }.Type.String()") == .string("Sequence"))
         #expect(try eval("\"abc\".filter { $0 != \"b\" }") == .string("ac"))
     }

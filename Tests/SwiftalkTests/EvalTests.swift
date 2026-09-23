@@ -35,7 +35,7 @@ struct EvalTests {
         // non-String keys, as SION demands (§3c)
         #expect(try eval("[1: \"one\", true: \"yes\"]")
             == .dictionary([.int(1): .string("one"), .bool(true): .string("yes")]))
-        // heterogeneous array — [Primitives] in language terms (§3c)
+        // heterogeneous array — [SION] in language terms (§3c)
         #expect(try eval(#"[1, "one", 2.0]"#)
             == .array([.int(1), .string("one"), .double(2.0)]))
         // nesting
@@ -79,7 +79,7 @@ struct EvalTests {
         #expect(try eval(#"[1, "a"].String()"#) == .string(#"[1, "a"]"#))  // nested strings stay quoted
     }
 
-    @Test(".Type reports the runtime type (§3; flat — never Primitives; a constructor Function since round 39)")
+    @Test(".Type reports the runtime type (§3; flat — never SION; a constructor Function since round 39)")
     func typeProperty() throws {
         #expect(try eval("42.Type == Int") == .bool(true))
         #expect(try eval("1.5.Type == Double") == .bool(true))

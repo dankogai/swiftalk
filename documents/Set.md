@@ -15,7 +15,7 @@ annotation is Swift's generic spelling, `Set<Int>`, `Set<String>?`,
 
 | Member / constructor | Result |
 |---|---|
-| `Set()` | the empty Set |
+| `Set()` | the empty Set — a `Set<SION>` when bound without an annotation (round 181) |
 | `Set([1]).Type` | `Set<Int>` — the type with its element type (round 165); calling it builds a Set that remembers, so `var s = Set([1]).Type()` … `s.insert("x")` is a type error. `s.Type == Set` holds for every Set. `s.Type.Element` is the element type, `Int` (round 166) |
 | `Set<Int>`, `Set<Int>()`, `Set<Int>(1, 2)` | the type as an expression (round 167) and its constructions — a Set that remembers, so `Set<Int>("abc")` is a type error; `Set<Set<Int>>` nests |
 | `Set(seq)` — `Set<T>` by stamp when the elements are homogeneous or the source is known to yield `T` (round 172), so `Set([Int]())` is a `Set<Int>` | the distinct elements of any finite Sequence — an Array, a Range, a String's graphemes, a Data's bytes, a Dictionary's `(key:, value:)` pairs; `Set(0...)` is an error |

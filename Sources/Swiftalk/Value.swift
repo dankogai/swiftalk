@@ -37,7 +37,7 @@ extension Swiftalk {
         /// so nothing runs until iterated, `.prefix(n)`'d, or `.Array()`'d.
         case sequence(SequenceObject)
         /// A user-defined enum's case (round 45, §7): a real boxing sum —
-        /// unlike the flat built-in unions (`T?`, `Primitives`).
+        /// unlike the flat built-in unions (`T?`, `SION`).
         /// (`indirect` keeps Value's inline size small — the evaluator
         /// recurses on the Swift stack, and frame size is depth budget.)
         indirect case enumCase(EnumCaseValue)

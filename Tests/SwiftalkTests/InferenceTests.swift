@@ -7,7 +7,7 @@ struct InferenceTests {
     func arrayInference() throws {
         #expect(try eval("let ary = [0, 1, 2, 3]\nary") == .array([0, 1, 2, 3].map { .int($0) }))
         #expect(throws: SwiftalkError.self) { try eval("let bad = [0.0, 1, 2, 3]") }
-        #expect(try eval("let ok: [Primitives] = [0.0, 1, 2, 3]\nok.count") == .int(4))
+        #expect(try eval("let ok: [SION] = [0.0, 1, 2, 3]\nok.count") == .int(4))
         #expect(try eval("let ok: Any = [0.0, 1, 2, 3]\nok") ==
             .array([.double(0.0), .int(1), .int(2), .int(3)]))
         // as an EXPRESSION a mixed literal still evaluates — only
@@ -59,8 +59,9 @@ struct InferenceTests {
         #expect(throws: SwiftalkError.self) { try eval("let s: SION = [{ 1 }]") }
         #expect(try eval("var a: Any = 1\na = \"str\"\na") == .string("str"))
         #expect(try eval("var x: Any = nil\nx == nil") == .bool(true))
-        // Primitives excludes Data/Date (they are SION's extras)
-        #expect(throws: SwiftalkError.self) { try eval("let p: [Primitives] = [Data([1])]") }
+        // SION admits Data/Date; Primitives was retired in round 181
+        #expect(try eval("let p: [SION] = [Data([1])]\np.count") == .int(1))            // Data is SION
+        #expect(throws: SwiftalkError.self) { try eval("let p: [Primitives] = [1]") }   // retired in round 181
     }
 
     @Test("1 is Int, 1.0 is Double — and so are 1e0 and 0x1p0")

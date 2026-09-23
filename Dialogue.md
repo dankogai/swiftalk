@@ -2588,3 +2588,16 @@ the history. (Moved out of Design.md in round 65.)
   ("Make `keys` and `values` keep the stamp too"). The Dictionary's
   two parameters go one each: keys a `Set<K>`, values a `[V]`. Ten
   lines at one site; the unstamped case infers as everything does.
+
+* **2026-09-23, round 181 — `[]` is `[SION]`** ("Make `SION` a default
+  element type of `[]` and the value type of `[:]`. remove
+  `Primitives` since `SION` must be able to handle all cases that
+  `Primitives` covered"). The question before it: keep the erased
+  empty, refuse it like Swift, or default it — the erased form was
+  the one leak past round 59's homogeneous-or-annotate. The data
+  default: `[]` is `[SION]`, `[:]` is `[SION: SION]`, `Set()` a
+  `Set<SION>`, at binding and in `.Type`; an unbound empty still lands
+  anywhere, and an empty element adopts its siblings' type, so `[[],
+  [1]]` binds where it did not. `[SION]` admits a stamped `[Int]`.
+  `SION` reifies as a parameter; `Primitives` goes, one roster where
+  two sat a Data apart.

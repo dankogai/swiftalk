@@ -17,7 +17,7 @@ struct JoinSplitStampTests {
         #expect(try eval("Set<Int>().split(0).Type.String()") == .string("[Set<Int>]"))
         #expect(try eval("Data().split(0).Type.String()") == .string("[Data]"))
         #expect(try eval("[Int: String]().split { true }.Type.String()") == .string("[[Int: String]]"))
-        #expect(try eval("[].split(0).Type.String()") == .string("Array"))                 // no element type known
+        #expect(try eval("[].split(0).Type.String()") == .string("[SION]"))                // no pieces, nothing known: the data default (round 181)
         #expect(throws: SwiftalkError.self) { try eval("var p = [Int]().split(0)\np.append([\"s\"])") }
         #expect(throws: SwiftalkError.self) { try eval("var p = [1, 0, 2].split(0)\np[0].append(\"s\")") }
     }

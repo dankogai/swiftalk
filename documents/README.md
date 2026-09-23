@@ -78,14 +78,16 @@ extension Int { static let answer = 42 }           // a static (round 143), besi
 Int.answer     // 42
 ```
 
-## Annotation-only names (round 59)
+## `SION` and `Any` (round 59)
 
-`Primitives` (nil, Bool, Int, Double, String, and Arrays/Dictionaries
-of them), `SION` (Primitives plus Data and Date), and `Any` are
-accepted in type annotations — `let xs: [Primitives] = [1, "one"]`,
-`var a: Any = 1`. `Primitives` and `Any` are not values; `SION` is
-also a type since round 97 — `SION(text)` reads a document, see
-[SION.md](SION.md).
+`SION` (nil, Bool, Int, Double, String, Data, Date, and
+Arrays/Dictionaries of them) and `Any` are accepted in type
+annotations — `let xs: [SION] = [1, "one"]`, `var a: Any = 1`. `Any`
+is not a value; `SION` is also a type since round 97 — `SION(text)`
+reads a document, see [SION.md](SION.md) — and the default element
+type of an empty literal since round 181: `var a = []` is a `[SION]`,
+`[:]` a `[SION: SION]`. (`Primitives`, SION minus Data and Date, was
+retired in round 181.)
 
 ## Aliasing a type: `let I = Int` (round 111)
 

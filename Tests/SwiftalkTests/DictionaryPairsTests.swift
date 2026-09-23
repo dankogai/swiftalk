@@ -25,7 +25,7 @@ struct DictionaryPairsTests {
         #expect(throws: SwiftalkError.self) { try eval("Dictionary([1, 2])") }                      // not pairs
         #expect(throws: SwiftalkError.self) { try eval("Dictionary([(1, 2, 3)])") }                 // not 2-tuples
         #expect(throws: SwiftalkError.self) { try eval("Dictionary(3)") }
-        #expect(try eval("Dictionary([]).Type.String()") == .string("Dictionary"))                   // nothing to infer
+        #expect(try eval("Dictionary([]).Type.String()") == .string("[SION: SION]"))                 // nothing to infer: the data default (round 181)
         #expect(try eval("Dictionary([(1, \"a\"), (\"b\", 2)]).Type.String()") == .string("Dictionary"))   // mixed: erased, still built
         #expect(try eval("Dictionary([(1, \"a\"), (\"b\", 2)]).count") == .int(2))
     }

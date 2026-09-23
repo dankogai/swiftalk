@@ -16,8 +16,8 @@ struct KeysValuesStampTests {
         #expect(throws: SwiftalkError.self) { try eval("var v = [Int: String]().values\nv.append(1)") }
         #expect(throws: SwiftalkError.self) { try eval("var k = [Int: String]().keys\nk.insert(\"x\")") }
         #expect(try eval("var k = [Int: String]().keys\nk.insert(1)\nk") == .set([.int(1)]))
-        #expect(try eval("[:].keys.Type.String()") == .string("Set"))                     // nothing known, nothing to infer
-        #expect(try eval("[:].values.Type.String()") == .string("Array"))
+        #expect(try eval("[:].keys.Type.String()") == .string("Set<SION>"))               // nothing known, nothing to infer: the data default (round 181)
+        #expect(try eval("[:].values.Type.String()") == .string("[SION]"))
         #expect(try eval("[1: nil].values.Type.String()") == .string("[Any?]"))            // nil values shape nothing (round 101)
     }
 }

@@ -3,7 +3,8 @@
 `[Key: Value]` — the spelling that started the language. A **COW
 value** (§4). Any Hashable value is a key (`1`, `"1"`, and `1.0` are
 three keys), as SION allows. A homogeneous literal infers `[K: V]`
-(round 59); `[:]` is untyped, `[Int: String]()` is not (round 165) —
+(round 59); `[:]` bound without an annotation is `[SION: SION]` (round
+181), `[Int: String]()` an `[Int: String]` (round 165) —
 a Dictionary remembers the key and value types it was built or bound
 under, and `d.Type` reports them. **`nil` is a storable value** (round
 35): `d[k] = nil` stores nil, presence is a separate question.
@@ -11,9 +12,9 @@ under, and `d.Type` reports them. **`nil` is a storable value** (round
 | Member / constructor | Result |
 |---|---|
 | `Dictionary()` | `[:]` |
-| `Dictionary(pairs)`, `pairs.Dictionary()` | from any Sequence of `(key, value)` tuples (round 173) — `Array(d)`'s `(key:, value:)` pairs round-trip, any `(k, v)` builds, labels ignored; a duplicate key is an error (Swift's `uniqueKeysWithValues`, not JS's last-wins); stamped `[K: V]` by what the pairs infer, erased when they are mixed or none |
+| `Dictionary(pairs)`, `pairs.Dictionary()` | from any Sequence of `(key, value)` tuples (round 173) — `Array(d)`'s `(key:, value:)` pairs round-trip, any `(k, v)` builds, labels ignored; a duplicate key is an error (Swift's `uniqueKeysWithValues`, not JS's last-wins); stamped `[K: V]` by what the pairs infer, erased when they are mixed, `[SION: SION]` when none |
 | `[Int: String]()` | the same, typed (round 165): an empty Dictionary that still refuses a String key or an Int value |
-| `d.Type` | `[Int: String]` — the type with its parameters (round 165); a mixed or untyped-empty Dictionary's is the erased `Dictionary`. `d.Type == Dictionary` holds for every Dictionary |
+| `d.Type` | `[Int: String]` — the type with its parameters (round 165); a mixed Dictionary's is the erased `Dictionary`, an empty unstamped one's `[SION: SION]` (round 181). `d.Type == Dictionary` holds for every Dictionary |
 | `[Int: String].Key`, `.Value`, `d.Type.Key` | the key and value types, `Int` and `String` (round 166); called, they construct. The erased `Dictionary.Key` is a type error |
 | `d[k]` | the value, or `nil` when absent |
 | `d[k] = v` | insert or replace (`v` may be `nil`); needs a `var` root |

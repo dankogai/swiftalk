@@ -30,7 +30,7 @@ struct REPLTests {
     func printerRoundTrips() throws {
         let repl = Interpreter(relaxed: true)
         // round 59: a mixed literal binds only under an annotation
-        _ = try repl.eval("var v: [Primitives] = [1, \"one\", [2.0, nil]]")
+        _ = try repl.eval("var v: [SION] = [1, \"one\", [2.0, nil]]")
         let echo = try repl.eval("v").sourceString()
         #expect(try repl.eval(echo) == repl.eval("v"))
     }

@@ -88,7 +88,7 @@ then `a.append("x")` is a type error; `[Int](1...3)` checks its
 elements. Types compare by name, and the erased `Array` equals any
 `[T]`: `[0].Type == Array` and `[0].Type == [Int]` are both true,
 `[Int] == [String]` false; `filter` and the slices keep the element
-type, `map` infers one from its results, `Array(x)`, `Set(x)`, and `Dictionary(pairs)` keep or infer, `zip` and `enumerated()` are `[Tuple]`, `reversed()` and `sorted()` carry the element type, `split()` and `joined()` move it a level, `keys` and `values` split it (rounds 168–180); an optional is its own type, `Int? != Int`,
+type, `map` infers one from its results, `Array(x)`, `Set(x)`, and `Dictionary(pairs)` keep or infer, `zip` and `enumerated()` are `[Tuple]`, `reversed()` and `sorted()` carry the element type, `split()` and `joined()` move it a level, `keys` and `values` split it (rounds 168–180); an empty literal bound without an annotation is data — `[]` is `[SION]`, `[:]` is `[SION: SION]`, `Set()` is `Set<SION>` — and refuses a Function (round 181); an optional is its own type, `Int? != Int`,
 and `Int?("x")` constructs through `Int` with nil as a possible
 answer. `Function` carries nothing: `{ $0 }.Type`
 is `Function`, whatever its arguments and result. A parameterized
@@ -107,7 +107,7 @@ construct — `[Int].Element("42")` is `42`. The erased `Array` has no
 | `Result` | the built-in enum, `.success(v)` / `.failure(e)` — [Result.md](Result.md) |
 | `Response` | `fetch`'s answer, a struct declared in swiftalk at startup (round 163) — below |
 | `Optional` | `Optional<Int>` is the type `Int?` (round 167) — the bare name is the identity constructor, `Optional(x)` is `x`, and no annotation |
-| `Primitives` `Any` | annotation-only names (round 59): not values, a type error as one |
+| `Any` | an annotation-only name (round 59): not a value, a type error as one. (`Primitives` was retired in round 181 — `SION` covers it) |
 
 A `struct`, `enum`, or `import` adds to this table for the rest of the
 file; `extension Int { }` changes what `Int` dispatches for the whole

@@ -20,7 +20,7 @@ print(years.has("unknown"))                  // false
 // keys need not be Strings — SION allows any key, and so does swiftalk
 let byNumber = [1: "one", 2: "two"]          // [Int: String]
 print(byNumber[2])                           // two
-let mixed: [Primitives: String] = [1: "int", "1": "string", 1.0: "double"]
+let mixed: [SION: String] = [1: "int", "1": "string", 1.0: "double"]
 print(mixed.count)                           // 3 — 1, "1", and 1.0 are distinct keys
 
 // a sparse array is a Dictionary (round 59), like JS and PHP

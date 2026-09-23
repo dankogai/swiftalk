@@ -400,7 +400,7 @@ Primitives:
   bare Byte is not SION (no spelling); JSON and plists write it as a
   number.
 * **`Date`** — joined the roster in round 17 as a consequence of
-  `Primitives`' SION-completeness (§3c); **implemented round 50**:
+  `SION`'s completeness (§3c); **implemented round 50**:
   seconds since the Unix epoch as a `Double` — SION's own
   representation — printing as SION's own spelling, `.Date(epoch)`
   (hex-float under debug, exactly as SION serializes). `Date()` is
@@ -411,7 +411,7 @@ Primitives:
   someday (unimplemented), and **never `Double`** — a deliberate
   narrowing of Swift's more versatile `Range`. Conforms to `Sequence`
   (§10); prints as its literal, so it round-trips (§3d); **not** part
-  of `Primitives`/SION (§3c) — it is a language value, not an
+  of SION (§3c) — it is a language value, not an
   interchange value; `.Array()` materializes it when needed.
 * **`Function`** — the **one** type of every function/closure (§2.4):
   `{ 42 }.Type == Function`, `{ 42 }().Type == Int`. Signatures are
@@ -488,7 +488,7 @@ string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bar
   the same bits (JS/Ryū-style); `Array`/`Dictionary` emit literal
   syntax (`[1, 2, 3]`, `["a": 1]`) with **nested Strings quoted** (a
   collection's source form must re-enter); `nil` emits `nil`. For
-  `Primitives` values the quoted form *is* SION emission (§3c) — the
+  SION values the quoted form *is* SION emission (§3c) — the
   native serializer and `.String(.quoted)` are one mechanism.
 * Remaining flagged consequences:
   * **`Data.String()`** argument-less: source form, *infallibly*; the
@@ -529,20 +529,21 @@ string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bar
   `String` member's reach — print, interpolation, containers — is
   under `.pretty`'s paragraph in §3d.)
 
-### 3c. `Any`, `Primitives`, and heterogeneous collections — DECIDED (direction)
+### 3c. `Any`, `SION`, and heterogeneous collections — DECIDED (direction)
 
 * `Any` exists **for the time being**, but the language *prefers enums*
   (sum types with associated values) as the idiomatic way to express
   "one of several types" — including heterogeneous collections.
-* **The language ships that enum: `Primitives`** — a built-in enum
+* **The language ships that union: `SION`** (née `Primitives`, retired
+  in round 181 — SION covers its roster and more) — a built-in union
   whose cases are `nil`, `Bool`, `Int`, `Double`, `String`, and so
   forth (one case per §3b primitive). Its very purpose is to **keep
   users away from `Any`**: when a slot must hold "one of the basic
-  types", it is a `Primitives`, a closed sum you can `switch` over
+  types", it is a `SION`, a closed sum you can `switch` over
   exhaustively (§7) — not the anything-goes escape hatch.
 
   ```swift
-  let mixed: [Primitives] = [1, "one", 2.0]
+  let mixed: [SION] = [1, "one", 2.0]
   for x in mixed {
       switch x {
       case let i = .Int:    print("integer \(i)")
@@ -554,22 +555,22 @@ string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bar
   ```
 
   *(Case spelling above is provisional; see OPEN below.)*
-* **`Primitives` is a flat union** — the same model as `T?` (§3a).
-  There is no box: a value in a `Primitives` slot *is* itself, and
-  **`x.Type` reports `Int`, not `Primitives`**:
+* **`SION` is a flat union** — the same model as `T?` (§3a).
+  There is no box: a value in a `SION` slot *is* itself, and
+  **`x.Type` reports `Int`, not `SION`**:
 
   ```swift
-  let mixed = [1, "one", 2.0]   // [Primitives]
+  let mixed: [SION] = [1, "one", 2.0]
   mixed[0].type                 // Int — the lift is invisible at runtime
   ```
 
   `switch`'s `case let i = .Int` *classifies* rather than unwraps —
   `i` binds the value itself. swiftalk's two built-in unions are thus
-  the same animal: `T?` is the union of `T` with `Nil`; `Primitives`
+  the same animal: `T?` is the union of `T` with `Nil`; `SION`
   is the union of the SION types. (User-defined enums with associated
   values remain real, boxing enums — flatness is a property of these
   built-in unions, not of `enum` in general.)
-* **`Primitives` is SION-complete** — and therefore JSON-complete,
+* **`SION` is the serialization roster** — and therefore JSON-complete,
   since SION is upper-compatible with JSON.
   [SION](https://github.com/dankogai/swift-sion) is to swiftalk what
   JSON is to JavaScript: the native serialization format. The case
@@ -577,13 +578,13 @@ string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bar
 
   * `nil`, `Bool`, `Int` (64-bit, distinct from `Double` — exactly
     §3b), `Double`, `String`, `Data`, `Date`,
-  * `Array` of `Primitives`, `Dictionary` of `Primitives` keys *and*
+  * `Array` of `SION`, `Dictionary` of `SION` keys *and*
     values (SION allows non-`String` keys, as does swiftalk).
 
-  A parsed SION (or JSON) document *is* a `Primitives` value, and any
-  `Primitives` value serializes to SION losslessly.
+  A parsed SION (or JSON) document *is* a `SION` value, and any
+  `SION` value serializes to SION losslessly.
 * Consequence for §3b: **`Date` joins the basic-type roster** (SION
-  has it natively; a serialization-complete `Primitives` needs it).
+  has it natively; a serialization-complete `SION` needs it).
   Representation and literal syntax **OPEN** (SION spells it
   `.Date(x)` with a Unix-epoch `Double`).
 * User-defined enums remain the idiom for richer unions.
@@ -591,7 +592,8 @@ string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bar
   spelled as enums, and `element.Type` / pattern matching handle the
   dispatch when iterating mixed sequences.
 * **Inference is homogeneous-or-annotate — REVISED (round 59,
-  revising round 18/21's implicit `[Primitives]` inference)**: a
+  revising round 18/21's implicit `[Primitives]` inference; the empty
+  literal's default is round 181's)**: a
   homogeneous literal infers its element type — `let ary = [0, 1, 2,
   3]` is `[Int]`, `[0: "zero", 1: "one"]` is `[Int: String]`
   (recursively: `[[1, 2], [3]]` is `[[Int]]`). A heterogeneous
@@ -599,17 +601,19 @@ string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bar
   does not infer; you must say what you mean:
 
   ```swift
-  let ok: [Primitives] = [0.0, 1, 2, 3]   // the closed SION-ish sum
+  let ok: [SION] = [0.0, 1, 2, 3]         // the closed data sum
   let s: SION = [1, "one", Data([255])]   // full SION roster, Data/Date included
   var a: Any = [0.0, 1, {}]               // the escape hatch, spelled out
   ```
 
-  The annotation vocabulary (round 59): **`Primitives`** admits the
-  scalar roster plus Arrays/Dictionaries thereof; **`SION`** is
-  Primitives plus `Data` and `Date` (the full serialization roster);
-  **`Any`** admits everything — and an `Any` binding may retype
-  (`var a: Any = 1; a = "s"` holds; the §3 lock is `Any`). All three
-  are annotation vocabulary only for now — not values (OPEN: reify).
+  The annotation vocabulary (round 59; `Primitives`, SION minus `Data`
+  and `Date`, retired in round 181): **`SION`** admits the scalar
+  roster plus `Data` and `Date` and Arrays/Dictionaries thereof (the
+  full serialization roster); **`Any`** admits everything — and an
+  `Any` binding may retype (`var a: Any = 1; a = "s"` holds; the §3
+  lock is `Any`). Both were annotation vocabulary only then; `SION`
+  became a type in round 97 and a parameter value in round 181, `Any`
+  stays annotation-only.
   `Any` still never arises from inference. Mixed literals as bare
   *expressions* still evaluate — dynamism intact; only inference
   refuses to guess. Inferred locks **enforce**: `var a = [1, 2]`
@@ -618,7 +622,7 @@ string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bar
   inference); arrays are dense — nil elements need `[Int?]`, and a
   **sparse array is a Dictionary**, like JS and PHP. Annotations are
   now structural and recursive: `[T]`, `[K: V]`, `[String: [Int?]]?`.
-* **OPEN — remaining `Primitives` details**: SION's `Ext` (MsgPack
+* **OPEN — remaining `SION` details**: SION's `Ext` (MsgPack
   extension type) — mirror it or leave it to the serializer?
   `BigInt` (not in SION today)? case naming (`.Int` mirroring the
   type name vs. Swift-lowercase `.int`; the `nil` case vs. the
@@ -1151,7 +1155,7 @@ is `[Int?]`, still refusing a String — and a container of nothing
 but `nil` is `[Any]`; a Dictionary's values were optional already
 (round 35). A tuple element that is `nil` destructures. What stays:
 round 59's homogeneous-or-annotate rule for *mixed* literals —
-`[1, "a"]` and a mixed-key Dictionary still want `[Primitives]`,
+`[1, "a"]` and a mixed-key Dictionary still want `[SION]`,
 `SION`, or `Any` spelled out, the user's decision then, not
 revisited here.
 
@@ -1322,8 +1326,8 @@ bitwise demonstration.
 **`typealias` — DECIDED (round 110)** ("We haven't implemented
 typealias yet"). Swift's, for the annotation vocabulary: `typealias
 Name = Type` where `Type` is anything an annotation can say — a
-builtin, a user struct or enum, `[T]`, `[K: V]`, `T?`, `Any`/`SION`/
-`Primitives`, or another alias. Resolution happens once, where the
+builtin, a user struct or enum, `[T]`, `[K: V]`, `T?`, `Any`/`SION`,
+or another alias. Resolution happens once, where the
 annotation is used (a declaration, a struct property, an enum
 payload), and locks are stored resolved, so the rest of the type
 discipline never meets an alias. An alias to a plain type is bound to
@@ -1530,6 +1534,38 @@ that had nothing to look at — an empty `[[Int]]` joined to `""`
 now joins to an empty `[Int]`, as `[String]()` still joins to `""`.
 An unstamped empty Array joins to `""` as before.
 
+**An empty literal is data — DECIDED (round 181)** ("Make `SION` a
+default element type of `[]` and the value type of `[:]`. remove
+`Primitives` since `SION` must be able to handle all cases that
+`Primitives` covered"). Round 59 left the empty literal as the one way
+to a heterogeneous container without spelling a union: `var a = []`
+bound the erased `Array`, took a Function next to an Int, and never
+said more than `Array`. Now an empty container bound without an
+annotation takes the data default — `[]` is `[SION]`, `[:]` is `[SION:
+SION]`, `Set()` is `Set<SION>` (`Array()` and `Dictionary()` likewise)
+— and the binding enforces it: a Function, Range, Tuple, struct, or
+actor is refused with SION named as the type; nil, the scalars, Data,
+Date, and containers of them are admitted. The default is a binding's
+decision, not a stamp the literal carries: an unbound `[]` still lands
+in any typed slot (`var b: [Int] = []`, `S(xs: [])`), an empty element
+adopts its siblings' type (`[[], [1]]` is `[[Int]]`, which round 59
+refused as `Array` vs `[Int]`; `[[]]` is `[[SION]]`), and the
+operations that stamp a derived container from its contents stamp
+nothing when there are none, so an empty `Set(x)` of an unknowable
+source reads as `Set<SION>` without locking a later `Set<Int>` slot
+out. Once bound, the decision stands: `var a = []` then `var b: [Int]
+= a` is refused, `[SION]` into `[Int]`. A `SION` lock now admits a
+stamped `[Int]` or `[String: Int]` by type and not only by contents,
+so `var s: [SION] = xs` holds where it did not. `SION` is a parameter
+value — `[].Type.Element` is `SION`, callable as `SION(json:)` — where
+round 59 had it annotation-only; `Any` stays so. `Primitives` — SION
+minus Data and Date — is retired: SION handles every case it did, and
+two rosters a Data apart earned their keep for no one. A deliberate
+divergence from Swift, where a bare `[]` does not compile: swiftalk
+checks at binding and at every write, so a default costs nothing that
+Swift's refusal buys, and `var lines = []` in a loop is what a script
+writes.
+
 **`keys` and `values` keep the stamp — DECIDED (round 180)** ("Make
 `keys` and `values` keep the stamp too"). A `[K: V]`'s `keys` are a
 `Set<K>` and its `values` a `[V]` by stamp, empty or not — the
@@ -1549,8 +1585,9 @@ through it — `[Int].Element("42")` is `Int("42")`, and `[[Int]]
 no parameters to give and says so (`Array.Element` is a type error
 naming the parameterized spelling), an Array has no `Key`, a
 Dictionary no `Element`, and a parameter that is annotation-only —
-`Any`, `Primitives`, `SION` — is an error by its spelling, since
-round 59's rule that those are not values stands. (`Int?` was on that
+`Any` — is an error by its spelling, since round 59's rule that it is
+not a value stands (`SION` is one since round 181, and `Primitives`
+is gone). (`Int?` was on that
 list for one round; round 167 made it a value.)
 
 **`Optional<T>`, `T?`, `Set<T>` as expressions — DECIDED (round 167)**
@@ -1926,8 +1963,8 @@ stability, Objective-C interop.
   and what §2.4's coroutines can feed).
 * **`Equatable`, `Hashable`, `Comparable` exist as protocols, and
   built-in types conform natively.** `Hashable` is what gates
-  dictionary keys — and since SION dictionaries admit any `Primitives`
-  key (§3c), every `Primitives` type hashes natively. (**OPEN**:
+  dictionary keys — and since SION dictionaries admit any SION
+  key (§3c), every SION type hashes natively. (**OPEN**:
   exact per-type coverage — `Function` equality (identity?),
   which types are `Comparable` (`Int`/`Double`/`String`/`Date`
   surely; `Array` lexicographically?); whether user types conform by

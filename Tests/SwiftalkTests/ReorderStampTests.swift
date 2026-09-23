@@ -23,10 +23,10 @@ struct ReorderStampTests {
         #expect(try eval("var r = [Int]().sorted()\nr.append(1)\nr") == .array([.int(1)]))
     }
 
-    @Test("what stays erased: nothing to infer and nothing known — an empty map's, a mixed Array's")
+    @Test("what stays erased: a mixed Array's; nothing to infer and nothing known reads as the data default (round 181)")
     func erased() throws {
-        #expect(try eval("[].reversed().Type.String()") == .string("Array"))
-        #expect(try eval("[Int]().map { $0 }.reversed().Type.String()") == .string("Array"))
+        #expect(try eval("[].reversed().Type.String()") == .string("[SION]"))
+        #expect(try eval("[Int]().map { $0 }.reversed().Type.String()") == .string("[SION]"))
         #expect(try eval("[1, \"a\"].reversed().Type.String()") == .string("Array"))
         #expect(try eval("[1, \"a\"].reversed()") == .array([.string("a"), .int(1)]))
     }

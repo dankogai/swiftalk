@@ -20,12 +20,12 @@ struct SetStampTests {
         #expect(try eval("Set([1, 2]).filter { false }.Type.String()") == .string("Set<Int>"))
     }
 
-    @Test("what stays erased: mixed elements, an empty result of an unknowable source, a mixed Set(a, b)")
+    @Test("what stays erased: mixed elements, a mixed Set(a, b); an empty result of an unknowable source reads as the data default (round 181)")
     func erased() throws {
         #expect(try eval("Set([1, \"a\"]).Type.String()") == .string("Set"))
         #expect(try eval("Set([1, \"a\"]).count") == .int(2))
-        #expect(try eval("Set([].map { $0 }).Type.String()") == .string("Set"))
-        #expect(try eval("Set((1...3).filter { false }.map { $0 }).Type.String()") == .string("Set"))
+        #expect(try eval("Set([].map { $0 }).Type.String()") == .string("Set<SION>"))
+        #expect(try eval("Set((1...3).filter { false }.map { $0 }).Type.String()") == .string("Set<SION>"))
         #expect(try eval("Set(1, \"a\").Type.String()") == .string("Set"))
     }
 }

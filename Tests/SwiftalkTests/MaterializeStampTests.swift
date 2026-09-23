@@ -3,7 +3,7 @@ import Testing
 
 @Suite("Array(x) and x.Array() keep or infer the stamp (round 171)")
 struct MaterializeStampTests {
-    @Test("a Sequence materializes with the stamp its elements infer — or the one its source is known to yield; mixed, or unknowable and empty, erased")
+    @Test("a Sequence materializes with the stamp its elements infer — or the one its source is known to yield; mixed erased; unknowable and empty, the data default (round 181)")
     func sequences() throws {
         #expect(try eval("(1...3).Array().Type.String()") == .string("[Int]"))
         #expect(try eval("(1...3).map { \"\\($0)\" }.Array().Type.String()") == .string("[String]"))
@@ -12,8 +12,8 @@ struct MaterializeStampTests {
         #expect(try eval("(1...).prefix(0).Array().Type.String()") == .string("[Int]"))         // a Range yields Ints, and prefix keeps that
         #expect(try eval("(1...3).dropFirst(9).Array().Type.String()") == .string("[Int]"))
         #expect(try eval("(1...3).filter { false }.Type.String()") == .string("[Int]"))         // eager on a bounded Range, stamped the same
-        #expect(try eval("(1...3).filter { false }.map { $0 }.Array().Type.String()") == .string("Array"))   // map: unknowable
-        #expect(try eval("Sequence { }.Array().Type.String()") == .string("Array"))                       // a coroutine: unknowable
+        #expect(try eval("(1...3).filter { false }.map { $0 }.Array().Type.String()") == .string("[SION]"))  // map: unknowable, empty
+        #expect(try eval("Sequence { }.Array().Type.String()") == .string("[SION]"))                      // a coroutine: unknowable, empty
         #expect(try eval("\"\".Array().Type.String()") == .string("[String]"))
         #expect(try eval("Data().Array().Type.String()") == .string("[Byte]"))
         #expect(try eval("Sequence { yield(1); yield(\"a\") }.Array().Type.String()") == .string("Array"))

@@ -43,7 +43,7 @@ struct ReversedJoinedTests {
 
     @Test("joined refuses a mix, a wrong separator, and non-joinable elements")
     func joinedErrors() throws {
-        #expect(throws: SwiftalkError.self) { try eval("let m: [Primitives] = [\"a\", 1]\nm.joined()") }
+        #expect(throws: SwiftalkError.self) { try eval("let m: [SION] = [\"a\", 1]\nm.joined()") }
         #expect(throws: SwiftalkError.self) { try eval("[1, 2].joined()") }
         #expect(throws: SwiftalkError.self) { try eval("[[1], \"a\"].joined()") }
         #expect(throws: SwiftalkError.self) { try eval("[\"a\", \"b\"].joined([0])") }

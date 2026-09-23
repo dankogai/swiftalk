@@ -55,7 +55,7 @@ enum Builtins {
     /// (round 171): by what the elements infer, else — empty — by what
     /// the source is known to yield; `Set<T>` for a `[T]`'s or a Range's.
     static func stampedSet(_ elements: Set<Value>, from source: Value?) -> Value {
-        if let inferred = try? inferLock(.set(elements), for: "Set"), !inferred.parameters.isEmpty {
+        if let inferred = try? inferLock(.set(elements), for: "Set", defaulting: false), !inferred.parameters.isEmpty {
             return .set(elements, lock: inferred)
         }
         if elements.isEmpty, let source, let known = knownElementLock(of: source) {
@@ -155,7 +155,7 @@ enum Builtins {
                 return .array(Array(s), lock: lock.map { TypeAnnotation(name: "Array", optional: false, parameters: $0.parameters) })
             case let v?:
                 let out = try collect(v)                          // any Sequence
-                if let inferred = try? inferLock(.array(out), for: "Array"), !inferred.parameters.isEmpty {
+                if let inferred = try? inferLock(.array(out), for: "Array", defaulting: false), !inferred.parameters.isEmpty {
                     return .array(out, lock: inferred)
                 }
                 if out.isEmpty, let known = knownElementLock(of: v) {   // a Range's Ints, through filter/prefix/dropFirst
@@ -183,7 +183,7 @@ enum Builtins {
                     }
                     d[kv[0]] = kv[1]
                 }
-                if let inferred = try? inferLock(.dictionary(d), for: "Dictionary"), !inferred.parameters.isEmpty {
+                if let inferred = try? inferLock(.dictionary(d), for: "Dictionary", defaulting: false), !inferred.parameters.isEmpty {
                     return .dictionary(d, lock: inferred)
                 }
                 return .dictionary(d)

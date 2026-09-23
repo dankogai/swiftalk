@@ -7,7 +7,12 @@ Bool, Int, Double, String, Data, Date, and Arrays/Dictionaries of
 them, with *any* key). There is no box. `SION(text)` returns the Array
 or Dictionary itself, and every such value's `.String()` *is* its
 SION text — the round-trip law `eval(x.String()) == x` (§3d) and
-"SION reads what swiftalk writes" are the same fact.
+"SION reads what swiftalk writes" are the same fact. Since round 181
+`SION` is also the **default element type**: `var a = []` is a
+`[SION]`, `[:]` a `[SION: SION]`, `Set()` a `Set<SION>` — an untyped
+container holds data, appending a Function to it is a type error, and
+`[].Type.Element` is `SION`. (`Primitives`, the roster minus Data and
+Date, was retired then; `SION` covers it.)
 
 | Form | Meaning |
 |---|---|
