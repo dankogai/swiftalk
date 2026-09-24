@@ -6,14 +6,17 @@ Libraries written *in* swiftalk, imported with `import from
 (see [documents/module.md](../documents/module.md)). Each is checked by the test
 suite. Since round 182 a directory here may instead be a **native
 module** written in Swift — a target of the root package built as
-`lib<Name>.dylib` and imported by its bare name, `import from "Env"` —
+`lib<Name>.dylib` and imported by its bare name, `import from "POSIX"` —
 named with a capital like a type, by convention (round 183).
 
-* **[Env/](Env/EnvModule.swift)** — the process environment, and the
-  worked example of a native module (round 182): `get(name)` (nil
-  when unset), `set(name, value)`, `unset(name)`, `all()` (a `[String:
-  String]`), the constant `platform`; sixty lines showing functions
-  over Values, an error, a constant, and the one C entry point.
+* **[POSIX/](POSIX/POSIXModule.swift)** — the process environment
+  and file I/O (round 188; the `Env` module of rounds 182–183 grown
+  up): `getenv`/`setenv`/`unsetenv`/`environ`, `getpid`, `getcwd`/
+  `chdir`, `uname`, `exit`; `open`/`close`/`read`/`write`/`lseek`,
+  `readFile`/`writeFile`, `stat`, `readdir`, `mkdir`/`rmdir`/`unlink`/
+  `rename`, and the `O_*`/`SEEK_*`/`STD*_FILENO` constants. C's names,
+  every failure a `.failure` with strerror's words. Not in the
+  prelude — `import from "POSIX"`. [documents/POSIX.md](../documents/POSIX.md).
 * **[Regex/](Regex/RegexModule.swift)** — regular expressions (round
   186; a core type from round 86 until then): the `Regex` type behind
   the literal `/pattern/flags` — whose grammar stays in the core — and

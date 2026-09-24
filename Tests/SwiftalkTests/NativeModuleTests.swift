@@ -56,38 +56,29 @@ struct NativeModuleTests {
             #expect(error.description.contains("/nonexistent"))
             #expect(error.description.contains("./nowhere.swt"))
         }
-        #expect(ModuleSystem.isBare("Env"))
-        #expect(!ModuleSystem.isBare("./Env"))
-        #expect(!ModuleSystem.isBare("Env.swt"))
-        #expect(!ModuleSystem.isBare("https://x/Env"))
-        #expect(!ModuleSystem.isBare("libEnv" + Swiftalk.Module.librarySuffix))
+        #expect(ModuleSystem.isBare("POSIX"))
+        #expect(!ModuleSystem.isBare("./POSIX"))
+        #expect(!ModuleSystem.isBare("POSIX.swt"))
+        #expect(!ModuleSystem.isBare("https://x/POSIX"))
+        #expect(!ModuleSystem.isBare("libPOSIX" + Swiftalk.Module.librarySuffix))
     }
 
-    @Test("the example module loads from the module path as libEnv: get, set, unset, all, platform; and by its path")
+    @Test("the POSIX module loads from the module path as libPOSIX: the environment; and by its path")
     func dynamic() throws {
-        let dir = try #require(buildDirectory(), "no lib\("Env")\(Swiftalk.Module.librarySuffix) beside the test — build it: swift build")
+        let dir = try #require(buildDirectory(), "no libPOSIX beside the test — build it: swift build")
         let i = Swiftalk.Interpreter()
         i.modulePath = ["/nonexistent", dir]
-        #expect(try i.eval("import from \"Env\"\nset(\"SWIFTALK_TEST\", \"one\")\nget(\"SWIFTALK_TEST\")") == .string("one"))
-        #expect(try i.eval("unset(\"SWIFTALK_TEST\")\nget(\"SWIFTALK_TEST\")") == .nil)
-        #expect(try i.eval("all().Type.String()") == .string("[String: String]"))
-        #expect(try i.eval("all()[\"PATH\"] == get(\"PATH\")") == .bool(true))
-        #expect(try i.eval("platform") == .string(platform))
-        #expect(throws: SwiftalkError.self) { try i.eval("get(1)") }
-        #expect(throws: SwiftalkError.self) { try i.eval("set(\"A\")") }
+        #expect(try i.eval("import from \"POSIX\"\nsetenv(\"SWIFTALK_TEST\", \"one\")!\ngetenv(\"SWIFTALK_TEST\")") == .string("one"))
+        #expect(try i.eval("unsetenv(\"SWIFTALK_TEST\")!\ngetenv(\"SWIFTALK_TEST\")") == .nil)
+        #expect(try i.eval("environ().Type.String()") == .string("[String: String]"))
+        #expect(try i.eval("environ()[\"PATH\"] == getenv(\"PATH\")") == .bool(true))
+        #expect(throws: SwiftalkError.self) { try i.eval("getenv(1)") }
+        #expect(throws: SwiftalkError.self) { try i.eval("setenv(\"A\")") }
         let j = Swiftalk.Interpreter()
-        let path = dir + "/" + Swiftalk.Module.fileName(for: "Env")
-        #expect(try j.eval("import Env from \"\(path)\"\nEnv.platform") == .string(platform))
-        #expect(throws: SwiftalkError.self) { try Swiftalk.Interpreter().eval("import from \"Env\"") }   // an empty module path
+        let path = dir + "/" + Swiftalk.Module.fileName(for: "POSIX")
+        #expect(try j.eval("import POSIX from \"\(path)\"\nPOSIX.getpid() > 0") == .bool(true))
+        #expect(throws: SwiftalkError.self) { try Swiftalk.Interpreter().eval("import from \"POSIX\"") }   // an empty module path
         #expect(throws: SwiftalkError.self) { try Swiftalk.Module.load(path: "/nonexistent" + Swiftalk.Module.librarySuffix) }
-    }
-
-    private var platform: String {
-        #if os(macOS)
-        "darwin"
-        #else
-        "linux"
-        #endif
     }
 
 }

@@ -89,6 +89,7 @@ i * i == Complex(-1.0, 0.0)                   // true — and (*)(i, i), reduce(
 // import Net from "Net"; extension Net { static let resolve = { host in ... } } — a namespace is a type whose statics are the exports, so an extension adds to a module and Net() is refused (round 184)
 // the top level keeps eval: print/debugPrint are the IO module's, fetch/Response the Net module's — both preimported by the CLI as its prelude — and zip, sleep are Sequence.zip, Task.sleep (round 185)
 // /re/ is grammar, Regex is a module: the engine is modules/Regex (libRegex.dylib, preimported), the literal calls the Regex type in scope and is an error without it; modules now own values (Value.host), export types, and extend core types (round 186)
+// import from "POSIX"; readFile("notes.txt")!.String(.utf8); open(path, [O_WRONLY, O_CREAT])! — Env grew into POSIX: the environment and file I/O under C's names, every failure a Result (round 188)
 // Complex(1.0, -2.0).String() == "(1.0-2.0.i)" — an expression that re-enters; Complex("(1.0-2.0.i)") reads it (round 154)
 // and exact fractions: modules/Rational.swt — Rational(3, 4) + 1 == Rational(7, 4), Double(Rational(3, 4)) == 0.75, Rational(3, 4).String() == "(3/4)", Rational("(3/4)"), 1.over(3)
 let hex    = 255.String(.hex)                 // "0xff"; .String(.sign, .hex) is "+0xff"; radix: 16 for bare "ff"
@@ -143,4 +144,4 @@ swift test           # the suite
 
 The library is `Core/` — a dynamic library product in a package of
 its own since round 182, so the CLI, the tests, and the native modules
-(`modules/Env/` and `modules/Regex/`, built as `libEnv.dylib` and `libRegex.dylib`) all share one copy of it.
+(`modules/POSIX/` and `modules/Regex/`, built as `libPOSIX.dylib` and `libRegex.dylib`) all share one copy of it.

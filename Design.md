@@ -2377,7 +2377,7 @@ copy of `Value` next to a plugin's dynamic one is two `Value`s, two
 catch. So the root package is the umbrella — the CLI, the tests, the
 native modules — all depending on `Core`'s product, and `swift build`
 and `swift test` at the root do what they did. The first module is
-`Env`, the process environment (`get`, `set`, `unset`, `all`, and the
+`Env` (`POSIX` since round 188), the process environment (`get`, `set`, `unset`, `all`, and the
 constant `platform`), chosen to be small: it shows functions over
 Values, an error, a constant, and the entry point in sixty lines, and
 is built as `libEnv.dylib` beside the CLI, which puts its own
@@ -2506,6 +2506,29 @@ unknown option refused with the usage on stderr and exit 2. What
 `--no-prelude` shows is the round-185/186 line drawn: the top level
 alone has `eval`, and everything else is a module the CLI chose to
 preimport.
+
+**`Env` is `POSIX`, with file I/O — DECIDED (round 188)** ("Now move
+`Env` to `POSIX` and add file I/O"). The example module grows into
+the one round 181's assessment planned: `modules/POSIX`, `libPOSIX
+.dylib`, exporting the environment under C's names (`getenv`,
+`setenv`, `unsetenv`, `environ`), the process (`getpid`, `getcwd`,
+`chdir`, `uname`, `exit`), descriptors (`open`, `close`, `read`,
+`write`, `lseek`), files and directories (`readFile`, `writeFile`,
+`stat`, `readdir`, `mkdir`, `rmdir`, `unlink`, `rename`), and the
+`O_*`, `SEEK_*`, `STD*_FILENO` constants. Three decisions: **every
+failure is a `Result`** — `.failure("open(x): No such file or
+directory")`, strerror's words after the call — so `open(p)!` traps,
+`?` propagates, `??` defaults, as `fetch` already answers (`getenv`
+alone answers nil, nil being its answer; `getpid` cannot fail); a
+POSIX-faithful nil-and-`errno()` was the alternative, and it loses
+the message. **Flags are an Int or an Array of Ints**, `open(path,
+[O_WRONLY, O_CREAT])`, because `|` is swiftalk's Set operator and
+`.bitOr` chains read badly in a system call. **Not in the prelude**:
+`import from "POSIX"`, as Node's `fs` is required — a script that
+touches the filesystem says so at its top. `Value.success` and
+`Value.failure` are public for it, so any module answers with a
+Result. The core is untouched otherwise; what POSIX lacks is a
+function away.
 
 ## Dialogue log
 

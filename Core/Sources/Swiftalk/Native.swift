@@ -4,6 +4,12 @@ import Darwin
 import Glibc
 #endif
 
+public extension Swiftalk.Value {
+    /// `.success(v)` / `.failure(m)` as Values (round 188) — see `Swiftalk.success`.
+    static func success(_ value: Swiftalk.Value) -> Swiftalk.Value { Swiftalk.success(value) }
+    static func failure(_ message: String) -> Swiftalk.Value { Swiftalk.failure(message) }
+}
+
 public extension Swiftalk.HostValue {
     func patternMatch(_ subject: Swiftalk.Value, binding: Bool) throws -> Swiftalk.Value? {
         if binding { throw Swiftalk.Error.type("a \(typeName) cannot be a case binding's source") }
@@ -40,6 +46,16 @@ extension Swiftalk {
         func patternMatch(_ subject: Value, binding: Bool) throws -> Value?
     }
 
+    /// A `Result` for a module to answer with (round 188): `.success(v)`
+    /// and `.failure(message)` — what `fetch` gives, what `!`, `?`, `??`,
+    /// `.then`, `.catch` take.
+    public static func success(_ value: Value) -> Value {
+        try! constructEnumCase(Builtins.resultType, "success", args: [(nil, value)], called: true)
+    }
+    public static func failure(_ message: String) -> Value {
+        try! constructEnumCase(Builtins.resultType, "failure", args: [(nil, .string(message))], called: true)
+    }
+
     /// Calls a swiftalk Function value from a module (round 186): the
     /// arguments unlabeled, in order.
     public static func call(_ function: Value, _ args: [Value]) throws -> Value {
@@ -50,7 +66,7 @@ extension Swiftalk {
     }
 
     /// A native module (round 182): exports written in Swift, imported
-    /// by a bare name — `import (get) from "Env"` — the way a `.swt`
+    /// by a bare name — `import (getenv) from "POSIX"` — the way a `.swt`
     /// file's are by its path. A module is a name and an ordered list of
     /// exports; each export is an ordinary Value, so a Swift closure
     /// becomes a swiftalk Function and a constant is just a value.

@@ -28,6 +28,7 @@ REPL). Sections in [Design.md](../Design.md) are cited as §n.
 | `Result` | built-in enum: `.success` / `.failure` | [Result.md](Result.md) |
 | `IO` | the module of `print` and `debugPrint` — preimported by the CLI (round 185) | [IO.md](IO.md) |
 | `Net` | the module of `fetch` and `Response` — preimported by the CLI (rounds 163, 185) | [Net.md](Net.md) |
+| `POSIX` | the environment and file I/O — a module to import (round 188) | [POSIX.md](POSIX.md) |
 | `struct` | user value types | [struct.md](struct.md) |
 | `enum` | user sum types | [enum.md](enum.md) |
 

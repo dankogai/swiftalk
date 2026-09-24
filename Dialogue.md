@@ -2661,3 +2661,11 @@ the history. (Moved out of Design.md in round 65.)
   does, and a bare interpreter still imports on request. The CLI's
   first options pass came with it — `--help`, `--`, an unknown option
   refused — and a test that runs the built binary.
+
+* **2026-09-25, round 188 — `Env` is `POSIX`, with file I/O** ("Now
+  move `Env` to `POSIX` and add file I/O"). The environment under C's
+  names, the process, descriptors, files and directories, the
+  constants — every failure a `Result` with strerror's words, flags an
+  Int or an Array of them (`|` being the Set operator), the module
+  imported, not preimported. `Value.success`/`failure` went public
+  for it.

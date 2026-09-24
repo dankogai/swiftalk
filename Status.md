@@ -222,6 +222,41 @@ Set(
 )
 ```
 
+**`POSIX`** (round 188) — the environment and file I/O, `import from
+"POSIX"` (not in the prelude); C's names, every failure a `Result`
+with strerror's words, flags an Int or an Array of them:
+
+```text
+swiftalk> import from "POSIX"
+swiftalk> writeFile("notes.txt", "hello\n")
+Result.success(6)
+swiftalk> readFile("notes.txt")!.String(.utf8)
+"hello\n"
+swiftalk> stat("notes.txt")!["size"]
+6
+swiftalk> let fd = open("notes.txt", [O_WRONLY, O_APPEND])!
+3
+swiftalk> write(fd, "world\n")
+Result.success(6)
+swiftalk> close(fd)
+Result.success(nil)
+swiftalk> readFile("notes.txt")!.String(.utf8)
+"hello\nworld\n"
+swiftalk> readdir(".")!.contains("notes.txt")
+true
+swiftalk> unlink("notes.txt")
+Result.success(nil)
+swiftalk> readFile("notes.txt")
+Result.failure("readFile(notes.txt): No such file or directory")
+swiftalk> readFile("notes.txt") ?? Data()
+.Data("")
+swiftalk> uname()!["sysname"]
+"Darwin"
+swiftalk> import P from "POSIX"
+swiftalk> P.getpid() > 0
+true
+```
+
 **`swiftalk --no-prelude`** (round 187) — the CLI without its prelude:
 only `eval` at the top level, and a script imports what it wants
 (`--help` for the usage; options come before the script path):
@@ -314,12 +349,12 @@ swiftalk> G.perimeter(3.0, 4.0)
 14.0
 swiftalk> G()
 type error: G is a module, not a type with instances — its members are G.name
-swiftalk> import Env from "Env"
-swiftalk> extension Env { static let home = { Env.get("HOME") } }
-swiftalk> Env.home() == Env.get("HOME")
+swiftalk> import POSIX from "POSIX"
+swiftalk> extension POSIX { static let home = { POSIX.getenv("HOME") } }
+swiftalk> POSIX.home() == POSIX.getenv("HOME")
 true
-swiftalk> import E from "Env"               // the same object, aliased
-swiftalk> E == Env
+swiftalk> import P from "POSIX"             // the same object, aliased
+swiftalk> P == POSIX
 true
 ```
 
@@ -327,21 +362,20 @@ true
 name: registered by an embedder, or loaded from `lib<Name>.dylib`
 beside the CLI (`SWIFTALK_MODULE_PATH` overrides). The core is a
 dynamic library so host and module share one `Value`. `Env`, the
-process environment, is the first — named with a capital like a type,
-by convention (round 183):
+process environment, was the first — named with a capital like a type,
+by convention (round 183) — and is `POSIX` since round 188:
 
 ```text
-swiftalk> import (get, set, platform) from "Env"
-swiftalk> platform
-"darwin"
-swiftalk> set("GREETING", "hello")
-swiftalk> get("GREETING")
+swiftalk> import (getenv, setenv, getpid) from "POSIX"
+swiftalk> setenv("GREETING", "hello")
+Result.success(nil)
+swiftalk> getenv("GREETING")
 "hello"
-swiftalk> import Env from "Env"
-swiftalk> Env.all()["GREETING"]
+swiftalk> import POSIX from "POSIX"
+swiftalk> POSIX.environ()["GREETING"]
 "hello"
-swiftalk> get(1)                          // the module's error is the caller's
-type error: Env.get(name) takes one String
+swiftalk> getenv(1)                       // the module's error is the caller's
+type error: getenv(name) takes a String, not Int
 swiftalk> import from "nowhere"
 type error: no module named 'nowhere' — no libnowhere.dylib on the module path (.build/debug); a swiftalk file is imported by its path, "./nowhere.swt"
 ```

@@ -26,7 +26,7 @@ extension Swiftalk {
         /// is a `.failure` saying so; the CLI supplies curl.
         public var fetcher: ((FetchRequest) throws -> FetchResponse)? = nil
         /// Directories searched for a native module by bare name (round
-        /// 182): `import from "Env"` looks for `libEnv.dylib` (`.so` on
+        /// 182): `import from "POSIX"` looks for `libPOSIX.dylib` (`.so` on
         /// Linux) in each, in order. Empty, the default: only registered
         /// modules resolve. The CLI puts its own directory here.
         public var modulePath: [String] = []
