@@ -12,7 +12,7 @@ struct KeysValuesStampTests {
         #expect(try eval("[1: \"a\"].values.Type.String()") == .string("[String]"))
         #expect(try eval("[1: \"a\"].values.filter { false }.Type.String()") == .string("[String]"))   // the stamp survives
         #expect(try eval("var d: [String: Int] = [:]\nd.keys.Type.String()") == .string("Set<String>"))
-        #expect(try eval("Dictionary(zip([1, 2], [\"a\", \"b\"])).values.sorted()") == .array([.string("a"), .string("b")]))
+        #expect(try eval("Dictionary(Sequence.zip([1, 2], [\"a\", \"b\"])).values.sorted()") == .array([.string("a"), .string("b")]))
         #expect(throws: SwiftalkError.self) { try eval("var v = [Int: String]().values\nv.append(1)") }
         #expect(throws: SwiftalkError.self) { try eval("var k = [Int: String]().keys\nk.insert(\"x\")") }
         #expect(try eval("var k = [Int: String]().keys\nk.insert(1)\nk") == .set([.int(1)]))

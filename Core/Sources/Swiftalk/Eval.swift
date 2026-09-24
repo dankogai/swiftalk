@@ -52,7 +52,6 @@ extension Swiftalk {
             environment.isFileScope = true
             modules = ModuleSystem(builtins: builtins)
             installBuiltins()
-            installPrelude()                                               // round 163: Response
             installEval(in: environment)                                   // round 122/123
             modules.fileScopeSetup = { [unowned self] scope in installEval(in: scope) }
         }
@@ -78,56 +77,7 @@ extension Swiftalk {
         /// The stdlib arrives as ordinary let-bound Function values in
         /// the global environment (§2.4) — not keywords.
         private func installBuiltins() {
-            let box = outputBox
-            declareBuiltin("print") { args in
-                // Raw display: Strings bare, everything else source form
-                // (round 35, completing round 23's display question).
-                box.write(try args.map(displayString).joined(separator: " ") + "\n")
-                return .nil
-            }
-            declareBuiltin("debugPrint") { args in
-                // .debugDescription for everything: quoted strings, hex
-                // numbers (round 37) — for the programmer's sake.
-                box.write(args.map { $0.sourceString(debug: true) }.joined(separator: " ") + "\n")
-                return .nil
-            }
-            declareBuiltin("zip") { args in
-                // Swift's zip(a, b) (round 174): pairs until the shorter side
-                // ends, as unlabeled 2-tuples. Lazy when either side is a
-                // lazy Sequence (or `a...`), else an Array stamped `[Tuple]`
-                // — the one element type a zip can have, even when empty.
-                guard args.count == 2 else { throw SwiftalkError.type("zip(a, b) takes exactly two Sequences") }
-                for side in args where !Builtins.conformance["Sequence"]!.contains(side.typeName) {
-                    throw SwiftalkError.type("zip(a, b): \(side.typeName) is not a Sequence")
-                }
-                if lazyBase(args[0]) != nil || lazyBase(args[1]) != nil {
-                    return .sequence(SequenceObject(kind: .zipped(args[0], args[1])))
-                }
-                let a = try iterator(of: args[0]), b = try iterator(of: args[1])
-                var pairs: [Value] = []
-                while let x = try a.next(), let y = try b.next() { pairs.append(.tuple([x, y], labels: [nil, nil])) }
-                return .array(pairs, lock: TypeAnnotation(name: "Array", optional: false,
-                                                          parameters: [TypeAnnotation(name: "Tuple", optional: false)]))
-            }
-            declareBuiltin("sleep") { args in
-                // sleep(seconds) suspends only the *current* context
-                // (§12, round 53) — parked tasks run meanwhile. At the
-                // top level it doubles as "run the loop for a while".
-                let seconds: Double
-                switch (args.count, args.first) {
-                case (1, .double(let d)?) where d >= 0: seconds = d
-                case (1, .int(let i)?) where i >= 0:    seconds = Double(i)
-                default:
-                    throw SwiftalkError.type("sleep(seconds) — a non-negative Int or Double")
-                }
-                guard let ctx = Scheduler.current else {
-                    throw SwiftalkError.type(
-                        "'sleep' inside a Sequence coroutine body is not (yet) supported")
-                }
-                try ctx.scheduler.sleep(seconds: seconds, from: ctx)
-                return .nil
-            }
-            installFetch()                                                 // round 163
+            installModules()                                               // round 185: IO, Net
             // Types and protocols are values too (round 39): the global
             // names Int, String, ..., Sequence, ... bind the singleton
             // objects that `.type` returns — identity comparison works.
@@ -144,28 +94,55 @@ extension Swiftalk {
                 value: .function(Builtins.resultType.constructor!)))
         }
 
-        /// Types the core declares in swiftalk rather than Swift (round
-        /// 163): evaluated once into the builtins scope at startup.
-        private func installPrelude() {
+        /// The modules the core ships (round 185): `IO` (`print`,
+        /// `debugPrint`) and `Net` (`fetch`, `Response`) — registered on
+        /// every Interpreter, imported by nobody until asked: `import from
+        /// "IO"`, or `preimport()` for the CLI's prelude. They live in the
+        /// core because they need what only it has — the output sink, the
+        /// scheduler, the fetcher hook.
+        private func installModules() {
+            let box = outputBox
+            let io = Module(name: "IO")
+            io.function("print") { args in
+                // Raw display: Strings bare, everything else source form
+                // (round 35, completing round 23's display question).
+                box.write(try args.map(displayString).joined(separator: " ") + "\n")
+                return .nil
+            }
+            io.function("debugPrint") { args in
+                // .debugDescription for everything: quoted strings, hex
+                // numbers (round 37) — for the programmer's sake.
+                box.write(args.map { $0.sourceString(debug: true) }.joined(separator: " ") + "\n")
+                return .nil
+            }
+            modules.register(io)
+
+            // Response is declared in swiftalk (round 163), in a scope of
+            // its own whose parent is the builtins.
+            let scratch = Environment(parent: builtins)
+            scratch.isFileScope = true
+            let response: Value
             do {
-                _ = try run(fetchPrelude, in: builtins)
+                _ = try run(fetchPrelude, in: scratch)
+                response = try scratch.lookup("Response")
             } catch {
                 fatalError("swiftalk prelude failed to load: \(error)")
             }
-        }
-
-        /// `fetch(url[, options])` (round 163): a Task whose value is a
-        /// Result. The request goes to `fetcher` on a worker thread while
-        /// the task is parked — other tasks run, fetches overlap.
-        private func installFetch() {
-            declareBuiltin("fetch") { [unowned self] args in
+            guard case .function(let responseFunction) = response, case .structType(let responseType) = responseFunction.role else {
+                fatalError("swiftalk prelude: Response is not a struct")
+            }
+            let net = Module(name: "Net")
+            net.export("Response", response)
+            // `fetch(url[, options])` (round 163): a Task whose value is a
+            // Result. The request goes to `fetcher` on a worker thread while
+            // the task is parked — other tasks run, fetches overlap.
+            net.function("fetch") { [unowned self] args in
                 let request = try FetchRequest(arguments: args)
                 guard let ctx = Scheduler.current else {
                     throw SwiftalkError.type("fetch inside a Sequence coroutine body is not (yet) supported")
                 }
                 let fetcher = self.fetcher
-                let builtins = self.builtins
-                let body = FunctionObject(parameters: [], body: [], closure: builtins) { _ in
+                let body = FunctionObject(parameters: [], body: [], closure: self.builtins) { _ in
                     func failure(_ message: String) throws -> Value {
                         try constructEnumCase(Builtins.resultType, "failure", args: [(nil, .string(message))], called: true)
                     }
@@ -182,18 +159,39 @@ extension Swiftalk {
                     case .failure(let error):
                         return try failure((error as? SwiftalkError)?.description ?? "\(error)")
                     case .success(let r):
-                        guard case .function(let f) = try builtins.lookup("Response"),
-                              case .structType(let st) = f.role else {
-                            return try failure("fetch: the Response type is missing")
-                        }
                         var headers: [Value: Value] = [:]
                         for (k, v) in r.headers { headers[.string(k.lowercased())] = .string(v) }
-                        let response = try constructStruct(st, args: [
+                        let response = try constructStruct(responseType, args: [
                             ("status", .int(Int64(r.status))), ("headers", .dictionary(headers)), ("body", .data(r.body))])
                         return try constructEnumCase(Builtins.resultType, "success", args: [(nil, response)], called: true)
                     }
                 }
                 return try ctx.scheduler.spawn(body, from: ctx)
+            }
+            modules.register(net)
+        }
+
+        /// Imports every export of the named modules into the builtins
+        /// scope (round 185) — the CLI's prelude: `IO` and `Net` by
+        /// default, so `print` and `fetch` are there as they always were,
+        /// for the program and for every module it imports. Names already
+        /// bound to the same value are skipped, so calling it twice is
+        /// harmless; a name bound to something else is an error. An
+        /// embedder that wants a silent interpreter never calls it.
+        public func preimport(_ specs: [String] = ["IO", "Net"]) throws {
+            modules.searchPath = modulePath
+            for spec in specs {
+                let module = try modules.load(spec)
+                for (name, value) in zip(module.names, module.values) {
+                    if let existing = try? builtins.lookup(name) {
+                        guard existing == value else {
+                            throw SwiftalkError.type("preimport: '\(name)' from '\(spec)' is already bound to something else")
+                        }
+                        continue
+                    }
+                    try builtins.declare(name, Binding(
+                        mutable: false, lock: TypeAnnotation(name: value.typeName, optional: true), value: value))
+                }
             }
         }
 
@@ -4276,6 +4274,28 @@ private func method(on receiver: Value, name: String,
         guard !called else { throw SwiftalkError.type("\(t).\(name) is a constant, not a function") }
         return v
     }
+    // Sequence.zip(a, b) (round 185; top-level zip from round 174 until then)
+    if case .function(let f) = receiver, name == "zip", SequenceStatics.isSequence(f.role) {
+        if let label = labeledArgs.compactMap(\.label).first {
+            throw SwiftalkError.type("Sequence.zip takes no argument label '\(label)'")
+        }
+        guard called else {
+            return .function(FunctionObject(parameters: [], body: [], closure: Builtins.emptyEnvironment,
+                                            builtin: { try SequenceStatics.zip($0) }))
+        }
+        return try SequenceStatics.zip(labeledArgs.map(\.value))
+    }
+    // Task.sleep(seconds) (round 185; top-level sleep from round 53 until then)
+    if case .function(let f) = receiver, case .type("Task") = f.role, name == "sleep" {
+        if let label = labeledArgs.compactMap(\.label).first {
+            throw SwiftalkError.type("Task.sleep takes no argument label '\(label)'")
+        }
+        guard called else {
+            return .function(FunctionObject(parameters: [], body: [], closure: Builtins.emptyEnvironment,
+                                            builtin: { try TaskStatics.sleep($0) }))
+        }
+        return try TaskStatics.sleep(labeledArgs.map(\.value))
+    }
     // Data.random(n) (round 116): n random bytes
     if case .function(let f) = receiver, case .type("Data") = f.role, name == "random" {
         guard called else {
@@ -5175,4 +5195,54 @@ private func method(on receiver: Value, name: String,
 
 private extension String {
     var capitalizedFirst: String { prefix(1).uppercased() + dropFirst() }
+}
+
+/// `Sequence.zip(a, b)` — Swift's `zip` (round 174, a static of Sequence
+/// since round 185): pairs until the shorter side ends, as unlabeled
+/// 2-tuples. Lazy when either side is a lazy Sequence (or `a...`), else
+/// an Array stamped `[Tuple]` — the one element type a zip can have,
+/// even when empty.
+enum SequenceStatics {
+    static func isSequence(_ role: FunctionObject.Role) -> Bool {
+        switch role {
+        case .protocol("Sequence"), .type("Sequence"): return true
+        default: return false
+        }
+    }
+
+    static func zip(_ args: [Value]) throws -> Value {
+        guard args.count == 2 else { throw SwiftalkError.type("Sequence.zip(a, b) takes exactly two Sequences") }
+        for side in args where !Builtins.conformance["Sequence"]!.contains(side.typeName) {
+            throw SwiftalkError.type("Sequence.zip(a, b): \(side.typeName) is not a Sequence")
+        }
+        if lazyBase(args[0]) != nil || lazyBase(args[1]) != nil {
+            return .sequence(SequenceObject(kind: .zipped(args[0], args[1])))
+        }
+        let a = try iterator(of: args[0]), b = try iterator(of: args[1])
+        var pairs: [Value] = []
+        while let x = try a.next(), let y = try b.next() { pairs.append(.tuple([x, y], labels: [nil, nil])) }
+        return .array(pairs, lock: TypeAnnotation(name: "Array", optional: false,
+                                                  parameters: [TypeAnnotation(name: "Tuple", optional: false)]))
+    }
+}
+
+/// `Task.sleep(seconds)` (round 53's top-level `sleep`, a static of Task
+/// since round 185, as Swift spells it): suspends only the *current*
+/// context (§12) — parked tasks run meanwhile. At the top level it
+/// doubles as "run the loop for a while".
+enum TaskStatics {
+    static func sleep(_ args: [Value]) throws -> Value {
+        let seconds: Double
+        switch (args.count, args.first) {
+        case (1, .double(let d)?) where d >= 0: seconds = d
+        case (1, .int(let i)?) where i >= 0:    seconds = Double(i)
+        default:
+            throw SwiftalkError.type("Task.sleep(seconds) — a non-negative Int or Double")
+        }
+        guard let ctx = Scheduler.current else {
+            throw SwiftalkError.type("'Task.sleep' inside a Sequence coroutine body is not (yet) supported")
+        }
+        try ctx.scheduler.sleep(seconds: seconds, from: ctx)
+        return .nil
+    }
 }

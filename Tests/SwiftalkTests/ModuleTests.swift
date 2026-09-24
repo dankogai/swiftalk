@@ -6,7 +6,7 @@ import Testing
 @Suite("import / export — modules (round 100)")
 struct ModuleTests {
     func interpreter(_ files: [String: String]) -> Swiftalk.Interpreter {
-        let interp = Swiftalk.Interpreter()
+        let interp = try! SwiftalkTests.interpreter()          // the prelude: a module sees print (round 185)
         interp.moduleLoader = { spec in
             guard let source = files[spec] else { throw SwiftalkError.type("no module '\(spec)'") }
             return source

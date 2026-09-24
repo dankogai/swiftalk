@@ -1260,7 +1260,7 @@ other half of this round. **Round 157** settled a naming rule for
 (`Bool.md`, `Set.md`); a page about the language is lowercase
 (`grammar.md`, `module.md`, `flowcontrol.md` — renamed from
 `FlowControl.md` — and the new `toplevel.md`, which documents the
-global functions `print`/`debugPrint`/`sleep`/`eval`, the types and
+global functions `print`/`debugPrint`/`sleep`/`eval` (the prelude's and `Task.sleep` since round 185), the types and
 protocols as values, and the names the language binds). Noted in passing: at the REPL `_ = expr`
 gave `_` a type lock like any binding, so a second `_ =` of another
 type errored, while in a script `_ =` was "undeclared" — fixed in
@@ -1483,7 +1483,7 @@ pair list is a bug more often than a choice. Not pairs, or not
 mixed pairs build but stay erased, as everywhere. `xs.Dictionary()`
 is the same by the conversion law.
 
-**`zip(a, b)` — DECIDED (round 174)** ("Make `zip` infer the stamp
+**`zip(a, b)` — DECIDED (round 174; `Sequence.zip` since round 185)** ("Make `zip` infer the stamp
 too"). There was no `zip` to make infer, so here is Swift's: a top-level
 function of two Sequence conformers, pairing until the shorter side
 ends, each pair an unlabeled 2-tuple. It follows the laziness rule
@@ -2193,7 +2193,7 @@ property of the *running context*, not of the function.
   task as failed and rethrows at *every* `await` of it; a failed task
   nobody awaits takes its error to the grave. `return` from the body
   is the task's value.
-* **`sleep(seconds)`** (builtin, Int or Double) suspends only the
+* **`sleep(seconds)`** (builtin, Int or Double; `Task.sleep` since round 185) suspends only the
   current context — parked tasks run meanwhile. At the top level it
   doubles as "run the loop for a while".
 * **Cooperative, deterministic**: a single baton; tasks interleave
@@ -2425,6 +2425,33 @@ which nothing did. Swift spells `Foundation.Date` the way it spells
 the tuple was the cheapest thing that worked in round 100. Round 100's
 OPEN item — a module's type in an annotation, `let p: M.Point` —
 stays open, a step closer.
+
+**The top level keeps `eval` — DECIDED (round 185)** ("Now move
+toplevel functions except `eval` to Modules. `print` and `debugPrint`
+to `IO`, `zip` to `Sequence` (`Sequence` is in Core btw) and `fetch` to
+`Net`. They are preimported as a prelude for SwiftCLI."). The global
+functions go where they belong: `print` and `debugPrint` are the
+exports of a module **`IO`**, `fetch` and its `Response` of a module
+**`Net`**, and `zip` and `sleep` are statics of the core types they
+serve — `Sequence.zip(a, b)` and `Task.sleep(seconds)`, as Swift
+spells `Task.sleep` (round 53's `sleep` was not named in the request;
+it went with the rule "everything but `eval`", and `Task` is the type
+it is about). `IO` and `Net` are native modules the **core registers on
+every Interpreter** and nobody imports until asked: `import from "IO"`
+binds `print`, `import IO from "IO"` binds the namespace, and being
+types (round 184) they take extensions. They live in the core rather
+than in `modules/` because they need what only the core has — the
+output sink, the scheduler's worker thread, the `fetcher` hook; moving
+them out is a matter of the module API growing an interpreter context,
+OPEN. **The CLI preimports them as its prelude**: `Interpreter
+.preimport()` (default `["IO", "Net"]`) declares every export into the
+builtins scope before the program runs, so a script, the REPL, and
+every module they import see `print` and `fetch` exactly as before, and
+`let print = 1` is still "a builtin"; calling it twice is harmless, a
+name bound to something else is an error. An embedder chooses: the
+prelude, its own imports, or a silent interpreter — `Swiftalk.eval`,
+the one-liner, is bare. `eval` stays at the top level because it is
+not a builtin at all (round 123: each file has its own).
 
 ## Dialogue log
 

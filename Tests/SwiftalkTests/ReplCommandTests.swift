@@ -5,7 +5,7 @@ import Testing
 struct ReplCommandTests {
     @Test(":r replaces a binding whatever its type or mutability; :d removes it")
     func redefineUndefine() throws {
-        let i = Swiftalk.Interpreter(relaxed: true)
+        let i = try interpreter(relaxed: true)
         #expect(try i.eval("var x = 1") == .int(1))
         #expect(throws: SwiftalkError.self) { try i.eval("x = \"one\"") }
         #expect(try i.redefine("let x = \"one\"") == .string("one"))
@@ -24,7 +24,7 @@ struct ReplCommandTests {
 
     @Test(":r redefines a struct or enum, :d removes one; :r extension overwrites members (round 141)")
     func types() throws {
-        let i = Swiftalk.Interpreter(relaxed: true)
+        let i = try interpreter(relaxed: true)
         _ = try i.eval("struct P { var x: Int = 0 }\nlet p = P(x: 1)")
         #expect(try i.eval("p.x") == .int(1))
         _ = try i.redefine("struct P { var y: Int = 0; let twice = { .y * 2 } }")
@@ -64,7 +64,7 @@ struct ReplCommandTests {
 
     @Test("a failed :r keeps the old binding; :d of a missing or builtin name, and a non-declaration :r, are errors")
     func errors() throws {
-        let i = Swiftalk.Interpreter(relaxed: true)
+        let i = try interpreter(relaxed: true)
         #expect(try i.eval("let y = 1") == .int(1))
         #expect(throws: SwiftalkError.self) { try i.redefine("let y = Int(\"z\")!") }
         #expect(try i.eval("y") == .int(1))

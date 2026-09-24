@@ -35,7 +35,7 @@ struct FetchTests {
         }
     }
     func interpreter(_ stub: Stub) -> Swiftalk.Interpreter {
-        let i = Swiftalk.Interpreter()
+        let i = try! SwiftalkTests.interpreter()
         i.fetcher = stub.fetch
         return i
     }
@@ -62,7 +62,7 @@ struct FetchTests {
         #expect(try i.eval("(await fetch(\"https://x/nope\")).failure") == .string("type error: no route to https://x/nope"))
         #expect(try i.eval("(await fetch(\"https://x/nope\")).catch { err in \"failed: \" + err }") == .string("failed: type error: no route to https://x/nope"))
         #expect(try i.eval("(await fetch(\"https://x/nope\")) ?? 0") == .int(0))
-        let bare = Swiftalk.Interpreter()
+        let bare = try SwiftalkTests.interpreter()   // the prelude, but no fetcher
         #expect(try bare.eval("(await fetch(\"https://x/\")).failure != nil") == .bool(true))
         #expect(try bare.eval("(await fetch(\"https://x/\")).failure.contains(\"fetcher\")") == .bool(true))
     }
@@ -96,7 +96,7 @@ struct FetchTests {
         stub.answers["https://x/a"] = .init(status: 200)
         stub.answers["https://x/b"] = .init(status: 200)
         let i = interpreter(stub)
-        #expect(try i.eval("let a = fetch(\"https://x/a\")\nlet b = fetch(\"https://x/b\")\nvar ticks = 0\nlet t = async { while ticks < 3 { ticks += 1; sleep(0.01) } }\n[(await a)!.status, (await b)!.status, await t, ticks]") == .array([.int(200), .int(200), .nil, .int(3)]))
+        #expect(try i.eval("let a = fetch(\"https://x/a\")\nlet b = fetch(\"https://x/b\")\nvar ticks = 0\nlet t = async { while ticks < 3 { ticks += 1; Task.sleep(0.01) } }\n[(await a)!.status, (await b)!.status, await t, ticks]") == .array([.int(200), .int(200), .nil, .int(3)]))
         #expect(stub.requests.count == 2)
         // Structural, not a stopwatch (a loaded CI runner is no judge of
         // wall time): the second request began before the first ended.

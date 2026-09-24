@@ -82,7 +82,7 @@ struct SequenceTests {
 
     @Test("debugPrint uses debugDescription: hex numbers")
     func debugPrintHex() throws {
-        let interp = Interpreter()
+        let interp = try interpreter()
         var out = ""
         interp.output = { out += $0 }
         _ = try interp.eval("debugPrint(255, 1.5, \"a\")")

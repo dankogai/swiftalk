@@ -10,16 +10,17 @@ can be passed, aliased, and shadowed by a declaration of your own.
 
 | Form | Meaning |
 |---|---|
-| `print(x, ...)` | writes each value's display text, space-separated, newline-terminated; `nil`. A String is bare, everything else is its `.String()` — a type's own `String` member speaks here (round 152). `print()` writes an empty line |
-| `debugPrint(x, ...)` | the same with each value's `debugDescription`: quoted Strings, signed hex numbers (`.String(.sign, .hex)`, round 125), the memberwise form of a struct — a type's `String` member is not asked |
-| `zip(a, b)` | **Swift's `zip`** (round 174): pairs of the two Sequences' elements as unlabeled 2-tuples until the shorter side ends. With a lazy Sequence or `a...` on either side it is a lazy Sequence (`zip(1..., "abc")` pulls three pairs), else an Array — stamped `[Tuple]` even when empty. `Dictionary(zip(keys, values))` builds `[K: V]`; `zip(a, b).map { x, y in }` sees both |
-| `sleep(seconds)` | suspends the current context for a non-negative Int or Double of seconds; parked tasks run meanwhile (§12, round 53) — at the top level, "run the loop for a while". `nil`. Not inside a `Sequence { }` coroutine body |
-| `fetch(url)`, `fetch(url, options)` | **JS's `fetch`** (round 163): a **Task** whose value is a **Result** — `.success(Response)` for any HTTP answer (a 404 is a success with `ok == false`), `.failure(message)` when no answer came (DNS, refused, no fetcher). `await` it, then `.then`/`.catch`/`?`/`??`. Options are a Dictionary (JS's object) or a labeled tuple: `method:` (a String, any case), `headers:` (`[String: String]`), `body:` (a String or a Data). The request runs on a worker thread while the task is parked, so several fetches overlap and other tasks run meanwhile. The HTTP itself is the host's: the CLI uses curl (`-sSL`, redirects followed); an embedder sets `Interpreter.fetcher`. Bad arguments to the call itself throw |
 | `eval(source)` | **the language's own `eval`** (round 122; Swift has none): the String is a swiftalk program, and a **`Result`** comes back (round 159) — `.success(v)` with its last statement's value, or `.failure(message)` for any error the program raises (a syntax error, an undefined name, a trap), never thrown: `eval(s)?` propagates, `eval(s) ?? d` defaults, `eval(s)!` unwraps or traps. Runs **at the file's top level** — sees what the top level sees, declares into it as a line at the REPL would, and cannot see a caller's locals. The round-trip law in the language: `eval(x.String())! == x`. Calling it with anything but one String is the caller's type error, as with any builtin |
 
-`eval` is a Function value like the other three — `["1", "[2]"].map(eval)`
-— but unlike them it is **not a builtin: each file has its own** (round
-123). The program's `eval` runs at the program's top level; a module's
+`eval` is the top level's one function since round 185 — `print`,
+`debugPrint`, `fetch`, and `Response` are the **`IO`** and **`Net`**
+modules' ([IO.md](IO.md), [Net.md](Net.md)), which the CLI **preimports
+as its prelude**, so a script and the REPL have them as before; an
+embedder calls `Interpreter.preimport()` for the same, or imports them
+(`import from "IO"`) or not. `zip` is `Sequence.zip` and `sleep` is
+`Task.sleep`, statics of the core types ([Sequence.md](Sequence.md),
+[Task.md](Task.md)). `eval` is a Function value — `["1", "[2]"].map(eval)`
+— that is **not a builtin: each file has its own** (round 123). The program's `eval` runs at the program's top level; a module's
 runs at the module's, whoever calls it — `eval` resolves lexically, so
 a function a module exports evaluates in the module it came from and
 sees that module's unexported names, never the importer's.
@@ -105,7 +106,7 @@ construct — `[Int].Element("42")` is `42`. The erased `Array` has no
 | `Sequence` | a type (a lazy generator or coroutine) and the protocol every iterable conforms to — [Sequence.md](Sequence.md) |
 | `Equatable` `Hashable` `Comparable` | protocols: `T.conforms(to: Comparable)`; every value is Equatable and Hashable, Comparable is Int/Double/String/Date/Byte and any struct or enum with `infix(<)` (round 146) |
 | `Result` | the built-in enum, `.success(v)` / `.failure(e)` — [Result.md](Result.md) |
-| `Response` | `fetch`'s answer, a struct declared in swiftalk at startup (round 163) — below |
+| `Response` | `fetch`'s answer, a struct declared in swiftalk — the `Net` module's, preimported by the CLI (rounds 163, 185) — [Net.md](Net.md) |
 | `Optional` | `Optional<Int>` is the type `Int?` (round 167) — the bare name is the identity constructor, `Optional(x)` is `x`, and no annotation |
 | `Any` | an annotation-only name (round 59): not a value, a type error as one. (`Primitives` was retired in round 181 — `SION` covers it) |
 

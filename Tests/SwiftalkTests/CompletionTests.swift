@@ -8,7 +8,7 @@ import Testing
 struct CompletionTests {
     @Test("names in scope: bindings, types, builtins, keywords; the word's start is reported")
     func names() throws {
-        let i = Swiftalk.Interpreter()
+        let i = try interpreter()
         _ = try i.eval("let alpha = 1\nvar alphabet = 2\nstruct Alpine { var x = 0 }")
         let (start, all) = i.complete("let z = alp")
         #expect(start == 8)
@@ -26,7 +26,7 @@ struct CompletionTests {
 
     @Test("REPL commands at a line's start")
     func commands() throws {
-        let i = Swiftalk.Interpreter()
+        let i = try interpreter()
         #expect(i.complete(":").candidates == [":d", ":h", ":r"])
         #expect(i.complete("  :r").candidates == [":r"])
         #expect(i.complete(":").start == 0)
@@ -35,7 +35,7 @@ struct CompletionTests {
 
     @Test("members after a dot: struct properties and methods, enum cases, type statics, Result, extensions, a leading dot")
     func members() throws {
-        let i = Swiftalk.Interpreter()
+        let i = try interpreter()
         _ = try i.eval("""
             struct P { var x = 0; var y = 0; var norm { .x * .x + .y * .y }; let moved = { self }; static let origin = Self(); static var unit { Self(x: 1) } }
             enum Shape { case circle(Double), dot; let area = { 0.0 } }
@@ -79,7 +79,7 @@ struct CompletionTests {
         for (type, names) in Completion.members {
             let sample = try #require(samples[type], "no sample for \(type)")
             for name in names + Completion.common {
-                let i = Swiftalk.Interpreter()
+                let i = try interpreter()
                 let uncalled = (try? i.eval("(\(sample)).\(name)")) != nil || !isUnknown { try i.eval("(\(sample)).\(name)") }
                 let called = (try? i.eval("(\(sample)).\(name)()")) != nil || !isUnknown { try i.eval("(\(sample)).\(name)()") }
                 #expect(uncalled || called, "\(type).\(name) is not a member the evaluator knows")
@@ -87,7 +87,7 @@ struct CompletionTests {
         }
         for (type, names) in Completion.statics {
             for name in names {
-                let i = Swiftalk.Interpreter()
+                let i = try interpreter()
                 let uncalled = (try? i.eval("\(type).\(name)")) != nil || !isUnknown { try i.eval("\(type).\(name)") }
                 let called = (try? i.eval("\(type).\(name)(1.0)")) != nil || !isUnknown { try i.eval("\(type).\(name)(1.0)") }
                 #expect(uncalled || called, "\(type).\(name) is not a static the evaluator knows")

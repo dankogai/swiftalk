@@ -82,7 +82,7 @@ struct ExamplesTests {
     }
 
     private func output(of source: String, scriptPath: String? = nil) throws -> String {
-        let interp = Swiftalk.Interpreter()
+        let interp = try interpreter()
         interp.scriptPath = scriptPath
         var captured = ""
         interp.output = { captured += $0 }

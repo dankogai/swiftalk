@@ -4,7 +4,7 @@ import Testing
 @Suite("print() and debugPrint() — the first built-in Function values")
 struct PrintTests {
     private func capture(_ source: String) throws -> (result: Value, output: String) {
-        let interp = Interpreter()
+        let interp = try interpreter()
         var out = ""
         interp.output = { out += $0 }
         let result = try interp.eval(source)
@@ -48,7 +48,7 @@ struct PrintTests {
 
     @Test("output goes through the embedder hook, not straight to stdout")
     func outputHook() throws {
-        let interp = Interpreter()
+        let interp = try interpreter()
         var lines: [String] = []
         interp.output = { lines.append($0) }
         _ = try interp.eval("for i in 1...3 { print(i) }")

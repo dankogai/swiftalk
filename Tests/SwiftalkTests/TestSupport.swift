@@ -5,7 +5,15 @@
 // SwiftalkError come through @testable as the module's internal
 // typealiases.
 func eval(_ source: String) throws -> Value {
-    try Swiftalk.eval(source)
+    try interpreter().eval(source)
+}
+
+/// A fresh Interpreter with the CLI's prelude (round 185): `print`,
+/// `debugPrint`, `fetch`, `Response` bound as the CLI binds them.
+func interpreter(relaxed: Bool = false) throws -> Interpreter {
+    let i = Interpreter(relaxed: relaxed)
+    try i.preimport()
+    return i
 }
 
 func needsMoreInput(_ source: String) -> Bool {

@@ -40,15 +40,15 @@ struct TaskTests {
     func interleaving() throws {
         #expect(try eval("""
             var log = []
-            let t1 = async { log.append(1); sleep(0.03); log.append(3) }
-            let t2 = async { log.append(2); sleep(0.01); log.append(4) }
-            sleep(0.05)
+            let t1 = async { log.append(1); Task.sleep(0.03); log.append(3) }
+            let t2 = async { log.append(2); Task.sleep(0.01); log.append(4) }
+            Task.sleep(0.05)
             log
             """) == .array([.int(1), .int(2), .int(4), .int(3)]))
         // awaiting does the driving too — no top-level sleep needed
         #expect(try eval("""
-            let t1 = async { sleep(0.02); 1 }
-            let t2 = async { sleep(0.01); 2 }
+            let t1 = async { Task.sleep(0.02); 1 }
+            let t2 = async { Task.sleep(0.01); 2 }
             [await t1, await t2]
             """) == .array([.int(1), .int(2)]))
     }
@@ -91,7 +91,7 @@ struct TaskTests {
     func deadlock() throws {
         #expect(throws: SwiftalkError.self) {
             try eval("""
-                var t = async { sleep(0.01); await t }
+                var t = async { Task.sleep(0.01); await t }
                 await t
                 """)
         }
@@ -107,7 +107,7 @@ struct TaskTests {
     @Test("tasks persist across a persistent interpreter's evals (the REPL's world)")
     func replPersistence() throws {
         let interp = Swiftalk.Interpreter(relaxed: true)
-        _ = try interp.eval("let t = async { sleep(0.01); 42 }")
+        _ = try interp.eval("let t = async { Task.sleep(0.01); 42 }")
         #expect(try interp.eval("await t") == .int(42))
     }
 
@@ -115,6 +115,6 @@ struct TaskTests {
     func teardown() throws {
         // one-shot eval: the task parks in sleep, is never awaited, and
         // must not keep anything alive after the interpreter is gone
-        #expect(try eval("let t = async { sleep(60.0); 1 }\n42") == .int(42))
+        #expect(try eval("let t = async { Task.sleep(60.0); 1 }\n42") == .int(42))
     }
 }

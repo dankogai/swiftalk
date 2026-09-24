@@ -100,3 +100,17 @@ its own package, `Core/`, and a module's target depends on
 The example, `Env`: `get(name)` (nil when unset), `set(name, value)`,
 `unset(name)`, `all()` (a `[String: String]`), and the constant
 `platform` (`"darwin"` or `"linux"`).
+
+## The prelude (round 185)
+
+The core ships two modules of its own, `IO` (`print`, `debugPrint` —
+[IO.md](IO.md)) and `Net` (`fetch`, `Response` — [Net.md](Net.md)),
+registered on every Interpreter and imported by nobody until asked.
+The CLI **preimports** them: every export lands in the builtins scope
+before the program runs, so a script, the REPL, and every module they
+import have `print` and `fetch` as they always did, and `let print = 1`
+is still "a builtin". An embedder calls `Interpreter.preimport()` (the
+default is `["IO", "Net"]`; any registered or module-path name goes)
+for the same, or imports what it wants, or leaves the interpreter
+silent. The top level itself keeps one function, `eval`; `zip` and
+`sleep` became `Sequence.zip` and `Task.sleep`.

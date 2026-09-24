@@ -109,7 +109,7 @@ struct ClassTests {
         #expect(try eval("""
             class C {
                 var n = 0
-                let bump = { let c = .n; sleep(0.01); .n = c + 1 }
+                let bump = { let c = .n; Task.sleep(0.01); .n = c + 1 }
             }
             let c = C()
             let t1 = async { c.bump() }

@@ -2630,3 +2630,13 @@ the history. (Moved out of Design.md in round 65.)
   aliased by the next — so `extension Net { static let resolve = ...
   }` just works, on a `.swt` and a native module alike, and `M()` is
   refused. Revises round 100's "no new type"; the tuple echo is gone.
+
+* **2026-09-24, round 185 — the top level keeps `eval`** ("Now move
+  toplevel functions except `eval` to Modules. `print` and `debugPrint`
+  to `IO`, `zip` to `Sequence` (`Sequence` is in Core btw) and `fetch`
+  to `Net`. They are preimported as a prelude for SwiftCLI."). `IO`
+  and `Net` are modules the core registers, extendable like any;
+  `Sequence.zip` and `Task.sleep` (the unnamed fifth, by the same
+  rule) are statics of core types. `Interpreter.preimport()` is the
+  CLI's prelude — every export into the builtins, so nothing a script
+  wrote changes; an embedder's interpreter is bare until it asks.

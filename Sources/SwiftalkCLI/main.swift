@@ -182,6 +182,7 @@ if CommandLine.arguments.count > 1 {
         interp.moduleLoader = loadModule
         interp.fetcher = fetchWithCurl                // round 163
         interp.modulePath = defaultModulePath         // round 182
+        try interp.preimport()                         // round 185: IO and Net — print, fetch, Response
         _ = try interp.eval(String(decoding: data, as: UTF8.self))
     } catch let error as Swiftalk.Error {
         let msg = "\(path): \(error.description)\n"
@@ -195,6 +196,11 @@ let interpreter = Swiftalk.Interpreter(relaxed: true)
 interpreter.moduleLoader = loadModule            // URLs via curl, files directly
 interpreter.fetcher = fetchWithCurl              // fetch() via curl (round 163)
 interpreter.modulePath = defaultModulePath       // native modules beside the executable (round 182)
+do { try interpreter.preimport() } catch {        // the prelude (round 185): IO and Net
+    let msg = "swiftalk: prelude failed: \(error)\n"
+    _ = Array(msg.utf8).withUnsafeBufferPointer { write(2, $0.baseAddress, $0.count) }
+    exit(1)
+}
 let isTTY = isatty(0) != 0
 // On a terminal, LineEditor (round 64) supplies raw-mode editing,
 // arrow-key history, and ~/.swiftalk_history; pipes keep plain reads.

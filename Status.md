@@ -222,6 +222,29 @@ Set(
 )
 ```
 
+**The top level keeps `eval`** (round 185) — `print`/`debugPrint` are the
+`IO` module's, `fetch`/`Response` the `Net` module's, both registered
+by the core and **preimported by the CLI** as its prelude; `zip` is
+`Sequence.zip`, `sleep` is `Task.sleep`:
+
+```text
+swiftalk> print("hello")
+hello
+swiftalk> Sequence.zip([1, 2], "ab")
+[(1, "a"), (2, "b")]
+swiftalk> Task.sleep(0)
+swiftalk> zip([1], [2])
+type error: undefined variable 'zip'
+swiftalk> import Net from "Net"
+swiftalk> Response == Net.Response
+true
+swiftalk> import IO from "IO"
+swiftalk> IO.print == print
+true
+swiftalk> let print = 1                    // the prelude's names are builtins
+type error: redeclaration of 'print' — a builtin
+```
+
 **The namespace is a type** (round 184) — `import M from` binds a type
 whose statics are the exports, so `extension M { static let ... }` adds
 to a module, `.swt` or native, and every importer sees it; a module has
@@ -390,27 +413,27 @@ swiftalk> Dictionary(["a", "b"].enumerated())
 [0: "a", 1: "b"]
 ```
 
-**`zip(a, b)`** (round 174) — Swift's: pairs until the shorter side
+**`Sequence.zip(a, b)`** (round 174; a static of Sequence since round 185, the top-level `zip` until then) — Swift's: pairs until the shorter side
 ends, lazy when a side is, an Array stamped `[Tuple]` otherwise;
-`Dictionary(zip(keys, values))` builds `[K: V]`:
+`Dictionary(Sequence.zip(keys, values))` builds `[K: V]`:
 
 ```text
-swiftalk> zip([1, 2, 3], ["a", "b"])
+swiftalk> Sequence.zip([1, 2, 3], ["a", "b"])
 [(1, "a"), (2, "b")]
-swiftalk> zip([1, 2], ["a", "b"]).Type
+swiftalk> Sequence.zip([1, 2], ["a", "b"]).Type
 [Tuple]
-swiftalk> zip([Int](), [String]()).Type
+swiftalk> Sequence.zip([Int](), [String]()).Type
 [Tuple]
-swiftalk> Dictionary(zip([1, 2], ["a", "b"]))
+swiftalk> Dictionary(Sequence.zip([1, 2], ["a", "b"]))
 [1: "a", 2: "b"]
-swiftalk> zip(1..., "abc")
+swiftalk> Sequence.zip(1..., "abc")
 Sequence { ... }
-swiftalk> zip(1..., "abc").Array()
+swiftalk> Sequence.zip(1..., "abc").Array()
 [(1, "a"), (2, "b"), (3, "c")]
-swiftalk> zip(1..., 10...).prefix(2).Array()
+swiftalk> Sequence.zip(1..., 10...).prefix(2).Array()
 [(1, 10), (2, 11)]
-swiftalk> zip([1], 2)
-type error: zip(a, b): Int is not a Sequence
+swiftalk> Sequence.zip([1], 2)
+type error: Sequence.zip(a, b): Int is not a Sequence
 ```
 
 **`Dictionary(pairs)`** (round 173) — a Dictionary from any Sequence of
@@ -870,15 +893,15 @@ swiftalk> debugPrint(1, "two", [3])
 swiftalk> let r = print("x")
 x
 swiftalk> r
-swiftalk> sleep(0)
+swiftalk> Task.sleep(0)
 swiftalk> eval("1 + 1")
 2
 swiftalk> ["1", "[2]"].map(eval)
 [1, [2]]
 swiftalk> [Int, Sequence, Comparable, Result].map { $0.Type }
 [Function, Function, Function, Function]
-swiftalk> sleep(-1)
-type error: sleep(seconds) — a non-negative Int or Double
+swiftalk> Task.sleep(-1)
+type error: Task.sleep(seconds) — a non-negative Int or Double
 ```
 
 **Loop labels; `forEach`** (round 156) — `outer: for`, `break outer`,
@@ -3272,11 +3295,11 @@ it), any function may `await`, and top-level `await` just works:
 ```text
 swiftalk> var log = []
 []
-swiftalk> let t1 = async { log.append(1); sleep(0.03); log.append(3) }
+swiftalk> let t1 = async { log.append(1); Task.sleep(0.03); log.append(3) }
 Task { ... }
-swiftalk> let t2 = async { log.append(2); sleep(0.01); log.append(4) }
+swiftalk> let t2 = async { log.append(2); Task.sleep(0.01); log.append(4) }
 Task { ... }
-swiftalk> sleep(0.05)          // tasks interleave only at suspension points
+swiftalk> Task.sleep(0.05)          // tasks interleave only at suspension points
 swiftalk> log
 [1, 2, 4, 3]
 swiftalk> await async { 40 } + await async { 2 }

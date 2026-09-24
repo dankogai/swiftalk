@@ -91,7 +91,7 @@ struct ActorTests {
         #expect(try eval("""
             actor Counter {
                 var count = 0
-                let bump = { let c = .count; sleep(0.01); .count = c + 1 }
+                let bump = { let c = .count; Task.sleep(0.01); .count = c + 1 }
             }
             let a = Counter()
             let t1 = async { a.bump() }
@@ -104,7 +104,7 @@ struct ActorTests {
         // the interleaving hazard actors exist to remove
         #expect(try eval("""
             var g = 0
-            let racy = { let c = g; sleep(0.01); g = c + 1 }
+            let racy = { let c = g; Task.sleep(0.01); g = c + 1 }
             let u1 = async { racy() }
             let u2 = async { racy() }
             await u1

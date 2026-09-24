@@ -72,6 +72,8 @@ enum Completion {
                    "isFinite", "isInfinite", "isNaN", "isNormal", "isSubnormal", "isZero"],
         "String": ["fromCodePoint"],
         "Data": ["random"],
+        "Sequence": ["zip"],                                     // round 185
+        "Task": ["sleep"],
         "Result": ["success", "failure"],
     ]
 

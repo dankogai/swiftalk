@@ -87,6 +87,7 @@ i * i == Complex(-1.0, 0.0)                   // true — and (*)(i, i), reduce(
 // [].Type == [SION], [:].Type == [SION: SION], Set().Type == Set<SION> — an empty literal bound without an annotation holds data and refuses a Function; Primitives is retired, SION covers it (round 181)
 // import (get) from "Env" — a native module: Swift exports behind one C symbol, found as libEnv.dylib beside the CLI; the core is a dynamic library so both share one Value (round 182); module names take a capital, by convention (round 183)
 // import Net from "Net"; extension Net { static let resolve = { host in ... } } — a namespace is a type whose statics are the exports, so an extension adds to a module and Net() is refused (round 184)
+// the top level keeps eval: print/debugPrint are the IO module's, fetch/Response the Net module's — both preimported by the CLI as its prelude — and zip, sleep are Sequence.zip, Task.sleep (round 185)
 // Complex(1.0, -2.0).String() == "(1.0-2.0.i)" — an expression that re-enters; Complex("(1.0-2.0.i)") reads it (round 154)
 // and exact fractions: modules/Rational.swt — Rational(3, 4) + 1 == Rational(7, 4), Double(Rational(3, 4)) == 0.75, Rational(3, 4).String() == "(3/4)", Rational("(3/4)"), 1.over(3)
 let hex    = 255.String(.hex)                 // "0xff"; .String(.sign, .hex) is "+0xff"; radix: 16 for bare "ff"
