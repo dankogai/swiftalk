@@ -132,11 +132,19 @@ extension Substring {
 // assignment), echoes nothing, and outputs only what print() prints.
 /// The directory the running executable lives in — where a dev build's
 /// module libraries sit beside it (round 182). dladdr on this image's
-/// own handle names its file, on Darwin and Linux alike.
+/// own handle names its file on Darwin; Linux reads /proc/self/exe
+/// (dladdr is a GNU extension Swift's Glibc does not expose).
 func executableDirectory() -> String? {
+    #if canImport(Darwin)
     var info = Dl_info()
     guard dladdr(#dsohandle, &info) != 0, let name = info.dli_fname else { return nil }
     let path = String(cString: name)
+    #else
+    var buffer = [CChar](repeating: 0, count: 4096)
+    let n = readlink("/proc/self/exe", &buffer, buffer.count - 1)
+    guard n > 0 else { return nil }
+    let path = String(cString: buffer)
+    #endif
     guard let slash = path.lastIndex(of: "/") else { return nil }
     return String(path[..<slash])
 }
