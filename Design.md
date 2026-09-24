@@ -2494,6 +2494,19 @@ failing when evaluated. The tests' interpreter does the same from the
 build directory. `Regex.md` keeps its API; only the first paragraph
 changed.
 
+**`swiftalk --no-prelude` — DECIDED (round 187)** ("add an option to
+skip loading prelude modules to swiftalk CLI. `--no-prelude` ?
+`--core-only` ? whichever is fine"). `--no-prelude`, since that is
+what it does — `--core-only` reads as refusing modules altogether,
+and a bare interpreter still imports whatever it asks for: `import
+from "IO"` brings `print`, `import (Regex) from "Regex"` the literal's
+meaning. The CLI grew an options pass with it: options before the
+script path, `--help`/`-h` for the usage, `--` to end options, an
+unknown option refused with the usage on stderr and exit 2. What
+`--no-prelude` shows is the round-185/186 line drawn: the top level
+alone has `eval`, and everything else is a module the CLI chose to
+preimport.
+
 ## Dialogue log
 
 Moved to [Dialogue.md](Dialogue.md) (round 65) — append-only and

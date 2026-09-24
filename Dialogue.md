@@ -2654,3 +2654,10 @@ the history. (Moved out of Design.md in round 65.)
   equality, printing, and `switch`), exported types, and extensions of
   core types that may decline. Six String members moved out with the
   engine; the CLI preimports `Regex` after `IO` and `Net`.
+
+* **2026-09-25, round 187 — `swiftalk --no-prelude`** ("add an option
+  to skip loading prelude modules to swiftalk CLI. `--no-prelude` ?
+  `--core-only` ? whichever is fine"). `--no-prelude`: it says what it
+  does, and a bare interpreter still imports on request. The CLI's
+  first options pass came with it — `--help`, `--`, an unknown option
+  refused — and a test that runs the built binary.

@@ -222,6 +222,24 @@ Set(
 )
 ```
 
+**`swiftalk --no-prelude`** (round 187) — the CLI without its prelude:
+only `eval` at the top level, and a script imports what it wants
+(`--help` for the usage; options come before the script path):
+
+```text
+$ printf 'print(1)\n' | swiftalk --no-prelude
+type error: undefined variable 'print'
+$ printf 'import from "IO"\nprint(2)\n' | swiftalk --no-prelude
+2
+$ printf 'import (Regex) from "Regex"\n/ab/.pattern\n' | swiftalk --no-prelude
+"ab"
+$ swiftalk --help
+usage: swiftalk [--no-prelude] [file.swt]
+  --no-prelude   start without the prelude modules (IO, Net, Regex): only eval at the top level
+  --help, -h     this message
+With no file, the REPL — :h for its commands.
+```
+
 **Regex is a module** (round 186) — the engine is `modules/Regex`,
 `libRegex.dylib` beside the CLI and preimported; the literal stays
 grammar and calls the `Regex` type in scope — without it, an error

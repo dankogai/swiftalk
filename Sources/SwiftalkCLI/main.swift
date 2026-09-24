@@ -173,8 +173,44 @@ func installPrelude(_ interp: Swiftalk.Interpreter) throws {
     }
 }
 
-if CommandLine.arguments.count > 1 {
-    let path = CommandLine.arguments[1]
+/// Options (round 187): `--no-prelude` starts the interpreter bare — no
+/// IO, Net, or Regex; `import from "IO"` brings what a script wants.
+/// `--help` says so. Options come before the script path; everything
+/// after the path is the script's.
+let usage = """
+    usage: swiftalk [--no-prelude] [file.swt]
+      --no-prelude   start without the prelude modules (IO, Net, Regex): only eval at the top level
+      --help, -h     this message
+    With no file, the REPL — :h for its commands.
+
+    """
+var loadPrelude = true
+var scriptPath: String? = nil
+var arguments = CommandLine.arguments.dropFirst()
+while let arg = arguments.first {
+    switch arg {
+    case "--no-prelude":
+        loadPrelude = false
+        arguments = arguments.dropFirst()
+    case "--help", "-h":
+        print(usage, terminator: "")
+        exit(0)
+    case "--":
+        arguments = arguments.dropFirst()
+        scriptPath = arguments.first
+        arguments = []
+    default:
+        if arg.hasPrefix("-"), arg.count > 1 {
+            let msg = "swiftalk: unknown option '\(arg)'\n" + usage
+            _ = Array(msg.utf8).withUnsafeBufferPointer { write(2, $0.baseAddress, $0.count) }
+            exit(2)
+        }
+        scriptPath = arg
+        arguments = []
+    }
+}
+
+if let path = scriptPath {
     let fd = open(path, O_RDONLY)
     guard fd >= 0 else {
         let msg = "swiftalk: cannot open '\(path)'\n"
@@ -195,7 +231,7 @@ if CommandLine.arguments.count > 1 {
         interp.moduleLoader = loadModule
         interp.fetcher = fetchWithCurl                // round 163
         interp.modulePath = defaultModulePath         // round 182
-        try installPrelude(interp)                     // rounds 185–186: IO, Net, Regex
+        if loadPrelude { try installPrelude(interp) }  // rounds 185–186: IO, Net, Regex; --no-prelude skips
         _ = try interp.eval(String(decoding: data, as: UTF8.self))
     } catch let error as Swiftalk.Error {
         let msg = "\(path): \(error.description)\n"
@@ -209,10 +245,12 @@ let interpreter = Swiftalk.Interpreter(relaxed: true)
 interpreter.moduleLoader = loadModule            // URLs via curl, files directly
 interpreter.fetcher = fetchWithCurl              // fetch() via curl (round 163)
 interpreter.modulePath = defaultModulePath       // native modules beside the executable (round 182)
-do { try installPrelude(interpreter) } catch {    // the prelude (rounds 185–186): IO, Net, Regex
-    let msg = "swiftalk: prelude failed: \(error)\n"
-    _ = Array(msg.utf8).withUnsafeBufferPointer { write(2, $0.baseAddress, $0.count) }
-    exit(1)
+if loadPrelude {                                  // the prelude (rounds 185–186): IO, Net, Regex; --no-prelude skips
+    do { try installPrelude(interpreter) } catch {
+        let msg = "swiftalk: prelude failed: \(error)\n"
+        _ = Array(msg.utf8).withUnsafeBufferPointer { write(2, $0.baseAddress, $0.count) }
+        exit(1)
+    }
 }
 let isTTY = isatty(0) != 0
 // On a terminal, LineEditor (round 64) supplies raw-mode editing,

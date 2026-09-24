@@ -137,6 +137,7 @@ when.y                                        // "2026"
 
 ```sh
 swift run swiftalk   # the REPL — :h for its commands (:r redefines a binding, a type, or an extension's members; :d undefines)
+swift run swiftalk -- --no-prelude   # bare: no IO, Net, Regex until a script imports them (round 187); --help for the options
 swift test           # the suite
 ```
 

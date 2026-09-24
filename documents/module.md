@@ -130,4 +130,7 @@ silent. The top level itself keeps one function, `eval`; `zip` and
 `sleep` became `Sequence.zip` and `Task.sleep`. The CLI then preimports
 **`Regex`** from the module path (round 186) — `libRegex.dylib` beside
 the executable — and, when it is missing, says so once and runs on,
-`/re/` literals failing when evaluated.
+`/re/` literals failing when evaluated. `swiftalk --no-prelude` (round
+187) skips all three: the top level has `eval` and nothing else, and
+`import from "IO"` or `import (Regex) from "Regex"` brings what a
+script wants.
