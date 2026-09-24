@@ -14,6 +14,15 @@ named with a capital like a type, by convention (round 183).
   when unset), `set(name, value)`, `unset(name)`, `all()` (a `[String:
   String]`), the constant `platform`; sixty lines showing functions
   over Values, an error, a constant, and the one C entry point.
+* **[Regex/](Regex/RegexModule.swift)** — regular expressions (round
+  186; a core type from round 86 until then): the `Regex` type behind
+  the literal `/pattern/flags` — whose grammar stays in the core — and
+  String's `contains`, `firstMatch`, `wholeMatch`, `matches`,
+  `replacing`, `split` with a Regex, as extensions that decline the
+  String-argument forms to the core. Shows a module's own values
+  (`Value.host`), an exported type, extensions of a core type, and
+  calling a swiftalk closure from Swift. Preimported by the CLI —
+  [documents/Regex.md](../documents/Regex.md).
 
 * **[Complex.swt](Complex.swt)** — C++'s `std::complex<double>` (round
   147): a struct with the arithmetic operators (either side may be a
