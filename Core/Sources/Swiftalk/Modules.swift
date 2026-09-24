@@ -27,6 +27,9 @@ final class ModuleSystem {
         }
     }
     private let builtins: Environment
+    /// The Interpreter this system serves (round 189) — `Interpreter.current`
+    /// through `ModuleContext`, for a module's `Swiftalk.output` and hooks.
+    weak var interpreter: Swiftalk.Interpreter? = nil
     private var cache: [String: Module] = [:]
     private var loading: Set<String> = []
     var baseStack: [String] = ["."]
@@ -59,9 +62,35 @@ final class ModuleSystem {
         return st
     }
 
-    func register(_ module: Swiftalk.Module) {
+    func register(_ module: Swiftalk.Module) throws {
+        if let source = module.prelude {                                     // round 189
+            let declared = try evaluate(source, label: "the \(module.name) module's prelude")
+            for (name, value) in zip(declared.names, declared.values) { module.export(name, value) }
+        }
         native[module.name] = Module(names: module.names, values: module.values)
         for e in module.extensions { nativeExtensions[e.type, default: [:]][e.member] = e.body }
+    }
+
+    /// Runs source as a module's top level (round 100's rules: strict, a
+    /// scope of its own under the builtins) and returns its exports.
+    private func evaluate(_ source: String, label: String) throws -> Module {
+        let env = Environment(parent: builtins)
+        env.isFileScope = true
+        fileScopeSetup?(env)
+        do {
+            var lexer = Lexer(source)
+            var parser = Parser(try lexer.tokenize())
+            for statement in try parser.parseProgram() {
+                _ = try execute(statement, in: env)
+            }
+        } catch let error as SwiftalkError {
+            throw SwiftalkError.type("in \(label): \(error.description)")
+        } catch is ControlFlow {
+            throw SwiftalkError.type("in \(label): 'break'/'continue' outside a loop")
+        } catch is ReturnSignal {
+            throw SwiftalkError.type("in \(label): 'return' outside a function")
+        }
+        return Module(names: env.exports, values: try env.exports.map { try env.lookup($0) })
     }
 
     /// A bare spec — no `/`, no `.swt`, not a URL, not a library file —
@@ -79,7 +108,7 @@ final class ModuleSystem {
                 let path = dir + "/" + file
                 guard access(path, R_OK) == 0 else { continue }
                 let loaded = try Swiftalk.Module.load(path: path)
-                register(loaded)
+                try register(loaded)
                 native[spec] = native[loaded.name]
                 return native[spec]!
             }
@@ -93,7 +122,7 @@ final class ModuleSystem {
         if resolved.hasSuffix(Swiftalk.Module.librarySuffix) {
             // a module library by path (round 182)
             let loaded = try Swiftalk.Module.load(path: resolved)
-            register(loaded)
+            try register(loaded)
             let module = native[loaded.name]!
             cache[resolved] = module
             return module
@@ -106,23 +135,7 @@ final class ModuleSystem {
         defer { loading.remove(resolved) }
         baseStack.append(ModuleSystem.directory(of: resolved))
         defer { baseStack.removeLast() }
-        let env = Environment(parent: builtins)
-        env.isFileScope = true
-        fileScopeSetup?(env)
-        do {
-            var lexer = Lexer(source)
-            var parser = Parser(try lexer.tokenize())
-            for statement in try parser.parseProgram() {
-                _ = try execute(statement, in: env)
-            }
-        } catch let error as SwiftalkError {
-            throw SwiftalkError.type("in module '\(resolved)': \(error.description)")
-        } catch is ControlFlow {
-            throw SwiftalkError.type("in module '\(resolved)': 'break'/'continue' outside a loop")
-        } catch is ReturnSignal {
-            throw SwiftalkError.type("in module '\(resolved)': 'return' outside a function")
-        }
-        let module = Module(names: env.exports, values: try env.exports.map { try env.lookup($0) })
+        let module = try evaluate(source, label: "module '\(resolved)'")
         cache[resolved] = module
         return module
     }

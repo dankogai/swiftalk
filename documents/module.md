@@ -110,16 +110,27 @@ the environment under C's names and file I/O, every failure a `Result`.
 | `m.extend("String", "member") { receiver, args, called in }` | a member added to a core type, program-wide once the module is loaded (round 147's rule); returning nil **declines**, and the core's own member, if any, answers — so a module adds an argument type to `contains` and leaves `contains("x")` alone |
 | `Swiftalk.call(f, args)` | calls a swiftalk Function from Swift — for a member that takes a closure |
 | `TypeAnnotation("Array", parameters: [TypeAnnotation("String")])` | a stamp for a container the module builds |
+| `Swiftalk.call(f, labeled: [("status", v), ...])` | the labeled call — a struct's memberwise init (round 189) |
+| `Swiftalk.output(text)` | writes to the running Interpreter's output — `print`'s way out (round 189); `Swiftalk.display(v)` is a value's display text, `v.sourceString(debug: true)` its debug form |
+| `Swiftalk.spawn { ... }` | a Task of a Swift closure — eager, parked at its suspension points — a module's asynchronous answer (round 189) |
+| `Swiftalk.offload { ... }` | blocking work on the worker thread while the task is parked; other tasks run meanwhile (round 189) |
+| `Swiftalk.hook("name")`, `Interpreter.hooks["name"]` | a function over Values the **host** lends the modules — the Net module asks for `"fetch"`, a test stubs it, an embedder routes it. Resolve it before `offload`: the worker thread has no running Interpreter (round 189) |
+| `m.prelude = "export struct Response { ... }"` | swiftalk source the module ships: evaluated when the module is registered or loaded, in a file scope under the builtins; its `export`s join the exports, `m.value(named:)` reads one back (round 189) |
+| `Value.success(v)`, `Value.failure(message)` | a `Result` to answer with (round 188) |
 
 The Regex module ([Regex.md](Regex.md), `modules/Regex/RegexModule.swift`)
-uses all five: the `Regex` type, the value behind `/re/`, six String
-members, `replacing(/re/) { m in }`, and `split`'s `[String]`.
+uses the first five: the `Regex` type, the value behind `/re/`, six
+String members, `replacing(/re/) { m in }`, and `split`'s `[String]`.
+The Net module (`modules/Net/NetModule.swift`) uses the rest: a
+prelude for `Response`, `spawn` around `offload` for `fetch`, the
+`"fetch"` hook, the labeled call.
 
 ## The prelude (round 185)
 
-The core ships two modules of its own, `IO` (`print`, `debugPrint` —
-[IO.md](IO.md)) and `Net` (`fetch`, `Response` — [Net.md](Net.md)),
-registered on every Interpreter and imported by nobody until asked.
+Two modules, `IO` (`print`, `debugPrint` — [IO.md](IO.md)) and `Net`
+(`fetch`, `Response` — [Net.md](Net.md)), libraries beside the CLI like
+the rest since round 189 (the core registered them from round 185
+until then), are imported by nobody until asked.
 The CLI **preimports** them: every export lands in the builtins scope
 before the program runs, so a script, the REPL, and every module they
 import have `print` and `fetch` as they always did, and `let print = 1`

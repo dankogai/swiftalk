@@ -43,7 +43,7 @@ struct HostValueTests {
             guard !called, case .string(let s) = receiver, s == "money" else { return nil }   // declines every other String
             return .int(-1)
         }
-        i.register(m)
+        try i.register(m)
         _ = try i.eval("import from \"Bank\"")
         return i
     }

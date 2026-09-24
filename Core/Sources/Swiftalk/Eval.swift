@@ -22,9 +22,12 @@ extension Swiftalk {
         /// How a resolved module spec becomes source. nil: files are
         /// read directly and URLs are refused; the CLI supplies curl.
         public var moduleLoader: ((String) throws -> String)? = nil
-        /// How `fetch` reaches the network (round 163). nil: every fetch
-        /// is a `.failure` saying so; the CLI supplies curl.
-        public var fetcher: ((FetchRequest) throws -> FetchResponse)? = nil
+        /// What the host lends the modules (round 189): named functions
+        /// over Values a module asks for with `Swiftalk.hook(name)` — the
+        /// Net module's `fetch` asks for "fetch" (a request Dictionary in,
+        /// a response Dictionary out) and uses curl when there is none; a
+        /// test stubs the network here, an embedder routes it.
+        public var hooks: [String: ([Value]) throws -> Value] = [:]
         /// Directories searched for a native module by bare name (round
         /// 182): `import from "POSIX"` looks for `libPOSIX.dylib` (`.so` on
         /// Linux) in each, in order. Empty, the default: only registered
@@ -51,6 +54,7 @@ extension Swiftalk {
             environment = Environment(parent: builtins)
             environment.isFileScope = true
             modules = ModuleSystem(builtins: builtins)
+            modules.interpreter = self
             installBuiltins()
             installEval(in: environment)                                   // round 122/123
             modules.fileScopeSetup = { [unowned self] scope in installEval(in: scope) }
@@ -59,9 +63,12 @@ extension Swiftalk {
         /// Makes a native module importable by its name (round 182):
         /// `import (hello) from "Greet"` after `register(greet)`. A
         /// registered module shadows a library of the same name on the
-        /// module path.
-        public func register(_ module: Module) {
-            modules.register(module)
+        /// module path. Its prelude, if any, runs now (round 189) — its
+        /// errors are this call's.
+        public func register(_ module: Module) throws {
+            let previous = ModuleContext.activate(modules)
+            defer { ModuleContext.activate(previous) }
+            try modules.register(module)
         }
 
         /// The POSIX file read `import` uses — for an embedder's own loader.
@@ -76,8 +83,11 @@ extension Swiftalk {
 
         /// The stdlib arrives as ordinary let-bound Function values in
         /// the global environment (§2.4) — not keywords.
+        /// The Interpreter whose `eval` is running on this thread (round
+        /// 189) — what a module's `Swiftalk.output` and `hook` reach.
+        static var current: Interpreter? { ModuleContext.current?.interpreter }
+
         private func installBuiltins() {
-            installModules()                                               // round 185: IO, Net
             // Types and protocols are values too (round 39): the global
             // names Int, String, ..., Sequence, ... bind the singleton
             // objects that `.type` returns — identity comparison works.
@@ -94,92 +104,18 @@ extension Swiftalk {
                 value: .function(Builtins.resultType.constructor!)))
         }
 
-        /// The modules the core ships (round 185): `IO` (`print`,
-        /// `debugPrint`) and `Net` (`fetch`, `Response`) — registered on
-        /// every Interpreter, imported by nobody until asked: `import from
-        /// "IO"`, or `preimport()` for the CLI's prelude. They live in the
-        /// core because they need what only it has — the output sink, the
-        /// scheduler, the fetcher hook.
-        private func installModules() {
-            let box = outputBox
-            let io = Module(name: "IO")
-            io.function("print") { args in
-                // Raw display: Strings bare, everything else source form
-                // (round 35, completing round 23's display question).
-                box.write(try args.map(displayString).joined(separator: " ") + "\n")
-                return .nil
-            }
-            io.function("debugPrint") { args in
-                // .debugDescription for everything: quoted strings, hex
-                // numbers (round 37) — for the programmer's sake.
-                box.write(args.map { $0.sourceString(debug: true) }.joined(separator: " ") + "\n")
-                return .nil
-            }
-            modules.register(io)
-
-            // Response is declared in swiftalk (round 163), in a scope of
-            // its own whose parent is the builtins.
-            let scratch = Environment(parent: builtins)
-            scratch.isFileScope = true
-            let response: Value
-            do {
-                _ = try run(fetchPrelude, in: scratch)
-                response = try scratch.lookup("Response")
-            } catch {
-                fatalError("swiftalk prelude failed to load: \(error)")
-            }
-            guard case .function(let responseFunction) = response, case .structType(let responseType) = responseFunction.role else {
-                fatalError("swiftalk prelude: Response is not a struct")
-            }
-            let net = Module(name: "Net")
-            net.export("Response", response)
-            // `fetch(url[, options])` (round 163): a Task whose value is a
-            // Result. The request goes to `fetcher` on a worker thread while
-            // the task is parked — other tasks run, fetches overlap.
-            net.function("fetch") { [unowned self] args in
-                let request = try FetchRequest(arguments: args)
-                guard let ctx = Scheduler.current else {
-                    throw SwiftalkError.type("fetch inside a Sequence coroutine body is not (yet) supported")
-                }
-                let fetcher = self.fetcher
-                let body = FunctionObject(parameters: [], body: [], closure: self.builtins) { _ in
-                    func failure(_ message: String) throws -> Value {
-                        try constructEnumCase(Builtins.resultType, "failure", args: [(nil, .string(message))], called: true)
-                    }
-                    guard let fetcher else {
-                        return try failure("fetch needs a fetcher — the swiftalk CLI uses curl; an embedder sets Interpreter.fetcher")
-                    }
-                    guard let me = Scheduler.current else {
-                        return try failure("fetch: no running context")
-                    }
-                    let outcome: Result<FetchResponse, Swift.Error> = try me.scheduler.offload(from: me) {
-                        Result { try fetcher(request) }
-                    }
-                    switch outcome {
-                    case .failure(let error):
-                        return try failure((error as? SwiftalkError)?.description ?? "\(error)")
-                    case .success(let r):
-                        var headers: [Value: Value] = [:]
-                        for (k, v) in r.headers { headers[.string(k.lowercased())] = .string(v) }
-                        let response = try constructStruct(responseType, args: [
-                            ("status", .int(Int64(r.status))), ("headers", .dictionary(headers)), ("body", .data(r.body))])
-                        return try constructEnumCase(Builtins.resultType, "success", args: [(nil, response)], called: true)
-                    }
-                }
-                return try ctx.scheduler.spawn(body, from: ctx)
-            }
-            modules.register(net)
-        }
-
         /// Imports every export of the named modules into the builtins
         /// scope (round 185) — the CLI's prelude: `IO` and `Net` by
-        /// default, so `print` and `fetch` are there as they always were,
-        /// for the program and for every module it imports. Names already
-        /// bound to the same value are skipped, so calling it twice is
-        /// harmless; a name bound to something else is an error. An
-        /// embedder that wants a silent interpreter never calls it.
+        /// default (from the module path since round 189), so `print` and
+        /// `fetch` are there as they always were, for the program and for
+        /// every module it imports. Names already bound to the same value
+        /// are skipped, so calling it twice is harmless; a name bound to
+        /// something else is an error. An embedder that wants a silent
+        /// interpreter never calls it.
         public func preimport(_ specs: [String] = ["IO", "Net"]) throws {
             modules.searchPath = modulePath
+            let previous = ModuleContext.activate(modules)
+            defer { ModuleContext.activate(previous) }
             for spec in specs {
                 let module = try modules.load(spec)
                 for (name, value) in zip(module.names, module.values) {

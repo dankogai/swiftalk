@@ -80,8 +80,8 @@ extension Swiftalk {
     /// its values; labels are cosmetic — equality and hashing ignore
     /// them (`(x: 1, y: 2) == (1, 2)`).
     public struct TupleValue: Hashable, RandomAccessCollection, MutableCollection {
-        var values: [Value]
-        var labels: [String?]
+        public internal(set) var values: [Value]     // public to read (round 189): a module sees a tuple's parts
+        public internal(set) var labels: [String?]
 
         init(values: [Value], labels: [String?]? = nil) {
             self.values = values

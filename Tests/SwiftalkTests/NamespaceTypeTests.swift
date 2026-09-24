@@ -48,14 +48,14 @@ struct NamespaceTypeTests {
         let i = Swiftalk.Interpreter()
         let net = Swiftalk.Module(name: "Net")
         net.function("get") { args in .string("got \(args.count)") }
-        i.register(net)
+        try i.register(net)
         #expect(try i.eval("import Net from \"Net\"\nextension Net { static let resolve = { host in \"93.184.216.34\" } }\nNet.resolve(\"example.com\")") == .string("93.184.216.34"))
         #expect(try i.eval("Net.get(1, 2)") == .string("got 2"))
         #expect(try i.eval("extension Net { static var count: Int { 2 } }\nNet.count") == .int(2))
         #expect(throws: SwiftalkError.self) { try i.eval("Net()") }
         // the named forms are untouched
         let j = Swiftalk.Interpreter()
-        j.register(net)
+        try j.register(net)
         #expect(try j.eval("import (get) from \"Net\"\nget()") == .string("got 0"))
     }
 }

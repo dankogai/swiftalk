@@ -26,21 +26,21 @@ struct NativeModuleTests {
     @Test("a registered module imports by its bare name: every export, a namespace, the named few; a constant reads, a Function calls, its error is the caller's")
     func registered() throws {
         let a = Swiftalk.Interpreter()
-        a.register(greet())
+        try a.register(greet())
         #expect(try a.eval("import from \"greet\"\nhello(\"world\")") == .string("hello, world"))
         #expect(try a.eval("answer") == .int(41))
         #expect(try a.eval("hello.Type.String()") == .string("Function"))
         let b = Swiftalk.Interpreter()
-        b.register(greet())
+        try b.register(greet())
         #expect(try b.eval("import G from \"greet\"\nG.hello(\"x\")") == .string("hello, x"))
         #expect(try b.eval("G.answer") == .int(41))
         let c = Swiftalk.Interpreter()
-        c.register(greet())
+        try c.register(greet())
         #expect(try c.eval("import (answer) from \"greet\"\nanswer") == .int(41))
         #expect(throws: SwiftalkError.self) { try c.eval("import (nope) from \"greet\"") }
         #expect(throws: SwiftalkError.self) { try c.eval("hello") }          // not imported by (answer)
         let d = Swiftalk.Interpreter()
-        d.register(greet())
+        try d.register(greet())
         #expect(throws: SwiftalkError.self) { try d.eval("import from \"greet\"\nhello(1)") }
     }
 

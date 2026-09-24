@@ -1,9 +1,9 @@
 # IO
 
 The module of the output functions (round 185; top-level builtins from
-round 1 until then). A native module the core registers on every
-Interpreter — `import from "IO"` binds `print` and `debugPrint`, `import
-IO from "IO"` binds the namespace, `IO.print(x)`. **The CLI preimports
+round 1 until then; a library, `modules/IO` built as `libIO.dylib`,
+since round 189). `import from "IO"` binds `print` and `debugPrint`,
+`import IO from "IO"` binds the namespace, `IO.print(x)`. **The CLI preimports
 it** as its prelude, so in a script or the REPL `print` is simply there,
 a builtin for the redeclaration rule (`let print = 1` is refused); an
 embedder gets the same from `Interpreter.preimport()`, or stays silent.
@@ -22,5 +22,6 @@ debugPrint(1, "two", [3])     // +0x1 "two" [+0x3]
 let r = print("x")            // r is nil
 ```
 
-The module lives in the core rather than in `modules/` because it
-needs what only the core has — the Interpreter's output sink.
+Thirty lines of Swift: `Swiftalk.output` reaches the running
+Interpreter's sink, `Swiftalk.display` is a value's display text
+([module.md](module.md)).

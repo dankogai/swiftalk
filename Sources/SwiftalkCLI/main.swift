@@ -70,58 +70,6 @@ func loadModule(_ spec: String) throws -> String {
     }
 }
 
-/// The CLI's fetcher (round 163): `curl -sSL -i`, the response parsed
-/// here — the last header block's status line and headers (redirects
-/// and `100 Continue` leave earlier blocks), the rest the body.
-func fetchWithCurl(_ request: Swiftalk.FetchRequest) throws -> Swiftalk.FetchResponse {
-    var args = ["-sS", "-L", "-i", "-X", request.method]
-    for (name, value) in request.headers.sorted(by: { $0.key < $1.key }) { args += ["-H", "\(name): \(value)"] }
-    if request.body != nil { args += ["--data-binary", "@-"] }
-    args.append(request.url)
-    let raw = try runCurl(args, input: request.body)
-    var rest = raw[...]
-    var status = 0
-    var headers: [String: String] = [:]
-    while rest.starts(with: Array("HTTP/".utf8)) {
-        // one header block: up to the blank line
-        var end = rest.startIndex
-        var blank: Range<Int>? = nil
-        while end < rest.endIndex {
-            if rest[end] == 10 {
-                let lineEnd = end
-                let next = end + 1
-                if next < rest.endIndex, rest[next] == 10 { blank = lineEnd..<(next + 1); break }
-                if next + 1 < rest.endIndex, rest[next] == 13, rest[next + 1] == 10 { blank = lineEnd..<(next + 2); break }
-            }
-            end += 1
-        }
-        let blockEnd = blank?.lowerBound ?? rest.endIndex
-        let block = String(decoding: rest[rest.startIndex..<blockEnd], as: UTF8.self)
-        status = 0
-        headers = [:]
-        // "\r\n" is ONE Character to Swift, so split on either ending
-        for (n, line) in block.split(whereSeparator: { $0 == "\n" || $0 == "\r\n" }).enumerated() {
-            let line = line.hasSuffix("\r") ? String(line.dropLast()) : String(line)
-            if n == 0 {
-                let parts = line.split(separator: " ")
-                if parts.count > 1 { status = Int(parts[1]) ?? 0 }
-            } else if let colon = line.firstIndex(of: ":") {
-                let name = line[..<colon].lowercased()
-                let value = line[line.index(after: colon)...].trimmingLeadingSpaces()
-                headers[name] = value
-            }
-        }
-        rest = rest[(blank?.upperBound ?? rest.endIndex)...]
-    }
-    return Swiftalk.FetchResponse(status: status, headers: headers, body: Array(rest))
-}
-
-extension Substring {
-    func trimmingLeadingSpaces() -> String {
-        String(drop(while: { $0 == " " || $0 == "\t" }))
-    }
-}
-
 // Milestone 1: the REPL — a read–eval–print loop around eval()
 // (Design.md §13). Relaxed mode is on: bare `x = 1` declares a var
 // (§2.2). The printer is .String() source form, so every echo obeys
@@ -229,7 +177,6 @@ if let path = scriptPath {
         let interp = Swiftalk.Interpreter()
         interp.scriptPath = path                     // `import` resolves beside the script (round 100)
         interp.moduleLoader = loadModule
-        interp.fetcher = fetchWithCurl                // round 163
         interp.modulePath = defaultModulePath         // round 182
         if loadPrelude { try installPrelude(interp) }  // rounds 185–186: IO, Net, Regex; --no-prelude skips
         _ = try interp.eval(String(decoding: data, as: UTF8.self))
@@ -243,7 +190,6 @@ if let path = scriptPath {
 
 let interpreter = Swiftalk.Interpreter(relaxed: true)
 interpreter.moduleLoader = loadModule            // URLs via curl, files directly
-interpreter.fetcher = fetchWithCurl              // fetch() via curl (round 163)
 interpreter.modulePath = defaultModulePath       // native modules beside the executable (round 182)
 if loadPrelude {                                  // the prelude (rounds 185–186): IO, Net, Regex; --no-prelude skips
     do { try installPrelude(interpreter) } catch {

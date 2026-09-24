@@ -2442,8 +2442,8 @@ binds `print`, `import IO from "IO"` binds the namespace, and being
 types (round 184) they take extensions. They live in the core rather
 than in `modules/` because they need what only the core has — the
 output sink, the scheduler's worker thread, the `fetcher` hook; moving
-them out is a matter of the module API growing an interpreter context,
-OPEN. **The CLI preimports them as its prelude**: `Interpreter
+them out is a matter of the module API growing an interpreter context
+— done in round 189. **The CLI preimports them as its prelude**: `Interpreter
 .preimport()` (default `["IO", "Net"]`) declares every export into the
 builtins scope before the program runs, so a script, the REPL, and
 every module they import see `print` and `fetch` exactly as before, and
@@ -2529,6 +2529,37 @@ touches the filesystem says so at its top. `Value.success` and
 `Value.failure` are public for it, so any module answers with a
 Result. The core is untouched otherwise; what POSIX lacks is a
 function away.
+
+**`IO` and `Net` are libraries — DECIDED (round 189)** ("Now move
+`IO` and `Net` out of Core to `modules/`"). The two modules the core
+registered since round 185 are `modules/IO` and `modules/Net`, built
+as `libIO.dylib` and `libNet.dylib` beside the CLI like `POSIX` and
+`Regex`; `preimport()`'s default is still `["IO", "Net"]`, found on
+the module path now. The core lost `Fetch.swift`, the `fetcher` hook,
+`FetchRequest`/`FetchResponse`, and every line that wrote output,
+and holds nothing a module could not write. **What the module API
+grew** to make that true — the interpreter context round 185 left
+OPEN: `Swiftalk.output(text)` writes to the running Interpreter's
+sink (stdout when none runs); `Swiftalk.display(v)` is `print`'s
+text; `Swiftalk.spawn { }` is a Task of a Swift closure, eager and
+parked at its suspension points; `Swiftalk.offload { }` runs
+blocking work on the worker thread while the task is parked;
+`Swiftalk.hook(name)` reads `Interpreter.hooks[name]`, **named
+functions over Values the host lends the modules** — the Net module
+asks for "fetch" (a request Dictionary in: url, method, headers,
+body; a response Dictionary out: status, headers, body) and, given
+none, runs `curl -sSL -i` itself through posix_spawn, the transport
+the CLI used to supply; a test stubs the network there, an embedder
+routes it or refuses it. `Module.prelude` is swiftalk source the
+module ships, evaluated when the module is registered or loaded in a
+file scope under the builtins, its `export`s joining the module's —
+`Response` is declared that way and read back with `value(named:)`
+for `fetch` to construct through `Swiftalk.call(_:labeled:)`, the
+labeled form a memberwise init wants. `Interpreter.current` is the
+one whose `eval` runs on this thread (`register` now throws, a
+prelude's errors being its own). A hook is resolved before
+`offload`, since the worker thread has no running Interpreter — the
+one rule a module author must know. Nothing a script wrote changed.
 
 ## Dialogue log
 

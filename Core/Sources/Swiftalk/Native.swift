@@ -59,10 +59,66 @@ extension Swiftalk {
     /// Calls a swiftalk Function value from a module (round 186): the
     /// arguments unlabeled, in order.
     public static func call(_ function: Value, _ args: [Value]) throws -> Value {
+        try call(function, labeled: args.map { (label: nil, value: $0) })
+    }
+
+    /// The same with labels (round 189) — a struct's memberwise init,
+    /// `Response(status:headers:body:)`, wants them.
+    public static func call(_ function: Value, labeled args: [(label: String?, value: Value)]) throws -> Value {
         guard case .function(let fn) = function else {
             throw Swiftalk.Error.type("cannot call a \(function.typeName)")
         }
-        return try apply(fn, args: args.map { (label: nil, value: $0) })
+        return try apply(fn, args: args)
+    }
+
+    /// Writes to the running Interpreter's output (round 189) — where
+    /// `print` goes: `Interpreter.output`, stdout unless the embedder
+    /// redirected it. With no Interpreter running, stdout.
+    public static func output(_ text: String) {
+        if let sink = Interpreter.current?.output {
+            sink(text)
+        } else {
+            _ = Array(text.utf8).withUnsafeBufferPointer { write(1, $0.baseAddress, $0.count) }
+        }
+    }
+
+    /// A value's display text (round 189): a String bare, everything
+    /// else its source form — with a type's own `String` member
+    /// speaking (round 152). What `print` writes; `sourceString(debug:)`
+    /// on the Value is `debugPrint`'s.
+    public static func display(_ value: Value) throws -> String {
+        try displayString(value)
+    }
+
+    /// A host hook the running Interpreter provides (round 189):
+    /// `Interpreter.hooks[name]` — Values in, a Value out, the host's
+    /// business (the Net module's `fetch` asks for "fetch" and falls
+    /// back to curl). Resolve it before `offload`: a worker thread has
+    /// no running Interpreter.
+    public static func hook(_ name: String) -> (([Value]) throws -> Value)? {
+        Interpreter.current?.hooks[name]
+    }
+
+    /// A Task running `body` (round 189): eager, the JS way, parked at
+    /// its suspension points — what a module's asynchronous answer is.
+    /// An error when no task context is running (a coroutine body).
+    public static func spawn(_ body: @escaping () throws -> Value) throws -> Value {
+        guard let ctx = Scheduler.current else {
+            throw Swiftalk.Error.type("a Task cannot be spawned here (inside a Sequence coroutine body)")
+        }
+        let fn = FunctionObject(parameters: [], body: [], closure: Environment(), builtin: { _ in try body() })
+        return try ctx.scheduler.spawn(fn, from: ctx)
+    }
+
+    /// Runs blocking `work` on a worker thread while the current task is
+    /// parked (round 189; round 163's mechanism) — other tasks run
+    /// meanwhile, and the result comes back when `work` returns. The
+    /// work must not touch interpreter state.
+    public static func offload<T>(_ work: @escaping () -> T) throws -> T {
+        guard let ctx = Scheduler.current else {
+            throw Swiftalk.Error.type("blocking work cannot be offloaded here (inside a Sequence coroutine body)")
+        }
+        return try ctx.scheduler.offload(from: ctx, work)
     }
 
     /// A native module (round 182): exports written in Swift, imported
@@ -150,6 +206,18 @@ extension Swiftalk {
             extensions.append((typeName, member, body))
         }
         public private(set) var extensions: [(type: String, member: String, body: (Value, [Value], Bool) throws -> Value?)] = []
+
+        /// swiftalk source the module ships (round 189): evaluated once,
+        /// when the module is registered or loaded, in a file scope of
+        /// its own whose parent is the builtins; what it `export`s joins
+        /// the exports — `Net`'s `Response` is a struct declared here.
+        /// `value(named:)` reads them back from Swift.
+        public var prelude: String? = nil
+
+        /// An export by name — including what the prelude declared.
+        public func value(named name: String) -> Value? {
+            names.firstIndex(of: name).map { values[$0] }
+        }
 
         /// The C symbol a module library exports.
         public static let entrySymbol = "swiftalk_module"

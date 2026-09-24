@@ -2669,3 +2669,13 @@ the history. (Moved out of Design.md in round 65.)
   Int or an Array of them (`|` being the Set operator), the module
   imported, not preimported. `Value.success`/`failure` went public
   for it.
+
+* **2026-09-25, round 189 — `IO` and `Net` are libraries** ("Now move
+  `IO` and `Net` out of Core to `modules/`"). The core registers no
+  module now and writes nothing; `libIO` and `libNet` sit beside the
+  CLI with `POSIX` and `Regex`. The module API grew the interpreter
+  context round 185 left open: `output`, `display`, `spawn`,
+  `offload`, host `hooks` a module asks for by name (the Net module's
+  "fetch", curl otherwise), and a swiftalk `prelude` a module ships
+  (`Response` is declared there). The fetcher hook and its Swift
+  types are gone from the core.

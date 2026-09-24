@@ -222,6 +222,37 @@ Set(
 )
 ```
 
+**`IO` and `Net` are libraries** (round 189) — the core registers no
+module and writes nothing; `libIO.dylib` and `libNet.dylib` sit beside
+the CLI, preimported as before. `Net`'s HTTP is curl unless the host
+lends a `fetch` hook; `Response` is declared in the module's swiftalk
+prelude:
+
+```text
+swiftalk> print("hello")
+hello
+swiftalk> debugPrint("hello", 255)
+"hello" +0xff
+swiftalk> import IO from "IO"
+swiftalk> IO.print == print
+true
+swiftalk> Response(status: 204).ok
+true
+swiftalk> import N from "Net"
+swiftalk> N.Response == Response
+true
+swiftalk> (await fetch("https://nowhere.invalid/")).failure
+"type error: curl: (6) Could not resolve host: nowhere.invalid"
+```
+
+```text
+$ printf 'print(1)\nimport from "IO"\nprint(2)\n' | swiftalk --no-prelude
+type error: undefined variable 'print'
+2
+$ SWIFTALK_MODULE_PATH=/nonexistent swiftalk
+swiftalk: prelude failed: type error: no module named 'IO' — no libIO.dylib on the module path (/nonexistent); a swiftalk file is imported by its path, "./IO.swt"
+```
+
 **`POSIX`** (round 188) — the environment and file I/O, `import from
 "POSIX"` (not in the prelude); C's names, every failure a `Result`
 with strerror's words, flags an Int or an Array of them:

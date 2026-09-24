@@ -1,15 +1,17 @@
 # Net
 
 The module of `fetch` and its `Response` (round 185; a top-level
-builtin and a prelude struct from round 163 until then). A native
-module the core registers on every Interpreter — `import from "Net"`
-binds `fetch` and `Response`, `import Net from "Net"` the namespace:
-`Net.fetch(url)`, `Net.Response`. **The CLI preimports it** as its
-prelude, so `fetch` is simply there; an embedder gets the same from
-`Interpreter.preimport()`. The HTTP itself is the host's: the CLI uses
-curl (`-sSL`, redirects followed), an embedder sets
-`Interpreter.fetcher`, and without one every fetch is a `.failure`
-saying so.
+builtin and a prelude struct from round 163 until then; a library,
+`modules/Net` built as `libNet.dylib`, since round 189). `import from
+"Net"` binds `fetch` and `Response`, `import Net from "Net"` the
+namespace: `Net.fetch(url)`, `Net.Response`. **The CLI preimports it**
+as its prelude, so `fetch` is simply there; an embedder gets the same
+from `Interpreter.preimport()`. The HTTP is **curl** (`-sSL -i`,
+redirects followed, through posix_spawn) — unless the host lends a
+`fetch` hook, `Interpreter.hooks["fetch"]`: a request Dictionary in
+(`url`, `method`, `headers`, `body`), a response Dictionary out
+(`status`, `headers`, `body`), a thrown error a `.failure`. A test
+stubs the network there; an embedder routes it, or refuses it.
 
 | Form | Meaning |
 |---|---|
@@ -25,6 +27,7 @@ r.json()                       // the document, as a SION value
 (await fetch("https://nowhere.invalid/")) ?? nil   // a .failure defaults
 ```
 
-The module lives in the core rather than in `modules/` because it
-needs what only the core has — the scheduler's worker thread and the
-`fetcher` hook. See [Task.md](Task.md) for `await` and the scheduler.
+`Response` is declared in swiftalk, in the module's prelude
+([module.md](module.md)); `fetch` is `Swiftalk.spawn` around
+`Swiftalk.offload`. See [Task.md](Task.md) for `await` and the
+scheduler.

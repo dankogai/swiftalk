@@ -9,6 +9,16 @@ module** written in Swift — a target of the root package built as
 `lib<Name>.dylib` and imported by its bare name, `import from "POSIX"` —
 named with a capital like a type, by convention (round 183).
 
+* **[IO/](IO/IOModule.swift)** — `print` and `debugPrint` (round 189;
+  the core's until then): thirty lines over `Swiftalk.output` and
+  `Swiftalk.display`. Preimported by the CLI —
+  [documents/IO.md](../documents/IO.md).
+* **[Net/](Net/NetModule.swift)** — `fetch` and `Response` (round 189;
+  the core's until then): a Task (`Swiftalk.spawn`) whose value is a
+  Result, the request on the worker thread (`Swiftalk.offload`)
+  through curl or the host's `"fetch"` hook; `Response` a struct in
+  the module's swiftalk prelude. Preimported by the CLI —
+  [documents/Net.md](../documents/Net.md).
 * **[POSIX/](POSIX/POSIXModule.swift)** — the process environment
   and file I/O (round 188; the `Env` module of rounds 182–183 grown
   up): `getenv`/`setenv`/`unsetenv`/`environ`, `getpid`, `getcwd`/
