@@ -4,7 +4,15 @@ Libraries written *in* swiftalk, imported with `import from
 "./modules/Name.swt"` — every export by its own name (round 148); or
 `import (Name) from` for a named few, `import M from` for a namespace
 (see [documents/module.md](../documents/module.md)). Each is checked by the test
-suite.
+suite. Since round 182 a directory here may instead be a **native
+module** written in Swift — a target of the root package built as
+`lib<name>.dylib` and imported by its bare name, `import from "env"`.
+
+* **[env/](env/EnvModule.swift)** — the process environment, and the
+  worked example of a native module (round 182): `get(name)` (nil
+  when unset), `set(name, value)`, `unset(name)`, `all()` (a `[String:
+  String]`), the constant `platform`; sixty lines showing functions
+  over Values, an error, a constant, and the one C entry point.
 
 * **[Complex.swt](Complex.swt)** — C++'s `std::complex<double>` (round
   147): a struct with the arithmetic operators (either side may be a

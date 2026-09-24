@@ -25,6 +25,11 @@ extension Swiftalk {
         /// How `fetch` reaches the network (round 163). nil: every fetch
         /// is a `.failure` saying so; the CLI supplies curl.
         public var fetcher: ((FetchRequest) throws -> FetchResponse)? = nil
+        /// Directories searched for a native module by bare name (round
+        /// 182): `import from "env"` looks for `libenv.dylib` (`.so` on
+        /// Linux) in each, in order. Empty, the default: only registered
+        /// modules resolve. The CLI puts its own directory here.
+        public var modulePath: [String] = []
         private let relaxed: Bool
         private let outputBox = OutputBox()
         /// The cooperative scheduler (§12, round 53): tasks spawned in
@@ -50,6 +55,14 @@ extension Swiftalk {
             installPrelude()                                               // round 163: Response
             installEval(in: environment)                                   // round 122/123
             modules.fileScopeSetup = { [unowned self] scope in installEval(in: scope) }
+        }
+
+        /// Makes a native module importable by its name (round 182):
+        /// `import (hello) from "greet"` after `register(greet)`. A
+        /// registered module shadows a library of the same name on the
+        /// module path.
+        public func register(_ module: Module) {
+            modules.register(module)
         }
 
         /// The POSIX file read `import` uses — for an embedder's own loader.
@@ -202,6 +215,7 @@ extension Swiftalk {
             defer { Scheduler.restore(previous) }
             // Modules (round 100): resolve beside the script, or the cwd
             modules.loader = moduleLoader
+            modules.searchPath = modulePath
             modules.baseStack = [scriptPath.map(ModuleSystem.directory(of:)) ?? "."]
             let previousModules = ModuleContext.activate(modules)
             defer { ModuleContext.activate(previousModules) }

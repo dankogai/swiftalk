@@ -1,7 +1,7 @@
 # swiftalk — grammar
 
 The language as the parser accepts it (round 76; derived from
-`Sources/Swiftalk/Parser.swift` and `Lexer.swift`). EBNF-ish: `{ }`
+`Core/Sources/Swiftalk/Parser.swift` and `Lexer.swift`). EBNF-ish: `{ }`
 repeats, `[ ]` is optional, `|` alternates, quoted text is literal.
 Shelved forms (`actor`, `class`, `super`) are not grammar today.
 

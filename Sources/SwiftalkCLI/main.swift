@@ -130,6 +130,28 @@ extension Substring {
 // Script mode (round 66): `swiftalk file.swt` evaluates the whole
 // file as ONE strict program (§2.2 file mode — no relaxed bare
 // assignment), echoes nothing, and outputs only what print() prints.
+/// The directory the running executable lives in — where a dev build's
+/// module libraries sit beside it (round 182). dladdr on this image's
+/// own handle names its file, on Darwin and Linux alike.
+func executableDirectory() -> String? {
+    var info = Dl_info()
+    guard dladdr(#dsohandle, &info) != 0, let name = info.dli_fname else { return nil }
+    let path = String(cString: name)
+    guard let slash = path.lastIndex(of: "/") else { return nil }
+    return String(path[..<slash])
+}
+
+/// Where `import from "name"` looks for `libname.dylib` (round 182):
+/// `SWIFTALK_MODULE_PATH` (colon-separated) when set, else beside the
+/// executable and in the `lib/` next to its `bin/`.
+let defaultModulePath: [String] = {
+    if let raw = getenv("SWIFTALK_MODULE_PATH") {
+        return String(cString: raw).split(separator: ":").map(String.init)
+    }
+    guard let dir = executableDirectory() else { return [] }
+    return [dir, dir + "/../lib"]
+}()
+
 if CommandLine.arguments.count > 1 {
     let path = CommandLine.arguments[1]
     let fd = open(path, O_RDONLY)
@@ -151,6 +173,7 @@ if CommandLine.arguments.count > 1 {
         interp.scriptPath = path                     // `import` resolves beside the script (round 100)
         interp.moduleLoader = loadModule
         interp.fetcher = fetchWithCurl                // round 163
+        interp.modulePath = defaultModulePath         // round 182
         _ = try interp.eval(String(decoding: data, as: UTF8.self))
     } catch let error as Swiftalk.Error {
         let msg = "\(path): \(error.description)\n"
@@ -163,6 +186,7 @@ if CommandLine.arguments.count > 1 {
 let interpreter = Swiftalk.Interpreter(relaxed: true)
 interpreter.moduleLoader = loadModule            // URLs via curl, files directly
 interpreter.fetcher = fetchWithCurl              // fetch() via curl (round 163)
+interpreter.modulePath = defaultModulePath       // native modules beside the executable (round 182)
 let isTTY = isatty(0) != 0
 // On a terminal, LineEditor (round 64) supplies raw-mode editing,
 // arrow-key history, and ~/.swiftalk_history; pipes keep plain reads.

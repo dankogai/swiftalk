@@ -2345,6 +2345,50 @@ bar}`. only `export`ed symbols are importable."
   -fsSL` (posix_spawn, no Foundation). "So long as CORS allows" is
   the browser's concern, not the CLI's.
 
+**Native modules — DECIDED (round 182)** ("While C FFI is difficult,
+how about Swift modules?" and, on the recommendation, "Let's go as you
+recommend but step by step. First make the core dynamic and implement
+an example module. It doesn't have to be POSIX; it may be too
+complicated."). The FFI is Swift: a module is Swift code that speaks
+`Value` directly, so there is no type boundary to cross — the problem
+that makes a C FFI hard (an untyped `dlsym` pointer, varargs, struct
+layouts) does not arise. `Swiftalk.Module` is a name and an ordered
+list of exports, each an ordinary value: `function(name) { args in }`
+wraps a Swift closure as a builtin Function (arguments in order,
+labels dropped, a thrown `Swiftalk.Error` is the caller's error),
+`export(name, value)` publishes a constant or anything else. Two ways
+in, one module shape: an embedder calls `Interpreter.register(m)`; or
+the same module is compiled as a dynamic library exporting ONE C
+symbol, `swiftalk_module`, returning `m.entryPoint()`, and the
+interpreter finds `lib<name>.dylib` (`.so` on Linux) on its
+`modulePath` and loads it with dlopen — one fixed C signature is all
+the boundary needs, and everything else crosses as Swift because both
+sides link the same `libSwiftalk`. **Import resolution gains one
+rule**: a bare spec — no `/`, no `.swt`, not a URL — names a native
+module, registered first, the module path second, as `fs` does in
+Node; a divergence from Swift, whose `import` has no such thing and
+no `from`. Paths and URLs resolve as before, and a path ending in the
+library suffix loads that library. **The core is a dynamic library in
+a package of its own**, `Core/`: SwiftPM links a same-package library
+statically whatever its product type, and a host with its own static
+copy of `Value` next to a plugin's dynamic one is two `Value`s, two
+`Builtins.types`, and an error thrown in one that the other cannot
+catch. So the root package is the umbrella — the CLI, the tests, the
+native modules — all depending on `Core`'s product, and `swift build`
+and `swift test` at the root do what they did. The first module is
+`env`, the process environment (`get`, `set`, `unset`, `all`, and the
+constant `platform`), chosen to be small: it shows functions over
+Values, an error, a constant, and the entry point in sixty lines, and
+is built as `libenv.dylib` beside the CLI, which puts its own
+directory (and `../lib`) on the module path — `SWIFTALK_MODULE_PATH`
+overrides. **Constraints, stated**: plugins are built with the host's
+toolchain (Swift's ABI is stable only for the standard library on
+Apple platforms; library evolution for the core is a flag for later if
+plugins must outlive a compiler); the dynamic tier does not exist for
+a JS or wasm host, where the registry is filled by the host instead;
+`fetch` moving onto a `net` module and POSIX as a module are the next
+steps, in that order.
+
 ## Dialogue log
 
 Moved to [Dialogue.md](Dialogue.md) (round 65) — append-only and

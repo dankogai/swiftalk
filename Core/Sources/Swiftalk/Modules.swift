@@ -25,14 +25,52 @@ final class ModuleSystem {
     var fileScopeSetup: ((Environment) -> Void)? = nil
     /// resolved spec → source. nil: files through POSIX, URLs refused.
     var loader: ((String) throws -> String)? = nil
+    /// Native modules (round 182) by bare name: registered by the
+    /// embedder, or loaded from `searchPath` as `lib<name>.dylib`.
+    private var native: [String: Module] = [:]
+    var searchPath: [String] = []
 
     init(builtins: Environment) {
         self.builtins = builtins
     }
 
+    func register(_ module: Swiftalk.Module) {
+        native[module.name] = Module(names: module.names, values: module.values)
+    }
+
+    /// A bare spec — no `/`, no `.swt`, not a URL, not a library file —
+    /// names a native module (round 182), as `fs` does in Node.
+    static func isBare(_ spec: String) -> Bool {
+        !isURL(spec) && !spec.contains("/") && !spec.hasSuffix(".swt")
+            && !spec.hasSuffix(Swiftalk.Module.librarySuffix)
+    }
+
     func load(_ spec: String) throws -> Module {
+        if ModuleSystem.isBare(spec) {
+            if let module = native[spec] { return module }
+            let file = Swiftalk.Module.fileName(for: spec)
+            for dir in searchPath {
+                let path = dir + "/" + file
+                guard access(path, R_OK) == 0 else { continue }
+                let loaded = try Swiftalk.Module.load(path: path)
+                register(loaded)
+                native[spec] = native[loaded.name]
+                return native[spec]!
+            }
+            let looked = searchPath.isEmpty ? "the module path is empty"
+                : "no \(file) on the module path (\(searchPath.joined(separator: ", ")))"
+            throw SwiftalkError.type(
+                "no module named '\(spec)' — \(looked); a swiftalk file is imported by its path, \"./\(spec).swt\"")
+        }
         let resolved = ModuleSystem.resolve(spec, base: baseStack.last ?? ".")
         if let module = cache[resolved] { return module }
+        if resolved.hasSuffix(Swiftalk.Module.librarySuffix) {
+            // a module library by path (round 182)
+            let loaded = try Swiftalk.Module.load(path: resolved)
+            let module = Module(names: loaded.names, values: loaded.values)
+            cache[resolved] = module
+            return module
+        }
         guard !loading.contains(resolved) else {
             throw SwiftalkError.type("circular import of '\(resolved)'")
         }

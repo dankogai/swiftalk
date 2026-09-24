@@ -2601,3 +2601,15 @@ the history. (Moved out of Design.md in round 65.)
   [1]]` binds where it did not. `[SION]` admits a stamped `[Int]`.
   `SION` reifies as a parameter; `Primitives` goes, one roster where
   two sat a Data apart.
+
+* **2026-09-24, round 182 — native modules** ("While C FFI is
+  difficult, how about Swift modules?", then "Let's go as you
+  recommend but step by step. First make the core dynamic and
+  implement an example module. It doesn't have to be POSIX; it may be
+  too complicated."). The FFI is Swift: a `Swiftalk.Module` of
+  exports, registered in-process or loaded with dlopen through one C
+  symbol, found as `lib<name>.dylib` on the module path by a bare
+  `import from "env"`. The core became a dynamic library in `Core/`,
+  the root package the umbrella, after SwiftPM was seen linking a
+  same-package library statically regardless. `env` — the process
+  environment — is the worked example. `fetch` and POSIX come next.

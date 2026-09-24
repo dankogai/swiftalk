@@ -14,6 +14,8 @@ file: `from` is required, and the "where" is a path or a URL.
 | `import (foo, bar) from "./mod.swt"` | the named exports, bound directly (as `let`s); a name the module does not export is an error that lists what it does. Parentheses, not braces |
 | `"./mod.swt"`, `"../lib/x.swt"`, `"/abs/x.swt"` | resolved **beside the importing file** (the CLI script, or the module doing the importing); the REPL resolves from the cwd |
 | `"https://host/path/mod.swt"` | the CLI fetches with `curl -fsSL`; an embedder supplies `Interpreter.moduleLoader` (the core refuses URLs without one) |
+| `"env"` — a **bare name**: no `/`, no `.swt` | a **native module** (round 182): one an embedder registered by that name, else `libenv.dylib` (`.so` on Linux) found on `Interpreter.modulePath` — the CLI's own directory and its `../lib`, or `SWIFTALK_MODULE_PATH`. Node's rule for `fs`. Neither: an error naming the file it looked for |
+| `"./libx.dylib"` | a module library by its path, resolved like a file |
 | `export let x = ...`, `export var`, `export struct`, `export enum`, `export let (a, b) = t` | a declaration, exported |
 | `export (a, b)` | existing names, exported |
 | `extension Int { }` in a module | an extension of a **builtin** type is program-wide (round 147), as Swift's are: `modules/Complex.swt`'s `extension Double { var i }` gives the importer `Double.pi.i`. (A struct's extension always was, the type object being one.) |
@@ -46,5 +48,50 @@ is an error; an error inside a module is reported with the module's
 path. `export` in the main program is allowed and inert.
 
 Not (yet): live bindings; re-export (`export (x) from`); an import
-in a type annotation (`let p: M.Point` — import `Point` by name);
-`import` of anything but `.swt` source.
+in a type annotation (`let p: M.Point` — import `Point` by name).
+
+## Native modules (round 182)
+
+A native module is Swift: a `Swiftalk.Module` with a name and exports,
+each an ordinary `Value`. `function(name) { args in }` makes a
+swiftalk Function of a Swift closure — the arguments come in order,
+labels dropped; what it returns is the call's value; a thrown
+`Swiftalk.Error` is the caller's error. `export(name, value)`
+publishes a constant, or anything else. The import forms above all
+apply: `import from "env"`, `import env from "env"`, `import (get)
+from "env"`.
+
+```swift
+import Swiftalk
+
+func build() -> Swiftalk.Module {
+    let m = Swiftalk.Module(name: "greet")
+    m.function("hello") { args in
+        guard case .string(let who)? = args.first else {
+            throw Swiftalk.Error.type("hello(name) takes a String")
+        }
+        return .string("hello, \(who)")
+    }
+    m.export("answer", .int(42))
+    return m
+}
+
+@_cdecl("swiftalk_module")                       // the one C symbol a library exports
+public func swiftalkModule() -> UnsafeMutableRawPointer { build().entryPoint() }
+```
+
+Two ways in. An embedder calls `interpreter.register(build())` and
+imports by the name. Or the file is a target of its own with a dynamic
+library product named after the module — SwiftPM builds
+`libgreet.dylib` — and the interpreter finds it on `modulePath` and
+loads it with dlopen; the symbol above is the whole boundary, and
+everything else crosses as Swift. That works because host and module
+link the ONE `libSwiftalk`: the core is a dynamic library product of
+its own package, `Core/`, and a module's target depends on
+`.product(name: "Swiftalk", package: "Core")` exactly as the CLI does
+(see [`modules/env`](../modules/env/EnvModule.swift) and the root
+`Package.swift`). Build modules with the host's toolchain.
+
+The example, `env`: `get(name)` (nil when unset), `set(name, value)`,
+`unset(name)`, `all()` (a `[String: String]`), and the constant
+`platform` (`"darwin"` or `"linux"`).
