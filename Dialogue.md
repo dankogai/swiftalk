@@ -2613,3 +2613,10 @@ the history. (Moved out of Design.md in round 65.)
   the root package the umbrella, after SwiftPM was seen linking a
   same-package library statically regardless. `env` — the process
   environment — is the worked example. `fetch` and POSIX come next.
+
+* **2026-09-24, round 183 — module names start with a capital**
+  ("Module names should start with a capital. `Env` instead of
+  `env`. Note it is a convention, not grammar."). The example is
+  `Env`, its library `libEnv.dylib`, imported as `import from "Env"`;
+  the loader checks nothing about case. Named like a type, as the
+  `.swt` libraries already were.

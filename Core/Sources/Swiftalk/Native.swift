@@ -6,7 +6,7 @@ import Glibc
 
 extension Swiftalk {
     /// A native module (round 182): exports written in Swift, imported
-    /// by a bare name — `import (get) from "env"` — the way a `.swt`
+    /// by a bare name — `import (get) from "Env"` — the way a `.swt`
     /// file's are by its path. A module is a name and an ordered list of
     /// exports; each export is an ordinary Value, so a Swift closure
     /// becomes a swiftalk Function and a constant is just a value.
@@ -15,7 +15,7 @@ extension Swiftalk {
     /// `Interpreter.register(_:)`. Or the same module is compiled as a
     /// dynamic library exporting one C symbol, `swiftalk_module`, whose
     /// return value is `entryPoint()`; the interpreter finds
-    /// `lib<name>.dylib` (`.so` on Linux) on its `modulePath` and loads
+    /// `lib<Name>.dylib` (`.so` on Linux) on its `modulePath` and loads
     /// it with dlopen. Both sides must link the ONE `libSwiftalk` —
     /// which is why the core is a dynamic library product of its own
     /// package.
@@ -23,7 +23,7 @@ extension Swiftalk {
     /// ```swift
     /// import Swiftalk
     /// func build() -> Swiftalk.Module {
-    ///     let m = Swiftalk.Module(name: "greet")
+    ///     let m = Swiftalk.Module(name: "Greet")
     ///     m.function("hello") { args in
     ///         guard case .string(let who)? = args.first else {
     ///             throw Swiftalk.Error.type("hello(name) takes a String")
@@ -76,8 +76,9 @@ extension Swiftalk {
         }()
 
         /// The file a bare name resolves to on the module path:
-        /// `lib<name>.dylib` — what SwiftPM builds for a dynamic library
-        /// product of that name.
+        /// `lib<Name>.dylib` — what SwiftPM builds for a dynamic library
+        /// product of that name. Names take a capital by convention
+        /// (round 183); nothing here checks it.
         public static func fileName(for name: String) -> String {
             "lib\(name)\(librarySuffix)"
         }

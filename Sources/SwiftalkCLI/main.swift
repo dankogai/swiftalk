@@ -149,7 +149,7 @@ func executableDirectory() -> String? {
     return String(path[..<slash])
 }
 
-/// Where `import from "name"` looks for `libname.dylib` (round 182):
+/// Where `import from "Name"` looks for `libName.dylib` (round 182):
 /// `SWIFTALK_MODULE_PATH` (colon-separated) when set, else beside the
 /// executable and in the `lib/` next to its `bin/`.
 let defaultModulePath: [String] = {

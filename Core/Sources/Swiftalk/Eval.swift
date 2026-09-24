@@ -26,7 +26,7 @@ extension Swiftalk {
         /// is a `.failure` saying so; the CLI supplies curl.
         public var fetcher: ((FetchRequest) throws -> FetchResponse)? = nil
         /// Directories searched for a native module by bare name (round
-        /// 182): `import from "env"` looks for `libenv.dylib` (`.so` on
+        /// 182): `import from "Env"` looks for `libEnv.dylib` (`.so` on
         /// Linux) in each, in order. Empty, the default: only registered
         /// modules resolve. The CLI puts its own directory here.
         public var modulePath: [String] = []
@@ -58,7 +58,7 @@ extension Swiftalk {
         }
 
         /// Makes a native module importable by its name (round 182):
-        /// `import (hello) from "greet"` after `register(greet)`. A
+        /// `import (hello) from "Greet"` after `register(greet)`. A
         /// registered module shadows a library of the same name on the
         /// module path.
         public func register(_ module: Module) {

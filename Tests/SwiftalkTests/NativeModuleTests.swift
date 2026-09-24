@@ -56,19 +56,19 @@ struct NativeModuleTests {
             #expect(error.description.contains("/nonexistent"))
             #expect(error.description.contains("./nowhere.swt"))
         }
-        #expect(ModuleSystem.isBare("env"))
-        #expect(!ModuleSystem.isBare("./env"))
-        #expect(!ModuleSystem.isBare("env.swt"))
-        #expect(!ModuleSystem.isBare("https://x/env"))
-        #expect(!ModuleSystem.isBare("libenv" + Swiftalk.Module.librarySuffix))
+        #expect(ModuleSystem.isBare("Env"))
+        #expect(!ModuleSystem.isBare("./Env"))
+        #expect(!ModuleSystem.isBare("Env.swt"))
+        #expect(!ModuleSystem.isBare("https://x/Env"))
+        #expect(!ModuleSystem.isBare("libEnv" + Swiftalk.Module.librarySuffix))
     }
 
-    @Test("the example module loads from the module path as libenv: get, set, unset, all, platform; and by its path")
+    @Test("the example module loads from the module path as libEnv: get, set, unset, all, platform; and by its path")
     func dynamic() throws {
-        let dir = try #require(buildDirectory(), "no lib\("env")\(Swiftalk.Module.librarySuffix) beside the test — build it: swift build")
+        let dir = try #require(buildDirectory(), "no lib\("Env")\(Swiftalk.Module.librarySuffix) beside the test — build it: swift build")
         let i = Swiftalk.Interpreter()
         i.modulePath = ["/nonexistent", dir]
-        #expect(try i.eval("import from \"env\"\nset(\"SWIFTALK_TEST\", \"one\")\nget(\"SWIFTALK_TEST\")") == .string("one"))
+        #expect(try i.eval("import from \"Env\"\nset(\"SWIFTALK_TEST\", \"one\")\nget(\"SWIFTALK_TEST\")") == .string("one"))
         #expect(try i.eval("unset(\"SWIFTALK_TEST\")\nget(\"SWIFTALK_TEST\")") == .nil)
         #expect(try i.eval("all().Type.String()") == .string("[String: String]"))
         #expect(try i.eval("all()[\"PATH\"] == get(\"PATH\")") == .bool(true))
@@ -76,9 +76,9 @@ struct NativeModuleTests {
         #expect(throws: SwiftalkError.self) { try i.eval("get(1)") }
         #expect(throws: SwiftalkError.self) { try i.eval("set(\"A\")") }
         let j = Swiftalk.Interpreter()
-        let path = dir + "/" + Swiftalk.Module.fileName(for: "env")
-        #expect(try j.eval("import env from \"\(path)\"\nenv.platform") == .string(platform))
-        #expect(throws: SwiftalkError.self) { try Swiftalk.Interpreter().eval("import from \"env\"") }   // an empty module path
+        let path = dir + "/" + Swiftalk.Module.fileName(for: "Env")
+        #expect(try j.eval("import Env from \"\(path)\"\nEnv.platform") == .string(platform))
+        #expect(throws: SwiftalkError.self) { try Swiftalk.Interpreter().eval("import from \"Env\"") }   // an empty module path
         #expect(throws: SwiftalkError.self) { try Swiftalk.Module.load(path: "/nonexistent" + Swiftalk.Module.librarySuffix) }
     }
 
@@ -92,11 +92,11 @@ struct NativeModuleTests {
 
     /// The build directory: where libSwiftalk lives — dladdr on its
     /// metadata on Darwin, /proc/self/maps on Linux — or a parent of
-    /// it; libenv is built beside it.
+    /// it; libEnv is built beside it.
     private func buildDirectory() -> String? {
         guard let library = libraryPath() else { return nil }
         var dir = ModuleSystem.directory(of: library)
-        let file = Swiftalk.Module.fileName(for: "env")
+        let file = Swiftalk.Module.fileName(for: "Env")
         for _ in 0..<4 {
             if access(dir + "/" + file, R_OK) == 0 { return dir }
             dir = ModuleSystem.directory(of: dir)

@@ -6,9 +6,10 @@ Libraries written *in* swiftalk, imported with `import from
 (see [documents/module.md](../documents/module.md)). Each is checked by the test
 suite. Since round 182 a directory here may instead be a **native
 module** written in Swift — a target of the root package built as
-`lib<name>.dylib` and imported by its bare name, `import from "env"`.
+`lib<Name>.dylib` and imported by its bare name, `import from "Env"` —
+named with a capital like a type, by convention (round 183).
 
-* **[env/](env/EnvModule.swift)** — the process environment, and the
+* **[Env/](Env/EnvModule.swift)** — the process environment, and the
   worked example of a native module (round 182): `get(name)` (nil
   when unset), `set(name, value)`, `unset(name)`, `all()` (a `[String:
   String]`), the constant `platform`; sixty lines showing functions

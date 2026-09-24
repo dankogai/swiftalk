@@ -5,25 +5,27 @@ import Darwin
 import Glibc
 #endif
 
-// `env` — the process environment, swiftalk's first native module
+// `Env` — the process environment, swiftalk's first native module
 // (round 182) and the worked example of one: a few functions over
-// Values, a constant, one C entry point. Built as `libenv.dylib` (`.so`
-// on Linux) beside the CLI, so `import from "env"` finds it.
+// Values, a constant, one C entry point. Built as `libEnv.dylib` (`.so`
+// on Linux) beside the CLI, so `import from "Env"` finds it. The
+// capital is convention, not grammar (round 183): a module is named
+// like a type.
 //
-//     import (get, set) from "env"
+//     import (get, set) from "Env"
 //     get("HOME")                 // "/Users/me", or nil when unset
 //     set("GREETING", "hello")
-//     import env from "env"
-//     env.all()["GREETING"]       // "hello"
-//     env.platform                // "darwin" or "linux"
+//     import Env from "Env"
+//     Env.all()["GREETING"]       // "hello"
+//     Env.platform                // "darwin" or "linux"
 
 func build() -> Swiftalk.Module {
-    let m = Swiftalk.Module(name: "env")
+    let m = Swiftalk.Module(name: "Env")
 
     /// `get(name)` — the variable's value, or nil when it is unset.
     m.function("get") { args in
         guard args.count == 1, case .string(let name) = args[0] else {
-            throw Swiftalk.Error.type("env.get(name) takes one String")
+            throw Swiftalk.Error.type("Env.get(name) takes one String")
         }
         guard let value = getenv(name) else { return .nil }
         return .string(String(cString: value))
@@ -32,10 +34,10 @@ func build() -> Swiftalk.Module {
     /// `set(name, value)` — sets or replaces it.
     m.function("set") { args in
         guard args.count == 2, case .string(let name) = args[0], case .string(let value) = args[1] else {
-            throw Swiftalk.Error.type("env.set(name, value) takes two Strings")
+            throw Swiftalk.Error.type("Env.set(name, value) takes two Strings")
         }
         guard setenv(name, value, 1) == 0 else {
-            throw Swiftalk.Error.type("env.set(\(name)): \(String(cString: strerror(errno)))")
+            throw Swiftalk.Error.type("Env.set(\(name)): \(String(cString: strerror(errno)))")
         }
         return .nil
     }
@@ -43,17 +45,17 @@ func build() -> Swiftalk.Module {
     /// `unset(name)` — removes it; removing what is not there is fine.
     m.function("unset") { args in
         guard args.count == 1, case .string(let name) = args[0] else {
-            throw Swiftalk.Error.type("env.unset(name) takes one String")
+            throw Swiftalk.Error.type("Env.unset(name) takes one String")
         }
         guard unsetenv(name) == 0 else {
-            throw Swiftalk.Error.type("env.unset(\(name)): \(String(cString: strerror(errno)))")
+            throw Swiftalk.Error.type("Env.unset(\(name)): \(String(cString: strerror(errno)))")
         }
         return .nil
     }
 
     /// `all()` — every variable, a `[String: String]`.
     m.function("all") { args in
-        guard args.isEmpty else { throw Swiftalk.Error.type("env.all() takes no arguments") }
+        guard args.isEmpty else { throw Swiftalk.Error.type("Env.all() takes no arguments") }
         var table: [Swiftalk.Value: Swiftalk.Value] = [:]
         var cursor = environ
         while let entry = cursor.pointee {

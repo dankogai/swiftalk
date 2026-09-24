@@ -11,15 +11,16 @@ let package = Package(
     products: [
         .executable(name: "swiftalk", targets: ["SwiftalkCLI"]),
         // Native modules (round 182): one dynamic library per module,
-        // `lib<name>.dylib`, found by `import from "<name>"`.
-        .library(name: "env", type: .dynamic, targets: ["EnvModule"]),
+        // `lib<Name>.dylib`, found by `import from "<Name>"` — a capital by
+        // convention (round 183), like a type.
+        .library(name: "Env", type: .dynamic, targets: ["EnvModule"]),
     ],
     dependencies: [
         .package(path: "Core"),
     ],
     targets: [
         .executableTarget(name: "SwiftalkCLI", dependencies: [.product(name: "Swiftalk", package: "Core")]),
-        .target(name: "EnvModule", dependencies: [.product(name: "Swiftalk", package: "Core")], path: "modules/env"),
+        .target(name: "EnvModule", dependencies: [.product(name: "Swiftalk", package: "Core")], path: "modules/Env"),
         .testTarget(name: "SwiftalkTests", dependencies: [.product(name: "Swiftalk", package: "Core")]),
     ]
 )

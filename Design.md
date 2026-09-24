@@ -2360,7 +2360,7 @@ labels dropped, a thrown `Swiftalk.Error` is the caller's error),
 in, one module shape: an embedder calls `Interpreter.register(m)`; or
 the same module is compiled as a dynamic library exporting ONE C
 symbol, `swiftalk_module`, returning `m.entryPoint()`, and the
-interpreter finds `lib<name>.dylib` (`.so` on Linux) on its
+interpreter finds `lib<Name>.dylib` (`.so` on Linux) on its
 `modulePath` and loads it with dlopen — one fixed C signature is all
 the boundary needs, and everything else crosses as Swift because both
 sides link the same `libSwiftalk`. **Import resolution gains one
@@ -2376,18 +2376,29 @@ copy of `Value` next to a plugin's dynamic one is two `Value`s, two
 catch. So the root package is the umbrella — the CLI, the tests, the
 native modules — all depending on `Core`'s product, and `swift build`
 and `swift test` at the root do what they did. The first module is
-`env`, the process environment (`get`, `set`, `unset`, `all`, and the
+`Env`, the process environment (`get`, `set`, `unset`, `all`, and the
 constant `platform`), chosen to be small: it shows functions over
 Values, an error, a constant, and the entry point in sixty lines, and
-is built as `libenv.dylib` beside the CLI, which puts its own
+is built as `libEnv.dylib` beside the CLI, which puts its own
 directory (and `../lib`) on the module path — `SWIFTALK_MODULE_PATH`
 overrides. **Constraints, stated**: plugins are built with the host's
 toolchain (Swift's ABI is stable only for the standard library on
 Apple platforms; library evolution for the core is a flag for later if
 plugins must outlive a compiler); the dynamic tier does not exist for
 a JS or wasm host, where the registry is filled by the host instead;
-`fetch` moving onto a `net` module and POSIX as a module are the next
+`fetch` moving onto a `Net` module and POSIX as a module are the next
 steps, in that order.
+
+**Module names start with a capital — DECIDED (round 183)** ("Module
+names should start with a capital. `Env` instead of `env`. Note it is
+a convention, not grammar."). A native module is named like a type —
+`Env`, `Net`, `POSIX` — and imported as `import from "Env"`, its
+library being `libEnv.dylib`; the `.swt` libraries already were
+(`Complex.swt`, `Rational.swt`). It is a convention: the loader
+accepts any bare name, nothing checks the case, and a lowercase module
+would import. Node's `fs` is the road not taken; the module namespace
+that `import Env from "Env"` binds reads like a type's statics, which
+is what it is for.
 
 ## Dialogue log
 

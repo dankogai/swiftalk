@@ -85,7 +85,7 @@ i * i == Complex(-1.0, 0.0)                   // true — and (*)(i, i), reduce(
 // Int?, Optional<Int>, Set<Int>, [Int?] — the spellings as expressions: Int?("x") is nil, var s = Set<Int>() refuses a String (round 167)
 // [Int]().filter { }.Type == [Int], [1].dropFirst().Type == [Int] — filter and the slices keep the element type (rounds 168–169); map infers one from its results (round 170); seq.Array(), Set(seq), Array([Int]()) keep theirs (rounds 171–172); Dictionary(pairs) builds from (k, v) tuples and infers [K: V] (round 173); zip(keys, values) pairs them, lazily when a side is (round 174); enumerated() is [Tuple] even when empty (round 175); reversed() and sorted() keep the element type (round 176); split() and joined() move it a level, [Int]().split(0) is [[Int]] and [[Int]]().joined() an empty [Int] (round 177); [Int: String]().keys is a Set<Int>, .values a [String] (round 180)
 // [].Type == [SION], [:].Type == [SION: SION], Set().Type == Set<SION> — an empty literal bound without an annotation holds data and refuses a Function; Primitives is retired, SION covers it (round 181)
-// import (get) from "env" — a native module: Swift exports behind one C symbol, found as libenv.dylib beside the CLI; the core is a dynamic library so both share one Value (round 182)
+// import (get) from "Env" — a native module: Swift exports behind one C symbol, found as libEnv.dylib beside the CLI; the core is a dynamic library so both share one Value (round 182); module names take a capital, by convention (round 183)
 // Complex(1.0, -2.0).String() == "(1.0-2.0.i)" — an expression that re-enters; Complex("(1.0-2.0.i)") reads it (round 154)
 // and exact fractions: modules/Rational.swt — Rational(3, 4) + 1 == Rational(7, 4), Double(Rational(3, 4)) == 0.75, Rational(3, 4).String() == "(3/4)", Rational("(3/4)"), 1.over(3)
 let hex    = 255.String(.hex)                 // "0xff"; .String(.sign, .hex) is "+0xff"; radix: 16 for bare "ff"
@@ -139,4 +139,4 @@ swift test           # the suite
 
 The library is `Core/` — a dynamic library product in a package of
 its own since round 182, so the CLI, the tests, and the native modules
-(`modules/env/`, built as `libenv.dylib`) all share one copy of it.
+(`modules/Env/`, built as `libEnv.dylib`) all share one copy of it.

@@ -223,23 +223,24 @@ Set(
 ```
 
 **Native modules** (round 182) — Swift exports imported by a bare
-name: registered by an embedder, or loaded from `lib<name>.dylib`
+name: registered by an embedder, or loaded from `lib<Name>.dylib`
 beside the CLI (`SWIFTALK_MODULE_PATH` overrides). The core is a
-dynamic library so host and module share one `Value`. `env`, the
-process environment, is the first:
+dynamic library so host and module share one `Value`. `Env`, the
+process environment, is the first — named with a capital like a type,
+by convention (round 183):
 
 ```text
-swiftalk> import (get, set, platform) from "env"
+swiftalk> import (get, set, platform) from "Env"
 swiftalk> platform
 "darwin"
 swiftalk> set("GREETING", "hello")
 swiftalk> get("GREETING")
 "hello"
-swiftalk> import env from "env"
-swiftalk> env.all()["GREETING"]
+swiftalk> import Env from "Env"
+swiftalk> Env.all()["GREETING"]
 "hello"
 swiftalk> get(1)                          // the module's error is the caller's
-type error: env.get(name) takes one String
+type error: Env.get(name) takes one String
 swiftalk> import from "nowhere"
 type error: no module named 'nowhere' — no libnowhere.dylib on the module path (.build/debug); a swiftalk file is imported by its path, "./nowhere.swt"
 ```
