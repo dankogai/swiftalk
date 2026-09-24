@@ -222,6 +222,41 @@ Set(
 )
 ```
 
+**Regex is a module** (round 186) — the engine is `modules/Regex`,
+`libRegex.dylib` beside the CLI and preimported; the literal stays
+grammar and calls the `Regex` type in scope — without it, an error
+naming the module. A module's values, types, and extensions of core
+types are new to the module API:
+
+```text
+swiftalk> /a+/i
+/a+/i
+swiftalk> /a+/i.Type
+Regex
+swiftalk> "2026-09-24".firstMatch(/(\d+)-(\d+)-(\d+)/)
+("2026-09-24", "2026", "09", "24")
+swiftalk> "a,b".split(/,/).Type
+[String]
+swiftalk> Regex("a", "i") == /a/i
+true
+swiftalk> import R from "Regex"
+swiftalk> R.Regex == Regex
+true
+swiftalk> extension Regex { static let digits = /\d+/ }
+swiftalk> "a1b22".matches(Regex.digits)
+["1", "22"]
+```
+
+Without the library on the module path (`SWIFTALK_MODULE_PATH=/nonexistent`):
+
+```text
+swiftalk: no Regex module on the module path — /re/ literals will not evaluate (type error: no module named 'Regex' — no libRegex.dylib on the module path (/nonexistent); a swiftalk file is imported by its path, "./Regex.swt")
+swiftalk> /a+/
+type error: /a+/: a regex literal needs the Regex module — import from "Regex" (the CLI preimports it)
+swiftalk> "x".contains("x")
+true
+```
+
 **The top level keeps `eval`** (round 185) — `print`/`debugPrint` are the
 `IO` module's, `fetch`/`Response` the `Net` module's, both registered
 by the core and **preimported by the CLI** as its prelude; `zip` is

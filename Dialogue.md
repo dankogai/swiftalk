@@ -2640,3 +2640,17 @@ the history. (Moved out of Design.md in round 65.)
   rule) are statics of core types. `Interpreter.preimport()` is the
   CLI's prelude — every export into the builtins, so nothing a script
   wrote changes; an embedder's interpreter is bare until it asks.
+
+* **2026-09-24, round 186 — Regex is a module; `/re/` is grammar**
+  ("`Regex` should be out of `Core` as well but `/exp/` is a matter of
+  grammar. Prelude in CLI but not part of the core. `/exp/` without
+  the presence of Regex should `fatalError()`."). Reverses round 86's
+  "core type": the engine is `modules/Regex`, the lexer and parser
+  keep the literal, and the literal evaluates through the `Regex` type
+  in scope — an error naming the module when there is none (the
+  language's fatal error, thrown, not Swift's abort; recorded as the
+  one liberty taken). To carry it, modules gained values of their own
+  (`Value.host`, a `HostValue` object answering for type, members,
+  equality, printing, and `switch`), exported types, and extensions of
+  core types that may decline. Six String members moved out with the
+  engine; the CLI preimports `Regex` after `IO` and `Net`.

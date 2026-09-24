@@ -22,7 +22,7 @@ REPL). Sections in [Design.md](../Design.md) are cited as §n.
 | `Date` | epoch seconds as Double | [Date.md](Date.md) |
 | `Task` | a spawned computation | [Task.md](Task.md) |
 | `Tuple` | a grab bag `(v0, v1, ...)`, one loose type | [Tuple.md](Tuple.md) |
-| `Regex` | `/pattern/flags`, Swift's engine | [Regex.md](Regex.md) |
+| `Regex` | `/pattern/flags` — the literal is grammar, the type the Regex module's (round 186) | [Regex.md](Regex.md) |
 | `SION` | the data format, built in: SION, JSON, property lists | [SION.md](SION.md) |
 | modules | `import` / `export`, `.swt` files by path or URL | [module.md](module.md) |
 | `Result` | built-in enum: `.success` / `.failure` | [Result.md](Result.md) |

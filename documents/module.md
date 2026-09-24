@@ -101,6 +101,20 @@ The example, `Env`: `get(name)` (nil when unset), `set(name, value)`,
 `unset(name)`, `all()` (a `[String: String]`), and the constant
 `platform` (`"darwin"` or `"linux"`).
 
+### A module's own values, types, and extensions (round 186)
+
+| API | Meaning |
+|---|---|
+| `Value.host(object)` | a value the module owns: `object` is a `Swiftalk.HostValue` — a class answering `typeName`, `type` (what `x.Type` gives), `member(name, args, called)` (nil: no such member, the core's universal ones then answer), `isEqual(to:)`, `hash(into:)`, `sourceString(debug:)` (what prints and re-enters), and `patternMatch(subject, binding:)` — Swift's `~=` for `case pattern:` and the source of `case let m = pattern`, nil being no match |
+| `m.type("Name") { args in }` | exports a type: the closure constructs from the call's arguments; round 47's law holds (`s.Name(args)` is `Name(s, args)`), `let x: Name` is an annotation, `x.Type == Name` for what it makes. Returns the type Value — give it to the values you make |
+| `m.extend("String", "member") { receiver, args, called in }` | a member added to a core type, program-wide once the module is loaded (round 147's rule); returning nil **declines**, and the core's own member, if any, answers — so a module adds an argument type to `contains` and leaves `contains("x")` alone |
+| `Swiftalk.call(f, args)` | calls a swiftalk Function from Swift — for a member that takes a closure |
+| `TypeAnnotation("Array", parameters: [TypeAnnotation("String")])` | a stamp for a container the module builds |
+
+The Regex module ([Regex.md](Regex.md), `modules/Regex/RegexModule.swift`)
+uses all five: the `Regex` type, the value behind `/re/`, six String
+members, `replacing(/re/) { m in }`, and `split`'s `[String]`.
+
 ## The prelude (round 185)
 
 The core ships two modules of its own, `IO` (`print`, `debugPrint` —
@@ -113,4 +127,7 @@ is still "a builtin". An embedder calls `Interpreter.preimport()` (the
 default is `["IO", "Net"]`; any registered or module-path name goes)
 for the same, or imports what it wants, or leaves the interpreter
 silent. The top level itself keeps one function, `eval`; `zip` and
-`sleep` became `Sequence.zip` and `Task.sleep`.
+`sleep` became `Sequence.zip` and `Task.sleep`. The CLI then preimports
+**`Regex`** from the module path (round 186) — `libRegex.dylib` beside
+the executable — and, when it is missing, says so once and runs on,
+`/re/` literals failing when evaluated.

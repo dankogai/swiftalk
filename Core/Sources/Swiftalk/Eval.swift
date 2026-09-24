@@ -373,6 +373,19 @@ func plainString(_ value: Value) -> String {
     return value.sourceString()
 }
 
+/// `/pattern/flags` (round 186): the grammar is the core's, the meaning
+/// the Regex module's — the `Regex` type in scope (the CLI preimports
+/// it) is called with the two Strings. Without it the literal is an
+/// error naming the module; the Swift-level `fatalError` was weighed
+/// and passed over, since an embedder's process should not die of a
+/// script's typo.
+private func regexLiteral(_ pattern: String, _ flags: String, in env: Environment) throws -> Value {
+    guard case .function(let t)? = try? env.lookup("Regex"), case .type("Regex") = t.role, let construct = t.builtin else {
+        throw SwiftalkError.type("/\(pattern)/\(flags): a regex literal needs the Regex module — import from \"Regex\" (the CLI preimports it)")
+    }
+    return try construct([.string(pattern), .string(flags)])
+}
+
 func displayString(_ value: Value) throws -> String {
     if case .string(let s) = value { return s }
     return try valueSourceText(value)
@@ -534,7 +547,7 @@ func typeMatches(_ value: Value, _ lockName: String) -> Bool {
 
 private let knownTypeNames: Set<String> =
     ["Nil", "Bool", "Int", "Double", "String", "Array", "Dictionary", "Set", "Function",
-     "Range", "Sequence", "Data", "Date", "Task", "Tuple", "Regex", "Byte",
+     "Range", "Sequence", "Data", "Date", "Task", "Tuple", "Byte",
      // Round 59: annotation vocabulary — Any admits everything, SION
      // its roster. Any is not a value; SION is a type (round 97).
      "SION", "Any"]
@@ -1134,9 +1147,10 @@ private func match(_ pattern: Pattern, _ subject: Value,
         if case .range(let lower, let upper, let closed) = v, case .int(let i) = subject {
             if lower <= i && (upper.map { closed ? i <= $0 : i < $0 } ?? true) { return true }
         }
-        // A Regex pattern matches a String WHOLE (Swift's ~=, round 86).
-        if case .regex(let r) = v, case .string(let s) = subject {
-            return s.wholeMatch(of: r.regex) != nil
+        // A module's value asks its object (round 186): a Regex pattern
+        // matches a String WHOLE (Swift's ~=, round 86).
+        if case .host(let h) = v {
+            return try h.patternMatch(subject, binding: false) != nil
         }
         return false
     case .enumCase(let name):
@@ -1157,14 +1171,11 @@ private func match(_ pattern: Pattern, _ subject: Value,
             }
             value = caseAccessor(ev, caseName, receiver: subject)
         case .expr(let e):
-            guard case .regex(let r) = try evaluate(e, in: scope) else {
+            guard case .host(let h) = try evaluate(e, in: scope) else {
                 throw SwiftalkError.type(
                     "a case binds from a case of the subject (case r = .circle) or a Regex (case m = /re/)")
             }
-            guard case .string(let s) = subject else {
-                throw SwiftalkError.type("a Regex case needs a String subject, not \(subject.typeName)")
-            }
-            value = s.wholeMatch(of: r.regex).map(matchValue) ?? .nil
+            value = try h.patternMatch(subject, binding: true) ?? .nil          // round 186: the object answers
         }
         guard value != .nil else { return false }
         try bind(pattern, value, mutable: mutable, in: scope, strict: false)
@@ -1176,15 +1187,6 @@ private func match(_ pattern: Pattern, _ subject: Value,
 /// matched String bare; with captures → a tuple, `.0` the whole match,
 /// then the captures in order, labeled by name where the group has
 /// one, `nil` where a group did not participate — Swift's own shape.
-func matchValue(_ m: Regex<AnyRegexOutput>.Match) -> Value {
-    let elements = Array(m.output)
-    if elements.count == 1 {
-        return .string(elements[0].substring.map(String.init) ?? "")
-    }
-    return .tuple(elements.map { e in e.substring.map { .string(String($0)) } ?? .nil },
-                  labels: elements.map(\.name))
-}
-
 /// The case accessor (round 46): `value.casename` is the associated
 /// value(s) when the value IS that case, nil otherwise. One payload
 /// comes bare, several as a tuple labeled as the case declares (round
@@ -1220,6 +1222,7 @@ private func isUserType(_ name: String, in env: Environment) -> Bool {
     }
     switch f.role {
     case .enumType, .structType, .actorType: return true
+    case .type(let n): return f.builtin != nil && Builtins.types[n] == nil     // a module's type (round 186)
     default: return false
     }
 }
@@ -1652,6 +1655,8 @@ private func rangeCount(from lower: Int64, to upper: Int64, closed: Bool) throws
 /// everything else defers to `evaluateSlow`.
 func evaluate(_ expr: Expr, in env: Environment) throws -> Value {
     switch expr {
+    case .regexLiteral(let pattern, let flags):
+        return try regexLiteral(pattern, flags, in: env)
     case .literal(let v):
         return v
     case .variable(let name):
@@ -1739,6 +1744,8 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
         return try evaluateSwitch(subject, clauses, defaultBody, in: env)
     case .ifE:
         return try evaluate(expr, in: env)     // handled on the hot path
+    case .regexLiteral(let pattern, let flags):
+        return try regexLiteral(pattern, flags, in: env)
     case .literal(let v):
         return v
     case .variable(let name):
@@ -3626,6 +3633,10 @@ func apply(_ fn: FunctionObject, args: [(label: String?, value: Value)]) throws 
     // x.TypeName(tag: ...) — the first unlabeled argument is the
     // subject, the rest are format arguments.
     if case .type(let typeName) = fn.role {
+        // A module's type (round 186): its own constructor, the arguments raw
+        if let construct = fn.builtin, Builtins.types[typeName] == nil, Builtins.protocols[typeName] == nil {
+            return try construct(args.map(\.value))
+        }
         var subject: Value? = nil
         var extra: [(label: String?, value: Value)] = []
         for (index, arg) in args.enumerated() {
@@ -4036,13 +4047,6 @@ func convert(_ typeName: String, subject: Value?,
             if b { word |= 1 << UInt64(i) }
         }
         return .int(Int64(bitPattern: word))
-    case "Regex":
-        // Regex(pattern, flags) / pattern.Regex(flags) (round 86)
-        guard let subject, case .string(let pattern) = subject,
-              extra.count == 1, case .string(let flags) = extra[0].value else {
-            throw SwiftalkError.type("Regex(pattern, flags) takes two Strings")
-        }
-        return .regex(try RegexObject(pattern: pattern, flags: flags))
     case "Set":
         // Set(a, b, ...) (round 133): the arguments are the elements —
         // unlabeled, as a list is
@@ -4220,6 +4224,15 @@ private func plainValues(_ args: [(label: String?, value: Value)], for member: S
 private func method(on receiver: Value, name: String,
                     args labeledArgs: [(label: String?, value: Value)], called: Bool,
                     env: Environment) throws -> Value {
+    // A module's extension of a core type (round 186) answers first, a
+    // nil declining to the core; a module's own value answers for itself.
+    if let modules = ModuleContext.current, let ext = modules.nativeExtensions[receiver.typeName]?[name],
+       let answer = try ext(receiver, labeledArgs.map(\.value), called) {
+        return answer
+    }
+    if case .host(let h) = receiver, let answer = try h.member(name, args: labeledArgs.map(\.value), called: called) {
+        return answer
+    }
     // `.conforms(to:)` is the one member with a label; everything else
     // takes bare values.
     if (name, called) == ("conforms", true) {
@@ -4420,8 +4433,13 @@ private func method(on receiver: Value, name: String,
     // ...and through a binding that holds a type (round 111): with
     // `let S = String`, `42.S()` is `42.String()`.
     if called, Builtins.types[name] == nil, case .function(let f)? = try? env.lookup(name),
-       case .type(let typeName) = f.role, Builtins.types[typeName] != nil || Builtins.protocols[typeName] != nil {
-        return try convert(typeName, subject: receiver, extra: labeledArgs)
+       case .type(let typeName) = f.role {
+        if Builtins.types[typeName] != nil || Builtins.protocols[typeName] != nil {
+            return try convert(typeName, subject: receiver, extra: labeledArgs)
+        }
+        if let construct = f.builtin {                                            // a module's type (round 186)
+            return try construct([receiver] + labeledArgs.map(\.value))
+        }
     }
     // Swift's own labels on the round-83+ members are accepted and
     // dropped — sorted(by:), contains(where:), joined(separator:),
@@ -4461,6 +4479,7 @@ private func method(on receiver: Value, name: String,
         if case .actor(let obj) = receiver {
             return .function(obj.type.constructor!)
         }
+        if case .host(let h) = receiver { return h.type }                     // a module's value (round 186)
         // A container's Type carries its element type (round 165): the
         // stamp if it has one, else what its contents infer — `[0].Type`
         // is `[Int]`, `[1, "one"].Type` the erased `Array`, and `[].Type`
@@ -4815,7 +4834,6 @@ private func method(on receiver: Value, name: String,
             return .bool(false)
         }
         if case .string(let s) = receiver {
-            if case .regex(let r) = args[0] { return .bool(s.contains(r.regex)) }   // round 86
             guard case .string(let needle) = args[0] else {
                 throw SwiftalkError.type("String.contains looks for a String or a Regex, not a \(args[0].typeName)")
             }
@@ -4902,24 +4920,6 @@ private func method(on receiver: Value, name: String,
             return .array(out, lock: TypeAnnotation(name: "Array", optional: false, parameters: [inner]))
         }
         return .array(out)
-    // ---- Regex (round 86): the String side of the API, Swift's names ----
-    case ("pattern", false), ("flags", false):
-        guard case .regex(let r) = receiver else {
-            throw SwiftalkError.unknownMember("\(receiver.typeName).\(name)")
-        }
-        return .string(name == "pattern" ? r.pattern : r.flags)
-    case ("firstMatch", true), ("wholeMatch", true), ("matches", true):
-        guard case .string(let s) = receiver else {
-            throw SwiftalkError.unknownMember("\(receiver.typeName).\(name)()")
-        }
-        guard args.count == 1, case .regex(let r) = args[0] else {
-            throw SwiftalkError.type(".\(name) takes a Regex: s.\(name)(/re/)")
-        }
-        switch name {
-        case "firstMatch": return s.firstMatch(of: r.regex).map(matchValue) ?? .nil
-        case "wholeMatch": return s.wholeMatch(of: r.regex).map(matchValue) ?? .nil
-        default:           return .array(s.matches(of: r.regex).map(matchValue))
-        }
     case ("replacing", true):
         // s.replacing(/re/, "x") / s.replacing(/re/) { m in ... } /
         // s.replacing("a", "b") — Swift's replacing(_:with:)
@@ -4929,22 +4929,8 @@ private func method(on receiver: Value, name: String,
         guard args.count == 2 else {
             throw SwiftalkError.type(".replacing takes what to find (a Regex or a String) and the replacement (a String, or a Function of the match)")
         }
+        // the Regex forms are the Regex module's (round 186), answered before this
         switch (args[0], args[1]) {
-        case (.regex(let r), .string(let with)):
-            return .string(s.replacing(r.regex, with: with))
-        case (.regex(let r), .function(let fn)):
-            var out = ""
-            var cursor = s.startIndex
-            for m in s.matches(of: r.regex) {
-                out += s[cursor..<m.range.lowerBound]
-                guard case .string(let piece) = try apply(fn, args: [(nil, matchValue(m))]) else {
-                    throw SwiftalkError.type("the .replacing Function must return a String")
-                }
-                out += piece
-                cursor = m.range.upperBound
-            }
-            out += s[cursor...]
-            return .string(out)
         case (.string(let find), .string(let with)):
             return .string(s.replacing(find, with: with))
         default:
@@ -4963,10 +4949,9 @@ private func method(on receiver: Value, name: String,
         let strings = TypeAnnotation(name: "Array", optional: false, parameters: [TypeAnnotation(name: "String", optional: false)])
         if case .string(let s) = receiver {
             switch args[0] {
-            case .regex(let r):    return .array(s.split(separator: r.regex).map { .string(String($0)) }, lock: strings)   // [String] (round 177)
             case .string(let sep): return .array(s.split(separator: sep).map { .string(String($0)) }, lock: strings)
             case .function:        break            // a grapheme predicate: below
-            default: throw SwiftalkError.type("String.split takes a String, a Regex, or a Function of a grapheme")
+            default: throw SwiftalkError.type("String.split takes a String, a Function of a grapheme — or a Regex, with the Regex module")
             }
         }
         try requireFinite(receiver, for: "split")

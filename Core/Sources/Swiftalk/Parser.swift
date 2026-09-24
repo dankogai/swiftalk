@@ -2,6 +2,9 @@
 /// method calls — and `{}` functions with `$` (Design.md §2.4).
 indirect enum Expr {
     case literal(Value)
+    /// `/pattern/flags` (round 86): grammar in the core, meaning in the
+    /// Regex module — evaluated through the `Regex` type in scope (round 186).
+    case regexLiteral(pattern: String, flags: String)
     case variable(String)
     case array([Expr])
     case dictionary([(Expr, Expr)])
@@ -73,6 +76,21 @@ public struct TypeAnnotation: Equatable {   // public: a Value payload since rou
     /// Dictionary with two — recursive, so `[[Int]]` and `[String:
     /// [Int?]]` compose. Empty = an unparameterized name, as before.
     var parameters: [TypeAnnotation] = []
+
+    init(name: String, optional: Bool, parameters: [TypeAnnotation] = []) {
+        self.name = name
+        self.optional = optional
+        self.parameters = parameters
+    }
+
+    /// For a module (round 186): `[String]` is `TypeAnnotation("Array",
+    /// parameters: [TypeAnnotation("String")])` — what a stamped
+    /// container carries.
+    public init(_ name: String, optional: Bool = false, parameters: [TypeAnnotation] = []) {
+        self.name = name
+        self.optional = optional
+        self.parameters = parameters
+    }
 
     /// The source spelling, for error messages: `[Int: String?]?`.
     var display: String {
@@ -1764,8 +1782,9 @@ struct Parser {
         case .double(let d):  return .literal(.double(d))
         case .string(let s):  return .literal(.string(s))
         case .regex(let pattern, let flags):
-            // compiled once, at parse time — a bad pattern is a syntax error
-            return .literal(.regex(try RegexObject(pattern: pattern, flags: flags)))
+            // the literal is grammar; `Regex` in scope gives it meaning
+            // (round 186) — compiled when evaluated, cached by the module
+            return .regexLiteral(pattern: pattern, flags: flags)
         case .interpolated(let segments):
             return .interpolation(try segments.map { segment in
                 switch segment {

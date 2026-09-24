@@ -32,7 +32,7 @@ struct RegexTests {
         #expect(try eval("let r = /a/\nr.pattern") == .string("a"))
         #expect(try eval("[/a/, /b/].count") == .int(2))
         #expect(try eval("let f = { return /x/ }\nf().pattern") == .string("x"))
-        #expect(try eval("\"x\".contains(/x/) ? /y/ : /z/") == .regex(try RegexObject(pattern: "y", flags: "")))
+        #expect(try eval("(\"x\".contains(/x/) ? /y/ : /z/) == /y/") == .bool(true))
     }
 
     @Test("contains, firstMatch, wholeMatch, matches — Swift's names, of: accepted")

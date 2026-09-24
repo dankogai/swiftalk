@@ -52,7 +52,6 @@ enum Completion {
         "Date": ["Double"],
         "Task": [],
         "Tuple": ["Array", "Tuple", "count", "first", "map", "filter", "reduce", "forEach", "enumerated"],
-        "Regex": ["pattern", "flags"],
         "Byte": ["Int", "bitAnd", "bitOr", "bitXor", "bitNot", "shifted"],
         "Result": ["success", "failure", "then", "catch"],
     ]

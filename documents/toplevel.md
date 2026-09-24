@@ -102,11 +102,12 @@ construct — `[Int].Element("42")` is `42`. The erased `Array` has no
 
 | Names | Kind |
 |---|---|
-| `Nil` `Bool` `Byte` `Int` `Double` `String` `Array` `Dictionary` `Set` `Range` `Function` `Data` `Date` `Task` `Tuple` `Regex` `SION` | the built-in types — one page each in [README.md](README.md) |
+| `Nil` `Bool` `Byte` `Int` `Double` `String` `Array` `Dictionary` `Set` `Range` `Function` `Data` `Date` `Task` `Tuple` `SION` | the built-in types — one page each in [README.md](README.md) |
 | `Sequence` | a type (a lazy generator or coroutine) and the protocol every iterable conforms to — [Sequence.md](Sequence.md) |
 | `Equatable` `Hashable` `Comparable` | protocols: `T.conforms(to: Comparable)`; every value is Equatable and Hashable, Comparable is Int/Double/String/Date/Byte and any struct or enum with `infix(<)` (round 146) |
 | `Result` | the built-in enum, `.success(v)` / `.failure(e)` — [Result.md](Result.md) |
 | `Response` | `fetch`'s answer, a struct declared in swiftalk — the `Net` module's, preimported by the CLI (rounds 163, 185) — [Net.md](Net.md) |
+| `Regex` | the Regex **module's** type (round 186), preimported by the CLI — the literal `/re/` is grammar and calls it, an error when it is not in scope — [Regex.md](Regex.md) |
 | `Optional` | `Optional<Int>` is the type `Int?` (round 167) — the bare name is the identity constructor, `Optional(x)` is `x`, and no annotation |
 | `Any` | an annotation-only name (round 59): not a value, a type error as one. (`Primitives` was retired in round 181 — `SION` covers it) |
 

@@ -14,6 +14,7 @@ let package = Package(
         // `lib<Name>.dylib`, found by `import from "<Name>"` — a capital by
         // convention (round 183), like a type.
         .library(name: "Env", type: .dynamic, targets: ["EnvModule"]),
+        .library(name: "Regex", type: .dynamic, targets: ["RegexModule"]),    // round 186: the regex engine
     ],
     dependencies: [
         .package(path: "Core"),
@@ -21,6 +22,7 @@ let package = Package(
     targets: [
         .executableTarget(name: "SwiftalkCLI", dependencies: [.product(name: "Swiftalk", package: "Core")]),
         .target(name: "EnvModule", dependencies: [.product(name: "Swiftalk", package: "Core")], path: "modules/Env"),
+        .target(name: "RegexModule", dependencies: [.product(name: "Swiftalk", package: "Core")], path: "modules/Regex"),
         .testTarget(name: "SwiftalkTests", dependencies: [.product(name: "Swiftalk", package: "Core")]),
     ]
 )

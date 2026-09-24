@@ -70,42 +70,9 @@ extension Swiftalk {
         /// literal of its own, `/pattern/flags`, and the constructor
         /// `Regex(pattern)`. Wraps the stdlib's Regex; equality and
         /// hashing are by pattern and flags.
-        case regex(RegexObject)
-    }
-
-    /// The compiled regex behind a `.regex` value (round 86). Flags are
-    /// a subset of `imsx`, kept sorted, and applied as an inline
-    /// `(?flags)` prefix — the stdlib's engine understands PCRE's.
-    public final class RegexObject: Hashable {
-        public let pattern: String
-        public let flags: String
-        let regex: Regex<AnyRegexOutput>
-
-        init(pattern: String, flags: String) throws {
-            for f in flags where !"imsx".contains(f) {
-                throw SwiftalkError.syntax("unknown regex flag '\(f)' — i, m, s, x are the flags")
-            }
-            let sorted = String(flags.sorted())
-            self.pattern = pattern
-            self.flags = sorted
-            do {
-                regex = try Regex(sorted.isEmpty ? pattern : "(?\(sorted))" + pattern)
-            } catch {
-                throw SwiftalkError.syntax("invalid regex /\(pattern)/: \(error)")
-            }
-        }
-        public static func == (lhs: RegexObject, rhs: RegexObject) -> Bool {
-            lhs.pattern == rhs.pattern && lhs.flags == rhs.flags
-        }
-        public func hash(into hasher: inout Hasher) {
-            hasher.combine(pattern)
-            hasher.combine(flags)
-        }
-        /// `/pattern/flags` — a `/` inside the pattern escaped as `\/`,
-        /// which the lexer turns back into `/` (the round-trip law).
-        var sourceForm: String {
-            "/" + pattern.map { $0 == "/" ? "\\/" : String($0) }.joined() + "/" + flags
-        }
+        /// A value a module owns (round 186): its type, members, equality,
+        /// printing, and pattern matching are the object's to answer.
+        case host(any HostValue)
     }
 
     /// A tuple's contents (round 74): values with optional labels. A
@@ -423,15 +390,14 @@ typealias StaticHolder = Swiftalk.StaticHolder
 typealias StructValue = Swiftalk.StructValue
 typealias TaskObject = Swiftalk.TaskObject
 typealias TupleValue = Swiftalk.TupleValue
-typealias RegexObject = Swiftalk.RegexObject
 
 extension Swiftalk.Value {
     /// An unlabeled tuple from values — the common construction.
-    static func tuple(_ values: [Value]) -> Value {
+    public static func tuple(_ values: [Swiftalk.Value]) -> Swiftalk.Value {
         .tuple(TupleValue(values: values))
     }
     /// A labeled tuple (round 74).
-    static func tuple(_ values: [Value], labels: [String?]) -> Value {
+    public static func tuple(_ values: [Swiftalk.Value], labels: [String?]) -> Swiftalk.Value {
         .tuple(TupleValue(values: values, labels: labels))
     }
 }
@@ -459,13 +425,13 @@ extension Value {
         case .sequence:   return "Sequence"
         case .enumCase(let ev): return ev.type.name
         case .structValue(let sv): return sv.type.name
+        case .host(let h): return h.typeName
         case .data: return "Data"
         case .byte: return "Byte"
         case .date: return "Date"
         case .task: return "Task"
         case .tuple: return "Tuple"
         case .actor(let obj): return obj.type.name
-        case .regex: return "Regex"
         }
     }
 
@@ -591,8 +557,8 @@ extension Value {
             // (unsigned under debug, as SION writes it — not the Double's
             // own signed debug form; round 125)
             return ".Date(\(debug ? Value.hexFloat(epoch) : Value.double(epoch).sourceString(debug: false, seen: seen, custom: custom)))"
-        case .regex(let r):
-            return r.sourceForm              // /pattern/flags — a literal, re-enters
+        case .host(let h):
+            return h.sourceString(debug: debug)   // the module's own form (round 186)
         case .structValue(let sv):
             // Memberwise source form — round-trips wherever declared.
             return sv.type.name + "(" + sv.type.propertyOrder.map { prop in
@@ -781,7 +747,7 @@ extension Swiftalk.Value {
         case (.task(let a), .task(let b)): return a == b
         case (.tuple(let a), .tuple(let b)): return a == b
         case (.actor(let a), .actor(let b)): return a == b
-        case (.regex(let a), .regex(let b)): return a == b
+        case (.host(let a), .host(let b)): return a.isEqual(to: b)
         default: return false
         }
     }
@@ -806,7 +772,7 @@ extension Swiftalk.Value {
         case .task(let t): hasher.combine(14); hasher.combine(t)
         case .tuple(let t): hasher.combine(15); hasher.combine(t)
         case .actor(let a): hasher.combine(16); hasher.combine(a)
-        case .regex(let r): hasher.combine(17); hasher.combine(r)
+        case .host(let h): hasher.combine(17); h.hash(into: &hasher)
         case .set(let s, _): hasher.combine(18); hasher.combine(s)
         }
     }

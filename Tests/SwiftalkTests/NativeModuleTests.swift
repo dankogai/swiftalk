@@ -90,33 +90,4 @@ struct NativeModuleTests {
         #endif
     }
 
-    /// The build directory: where libSwiftalk lives — dladdr on its
-    /// metadata on Darwin, /proc/self/maps on Linux — or a parent of
-    /// it; libEnv is built beside it.
-    private func buildDirectory() -> String? {
-        guard let library = libraryPath() else { return nil }
-        var dir = ModuleSystem.directory(of: library)
-        let file = Swiftalk.Module.fileName(for: "Env")
-        for _ in 0..<4 {
-            if access(dir + "/" + file, R_OK) == 0 { return dir }
-            dir = ModuleSystem.directory(of: dir)
-        }
-        return nil
-    }
-
-    private func libraryPath() -> String? {
-        #if canImport(Darwin)
-        var info = Dl_info()
-        let anchor = unsafeBitCast(Swiftalk.Interpreter.self, to: UnsafeRawPointer.self)
-        guard dladdr(anchor, &info) != 0, let name = info.dli_fname else { return nil }
-        return String(cString: name)
-        #else
-        guard let maps = try? ModuleSystem.readFile("/proc/self/maps") else { return nil }
-        for line in maps.split(separator: "\n") {
-            guard line.hasSuffix("/libSwiftalk.so"), let slash = line.firstIndex(of: "/") else { continue }
-            return String(line[slash...])
-        }
-        return nil
-        #endif
-    }
 }

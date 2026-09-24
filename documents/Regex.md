@@ -1,10 +1,16 @@
 # Regex
 
-A regular expression — a **core type with a literal of its own**
-(round 86, §11): `/pattern/flags`, with `Regex("pattern")` and
-`Regex("pattern", "i")` as the constructor. It wraps Swift's stdlib
-`Regex`, so the syntax is Swift's (PCRE-flavored): `\d \w \s`,
-classes, quantifiers, `(?<name>...)` named groups, lookarounds.
+A regular expression — a **module's type with a literal of its own**:
+the literal `/pattern/flags` is grammar (round 86, §11), the type and
+its engine are the **Regex module** (round 186; `modules/Regex`, built
+as `libRegex.dylib`, preimported by the CLI — see
+[module.md](module.md)), with `Regex("pattern")` and `Regex("pattern",
+"i")` as the constructor. The literal calls the `Regex` type in scope;
+without it, it is an error naming the module. The module wraps Swift's
+stdlib `Regex`, so the syntax is Swift's (PCRE-flavored): `\d \w \s`,
+classes, quantifiers, `(?<name>...)` named groups, lookarounds. The
+String members below are the module's extensions of String; `contains`,
+`replacing`, and `split` with a String argument stay the core's.
 
 | Form | Meaning |
 |---|---|

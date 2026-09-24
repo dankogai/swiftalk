@@ -39,6 +39,9 @@ final class ModuleSystem {
     /// embedder, or loaded from `searchPath` as `lib<name>.dylib`.
     private var native: [String: Module] = [:]
     var searchPath: [String] = []
+    /// Core-type members a module added (round 186), by type then member;
+    /// consulted first in dispatch, a nil answer falling through.
+    var nativeExtensions: [String: [String: (Value, [Value], Bool) throws -> Value?]] = [:]
 
     init(builtins: Environment) {
         self.builtins = builtins
@@ -58,6 +61,7 @@ final class ModuleSystem {
 
     func register(_ module: Swiftalk.Module) {
         native[module.name] = Module(names: module.names, values: module.values)
+        for e in module.extensions { nativeExtensions[e.type, default: [:]][e.member] = e.body }
     }
 
     /// A bare spec — no `/`, no `.swt`, not a URL, not a library file —
@@ -89,7 +93,8 @@ final class ModuleSystem {
         if resolved.hasSuffix(Swiftalk.Module.librarySuffix) {
             // a module library by path (round 182)
             let loaded = try Swiftalk.Module.load(path: resolved)
-            let module = Module(names: loaded.names, values: loaded.values)
+            register(loaded)
+            let module = native[loaded.name]!
             cache[resolved] = module
             return module
         }

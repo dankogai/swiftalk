@@ -2130,7 +2130,7 @@ guard** — the recursion budget is the thread's stack and nothing
 checks it, so a deep program on a small-stack thread is a SIGBUS,
 not an error (the SION test had to move to a 64 MB pthread).
 
-**Regex is a core type — DECIDED (round 86, revising 85's module
+**Regex is a core type — DECIDED (round 86 — REVISED round 186: a module again, the literal's grammar staying in the core; see §15 — revising 85's module
 leaning)**. The user: "I now think Regex needs to be part of the
 standard type because `//` is a part of the grammar. Of course we can
 go like Python `import re; rx = re("exp")` but it is pain in the arse
@@ -2452,6 +2452,47 @@ name bound to something else is an error. An embedder chooses: the
 prelude, its own imports, or a silent interpreter — `Swiftalk.eval`,
 the one-liner, is bare. `eval` stays at the top level because it is
 not a builtin at all (round 123: each file has its own).
+
+**Regex is a module; `/re/` is grammar — DECIDED (round 186, revising
+round 86)** ("`Regex` should be out of `Core` as well but `/exp/` is a
+matter of grammar. Prelude in CLI but not part of the core. `/exp/`
+without the presence of Regex should `fatalError()`."). The engine
+leaves the core: `modules/Regex` is a native module built as
+`libRegex.dylib`, exporting the type `Regex` and extending `String`
+with the members that take one (`contains`, `firstMatch`, `wholeMatch`,
+`matches`, `replacing`, `split`); the core keeps the lexer's rule for
+where `/` opens a literal and the parser's token, and nothing else.
+The literal is now an expression, `regexLiteral(pattern, flags)`,
+evaluated by calling the `Regex` type in scope with the two Strings —
+so it compiles when evaluated, not when parsed, and a bad pattern is
+the same syntax error one line later. **Without `Regex` in scope the
+literal is an error naming the module** ("a regex literal needs the
+Regex module — import from "Regex" (the CLI preimports it)"). The
+request said `fatalError()`; this is the language's fatal error — a
+thrown one, which `eval` turns into a `.failure` like every other trap
+— and not Swift's, which would take an embedder's process down for a
+script's typo and could not be tested. If the process-level abort is
+what is wanted, it is one line. **What the core grew to make this
+possible, for every module after Regex**: `Value.host(any HostValue)`,
+a value a module owns, whose object answers for its type name, its
+`.Type`, its members, equality and hashing, its printed form, and
+`switch` matching — `patternMatch(subject, binding:)` is Swift's `~=`
+and the source of a `case let m = /re/` in one hook; `Module.type(name)
+{ args in }`, a type a module exports, constructing through round 47's
+law in both spellings (`Regex(s, "i")`, `s.Regex("i")`) and admitted
+in annotations (`let r: Regex`); `Module.extend(type, member) {
+receiver, args, called in }`, a member added to a core type that may
+DECLINE by answering nil, so `s.contains(/re/)` is the module's and
+`s.contains("x")` stays the core's — in force program-wide once the
+module is loaded, round 147's rule; `Swiftalk.call(f, args)` for a
+module to call a swiftalk Function (`replacing(/re/) { m in }`); and a
+public `TypeAnnotation` initializer so a module stamps what it builds
+(`split` still yields a `[String]`). **The prelude**: the CLI
+preimports `IO`, `Net`, then `Regex` from the module path; a CLI whose
+`libRegex` is missing says so once on stderr and runs on, literals
+failing when evaluated. The tests' interpreter does the same from the
+build directory. `Regex.md` keeps its API; only the first paragraph
+changed.
 
 ## Dialogue log
 
