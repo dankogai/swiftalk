@@ -207,13 +207,18 @@ extension Swiftalk {
         var staticThunks: [String: (expr: Expr, env: Environment)] = [:]
         /// Operators (round 146): "infix:+" → { lhs, rhs in }, "prefix:-" → { x in }
         var operators: [String: FunctionObject] = [:]
+        /// A module's namespace (round 184): a type with only statics —
+        /// the exports — and no instances; calling it is an error, and
+        /// `extension M { static let f = ... }` adds to it.
+        let isModule: Bool
 
         init(name: String, propertyOrder: [String],
-             properties: [String: Property], declEnv: Environment) {
+             properties: [String: Property], declEnv: Environment, isModule: Bool = false) {
             self.name = name
             self.propertyOrder = propertyOrder
             self.properties = properties
             self.declEnv = declEnv
+            self.isModule = isModule
         }
 
         public static func == (lhs: StructType, rhs: StructType) -> Bool {

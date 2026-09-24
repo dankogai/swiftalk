@@ -2325,9 +2325,10 @@ bar}`. only `export`ed symbols are importable."
   never the importer's globals (the builtins moved to a scope of
   their own for this). Loading is cached by resolved path, so every
   importer shares one instance; a circular import is an error.
-* **The namespace is a labeled tuple of the exports** — no new type.
-  `M.x` reads, `M.f(1)` calls through (round 70's rule), `M.Point(x:
-  1.0)` constructs. Exports are values copied at import, imported
+* **The namespace is a labeled tuple of the exports** — no new type
+  — **REVISED (round 184: a type whose statics are the exports; see
+  below)**. `M.x` reads, `M.f(1)` calls through (round 70's rule),
+  `M.Point(x: 1.0)` constructs. Exports are values copied at import, imported
   names are `let`s; module-private state lives in the closures that
   export it. Live bindings, re-export, and `M.Point` in an annotation
   are OPEN.
@@ -2399,6 +2400,31 @@ accepts any bare name, nothing checks the case, and a lowercase module
 would import. Node's `fs` is the road not taken; the module namespace
 that `import Env from "Env"` binds reads like a type's statics, which
 is what it is for.
+
+**The namespace is a type — DECIDED (round 184, revising round 100)**
+("Before moving `fetch` to `Net`, what happens if you want to add
+`Net.resolve` or whatever. Through `extension`?" — then "Make the
+namespace a type as you recommend."). Nothing could: `import Env from
+"Env"` bound a labeled Tuple, and a Tuple is no target for an
+`extension`. Now `import M from` binds a **type object whose statics
+are the exports** — a struct type with no properties and no
+instances, flagged a module: `M.f(1)` is a static call, `M.Point(x:)`
+constructs through a static holding a type, `M` prints as `M` and
+`M.Type` is `Function` like every type's, and `M()` is refused ("M is
+a module, not a type with instances"). So `extension Net { static let
+resolve = { host in ... } }` is the answer with no new syntax, for a
+Swift module and a `.swt` file alike, and a `static var` getter works
+too. The type object is **one per module**, made at the first
+namespace import and named by it; `import N from` the same module
+later binds the same object — an alias, `N == M`, printing `M` — so an
+extension reaches every importer, as a type's does. `import from` and
+`import (a, b) from` are untouched. What went: the namespace's tuple
+echo (`(Point: Point, area: ...)`) and destructuring it as a tuple,
+which nothing did. Swift spells `Foundation.Date` the way it spells
+`Type.member`, and a module with only statics is what a namespace is;
+the tuple was the cheapest thing that worked in round 100. Round 100's
+OPEN item — a module's type in an annotation, `let p: M.Point` —
+stays open, a step closer.
 
 ## Dialogue log
 

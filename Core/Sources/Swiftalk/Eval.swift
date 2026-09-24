@@ -740,8 +740,9 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
         return .nil
     case .importS(let namespace, let names, let spec):
         // Modules (round 100): load once per Interpreter, then bind —
-        // the namespace as a labeled tuple of the exports, the named
-        // ones directly; all `let`s.
+        // the namespace as a type whose statics are the exports (round
+        // 184; a labeled tuple until then), the named ones directly;
+        // all `let`s.
         guard env.isFileScope else {
             throw SwiftalkError.type("import belongs at a file's top level")
         }
@@ -753,9 +754,10 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
         // bound by its own name
         let names = namespace == nil && names.isEmpty ? module.names : names
         if let namespace {
+            let type = modules.namespaceType(of: module, named: namespace)
             try env.declare(namespace, Binding(
-                mutable: false, lock: TypeAnnotation(name: "Tuple", optional: false),
-                value: .tuple(module.values, labels: module.names)))
+                mutable: false, lock: TypeAnnotation(name: "Function", optional: false),
+                value: .function(type.constructor!)))
         }
         for name in names {
             guard let index = module.names.firstIndex(of: name) else {
@@ -3613,6 +3615,9 @@ private func evaluateArgs(
 func apply(_ fn: FunctionObject, args: [(label: String?, value: Value)]) throws -> Value {
     // Calling a struct type IS the memberwise initializer (round 46).
     if case .structType(let st) = fn.role {
+        guard !st.isModule else {
+            throw SwiftalkError.type("\(st.name) is a module, not a type with instances — its members are \(st.name).name")
+        }
         return try constructStruct(st, args: args)
     }
     // Calling an actor type constructs a fresh reference (round 54).

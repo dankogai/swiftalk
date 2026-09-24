@@ -22,13 +22,13 @@ struct ModuleTests {
         let secret = "hidden"
         """
 
-    @Test("import M from: every export under M, a labeled tuple — M.x reads, M.f() calls through")
+    @Test("import M from: every export under M, a type whose statics they are (round 184) — M.x reads, M.f() calls through")
     func namespace() throws {
         let i = interpreter(["geometry.swt": geometry])
         #expect(try i.eval("import G from \"./geometry.swt\"\nG.area(3.0, 4.0)") == .double(12))
         #expect(try i.eval("G.unit") == .double(1))
         #expect(try i.eval("G.Point(x: 1.0, y: 2.0).x") == .double(1))
-        #expect(try i.eval("G.Type == Tuple") == .bool(true))
+        #expect(try i.eval("G.Type == Function") == .bool(true))          // a type since round 184
         #expect(try i.eval("G.count()") == .int(1))
         #expect(throws: SwiftalkError.self) { try i.eval("G.secret") }
         #expect(throws: SwiftalkError.self) { try i.eval("G.area = { 0 }") }       // a let
@@ -67,9 +67,9 @@ struct ModuleTests {
             "leaky.swt": "export let peek = { outer }",
         ])
         _ = try i.eval("let outer = 42")
-        #expect(try i.eval("import M from \"./m.swt\"\nM") ==
-                .tuple([.bool(true), .int(1), .int(2), .int(3), try i.eval("M.E"), .int(7), .int(8)],
-                       labels: ["seesPrint", "x", "y", "v", "E", "p", "q"]))
+        #expect(try i.eval("import M from \"./m.swt\"\n[M.seesPrint, M.x, M.y, M.v, M.p, M.q]") ==
+                .array([.bool(true), .int(1), .int(2), .int(3), .int(7), .int(8)]))
+        #expect(try i.eval("M.String()") == .string("M"))                          // a type, not a tuple (round 184)
         #expect(try i.eval("M.E.a.Type == M.E") == .bool(true))
         #expect(throws: SwiftalkError.self) { try i.eval("import L from \"./leaky.swt\"\nL.peek()") }
         #expect(throws: SwiftalkError.self) { try i.eval("let f = { import Z from \"./m.swt\" }\nf()") }

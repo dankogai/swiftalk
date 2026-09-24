@@ -2620,3 +2620,13 @@ the history. (Moved out of Design.md in round 65.)
   `Env`, its library `libEnv.dylib`, imported as `import from "Env"`;
   the loader checks nothing about case. Named like a type, as the
   `.swt` libraries already were.
+
+* **2026-09-24, round 184 — the namespace is a type** ("Before moving
+  `fetch` to `Net`, what happens if you want to add `Net.resolve` or
+  whatever. Through `extension`?", then "Make the namespace a type as
+  you recommend."). `import M from` bound a labeled Tuple, which no
+  `extension` can reach; it now binds a type whose statics are the
+  exports — one object per module, named by its first importer,
+  aliased by the next — so `extension Net { static let resolve = ...
+  }` just works, on a `.swt` and a native module alike, and `M()` is
+  refused. Revises round 100's "no new type"; the tuple echo is gone.

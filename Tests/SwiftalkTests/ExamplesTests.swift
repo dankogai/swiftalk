@@ -239,14 +239,15 @@ struct ExamplesTests {
             """)
     }
 
-    @Test("import.swt + geometry.swt: modules — one instance, a namespace tuple, named imports (round 100)")
+    @Test("import.swt + geometry.swt: modules — one instance, a namespace type (round 184), named imports (round 100)")
     func modules() throws {
         let root = #filePath.split(separator: "/", omittingEmptySubsequences: false).dropLast(3).joined(separator: "/")
         #expect(try output(of: try slurp("import.swt"), scriptPath: "\(root)/examples/import.swt") == """
             12.0 1.0
             Point(x: 3.0, y: 6.0)
             10.0 2 2
-            (Point: Point, area: { w, h in ... }, count: { ... }, unit: 1.0)
+            Geometry Function
+            14.0
 
             """)
     }

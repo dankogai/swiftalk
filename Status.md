@@ -222,6 +222,31 @@ Set(
 )
 ```
 
+**The namespace is a type** (round 184) — `import M from` binds a type
+whose statics are the exports, so `extension M { static let ... }` adds
+to a module, `.swt` or native, and every importer sees it; a module has
+no instances:
+
+```text
+swiftalk> import G from "examples/geometry.swt"
+swiftalk> G
+G
+swiftalk> G.Type
+Function
+swiftalk> extension G { static let perimeter = { w, h in 2.0 * (w + h) } }
+swiftalk> G.perimeter(3.0, 4.0)
+14.0
+swiftalk> G()
+type error: G is a module, not a type with instances — its members are G.name
+swiftalk> import Env from "Env"
+swiftalk> extension Env { static let home = { Env.get("HOME") } }
+swiftalk> Env.home() == Env.get("HOME")
+true
+swiftalk> import E from "Env"               // the same object, aliased
+swiftalk> E == Env
+true
+```
+
 **Native modules** (round 182) — Swift exports imported by a bare
 name: registered by an embedder, or loaded from `lib<Name>.dylib`
 beside the CLI (`SWIFTALK_MODULE_PATH` overrides). The core is a
@@ -2158,15 +2183,15 @@ swiftalk> q
 ```
 
 **`import` and `export`** — modules (round 100): a `.swt` file, loaded
-once, its exports as a namespace tuple or by name; from a path beside
-the importer (the cwd, in the REPL) or a URL:
+once, its exports as a namespace (a type since round 184) or by name;
+from a path beside the importer (the cwd, in the REPL) or a URL:
 
 ```text
 swiftalk> import G from "examples/geometry.swt"
 swiftalk> G.area(2.0, 3.0)
 6.0
 swiftalk> G
-(Point: Point, area: { w, h in ... }, count: { ... }, unit: 1.0)
+G
 swiftalk> import (unit, count) from "./examples/geometry.swt"
 swiftalk> [unit, count()]
 [1.0, 1]

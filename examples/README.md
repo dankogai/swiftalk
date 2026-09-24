@@ -44,8 +44,9 @@ laws are checked byte-for-byte, the outputs line-for-line.
 * **[import.swt](import.swt)** + **[geometry.swt](geometry.swt)** —
   modules (round 100): a module with a private counter and exported
   struct, Functions, and value; `import Geometry from` as a namespace
-  tuple, `import (area, count) from` by name — the same instance
-  either way. Run it from anywhere: specs resolve beside the script.
+  — a type whose statics are the exports, extended by `extension
+  Geometry` (round 184) — `import (area, count) from` by name; the
+  same instance either way. Run it from anywhere: specs resolve beside the script.
 * **[formats.swt](formats.swt)** — SION built in (round 97): a
   document read with `SION(text)`, written back with `.String()`,
   and carried through JSON and property lists (XML and `bplist00`)

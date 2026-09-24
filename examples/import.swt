@@ -1,5 +1,6 @@
 // import (round 100): `import M from "..."` binds every export under M —
-// a labeled tuple, so M.name reads and M.f(args) calls through —
+// a type whose statics they are (round 184), so M.name reads, M.f(args)
+// calls through, and `extension M { static let ... }` adds to it —
 // and `import (a, b) from "..."` binds the named exports directly.
 // A module loads once: both forms below share one geometry instance.
 
@@ -9,4 +10,6 @@ print(Geometry.Point(x: 1.0, y: 2.0).scaled(3.0))
 
 import (area, count) from "./geometry.swt"
 print(area(2.0, 5.0), count(), Geometry.count())     // one instance: the count is shared
-print(Geometry)
+print(Geometry, Geometry.Type)                        // a type — not a Tuple since round 184
+extension Geometry { static let perimeter = { w, h in 2.0 * (w + h) } }
+print(Geometry.perimeter(3.0, 4.0))

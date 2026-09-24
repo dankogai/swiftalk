@@ -12,9 +12,19 @@ import Glibc
 /// reads, `M.foo(1)` calls through). Exports are values, copied at
 /// import; imported names are `let`s.
 final class ModuleSystem {
-    struct Module {
+    final class Module {
         let names: [String]
         let values: [Value]
+        /// The namespace `import M from` binds (round 184): a type whose
+        /// statics are the exports, made on the first such import and
+        /// shared by every later one, so an `extension` of it reaches
+        /// all importers — the way a type's does.
+        var namespaceType: StructType? = nil
+
+        init(names: [String], values: [Value]) {
+            self.names = names
+            self.values = values
+        }
     }
     private let builtins: Environment
     private var cache: [String: Module] = [:]
@@ -32,6 +42,18 @@ final class ModuleSystem {
 
     init(builtins: Environment) {
         self.builtins = builtins
+    }
+
+    /// The type object for a module's namespace (round 184), named by
+    /// the first importer's choice; a later `import N from` the same
+    /// module binds the same object under `N`, an alias.
+    func namespaceType(of module: Module, named name: String) -> StructType {
+        if let existing = module.namespaceType { return existing }
+        let st = StructType(name: name, propertyOrder: [], properties: [:], declEnv: builtins, isModule: true)
+        st.constructor = FunctionObject(parameters: [], body: [], closure: builtins, builtin: nil, role: .structType(st))
+        for (export, value) in zip(module.names, module.values) { st.statics[export] = value }
+        module.namespaceType = st
+        return st
     }
 
     func register(_ module: Swiftalk.Module) {
