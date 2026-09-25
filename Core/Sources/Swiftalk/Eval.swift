@@ -1396,7 +1396,7 @@ private func requireFinite(_ value: Value, for member: String) throws {
 
 /// The lazy base behind a receiver, when its `map`/`filter`/... should
 /// defer: a Sequence value, or the unbounded range (round 88).
-private func lazyBase(_ receiver: Value) -> SequenceObject? {
+func lazyBase(_ receiver: Value) -> SequenceObject? {
     switch receiver {
     case .sequence(let s):          return s
     case .range(let lower, nil, _): return SequenceObject(kind: .counting(from: lower))
@@ -1527,7 +1527,7 @@ extension SequenceObject {
             }
         case .counting(let lower):
             return countingIterator(from: lower)
-        case .native(let make):
+        case .native(let make, _):
             let next = make()
             return ValueIterator { try next() }
         case .takenWhile(let base, let fn):
@@ -1542,15 +1542,6 @@ extension SequenceObject {
                     return nil
                 }
                 return element
-            }
-        case .zipped(let lhs, let rhs):
-            // The sides' iterators are made on the first pull (making one
-            // can throw; a fresh pair per iteration keeps it re-iterable).
-            var sides: (ValueIterator, ValueIterator)? = nil
-            return ValueIterator {
-                if sides == nil { sides = (try iterator(of: lhs), try iterator(of: rhs)) }
-                guard let a = try sides!.0.next(), let b = try sides!.1.next() else { return nil }
-                return .tuple([a, b], labels: [nil, nil])
             }
         case .dropped(let base, let n):
             let it = base.makeIterator()
@@ -2651,7 +2642,7 @@ private func staticMember(_ f: FunctionObject, _ name: String,
         typeName = et.name
         stored = try resolveStatic(name, on: et)
         getter = et.staticGetters[name]
-    case .type(let n):
+    case .type(let n), .protocol(let n):                                 // a protocol's too (round 192: Sequence.zip)
         typeName = n
         if let v = try? env.lookup("@ext:\(n):static:\(name)") { stored = v }
         else if let v = ModuleContext.current?.nativeStatics[n]?[name] { stored = v }    // a module's (round 191)
@@ -3093,8 +3084,9 @@ func knownElementLock(of value: Value) -> TypeAnnotation? {
         case .counting:                            return TypeAnnotation(name: "Int", optional: false)
         case .filtered(let base, _), .takenWhile(let base, _), .droppedWhile(let base, _), .dropped(let base, _):
             return knownElementLock(of: .sequence(base))
-        case .enumerated, .zipped:                 return TypeAnnotation(name: "Tuple", optional: false)
-        case .mapped, .generator, .coroutine, .native: return nil     // a module's (round 191): unknowable
+        case .enumerated:                          return TypeAnnotation(name: "Tuple", optional: false)
+        case .native(_, let element):              return element      // a module's says, or not (rounds 191–192)
+        case .mapped, .generator, .coroutine:      return nil
         }
     default:                     return nil
     }
@@ -4235,28 +4227,6 @@ private func method(on receiver: Value, name: String,
         guard !called else { throw SwiftalkError.type("\(t).\(name) is a constant, not a function") }
         return v
     }
-    // Sequence.zip(a, b) (round 185; top-level zip from round 174 until then)
-    if case .function(let f) = receiver, name == "zip", SequenceStatics.isSequence(f.role) {
-        if let label = labeledArgs.compactMap(\.label).first {
-            throw SwiftalkError.type("Sequence.zip takes no argument label '\(label)'")
-        }
-        guard called else {
-            return .function(FunctionObject(parameters: [], body: [], closure: Builtins.emptyEnvironment,
-                                            builtin: { try SequenceStatics.zip($0) }))
-        }
-        return try SequenceStatics.zip(labeledArgs.map(\.value))
-    }
-    // Task.sleep(seconds) (round 185; top-level sleep from round 53 until then)
-    if case .function(let f) = receiver, case .type("Task") = f.role, name == "sleep" {
-        if let label = labeledArgs.compactMap(\.label).first {
-            throw SwiftalkError.type("Task.sleep takes no argument label '\(label)'")
-        }
-        guard called else {
-            return .function(FunctionObject(parameters: [], body: [], closure: Builtins.emptyEnvironment,
-                                            builtin: { try TaskStatics.sleep($0) }))
-        }
-        return try TaskStatics.sleep(labeledArgs.map(\.value))
-    }
     // Data.random(n) (round 116): n random bytes
     if case .function(let f) = receiver, case .type("Data") = f.role, name == "random" {
         guard called else {
@@ -5130,52 +5100,3 @@ private extension String {
     var capitalizedFirst: String { prefix(1).uppercased() + dropFirst() }
 }
 
-/// `Sequence.zip(a, b)` — Swift's `zip` (round 174, a static of Sequence
-/// since round 185): pairs until the shorter side ends, as unlabeled
-/// 2-tuples. Lazy when either side is a lazy Sequence (or `a...`), else
-/// an Array stamped `[Tuple]` — the one element type a zip can have,
-/// even when empty.
-enum SequenceStatics {
-    static func isSequence(_ role: FunctionObject.Role) -> Bool {
-        switch role {
-        case .protocol("Sequence"), .type("Sequence"): return true
-        default: return false
-        }
-    }
-
-    static func zip(_ args: [Value]) throws -> Value {
-        guard args.count == 2 else { throw SwiftalkError.type("Sequence.zip(a, b) takes exactly two Sequences") }
-        for side in args where !Builtins.conformance["Sequence"]!.contains(side.typeName) {
-            throw SwiftalkError.type("Sequence.zip(a, b): \(side.typeName) is not a Sequence")
-        }
-        if lazyBase(args[0]) != nil || lazyBase(args[1]) != nil {
-            return .sequence(SequenceObject(kind: .zipped(args[0], args[1])))
-        }
-        let a = try iterator(of: args[0]), b = try iterator(of: args[1])
-        var pairs: [Value] = []
-        while let x = try a.next(), let y = try b.next() { pairs.append(.tuple([x, y], labels: [nil, nil])) }
-        return .array(pairs, lock: TypeAnnotation(name: "Array", optional: false,
-                                                  parameters: [TypeAnnotation(name: "Tuple", optional: false)]))
-    }
-}
-
-/// `Task.sleep(seconds)` (round 53's top-level `sleep`, a static of Task
-/// since round 185, as Swift spells it): suspends only the *current*
-/// context (§12) — parked tasks run meanwhile. At the top level it
-/// doubles as "run the loop for a while".
-enum TaskStatics {
-    static func sleep(_ args: [Value]) throws -> Value {
-        let seconds: Double
-        switch (args.count, args.first) {
-        case (1, .double(let d)?) where d >= 0: seconds = d
-        case (1, .int(let i)?) where i >= 0:    seconds = Double(i)
-        default:
-            throw SwiftalkError.type("Task.sleep(seconds) — a non-negative Int or Double")
-        }
-        guard let ctx = Scheduler.current else {
-            throw SwiftalkError.type("'Task.sleep' inside a Sequence coroutine body is not (yet) supported")
-        }
-        try ctx.scheduler.sleep(seconds: seconds, from: ctx)
-        return .nil
-    }
-}

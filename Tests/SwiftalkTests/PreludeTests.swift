@@ -15,6 +15,8 @@ struct PreludeTests {
         #expect(throws: SwiftalkError.self) { try i.eval("zip([1], [2])") }
         #expect(throws: SwiftalkError.self) { try i.eval("sleep(0)") }
         #expect(try i.eval("eval(\"1 + 1\")!") == .int(2))
+        #expect(throws: SwiftalkError.self) { try i.eval("Sequence.zip([1], [2])") }      // the Sequence module's (round 192)
+        #expect(throws: SwiftalkError.self) { try i.eval("Task.sleep(0)") }               // the Task module's
         #expect(throws: SwiftalkError.self) { try Swiftalk.eval("print(1)") }          // the one-liner is bare too
     }
 
@@ -44,14 +46,13 @@ struct PreludeTests {
         #expect(try k.eval("extension Net { static let resolve = { host in host } }\nNet.resolve(\"h\")") == .string("h"))
     }
 
-    @Test("Sequence.zip and Task.sleep are statics of core types")
+    @Test("Sequence.zip and Task.sleep are statics of core types — the Sequence and Task modules' (round 192)")
     func statics() throws {
         #expect(try eval("Sequence.zip([1, 2], \"ab\")") == .array([.tuple([.int(1), .string("a")], labels: [nil, nil]), .tuple([.int(2), .string("b")], labels: [nil, nil])]))
         #expect(try eval("Sequence.zip(1..., \"ab\").Type == Sequence") == .bool(true))
         #expect(try eval("Sequence.zip([], []).Type.String()") == .string("[Tuple]"))
         #expect(try eval("let z = Sequence.zip\nz([1], [2]).count") == .int(1))
         #expect(throws: SwiftalkError.self) { try eval("Sequence.zip([1])") }
-        #expect(throws: SwiftalkError.self) { try eval("Sequence.zip(a: [1], b: [2])") }
         #expect(try eval("Task.sleep(0)") == .nil)
         #expect(try eval("Task.sleep(0.0)") == .nil)
         #expect(try eval("Task.sleep.Type == Function") == .bool(true))

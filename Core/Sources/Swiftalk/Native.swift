@@ -108,8 +108,38 @@ extension Swiftalk {
     /// the end. `.Type` is Sequence; `for`, `map`, `prefix`, `Array()`
     /// all apply. A file handle's `lines` reads from where the handle
     /// is, so iterating it twice reads on, not again.
-    public static func sequence(_ make: @escaping () -> () throws -> Value?) -> Value {
-        .sequence(SequenceObject(kind: .native(make: make)))
+    public static func sequence(of element: TypeAnnotation? = nil, _ make: @escaping () -> () throws -> Value?) -> Value {
+        .sequence(SequenceObject(kind: .native(make: make, element: element)))
+    }
+
+    /// Pulls a Sequence-conforming value (round 192): the puller gives a
+    /// Value per element and nil at the end; an error for what cannot be
+    /// iterated. `conforms(_:to: "Sequence")` asks first.
+    public static func iterate(_ value: Value) throws -> () throws -> Value? {
+        let it = try iterator(of: value)
+        return { try it.next() }
+    }
+
+    /// Is the value lazy — a Sequence or an unbounded Range — so that
+    /// what is built on it should be lazy too (round 192)?
+    public static func isLazy(_ value: Value) -> Bool {
+        lazyBase(value) != nil
+    }
+
+    /// Does a value's type conform to a protocol — "Sequence",
+    /// "Equatable", "Hashable", "Comparable" (round 192)?
+    public static func conforms(_ value: Value, to protocolName: String) -> Bool {
+        Builtins.conformance[protocolName]?.contains(value.typeName) ?? false
+    }
+
+    /// Suspends the current task for `seconds` (round 192; round 53's
+    /// scheduler): parked tasks run meanwhile. An error inside a
+    /// Sequence coroutine body, which has no task context.
+    public static func sleep(seconds: Double) throws {
+        guard let ctx = Scheduler.current else {
+            throw Swiftalk.Error.type("sleep inside a Sequence coroutine body is not (yet) supported")
+        }
+        try ctx.scheduler.sleep(seconds: seconds, from: ctx)
     }
 
     /// A value's display text (round 189): a String bare, everything

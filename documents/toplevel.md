@@ -19,8 +19,9 @@ can be passed, aliased, and shadowed by a declaration of your own.
 as its prelude**, so a script and the REPL have them as before; an
 embedder calls `Interpreter.preimport()` for the same, or imports them
 (`import from "IO"`) or not. `zip` is `Sequence.zip` and `sleep` is
-`Task.sleep`, statics of the core types ([Sequence.md](Sequence.md),
-[Task.md](Task.md)). `eval` is a Function value — `["1", "[2]"].map(eval)`
+`Task.sleep`, statics of the core types that the **`Sequence`** and
+**`Task`** modules add (round 192; preimported too —
+[Sequence.md](Sequence.md), [Task.md](Task.md)). `eval` is a Function value — `["1", "[2]"].map(eval)`
 — that is **not a builtin: each file has its own** (round 123). The program's `eval` runs at the program's top level; a module's
 runs at the module's, whoever calls it — `eval` resolves lexically, so
 a function a module exports evaluates in the module it came from and

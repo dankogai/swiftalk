@@ -21,11 +21,11 @@ embedder's by `preimport()`; **Module** — imported on request
 | `Set` | Core | COW, unordered, unique; `Set(a, b, ...)`, `Set<T>` (rounds 132–134) | [Set.md](Set.md) |
 | `Range` | Core | lazy `a...b` / `a..<b`, Int only | [Range.md](Range.md) |
 | `Function` | Core | the one function type | [Function.md](Function.md) |
-| `Sequence` | Core | lazy generators & coroutines (also a protocol) | [Sequence.md](Sequence.md) |
+| `Sequence` | Core | lazy generators & coroutines (also a protocol); `Sequence.zip` is the Sequence module's (Prelude, round 192) | [Sequence.md](Sequence.md) |
 | `Data` | Core | bytes, `[UInt8]` | [Data.md](Data.md) |
 | `Byte` | Core | Data's element — an Int that fits a byte | [Byte.md](Byte.md) |
 | `Date` | Core | epoch seconds as Double | [Date.md](Date.md) |
-| `Task` | Core | a spawned computation | [Task.md](Task.md) |
+| `Task` | Core | a spawned computation; `Task.sleep` is the Task module's (Prelude, round 192) | [Task.md](Task.md) |
 | `Tuple` | Core | a grab bag `(v0, v1, ...)`, one loose type | [Tuple.md](Tuple.md) |
 | `Regex` | Prelude (`Regex`) | `/pattern/flags` — the literal is grammar, the type the Regex module's (round 186) | [Regex.md](Regex.md) |
 | `SION` | Core | the data format, built in: SION, JSON, property lists | [SION.md](SION.md) |

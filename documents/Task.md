@@ -13,7 +13,7 @@ threads: they interleave only at suspension points (`await`,
 | `Task { ... }`, `Task(f)`, `f.Task()` | spawn — **eager**: the body runs at once until it suspends or completes, then the spawner resumes |
 | `async { ... }` | sugar for `Task { ... }` |
 | `await t` | the task's value, memoized; a body error rethrows at every `await`; prefix at unary precedence (`await a + await b`) |
-| `Task.sleep(seconds)` | a static of Task (round 185; the top-level `sleep` until then): suspends the current context for a non-negative Int or Double of seconds; parked tasks run meanwhile — at the top level, "run the loop for a while" |
+| `Task.sleep(seconds)` | a static of Task (round 185; the top-level `sleep` until then; the **Task module's** since round 192, preimported by the CLI — [module.md](module.md)): suspends the current context for a non-negative Int or Double of seconds; parked tasks run meanwhile — at the top level, "run the loop for a while" |
 | `fetch(url)` | the `Net` module's, preimported by the CLI ([Net.md](Net.md)) — returns a Task (round 163): the request runs on a worker thread while the task is parked, so fetches overlap and other tasks run — see [toplevel.md](toplevel.md) |
 | `t.Type` | `Task` |
 | `t == u` | identity |

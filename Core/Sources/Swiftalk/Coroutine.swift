@@ -16,6 +16,8 @@ import Glibc
 /// *running* coroutine, found through a thread-local — so a helper
 /// function called from the body can yield on its behalf.
 final class CoroutineRunner {
+    /// The puller's module system (round 192), for the body's thread.
+    private var modules: ModuleSystem? = nil
     private enum State {
         case idle           // body not running: unstarted, or parked in yield
         case running        // body executing, puller waiting
@@ -157,6 +159,9 @@ final class CoroutineRunner {
         }
     }
 
+    /// Installs the puller's module system on the body's thread (round 192).
+    func activateModules() { ModuleContext.activate(modules) }
+
     private func finish(_ terminal: State) {
         pthread_mutex_lock(mutex)
         state = terminal
@@ -171,6 +176,7 @@ final class CoroutineRunner {
         // Frame size is the recursion budget (round 45's war story) —
         // give the body a full-sized stack, not a thread-pool sliver.
         pthread_attr_setstacksize(&attr, 1 << 23)
+        modules = ModuleContext.current
         let argument = Unmanaged.passRetained(self).toOpaque()
         #if canImport(Darwin)
         var thread: pthread_t? = nil
@@ -191,6 +197,7 @@ final class CoroutineRunner {
 private func coroutineThreadMain(_ argument: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer? {
     pthread_setspecific(CoroutineRunner.tlsKey, argument)
     let runner = Unmanaged<CoroutineRunner>.fromOpaque(argument).takeRetainedValue()
+    runner.activateModules()
     runner.bodyMain()
     return nil
 }
@@ -199,6 +206,7 @@ private func coroutineThreadMain(_ argument: UnsafeMutableRawPointer?) -> Unsafe
     guard let argument else { return nil }
     pthread_setspecific(CoroutineRunner.tlsKey, argument)
     let runner = Unmanaged<CoroutineRunner>.fromOpaque(argument).takeRetainedValue()
+    runner.activateModules()
     runner.bodyMain()
     return nil
 }

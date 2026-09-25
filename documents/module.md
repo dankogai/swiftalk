@@ -119,7 +119,10 @@ the environment under C's names and file I/O, every failure a `Result`.
 | `Value.success(v)`, `Value.failure(message)` | a `Result` to answer with (round 188) |
 | `Swiftalk.errorOutput(text)`, `Interpreter.errorOutput` | the error output — `debugPrint`'s way out, stderr by default (round 191) |
 | `Swiftalk.sequence { { next } }` | a lazy Sequence a module makes: the outer closure runs once per iteration and returns the puller, a Value per pull and nil at the end — `fh.lines` (round 191) |
-| `m.static("IO", "stdin", value)` | a static on a type the module exports, read off the type (round 191) |
+| `m.static("IO", "stdin", value)` | a static on a type the module exports — or on a **core type**: the Sequence module's `Sequence.zip`, the Task module's `Task.sleep` (rounds 191–192) |
+| `Swiftalk.iterate(v)`, `Swiftalk.isLazy(v)`, `Swiftalk.conforms(v, to: "Sequence")` | pull any Sequence-conforming value; is it lazy; does it conform (round 192) |
+| `Swiftalk.sleep(seconds:)` | suspend the current task; parked tasks run meanwhile (round 192) |
+| `Swiftalk.sequence(of: TypeAnnotation("Tuple")) { ... }` | the element type a module-made Sequence is known to yield — what `.Array()` of an empty one is stamped with (round 192) |
 | `setMember(name, to:)` on a `HostValue` | `x.name = value` — true when taken, false when the member is not assignable; the default takes nothing (round 191) |
 
 The Regex module ([Regex.md](Regex.md), `modules/Regex/RegexModule.swift`)
@@ -145,10 +148,13 @@ is still "a builtin". An embedder calls `Interpreter.preimport()` (the
 default is `["IO", "Net"]`; any registered or module-path name goes)
 for the same, or imports what it wants, or leaves the interpreter
 silent. The top level itself keeps one function, `eval`; `zip` and
-`sleep` became `Sequence.zip` and `Task.sleep`. The CLI then preimports
-**`Regex`** from the module path (round 186) — `libRegex.dylib` beside
-the executable — and, when it is missing, says so once and runs on,
-`/re/` literals failing when evaluated. `swiftalk --no-prelude` (round
+`sleep` became `Sequence.zip` and `Task.sleep` — statics the
+**`Sequence`** and **`Task`** modules put on the core types (round
+192). The CLI then preimports **`Regex`**, **`Sequence`**, and
+**`Task`** from the module path (rounds 186, 192) — `lib<Name>.dylib`
+beside the executable — and, for each that is missing, says so once
+and runs on: `/re/` literals, `Sequence.zip`, `Task.sleep` failing
+when reached. `swiftalk --no-prelude` (round
 187) skips all three: the top level has `eval` and nothing else, and
 `import from "IO"` or `import (Regex) from "Regex"` brings what a
 script wants.

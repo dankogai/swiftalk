@@ -222,6 +222,26 @@ Set(
 )
 ```
 
+**`Sequence.zip` and `Task.sleep` are modules'** (round 192) — the
+`Sequence` and `Task` modules, each a static on the core type it is
+named after, both preimported; the core has neither:
+
+```text
+swiftalk> Sequence.zip([1, 2], "ab")
+[(1, "a"), (2, "b")]
+swiftalk> Sequence.zip(1..., "abc").Array().Type
+[Tuple]
+swiftalk> Task.sleep(0)
+swiftalk> IO(path: "Package.swift").lines.prefix(1).Array().Type
+[String]
+```
+
+```text
+$ printf 'Sequence.zip([1], [2])\nimport from "Sequence"\nSequence.zip([1], [2])\n' | swiftalk --no-prelude
+unknown member: Function.zip()
+[(1, 2)]
+```
+
 **`IO` is a handle type** (round 191) — `IO(path:mode:)`, the standard
 three as statics, `.data` to get and set the whole file, `.lines` and
 `.read(size)` as lazy Sequences from where the handle is, `.append`,

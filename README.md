@@ -92,6 +92,7 @@ i * i == Complex(-1.0, 0.0)                   // true — and (*)(i, i), reduce(
 // import from "POSIX"; readFile("notes.txt")!.String(.utf8); open(path, [O_WRONLY, O_CREAT])! — Env grew into POSIX: the environment and file I/O under C's names, every failure a Result (round 188)
 // IO and Net are libraries too: the core registers no module and writes nothing; a module reaches the interpreter through Swiftalk.output, spawn, offload, and host hooks, and ships swiftalk source as its prelude (round 189)
 // var fh = IO(path: "notes.txt", mode: .write); fh.data; for line in fh.lines { }; fh.append(x); IO.stderr.print(x); readLine() — IO is a handle type too, debugPrint goes to stderr, and a handle closes its descriptor when it dies (round 191)
+// Sequence.zip and Task.sleep are the Sequence and Task modules' — statics a module puts on a core type; the core keeps neither, and the prelude is IO, Net, Regex, Sequence, Task (round 192)
 // Complex(1.0, -2.0).String() == "(1.0-2.0.i)" — an expression that re-enters; Complex("(1.0-2.0.i)") reads it (round 154)
 // and exact fractions: modules/Rational.swt — Rational(3, 4) + 1 == Rational(7, 4), Double(Rational(3, 4)) == 0.75, Rational(3, 4).String() == "(3/4)", Rational("(3/4)"), 1.over(3)
 let hex    = 255.String(.hex)                 // "0xff"; .String(.sign, .hex) is "+0xff"; radix: 16 for bare "ff"
@@ -140,10 +141,10 @@ when.y                                        // "2026"
 
 ```sh
 swift run swiftalk   # the REPL — :h for its commands (:r redefines a binding, a type, or an extension's members; :d undefines)
-swift run swiftalk -- --no-prelude   # bare: no IO, Net, Regex until a script imports them (round 187); --help for the options
+swift run swiftalk -- --no-prelude   # bare: no IO, Net, Regex, Sequence, Task until a script imports them (rounds 187, 192); --help for the options
 swift test           # the suite
 ```
 
 The library is `Core/` — a dynamic library product in a package of
 its own since round 182, so the CLI, the tests, and the native modules
-(`modules/IO`, `Net`, `POSIX`, `Regex`, built as `libIO.dylib` and so on) all share one copy of it.
+(`modules/IO`, `Net`, `Regex`, `Sequence`, `Task`, `POSIX`, built as `libIO.dylib` and so on) all share one copy of it.

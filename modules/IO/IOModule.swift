@@ -144,7 +144,7 @@ final class Handle: Swiftalk.HostValue {
         case ("mode", false):  return .string(mode)
         case ("data", false):  return try wholeData()
         case ("lines", false):
-            return Swiftalk.sequence { { try self.readLine() } }
+            return Swiftalk.sequence(of: TypeAnnotation("String")) { { try self.readLine() } }
         case ("read", true):
             var size = 65536
             if let first = args.first {
@@ -153,7 +153,7 @@ final class Handle: Swiftalk.HostValue {
                 }
                 size = Int(n)
             }
-            return Swiftalk.sequence { { try self.readChunk(size) } }
+            return Swiftalk.sequence(of: TypeAnnotation("Data")) { { try self.readChunk(size) } }
         case ("readLine", true):
             guard args.isEmpty else { throw Swiftalk.Error.type("\(label).readLine() takes no arguments") }
             return try readLine() ?? .nil

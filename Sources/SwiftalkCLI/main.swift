@@ -108,16 +108,18 @@ let defaultModulePath: [String] = {
     return [dir, dir + "/../lib"]
 }()
 
-/// The CLI's prelude (rounds 185–186): the core's IO and Net, then the
-/// Regex module from the module path — without it the CLI still runs,
-/// says so once, and `/re/` literals are errors when evaluated.
+/// The CLI's prelude (rounds 185–192): IO and Net, which a CLI cannot
+/// do without, then Regex, Sequence, and Task from the module path —
+/// each missing one is said once on stderr and lived without.
 func installPrelude(_ interp: Swiftalk.Interpreter) throws {
     try interp.preimport()
-    do {
-        try interp.preimport(["Regex"])
-    } catch {
-        let msg = "swiftalk: no Regex module on the module path — /re/ literals will not evaluate (\(error))\n"
-        _ = Array(msg.utf8).withUnsafeBufferPointer { write(2, $0.baseAddress, $0.count) }
+    for name in ["Regex", "Sequence", "Task"] {
+        do {
+            try interp.preimport([name])
+        } catch {
+            let msg = "swiftalk: no \(name) module on the module path (\(error))\n"
+            _ = Array(msg.utf8).withUnsafeBufferPointer { write(2, $0.baseAddress, $0.count) }
+        }
     }
 }
 
@@ -127,7 +129,7 @@ func installPrelude(_ interp: Swiftalk.Interpreter) throws {
 /// after the path is the script's.
 let usage = """
     usage: swiftalk [--no-prelude] [file.swt]
-      --no-prelude   start without the prelude modules (IO, Net, Regex): only eval at the top level
+      --no-prelude   start without the prelude modules (IO, Net, Regex, Sequence, Task): only eval at the top level
       --help, -h     this message
     With no file, the REPL — :h for its commands.
 
@@ -178,7 +180,7 @@ if let path = scriptPath {
         interp.scriptPath = path                     // `import` resolves beside the script (round 100)
         interp.moduleLoader = loadModule
         interp.modulePath = defaultModulePath         // round 182
-        if loadPrelude { try installPrelude(interp) }  // rounds 185–186: IO, Net, Regex; --no-prelude skips
+        if loadPrelude { try installPrelude(interp) }  // rounds 185–192: IO, Net, Regex, Sequence, Task; --no-prelude skips
         _ = try interp.eval(String(decoding: data, as: UTF8.self))
     } catch let error as Swiftalk.Error {
         let msg = "\(path): \(error.description)\n"

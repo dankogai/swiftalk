@@ -2433,7 +2433,8 @@ to `IO`, `zip` to `Sequence` (`Sequence` is in Core btw) and `fetch` to
 functions go where they belong: `print` and `debugPrint` are the
 exports of a module **`IO`**, `fetch` and its `Response` of a module
 **`Net`**, and `zip` and `sleep` are statics of the core types they
-serve — `Sequence.zip(a, b)` and `Task.sleep(seconds)`, as Swift
+serve — `Sequence.zip(a, b)` and `Task.sleep(seconds)` (the Sequence and Task
+modules' since round 192), as Swift
 spells `Task.sleep` (round 53's `sleep` was not named in the request;
 it went with the rule "everything but `eval`", and `Task` is the type
 it is about). `IO` and `Net` are native modules the **core registers on
@@ -2597,6 +2598,26 @@ new `native` kind of `SequenceObject`), `HostValue.setMember` (`x.name
 exported type, `IO.stdin`), and `Swiftalk.errorOutput`. `IO` being
 module and type at once, `import IO from "IO"` makes the type
 `IO.IO` — the `Complex` trap, accepted; the prelude binds the type.
+
+**`Sequence.zip` and `Task.sleep` are modules' — DECIDED (round 192)**
+("Now move `Sequence.zip` and `Task.sleep` out of Core too"). The
+spelling stays, the code leaves: a module named after the core type it
+extends — `Sequence`, `Task` — exports nothing by name and puts one
+static on that type with `Module.static`, which round 191 built for
+`IO.stdin` and which now reaches core types and protocol objects too.
+Both are in the CLI's prelude, each missing one said once and lived
+without; a bare interpreter has neither. The core lost the `zipped`
+Sequence kind and the two static bodies, and gained what the modules
+needed as public API: `Swiftalk.iterate`, `isLazy`, `conforms(_:to:)`,
+`sleep(seconds:)`, and an element type on a module-made Sequence
+(`Swiftalk.sequence(of: Tuple)`), so `Sequence.zip(1..., []).Array()`
+is still a `[Tuple]` and a handle's `lines.Array()` a `[String]`.
+**What the move uncovered**: the module context is thread-local, and a
+task body or a coroutine body runs on a thread of its own — so a
+module's static, `print`'s sink, and the host's hooks were invisible
+inside `async { }` until the spawner's context travels with the thread,
+which it now does. The prelude is five modules: IO, Net, Regex,
+Sequence, Task.
 
 ## Dialogue log
 

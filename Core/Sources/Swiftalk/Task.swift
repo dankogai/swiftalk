@@ -402,9 +402,14 @@ private func offloadThreadBody(_ argument: UnsafeMutableRawPointer) {
 private final class TaskThreadBox {
     let scheduler: Scheduler
     let context: Scheduler.Context
+    /// The spawner's module system (round 192): thread-local, so the
+    /// task's thread must be told — a module's statics, `print`'s sink,
+    /// and the host's hooks are found through it.
+    let modules: ModuleSystem?
     init(scheduler: Scheduler, context: Scheduler.Context) {
         self.scheduler = scheduler
         self.context = context
+        self.modules = ModuleContext.current
     }
 }
 
@@ -425,6 +430,7 @@ private func taskThreadBody(_ argument: UnsafeMutableRawPointer) {
     let box = Unmanaged<TaskThreadBox>.fromOpaque(argument).takeRetainedValue()
     pthread_setspecific(Scheduler.tlsKey,
                         Unmanaged.passUnretained(box.context).toOpaque())
+    ModuleContext.activate(box.modules)                       // round 192
     let task = box.context.task!
     do {
         // `return` from the body is the task's value (run() catches the

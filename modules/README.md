@@ -23,6 +23,13 @@ named with a capital like a type, by convention (round 183).
   through curl or the host's `"fetch"` hook; `Response` a struct in
   the module's swiftalk prelude. Preimported by the CLI —
   [documents/Net.md](../documents/Net.md).
+* **[Sequence/](Sequence/SequenceModule.swift)** — `Sequence.zip(a,
+  b)` (round 192; a core static from round 185): Swift's `zip`, lazy
+  when a side is, else a `[Tuple]`. A module that exports nothing by
+  name and puts a static on a core type. Preimported by the CLI.
+* **[Task/](Task/TaskModule.swift)** — `Task.sleep(seconds)` (round
+  192; a core static from round 185): the same shape, over
+  `Swiftalk.sleep`. Preimported by the CLI.
 * **[POSIX/](POSIX/POSIXModule.swift)** — the process environment
   and file I/O (round 188; the `Env` module of rounds 182–183 grown
   up): `getenv`/`setenv`/`unsetenv`/`environ`, `getpid`, `getcwd`/

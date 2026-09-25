@@ -2694,3 +2694,11 @@ the history. (Moved out of Design.md in round 65.)
   additions to the module API carried it: a module-made lazy Sequence,
   assignable members on a host value, statics on an exported type, and
   the error output.
+
+* **2026-09-26, round 192 — `Sequence.zip` and `Task.sleep` are
+  modules'** ("Now move `Sequence.zip` and `Task.sleep` out of Core
+  too"). A module per core type extended, `Sequence` and `Task`, each
+  one static; the core lost the `zipped` kind and gained `iterate`,
+  `isLazy`, `conforms`, `sleep`, and typed module-made Sequences. The
+  move found task and coroutine threads blind to the module context;
+  they carry it now.

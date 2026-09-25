@@ -15,6 +15,8 @@ let package = Package(
         // convention (round 183), like a type.
         .library(name: "IO", type: .dynamic, targets: ["IOModule"]),         // round 189: print, debugPrint
         .library(name: "Net", type: .dynamic, targets: ["NetModule"]),       // round 189: fetch, Response
+        .library(name: "Sequence", type: .dynamic, targets: ["SequenceModule"]),   // round 192: Sequence.zip
+        .library(name: "Task", type: .dynamic, targets: ["TaskModule"]),           // round 192: Task.sleep
         .library(name: "POSIX", type: .dynamic, targets: ["POSIXModule"]),   // round 188: Env grown up — the environment and file I/O
         .library(name: "Regex", type: .dynamic, targets: ["RegexModule"]),    // round 186: the regex engine
     ],
@@ -25,6 +27,8 @@ let package = Package(
         .executableTarget(name: "SwiftalkCLI", dependencies: [.product(name: "Swiftalk", package: "Core")]),
         .target(name: "IOModule", dependencies: [.product(name: "Swiftalk", package: "Core")], path: "modules/IO"),
         .target(name: "NetModule", dependencies: [.product(name: "Swiftalk", package: "Core")], path: "modules/Net"),
+        .target(name: "SequenceModule", dependencies: [.product(name: "Swiftalk", package: "Core")], path: "modules/Sequence"),
+        .target(name: "TaskModule", dependencies: [.product(name: "Swiftalk", package: "Core")], path: "modules/Task"),
         .target(name: "POSIXModule", dependencies: [.product(name: "Swiftalk", package: "Core")], path: "modules/POSIX"),
         .target(name: "RegexModule", dependencies: [.product(name: "Swiftalk", package: "Core")], path: "modules/Regex"),
         .testTarget(name: "SwiftalkTests", dependencies: [.product(name: "Swiftalk", package: "Core")]),

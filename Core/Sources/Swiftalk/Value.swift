@@ -268,13 +268,11 @@ extension Swiftalk {
             /// `.dropFirst(n)` (round 89), lazily — the only one of the
             /// slicing family that need not see the end.
             case dropped(SequenceObject, Int)
-            /// `zip(a, b)` (round 174) with a lazy side: pairs, as
-            /// unlabeled 2-tuples, until the shorter side ends. The sides
-            /// are Values — an Array may be zipped with a Sequence.
-            case zipped(Value, Value)
             /// A module's sequence (round 191): `make` yields a fresh
-            /// puller per iteration — a file handle's lines, say.
-            case native(make: () -> () throws -> Value?)
+            /// puller per iteration — a file handle's lines, say; the
+            /// element type it is known to yield, when the module says
+            /// (round 192: a zip's Tuple, a handle's lines' String).
+            case native(make: () -> () throws -> Value?, element: TypeAnnotation?)
         }
         let kind: Kind
 

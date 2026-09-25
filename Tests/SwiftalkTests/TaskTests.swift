@@ -106,7 +106,7 @@ struct TaskTests {
 
     @Test("tasks persist across a persistent interpreter's evals (the REPL's world)")
     func replPersistence() throws {
-        let interp = Swiftalk.Interpreter(relaxed: true)
+        let interp = try interpreter(relaxed: true)          // the prelude: Task.sleep is the Task module's (round 192)
         _ = try interp.eval("let t = async { Task.sleep(0.01); 42 }")
         #expect(try interp.eval("await t") == .int(42))
     }
