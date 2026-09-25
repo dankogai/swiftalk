@@ -907,6 +907,30 @@ are; `min` keeps the first of equals and `max` the last, as Swift's
 do. Not added: `last` — O(n) on a lazy Sequence and undefined on an
 infinite one — OPEN.
 
+**Bitwise operators, Raku's — DECIDED (round 193)** ("Let's add
+bitwise operators a la Raku. `+&` for `and`, `+|` for `or`, `+^` for
+`xor` and such."). `|`, `&`, `^` were spoken for in round 135 — the
+Set operators, Swift's — and `.bitAnd`/`.bitOr`/`.bitXor` (round 107)
+were the Int's only spelling. Raku's answer to the same collision is
+adopted whole: the numeric bitwise operators wear a `+` — **`+&`**
+and, **`+|`** or, **`+^`** xor, **`+<`** shift left, **`+>`** shift
+right, prefix **`+^`** not — at Raku's levels: `+&`, `+<`, `+>` with
+`*` `/` `%`, `+|`, `+^` with `+` `-`, prefix `+^` with the signs; so
+`1 +| 2 +& 3` is `1 +| (2 +& 3)` and `1 + 2 +< 1` is `1 + (2 +< 1)`,
+as Raku reads them (Swift puts its shifts above `*`; Raku's table is
+the one followed here, the request having said so). On Ints, and on
+Bytes — Byte with Byte a Byte masked to 8 bits, Byte with Int an Int,
+as arithmetic (round 116) has it; anything else a type error that
+names the operator to use instead (`&&` for Bools, `&` for Sets). The
+shifts are Swift's smart shifts: a negative count shifts the other
+way, an overshift answers 0 or -1, nothing traps — `1 +< 64` is 0,
+where Raku would grow a bignum; Int is 64 bits (§3b). With the family
+come its compound forms (`+&=` … `+>=`), the operator Functions
+(`(+&)`, `reduce(0, +|)`, `(+^)` with one argument the not), and a
+type's `infix(+&)` / `prefix(+^)` (round 146's machinery). Raku's
+string-bitwise `~&` family and Boolean `?&` are not taken: Strings
+have no bits here, and Bools have `&& || ^^ !`. The methods stay.
+
 **`**` — DECIDED (round 142)** ("Implement `**` operator for Int and
 Double. `base ** ex` meaning `base powered by ex`, of course"). A
 symbol spent, but on the one arithmetic operation the keyboard's

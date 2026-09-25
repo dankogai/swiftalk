@@ -22,7 +22,8 @@ land in an `Int`-locked variable.
 | `b < c`, `b == 33` | by value, Byte or Int on either side |
 | `b.Int()`, `b.Double()` | the value |
 | `b.String()` | source form: `"Byte(104)"`; `.debugDescription` in hex |
-| `b.bitAnd(x)`, `b.bitOr(x)`, `b.bitXor(x)`, `b.bitNot()`, `b.shifted(by: n)` | a Byte, masked to 8 bits; `x` a Byte or an Int |
+| `b +& c`, `b +\| c`, `b +^ c`, `b +< n`, `b +> n`, `+^b` | Raku's bitwise operators (round 193): Byte with Byte is a Byte, masked to 8 bits (`Byte(1) +< Byte(9)` is `Byte(0)`, `+^Byte(0)` is `Byte(255)`); a Byte with an Int is an Int, as arithmetic has it |
+| `b.bitAnd(x)`, `b.bitOr(x)`, `b.bitXor(x)`, `b.bitNot()`, `b.shifted(by: n)` | the same as methods: a Byte, masked to 8 bits; `x` a Byte or an Int |
 | `Data([b, ...])` | Bytes and Ints mix freely in the literal |
 
 ```swift

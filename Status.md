@@ -192,7 +192,7 @@ swiftalk> s.subtract(Set(1))
 swiftalk> s
 Set(2, 4)
 swiftalk> 1 | 2
-type error: '|' is a Set operator — not defined between Int and Int; Bools use '||', Ints .bitAnd/.bitOr/.bitXor
+type error: '|' is a Set operator — not defined between Int and Int; Bools use '||', Ints +|
 ```
 
 **A Set prints as `Set(e0, e1, ...)`** (round 134, revising 132) — the
@@ -220,6 +220,40 @@ Set(
     3
   ]
 )
+```
+
+**Bitwise operators, Raku's** (round 193) — `+&` `+|` `+^` `+<` `+>` and
+prefix `+^`, since `|` `&` `^` are the Set operators; `+&` `+<` `+>`
+bind like `*`, `+|` `+^` like `+`; Bytes stay Bytes; compound forms and
+`(+&)` as a Function:
+
+```text
+swiftalk> 6 +& 3
+2
+swiftalk> 6 +| 3
+7
+swiftalk> 6 +^ 3
+5
+swiftalk> 1 +< 4
+16
+swiftalk> 256 +> 4
+16
+swiftalk> +^0
+-1
+swiftalk> 1 +| 2 +& 3                  // 1 +| (2 +& 3)
+3
+swiftalk> 1 + 2 +< 1                   // 1 + (2 +< 1)
+5
+swiftalk> Byte(6) +& Byte(3)
+Byte(2)
+swiftalk> var x = 6; x +&= 3; x
+2
+swiftalk> [1, 2, 4].reduce(0, +|)
+7
+swiftalk> 1 | 2
+type error: '|' is a Set operator — not defined between Int and Int; Bools use '||', Ints +|
+swiftalk> 1.0 +& 1.0
+type error: '+&' is a bitwise operator on Ints and Bytes — not defined between Double and Double
 ```
 
 **`Sequence.zip` and `Task.sleep` are modules'** (round 192) — the

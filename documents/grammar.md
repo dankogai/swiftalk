@@ -200,9 +200,9 @@ comparison   = coalescing [ ( "==" | "!=" | "===" | "!==" | "<" | "<=" | ">" | "
 coalescing   = range [ ( "??" | "!!" ) coalescing ] ;               (* right-assoc; ?? lazy right, !! eager (round 130) *)
 range        = additive [ "..." [ additive ] | "..<" additive ] ;   (* a... unbounded (round 88): the bound is
                                                                    absent when ) ] } , : ; { or a newline follows *)
-additive     = multiplicative { ( "+" | "-" ) multiplicative } ;
-multiplicative = unary { ( "*" | "/" | "%" ) unary } ;      (* % is Int only (round 93) *)
-unary        = "-" unary | "+" unary | "!" unary | "await" unary | power ;     (* + since round 121 *)
+additive     = multiplicative { ( "+" | "-" | "|" | "^" | "+|" | "+^" ) multiplicative } ;   (* | ^ on Sets (round 135); +| +^ bitwise or, xor (round 193) *)
+multiplicative = unary { ( "*" | "/" | "%" | "&" | "+&" | "+<" | "+>" ) unary } ;   (* % is Int only (round 93); & on Sets; +& +< +> bitwise and, shifts (round 193) *)
+unary        = "-" unary | "+" unary | "!" unary | "+^" unary | "await" unary | power ;     (* + since round 121; +^ bitwise not (round 193) *)
 power        = postfix [ "**" unary ] ;                       (* round 142: right-assoc; -2 ** 2 is -(2 ** 2) *)
 postfix      = primary { suffix } ;
 suffix       = "." IDENT [ args ]                      (* member, method *)

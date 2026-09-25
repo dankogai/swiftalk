@@ -2702,3 +2702,10 @@ the history. (Moved out of Design.md in round 65.)
   `isLazy`, `conforms`, `sleep`, and typed module-made Sequences. The
   move found task and coroutine threads blind to the module context;
   they carry it now.
+
+* **2026-09-26, round 193 — bitwise operators, Raku's** ("Let's add
+  bitwise operators a la Raku. `+&` for `and`, `+|` for `or`, `+^` for
+  `xor` and such."). The five infix operators and the prefix `+^`, at
+  Raku's precedence levels, on Ints and Bytes; compound forms,
+  operator Functions, and `infix(+&)` on a type came with them. `|`,
+  `&`, `^` stay the Set operators; the methods stay too.

@@ -133,6 +133,14 @@ struct Lexer {
                     if peek == "=" { pos += 1; tokens.append(.op("**=")) } else { tokens.append(.op("**")) }
                     continue
                 }
+                // +& +| +^ +< +> (round 193): Raku's numeric bitwise operators,
+                // and their compound forms +&= and so on
+                if c == "+", pos + 1 < scalars.count, "&|^<>".unicodeScalars.contains(scalars[pos + 1]) {
+                    let text = "+" + String(Character(scalars[pos + 1]))
+                    pos += 2
+                    if peek == "=" { pos += 1; tokens.append(.op(text + "=")) } else { tokens.append(.op(text)) }
+                    continue
+                }
                 // += -= *= %= (round 102): compound assignment
                 if "+-*%".contains(Character(c)), pos + 1 < scalars.count, scalars[pos + 1] == "=" {
                     pos += 2
@@ -257,7 +265,8 @@ struct Lexer {
         case .op(let o)?:
             return ["==", "!=", "===", "!==", "<", "<=", ">", ">=", "&&", "||", "??", "!!",
                     "+=", "-=", "*=", "/=", "%=", "??=", "!!=", "&&=", "||=", "^^", "^^=", "**", "**=",
-                    "&", "|", "^", "&=", "|=", "^="].contains(o)
+                    "&", "|", "^", "&=", "|=", "^=",
+                    "+&", "+|", "+^", "+<", "+>", "+&=", "+|=", "+^=", "+<=", "+>="].contains(o)
         case .identifier(let w)?:
             return ["and", "or", "xor", "not"].contains(w)       // the word operators (round 155)
         default:

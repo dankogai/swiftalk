@@ -648,6 +648,9 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
         }
         let rhs = try evaluate(expr, in: env)
         if op == "**" { return try assign(target, rhs, in: env) { old in try power(old, rhs) } }   // round 142
+        if op.hasPrefix("+"), op.count == 2 {                                                        // +&= and the rest (round 193)
+            return try assign(target, rhs, in: env) { old in try bitwise(op, old, rhs) }
+        }
         return try assign(target, rhs, in: env) { old in try binary(Character(op), old, rhs) }
     case .assignment(let target, let expr):
         let value = try evaluate(expr, in: env)
@@ -1595,6 +1598,10 @@ func evaluate(_ expr: Expr, in env: Environment) throws -> Value {
         return try env.lookup(name)
     case .binary(let op, let lhs, let rhs):
         return try binary(op, try evaluate(lhs, in: env), try evaluate(rhs, in: env))
+    case .bitwise(let op, let lhs, let rhs):
+        return try bitwise(op, try evaluate(lhs, in: env), try evaluate(rhs, in: env))      // round 193
+    case .bitNot(let e):
+        return try bitNot(try evaluate(e, in: env))
     case .comparison(let op, let lhs, let rhs):
         return try compare(op, try evaluate(lhs, in: env), try evaluate(rhs, in: env))
     case .ternary(let condition, let thenBranch, let elseBranch):
@@ -1734,6 +1741,10 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
         return .function(OperatorFunctions.function(op))                          // round 144
     case .binary(let op, let lhs, let rhs):
         return try binary(op, try evaluate(lhs, in: env), try evaluate(rhs, in: env))
+    case .bitwise(let op, let lhs, let rhs):
+        return try bitwise(op, try evaluate(lhs, in: env), try evaluate(rhs, in: env))      // round 193
+    case .bitNot(let e):
+        return try bitNot(try evaluate(e, in: env))
     case .comparison(let op, let lhs, let rhs):
         return try compare(op, try evaluate(lhs, in: env), try evaluate(rhs, in: env))
     case .ternary(let condition, let thenBranch, let elseBranch):
@@ -2439,9 +2450,12 @@ enum OperatorFunctions {
             if let r = try userOperator("prefix:!", [args[0]]) { return r }
             guard case .bool(let b) = args[0] else { throw SwiftalkError.type("'!' takes a Bool — nothing is truthy (§3b)") }
             return .bool(!b)
+        case ("+^", 1):
+            return try bitNot(args[0])                                                     // round 193
         case (_, 2):
             let (a, b) = (args[0], args[1])
             switch op {
+            case "+&", "+|", "+^", "+<", "+>":                return try bitwise(op, a, b)   // round 193
             case "+", "-", "*", "/", "%", "|", "&", "^": return try binary(Character(op), a, b)
             case "**":                                  return try power(a, b)
             case "==", "!=", "===", "!==", "<", "<=", ">", ">=": return try compare(op, a, b)
@@ -3688,6 +3702,48 @@ func run(_ fn: FunctionObject, ordered: [Value]) throws -> (result: Value, local
     return (last, local)
 }
 
+/// Raku's numeric bitwise operators (round 193): `+&` and, `+|` or, `+^`
+/// xor, `+<` and `+>` shifts — on Ints, and on Bytes (a Byte comes back,
+/// masked to 8 bits; a Byte with an Int is an Int, as arithmetic has
+/// it). The shifts are Swift's smart shifts: a negative count shifts the
+/// other way, an overshift answers 0 or -1, nothing traps. A struct's or
+/// enum's `infix(+&)` answers first. `|`, `&`, `^` stay the Set operators.
+private func bitwise(_ op: String, _ lhs: Value, _ rhs: Value) throws -> Value {
+    if let r = try userOperator("infix:\(op)", [lhs, rhs]) { return r }
+    func combine(_ a: Int64, _ b: Int64) -> Int64 {
+        switch op {
+        case "+&": return a & b
+        case "+|": return a | b
+        case "+^": return a ^ b
+        case "+<": return a << b
+        default:   return a >> b
+        }
+    }
+    switch (lhs, rhs) {
+    case (.byte(let a), .byte(let b)):
+        return .byte(UInt8(truncatingIfNeeded: combine(Int64(a), Int64(b))))
+    case (.byte(let a), .int(let b)):  return .int(combine(Int64(a), b))
+    case (.int(let a), .byte(let b)):  return .int(combine(a, Int64(b)))
+    case (.int(let a), .int(let b)):   return .int(combine(a, b))
+    default:
+        throw SwiftalkError.type(
+            "'\(op)' is a bitwise operator on Ints and Bytes — not defined between \(lhs.typeName) and \(rhs.typeName)"
+            + ((lhs.typeName == "Bool" || rhs.typeName == "Bool") ? "; Bools use && || ^^ !" : "")
+            + ((lhs.typeName == "Set" || rhs.typeName == "Set") ? "; Sets use & | ^" : ""))
+    }
+}
+
+/// Prefix `+^` (round 193): bitwise not — an Int's complement, a Byte's
+/// masked to 8 bits; a type's `prefix(+^)` answers first.
+private func bitNot(_ operand: Value) throws -> Value {
+    if let r = try userOperator("prefix:+^", [operand]) { return r }
+    switch operand {
+    case .int(let i):  return .int(~i)
+    case .byte(let b): return .byte(~b)
+    default: throw SwiftalkError.type("prefix '+^' is bitwise not, on an Int or a Byte — not \(operand.typeName)")
+    }
+}
+
 /// Same-type arithmetic only (Design.md §3): `1 + 1.5` is a type error,
 /// Int overflow traps (§3b), and `+` concatenates Strings and Arrays.
 private func binary(_ op: Character, _ lhs: Value, _ rhs: Value) throws -> Value {
@@ -3698,7 +3754,7 @@ private func binary(_ op: Character, _ lhs: Value, _ rhs: Value) throws -> Value
     if "|&^".contains(op) {
         guard case .set = lhs, case .set = rhs else {
             throw SwiftalkError.type(
-                "'\(op)' is a Set operator — not defined between \(lhs.typeName) and \(rhs.typeName); Bools use '\(op)\(op)', Ints .bitAnd/.bitOr/.bitXor")
+                "'\(op)' is a Set operator — not defined between \(lhs.typeName) and \(rhs.typeName); Bools use '\(op)\(op)', Ints +\(op)")
         }
     }
     switch (lhs, rhs) {

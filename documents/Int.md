@@ -18,7 +18,8 @@ separators.
 | `i / j` | integer division; `/ 0` is an error |
 | `i % j` | the remainder, the dividend's sign; `% 0` is an error (round 93) |
 | `i ** j`, `i **= j` | exponentiation (round 142): an Int, trapping on overflow; a negative exponent is a type error (no Int answer — use Doubles). Right-associative, above `*`; `-2 ** 2` is `-(2 ** 2)` |
-| `a.bitAnd(b)`, `a.bitOr(b)`, `a.bitXor(b)`, `a.bitNot()` | bitwise `& \| ^ ~` as methods (round 105; bit-prefixed since round 107 — `and`/`or`/`xor`/`not` are Bool's) — the symbols stay free |
+| `a +& b`, `a +\| b`, `a +^ b`, `a +< n`, `a +> n`, `+^a` | **bitwise and, or, xor, shift left, shift right, not — Raku's spellings** (round 193): `|`, `&`, `^` are the Set operators, so the numeric ones wear a `+`. `+&`, `+<`, `+>` sit with `*` (Raku's multiplicative level), `+\|`, `+^` with `+`; the shifts are Swift's smart shifts (a negative count shifts the other way, an overshift gives 0 or -1, nothing traps). Compound `+&=` and the rest; `(+&)` is the Function; a type may declare `infix(+&)` and `prefix(+^)` |
+| `a.bitAnd(b)`, `a.bitOr(b)`, `a.bitXor(b)`, `a.bitNot()`, `a.shifted(by: n)` | the same as methods (round 105; bit-prefixed since round 107 — `and`/`or`/`xor`/`not` are Bool's) |
 | `a.shifted(by: n)` | `<<` for a positive `n`, `>>` (arithmetic, sign-filling) for a negative one; an overshift gives 0 or -1, as Swift's smart shift does |
 | `a.bit(i)` | the `i`th bit as a Bool, `i` in 0..<64 |
 | `a.bits` | the `[Bool]` view — 64 elements, bit 0 first |

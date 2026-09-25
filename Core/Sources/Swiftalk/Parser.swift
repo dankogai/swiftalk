@@ -13,6 +13,8 @@ indirect enum Expr {
     case power(Expr, Expr)                                // a ** b (round 142): right-assoc, above *
     case operatorRef(String)                              // (+), (**), (==)… — an operator as a Function (round 144)
     case binary(Character, Expr, Expr)          // + - * /
+    case bitwise(String, Expr, Expr)                      // +& +| +^ +< +> — Raku's numeric bitwise operators (round 193)
+    case bitNot(Expr)                                     // prefix +^ (round 193)
     case comparison(String, Expr, Expr)         // == != < <= > >=
     case ternary(Expr, Expr, Expr)
     case function(parameters: [String], body: [Stmt])
@@ -447,7 +449,8 @@ struct Parser {
             // `x op= y` for every binary operator that can spell one (rounds
             // 102–106, 130, 135): the operator is the token without its `=`.
             if case .op(let o)? = peek, o.hasSuffix("="),
-               ["+=", "-=", "*=", "/=", "%=", "**=", "??=", "!!=", "&&=", "||=", "^^=", "&=", "|=", "^="].contains(o) {
+               ["+=", "-=", "*=", "/=", "%=", "**=", "??=", "!!=", "&&=", "||=", "^^=", "&=", "|=", "^=",
+                "+&=", "+|=", "+^=", "+<=", "+>="].contains(o) {
                 pos += 1
                 return .compoundAssignment(target: try lvalue(from: expr), op: String(o.dropLast()), expr: try parseExpr())
             }
@@ -849,8 +852,9 @@ struct Parser {
     /// only, by fixity. Not `&&`/`||`/`^^` (they short-circuit), `??`/`!!`
     /// (a struct is never absent), `===`/`!==` (identity is not a
     /// question a type answers).
-    static let infixOperators: Set<String> = ["+", "-", "*", "/", "%", "**", "==", "!=", "<", "<=", ">", ">=", "|", "&", "^"]
-    static let prefixOperators: Set<String> = ["-", "+", "!"]
+    static let infixOperators: Set<String> = ["+", "-", "*", "/", "%", "**", "==", "!=", "<", "<=", ">", ">=", "|", "&", "^",
+                                              "+&", "+|", "+^", "+<", "+>"]          // round 193
+    static let prefixOperators: Set<String> = ["-", "+", "!", "+^"]
     static let postfixOperators: Set<String> = ["!", "?"]
 
     /// `infix(` / `prefix(` / `postfix(` at the member position.
@@ -1562,6 +1566,9 @@ struct Parser {
             } else if case .op(let o)? = peek, o == "|" || o == "^" {          // Set union / symmetric difference (round 135), Swift's level
                 pos += 1
                 lhs = .binary(Character(o), lhs, try parseMultiplicative())
+            } else if case .op(let o)? = peek, o == "+|" || o == "+^" {        // bitwise or / xor (round 193): Raku's additive level
+                pos += 1
+                lhs = .bitwise(o, lhs, try parseMultiplicative())
             } else {
                 return lhs
             }
@@ -1577,6 +1584,9 @@ struct Parser {
             } else if case .op("&")? = peek {                                    // Set intersection (round 135), Swift's level
                 pos += 1
                 lhs = .binary("&", lhs, try parseUnary())
+            } else if case .op(let o)? = peek, o == "+&" || o == "+<" || o == "+>" {   // bitwise and, shifts (round 193): Raku's multiplicative level
+                pos += 1
+                lhs = .bitwise(o, lhs, try parseUnary())
             } else {
                 return lhs
             }
@@ -1591,6 +1601,10 @@ struct Parser {
         if case .punct("+")? = peek {
             pos += 1
             return .unaryPlus(try parseUnary())
+        }
+        if case .op("+^")? = peek {                       // prefix +^ — bitwise not (round 193)
+            pos += 1
+            return .bitNot(try parseUnary())
         }
         if case .op("!")? = peek {
             // Prefix `!` — logical not (round 69). Postfix `!` (force
@@ -1760,7 +1774,8 @@ struct Parser {
     /// The operators that `(op)` turns into Functions (round 144): the
     /// binary ones; `-`, `+`, `!` also serve as unary with one argument.
     static let functionOperators: Set<String> = [
-        "**", "==", "!=", "===", "!==", "<", "<=", ">", ">=", "&&", "||", "^^", "??", "!!", "|", "&", "^", "!"]
+        "**", "==", "!=", "===", "!==", "<", "<=", ">", ">=", "&&", "||", "^^", "??", "!!", "|", "&", "^", "!",
+        "+&", "+|", "+^", "+<", "+>"]                                                    // round 193
 
     /// An operator token standing alone — followed by one of `closers` —
     /// consumed and returned as its text (rounds 144–145); nil otherwise.
