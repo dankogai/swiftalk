@@ -2,35 +2,40 @@
 
 One page per type, listing every member the interpreter actually
 dispatches (round 68; derived from the evaluator, verified in the
-REPL). Sections in [Design.md](../Design.md) are cited as §n.
+REPL). Sections in [Design.md](../Design.md) are cited as §n. **Where**
+says what ships the type (round 190): **Core** — the interpreter
+itself, there in every embedding; **Prelude** — a module the CLI
+preimports (`IO`, `Net`, `Regex`), there unless `--no-prelude`, an
+embedder's by `preimport()`; **Module** — imported on request
+(`import from "POSIX"`). Each page says the same under its title.
 
-| Type | Kind | Page |
-|---|---|---|
-| `Nil` | the type of `nil` | [Nil.md](Nil.md) |
-| `Bool` | `true` / `false` | [Bool.md](Bool.md) |
-| `Int` | 64-bit, trapping | [Int.md](Int.md) |
-| `Double` | IEEE 754 | [Double.md](Double.md) |
-| `String` | Unicode, grapheme-counted | [String.md](String.md) |
-| `Array` | COW, element-typed | [Array.md](Array.md) |
-| `Dictionary` | COW, `[Key: Value]`, any Hashable key | [Dictionary.md](Dictionary.md) |
-| `Set` | COW, unordered, unique; `Set(a, b, ...)`, `Set<T>` (rounds 132–134) | [Set.md](Set.md) |
-| `Range` | lazy `a...b` / `a..<b`, Int only | [Range.md](Range.md) |
-| `Function` | the one function type | [Function.md](Function.md) |
-| `Sequence` | lazy generators & coroutines (also a protocol) | [Sequence.md](Sequence.md) |
-| `Data` | bytes, `[UInt8]` | [Data.md](Data.md) |
-| `Byte` | Data's element — an Int that fits a byte | [Byte.md](Byte.md) |
-| `Date` | epoch seconds as Double | [Date.md](Date.md) |
-| `Task` | a spawned computation | [Task.md](Task.md) |
-| `Tuple` | a grab bag `(v0, v1, ...)`, one loose type | [Tuple.md](Tuple.md) |
-| `Regex` | `/pattern/flags` — the literal is grammar, the type the Regex module's (round 186) | [Regex.md](Regex.md) |
-| `SION` | the data format, built in: SION, JSON, property lists | [SION.md](SION.md) |
-| modules | `import` / `export`, `.swt` files by path or URL | [module.md](module.md) |
-| `Result` | built-in enum: `.success` / `.failure` | [Result.md](Result.md) |
-| `IO` | the module of `print` and `debugPrint` — preimported by the CLI (round 185) | [IO.md](IO.md) |
-| `Net` | the module of `fetch` and `Response` — preimported by the CLI (rounds 163, 185) | [Net.md](Net.md) |
-| `POSIX` | the environment and file I/O — a module to import (round 188) | [POSIX.md](POSIX.md) |
-| `struct` | user value types | [struct.md](struct.md) |
-| `enum` | user sum types | [enum.md](enum.md) |
+| Type | Where | Kind | Page |
+|---|---|---|---|
+| `Nil` | Core | the type of `nil` | [Nil.md](Nil.md) |
+| `Bool` | Core | `true` / `false` | [Bool.md](Bool.md) |
+| `Int` | Core | 64-bit, trapping | [Int.md](Int.md) |
+| `Double` | Core | IEEE 754 | [Double.md](Double.md) |
+| `String` | Core | Unicode, grapheme-counted | [String.md](String.md) |
+| `Array` | Core | COW, element-typed | [Array.md](Array.md) |
+| `Dictionary` | Core | COW, `[Key: Value]`, any Hashable key | [Dictionary.md](Dictionary.md) |
+| `Set` | Core | COW, unordered, unique; `Set(a, b, ...)`, `Set<T>` (rounds 132–134) | [Set.md](Set.md) |
+| `Range` | Core | lazy `a...b` / `a..<b`, Int only | [Range.md](Range.md) |
+| `Function` | Core | the one function type | [Function.md](Function.md) |
+| `Sequence` | Core | lazy generators & coroutines (also a protocol) | [Sequence.md](Sequence.md) |
+| `Data` | Core | bytes, `[UInt8]` | [Data.md](Data.md) |
+| `Byte` | Core | Data's element — an Int that fits a byte | [Byte.md](Byte.md) |
+| `Date` | Core | epoch seconds as Double | [Date.md](Date.md) |
+| `Task` | Core | a spawned computation | [Task.md](Task.md) |
+| `Tuple` | Core | a grab bag `(v0, v1, ...)`, one loose type | [Tuple.md](Tuple.md) |
+| `Regex` | Prelude (`Regex`) | `/pattern/flags` — the literal is grammar, the type the Regex module's (round 186) | [Regex.md](Regex.md) |
+| `SION` | Core | the data format, built in: SION, JSON, property lists | [SION.md](SION.md) |
+| modules | Core | `import` / `export`, `.swt` files by path or URL; native modules | [module.md](module.md) |
+| `Result` | Core | built-in enum: `.success` / `.failure` | [Result.md](Result.md) |
+| `IO` | Prelude (`IO`) | the module of `print` and `debugPrint` — preimported by the CLI (round 185) | [IO.md](IO.md) |
+| `Net` | Prelude (`Net`) | the module of `fetch` and `Response` — preimported by the CLI (rounds 163, 185) | [Net.md](Net.md) |
+| `POSIX` | Module | the environment and file I/O — a module to import (round 188) | [POSIX.md](POSIX.md) |
+| `struct` | Core | user value types | [struct.md](struct.md) |
+| `enum` | Core | user sum types | [enum.md](enum.md) |
 
 The pages above are the types. The rest of the language has its own
 pages, in lowercase (round 157): [grammar.md](grammar.md) for the

@@ -1,5 +1,7 @@
 # SION
 
+**Core** — built into the interpreter, there in every embedding.
+
 [SION](https://github.com/dankogai/swift-sion) — JSON in Swift's
 literal syntax — is swiftalk's native data format, and since round 97
 a built-in: **a "SION value" is any value SION can carry** (§3b: `nil`,

@@ -1,5 +1,7 @@
 # POSIX
 
+**Module** — `import from "POSIX"`; not preimported. `libPOSIX.dylib` beside the CLI, or on `SWIFTALK_MODULE_PATH`.
+
 The process environment and file I/O — a native module (round 188;
 the `Env` module of rounds 182–183 grown up), `modules/POSIX`, built as
 `libPOSIX.dylib` beside the CLI. **Not in the prelude**: `import from

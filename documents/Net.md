@@ -1,5 +1,7 @@
 # Net
 
+**Prelude** — the `Net` module, preimported by the CLI (`--no-prelude` skips it); `import from "Net"` otherwise, or `Interpreter.preimport(["Net"])`.
+
 The module of `fetch` and its `Response` (round 185; a top-level
 builtin and a prelude struct from round 163 until then; a library,
 `modules/Net` built as `libNet.dylib`, since round 189). `import from

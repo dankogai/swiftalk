@@ -1,5 +1,7 @@
 # Array
 
+**Core** — built into the interpreter, there in every embedding.
+
 An ordered collection — a **COW value** (§4): assignment and passing
 copy logically, mutation never leaks through an alias. A homogeneous
 literal infers its element type and the binding **enforces** it

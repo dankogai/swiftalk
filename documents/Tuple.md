@@ -1,5 +1,7 @@
 # Tuple
 
+**Core** — built into the interpreter, there in every embedding.
+
 A grab bag of values (round 70): `(v0, v1, ...)`. One type — `Tuple`
 — for every arity and every mix; **not** Swift's `(T0, T1, ...)`
 typing, deliberately. Elements are read by position. A tuple is a

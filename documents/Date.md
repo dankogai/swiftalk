@@ -1,5 +1,7 @@
 # Date
 
+**Core** — built into the interpreter, there in every embedding.
+
 A point in time: seconds since the Unix epoch, stored as a Double —
 SION's own representation, printed in SION's own spelling
 `.Date(epoch)` (round 50). The leading-dot form `.Date(x)` is a

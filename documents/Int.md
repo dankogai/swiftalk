@@ -1,5 +1,7 @@
 # Int
 
+**Core** — built into the interpreter, there in every embedding.
+
 64-bit signed, everywhere (§3b) — never device-dependent. Arithmetic
 **traps** on overflow and on division by zero; there is no silent
 wraparound. Literals: decimal, `0xff`, `0o377`, `0b101`, with `_`

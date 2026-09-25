@@ -1,5 +1,7 @@
 # Result
 
+**Core** — built into the interpreter, there in every embedding.
+
 A built-in enum (§8, round 51) — swiftalk's errors are values, not
 exceptions: `Result.success(v)` / `Result.failure(e)`, payloads
 untyped. All of [enum.md](enum.md)'s machinery applies: `switch`,

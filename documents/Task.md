@@ -1,5 +1,7 @@
 # Task
 
+**Core** — built into the interpreter, there in every embedding.
+
 A spawned concurrent computation (§12, round 53): what `Task { ... }`
 returns and `await` joins. swiftalk is **colorless** — no function is
 marked `async`; any function may `await`. Tasks are cooperative green

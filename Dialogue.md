@@ -2679,3 +2679,9 @@ the history. (Moved out of Design.md in round 65.)
   "fetch", curl otherwise), and a swiftalk `prelude` a module ships
   (`Response` is declared there). The fetcher hook and its Swift
   types are gone from the core.
+
+* **2026-09-25, round 190 — where a type ships** ("Mark whether the
+  Type is included in `Core` or `Prelude` in `documents/`"). A
+  **Where** column in the type index and a line under every page's
+  title: Core, Prelude (`IO`, `Net`, `Regex`), or Module (`POSIX`).
+  Documentation only.

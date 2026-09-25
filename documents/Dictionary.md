@@ -1,5 +1,7 @@
 # Dictionary
 
+**Core** — built into the interpreter, there in every embedding.
+
 `[Key: Value]` — the spelling that started the language. A **COW
 value** (§4). Any Hashable value is a key (`1`, `"1"`, and `1.0` are
 three keys), as SION allows. A homogeneous literal infers `[K: V]`

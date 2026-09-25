@@ -1,5 +1,7 @@
 # Bool
 
+**Core** — built into the interpreter, there in every embedding.
+
 `true` and `false`. Nothing is truthy: `if`, `while`, `? :`, and
 `filter` demand a Bool and reject everything else (§3b). The one
 reading that is not a Bool test: a *bare variable* as an `if`/`while`

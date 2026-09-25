@@ -1,5 +1,7 @@
 # Nil
 
+**Core** — built into the interpreter, there in every embedding.
+
 The type of `nil` — one value, its own type. `nil` is swiftalk's
 `undefined`: absence, not a null object, and never `typeof null ===
 "object"` (§3b). Optionals are flat (§3a): `Int?` is Int-or-nil, no

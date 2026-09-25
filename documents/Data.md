@@ -1,5 +1,7 @@
 # Data
 
+**Core** — built into the interpreter, there in every embedding.
+
 Bytes — `[UInt8]`, distinct from String: bytes are bytes, text is
 text (§3b). **The literal is SION's** since round 97: the source form
 is `.Data("base64")`, and `Data(s)` decodes base64.

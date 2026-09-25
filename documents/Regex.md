@@ -1,5 +1,7 @@
 # Regex
 
+**Prelude** — the `Regex` module, preimported by the CLI (`--no-prelude` skips it); `import from "Regex"` otherwise, or `Interpreter.preimport(["Regex"])`.
+
 A regular expression — a **module's type with a literal of its own**:
 the literal `/pattern/flags` is grammar (round 86, §11), the type and
 its engine are the **Regex module** (round 186; `modules/Regex`, built

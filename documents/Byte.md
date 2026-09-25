@@ -1,5 +1,7 @@
 # Byte
 
+**Core** — built into the interpreter, there in every embedding.
+
 `Data`'s element type (round 116) — Swift's `UInt8`. **A Byte is an Int
 that fits a byte**: `Byte op Byte` is a Byte, trapping as `UInt8`
 does; `Byte op Int` is an Int; comparison and equality are by value,

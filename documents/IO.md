@@ -1,5 +1,7 @@
 # IO
 
+**Prelude** — the `IO` module, preimported by the CLI (`--no-prelude` skips it); `import from "IO"` otherwise, or `Interpreter.preimport(["IO"])`.
+
 The module of the output functions (round 185; top-level builtins from
 round 1 until then; a library, `modules/IO` built as `libIO.dylib`,
 since round 189). `import from "IO"` binds `print` and `debugPrint`,

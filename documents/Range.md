@@ -1,5 +1,7 @@
 # Range
 
+**Core** — built into the interpreter, there in every embedding.
+
 `a...b` (closed) and `a..<b` (half-open): first-class, **lazy**, and
 Int-only — `BigInt` someday, `Double` never (round 38). A Range never
 materializes unless asked; `(1...1000000000000).count` is O(1).

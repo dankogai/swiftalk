@@ -1,5 +1,7 @@
 # Sequence
 
+**Core** — built into the interpreter, there in every embedding.
+
 Lazy by default (round 41) — unlike Swift's opt-in `.lazy`. Two ways
 to make one, and `map`/`filter` on either **defer** until something
 pulls. `Sequence` is also the protocol that Array, String,

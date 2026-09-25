@@ -2561,6 +2561,16 @@ prelude's errors being its own). A hook is resolved before
 `offload`, since the worker thread has no running Interpreter — the
 one rule a module author must know. Nothing a script wrote changed.
 
+**Every type page says where it ships — DECIDED (round 190)** ("Mark
+whether the Type is included in `Core` or `Prelude` in `documents/`").
+Three words, one per type, in the index's new **Where** column and
+under every page's title: **Core** — the interpreter itself, there in
+every embedding; **Prelude** — a module the CLI preimports (`IO`,
+`Net`, `Regex`), there unless `--no-prelude`, an embedder's by
+`preimport()`; **Module** — imported on request (`POSIX`). A reader
+of `Regex.md` learns in its second line that a bare embedding has no
+`/re/`, which rounds 185–189 made true and nothing said in one place.
+
 ## Dialogue log
 
 Moved to [Dialogue.md](Dialogue.md) (round 65) — append-only and

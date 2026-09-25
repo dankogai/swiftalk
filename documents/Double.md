@@ -1,5 +1,7 @@
 # Double
 
+**Core** — built into the interpreter, there in every embedding.
+
 IEEE 754 binary64. `1.0`, `1e3`, and hex floats `0x1.fep7` are all
 explicitly Double (round 59); `1` is explicitly Int, and the two never
 mix in arithmetic without a conversion.

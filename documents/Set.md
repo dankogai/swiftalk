@@ -1,5 +1,7 @@
 # Set
 
+**Core** — built into the interpreter, there in every embedding.
+
 Swift's `Set` (round 132): an unordered collection of unique, Hashable
 elements — and every swiftalk value is Hashable, so a Set holds
 anything, Sets included. A **COW value** (§4), like Array and

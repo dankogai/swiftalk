@@ -1,5 +1,7 @@
 # Function
 
+**Core** — built into the interpreter, there in every embedding.
+
 The one function type (§2.4): every `{ ... }` is a Function, every
 type constructor and protocol is a Function, builtins like `print`
 are Functions. There is no `func`; signatures are not part of the

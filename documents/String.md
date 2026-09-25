@@ -1,5 +1,7 @@
 # String
 
+**Core** — built into the interpreter, there in every embedding.
+
 Unicode text, Swift-sense: `.count` counts graphemes, iteration
 yields graphemes (as one-Character Strings), and there is no UTF-16
 view (§11). `"..."` literals with `\(interpolation)`, escapes `\" \\
