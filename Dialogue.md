@@ -2685,3 +2685,12 @@ the history. (Moved out of Design.md in round 65.)
   **Where** column in the type index and a line under every page's
   title: Core, Prelude (`IO`, `Net`, `Regex`), or Module (`POSIX`).
   Documentation only.
+
+* **2026-09-26, round 191 — `IO` is a handle type** ("Add more
+  features to `IO` beyond `print`" — stdin/stdout/stderr, debug output
+  to stderr, `IO(path:mode:)` with `.data`, `.lines`, `.read(size)`,
+  `.append`, descriptors closed on death, `readLine`). All of it, as
+  asked; `debugPrint` is the thing that moved to stderr. Four general
+  additions to the module API carried it: a module-made lazy Sequence,
+  assignable members on a host value, statics on an exported type, and
+  the error output.

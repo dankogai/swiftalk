@@ -2571,6 +2571,33 @@ every embedding; **Prelude** — a module the CLI preimports (`IO`,
 of `Regex.md` learns in its second line that a bare embedding has no
 `/re/`, which rounds 185–189 made true and nothing said in one place.
 
+**`IO` is a handle type — DECIDED (round 191)** ("Add more features to
+`IO` beyond `print`", with the list: `static let stdin, stdout,
+stderr`; `debugDescription()` to stderr by default; `var fh = IO(path:
+mode:)` with `.read` the default, `fh.data` getting and setting the
+whole content and an error when not seekable, `for line in fh.lines`,
+`for chunk in fh.read(size)`, `fh.append(data)`, descriptors closed
+when `fh` is destroyed; `readLine` as `IO.stdin.lines` one line at a
+time). Taken as asked, with the readings stated: `debugPrint` is what
+writes to stderr — `Interpreter.errorOutput`, a second sink beside
+`output` — since `debugDescription` is a String-valued member (round
+37) and the request is about where debug output goes; the modes are
+`.read`, `.write`, `.append`, `.readWrite`, and the writing modes open
+`O_RDWR` underneath so `fh.data` reads back what was written; `lines`
+and `read(size)` are lazy Sequences **from where the handle is** —
+Swift's `FileHandle`, not a re-readable file — so iterating twice
+reads on, and the whole file is `fh.data`; reads are buffered per
+handle so `lines`, `read`, and `readLine` mix; a handle's failures are
+**errors**, not Results (a handle is an object you hold; POSIX has the
+Result-valued descriptor calls); the three standard handles are never
+closed, only marked. The module API grew four pieces, each general:
+`Swiftalk.sequence { { next } }` (a lazy Sequence a module makes — a
+new `native` kind of `SequenceObject`), `HostValue.setMember` (`x.name
+= value` on a module's value), `Module.static` (a static on an
+exported type, `IO.stdin`), and `Swiftalk.errorOutput`. `IO` being
+module and type at once, `import IO from "IO"` makes the type
+`IO.IO` — the `Complex` trap, accepted; the prelude binds the type.
+
 ## Dialogue log
 
 Moved to [Dialogue.md](Dialogue.md) (round 65) — append-only and

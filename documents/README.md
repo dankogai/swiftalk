@@ -31,7 +31,7 @@ embedder's by `preimport()`; **Module** — imported on request
 | `SION` | Core | the data format, built in: SION, JSON, property lists | [SION.md](SION.md) |
 | modules | Core | `import` / `export`, `.swt` files by path or URL; native modules | [module.md](module.md) |
 | `Result` | Core | built-in enum: `.success` / `.failure` | [Result.md](Result.md) |
-| `IO` | Prelude (`IO`) | the module of `print` and `debugPrint` — preimported by the CLI (round 185) | [IO.md](IO.md) |
+| `IO` | Prelude (`IO`) | `print`, `debugPrint` (to stderr), `readLine`, and the handle type: `IO(path:mode:)`, `IO.stdin`, `.data`, `.lines`, `.read(size)`, `.append` (rounds 185, 191) | [IO.md](IO.md) |
 | `Net` | Prelude (`Net`) | the module of `fetch` and `Response` — preimported by the CLI (rounds 163, 185) | [Net.md](Net.md) |
 | `POSIX` | Module | the environment and file I/O — a module to import (round 188) | [POSIX.md](POSIX.md) |
 | `struct` | Core | user value types | [struct.md](struct.md) |

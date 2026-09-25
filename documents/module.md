@@ -117,13 +117,20 @@ the environment under C's names and file I/O, every failure a `Result`.
 | `Swiftalk.hook("name")`, `Interpreter.hooks["name"]` | a function over Values the **host** lends the modules — the Net module asks for `"fetch"`, a test stubs it, an embedder routes it. Resolve it before `offload`: the worker thread has no running Interpreter (round 189) |
 | `m.prelude = "export struct Response { ... }"` | swiftalk source the module ships: evaluated when the module is registered or loaded, in a file scope under the builtins; its `export`s join the exports, `m.value(named:)` reads one back (round 189) |
 | `Value.success(v)`, `Value.failure(message)` | a `Result` to answer with (round 188) |
+| `Swiftalk.errorOutput(text)`, `Interpreter.errorOutput` | the error output — `debugPrint`'s way out, stderr by default (round 191) |
+| `Swiftalk.sequence { { next } }` | a lazy Sequence a module makes: the outer closure runs once per iteration and returns the puller, a Value per pull and nil at the end — `fh.lines` (round 191) |
+| `m.static("IO", "stdin", value)` | a static on a type the module exports, read off the type (round 191) |
+| `setMember(name, to:)` on a `HostValue` | `x.name = value` — true when taken, false when the member is not assignable; the default takes nothing (round 191) |
 
 The Regex module ([Regex.md](Regex.md), `modules/Regex/RegexModule.swift`)
 uses the first five: the `Regex` type, the value behind `/re/`, six
 String members, `replacing(/re/) { m in }`, and `split`'s `[String]`.
-The Net module (`modules/Net/NetModule.swift`) uses the rest: a
-prelude for `Response`, `spawn` around `offload` for `fetch`, the
-`"fetch"` hook, the labeled call.
+The Net module (`modules/Net/NetModule.swift`) uses a prelude for
+`Response`, `spawn` around `offload` for `fetch`, the `"fetch"` hook,
+the labeled call. The IO module (`modules/IO/IOModule.swift`) uses
+the last four: a handle is a `HostValue` with `setMember` for `data
+=`, its `lines` and `read(size)` are `Swiftalk.sequence`s, `IO.stdin`
+a static, `debugPrint` the error output.
 
 ## The prelude (round 185)
 

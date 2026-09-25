@@ -15,6 +15,7 @@ public extension Swiftalk.HostValue {
         if binding { throw Swiftalk.Error.type("a \(typeName) cannot be a case binding's source") }
         return nil
     }
+    func setMember(_ name: String, to value: Swiftalk.Value) throws -> Bool { false }
 }
 
 extension Swiftalk {
@@ -44,6 +45,10 @@ extension Swiftalk {
         /// wrong subject type can be no match for the one and an error
         /// for the other. The default never matches.
         func patternMatch(_ subject: Value, binding: Bool) throws -> Value?
+        /// `x.name = value` (round 191): true when the object took it,
+        /// false when the member is not assignable — an error then. The
+        /// default takes nothing.
+        func setMember(_ name: String, to value: Value) throws -> Bool
     }
 
     /// A `Result` for a module to answer with (round 188): `.success(v)`
@@ -80,6 +85,31 @@ extension Swiftalk {
         } else {
             _ = Array(text.utf8).withUnsafeBufferPointer { write(1, $0.baseAddress, $0.count) }
         }
+    }
+
+    /// Writes to the running Interpreter's error output (round 191) —
+    /// where `debugPrint` goes: `Interpreter.errorOutput`, stderr unless
+    /// the embedder redirected it.
+    public static func errorOutput(_ text: String) {
+        if let sink = Interpreter.current?.errorOutput {
+            sink(text)
+        } else {
+            writeStandardError(text)
+        }
+    }
+
+    /// stderr, raw (round 191) — the default `Interpreter.errorOutput`.
+    static func writeStandardError(_ text: String) {
+        _ = Array(text.utf8).withUnsafeBufferPointer { write(2, $0.baseAddress, $0.count) }
+    }
+
+    /// A lazy Sequence a module makes (round 191): `make` is called once
+    /// per iteration and returns the puller — a Value per pull, nil at
+    /// the end. `.Type` is Sequence; `for`, `map`, `prefix`, `Array()`
+    /// all apply. A file handle's `lines` reads from where the handle
+    /// is, so iterating it twice reads on, not again.
+    public static func sequence(_ make: @escaping () -> () throws -> Value?) -> Value {
+        .sequence(SequenceObject(kind: .native(make: make)))
     }
 
     /// A value's display text (round 189): a String bare, everything
@@ -206,6 +236,14 @@ extension Swiftalk {
             extensions.append((typeName, member, body))
         }
         public private(set) var extensions: [(type: String, member: String, body: (Value, [Value], Bool) throws -> Value?)] = []
+
+        /// A static on a type the module exports (round 191): `IO.stdin`.
+        /// Read off the type, never called; a Function value is a static
+        /// method.
+        public func `static`(_ typeName: String, _ name: String, _ value: Value) {
+            statics.append((typeName, name, value))
+        }
+        public private(set) var statics: [(type: String, name: String, value: Value)] = []
 
         /// swiftalk source the module ships (round 189): evaluated once,
         /// when the module is registered or loaded, in a file scope of

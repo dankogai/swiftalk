@@ -84,7 +84,7 @@ struct SequenceTests {
     func debugPrintHex() throws {
         let interp = try interpreter()
         var out = ""
-        interp.output = { out += $0 }
+        interp.errorOutput = { out += $0 }                  // stderr since round 191
         _ = try interp.eval("debugPrint(255, 1.5, \"a\")")
         #expect(out == "+0xff +0x1.8p0 \"a\"\n")
     }

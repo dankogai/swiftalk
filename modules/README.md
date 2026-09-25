@@ -9,9 +9,13 @@ module** written in Swift — a target of the root package built as
 `lib<Name>.dylib` and imported by its bare name, `import from "POSIX"` —
 named with a capital like a type, by convention (round 183).
 
-* **[IO/](IO/IOModule.swift)** — `print` and `debugPrint` (round 189;
-  the core's until then): thirty lines over `Swiftalk.output` and
-  `Swiftalk.display`. Preimported by the CLI —
+* **[IO/](IO/IOModule.swift)** — `print`, `debugPrint` (to stderr),
+  `readLine`, and the handle type `IO` (round 191; the two functions
+  alone since round 189): `IO(path:mode:)`, `IO.stdin`/`stdout`/
+  `stderr`, `.data` (get and set), `.lines` and `.read(size)` as lazy
+  Sequences, `.append`, `.write`, `.print`, `.close`; a handle closes
+  its descriptor when it dies. Shows a `HostValue` with `setMember`,
+  `Swiftalk.sequence`, and `Module.static`. Preimported by the CLI —
   [documents/IO.md](../documents/IO.md).
 * **[Net/](Net/NetModule.swift)** — `fetch` and `Response` (round 189;
   the core's until then): a Task (`Swiftalk.spawn`) whose value is a

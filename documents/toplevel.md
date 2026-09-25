@@ -13,8 +13,9 @@ can be passed, aliased, and shadowed by a declaration of your own.
 | `eval(source)` | **the language's own `eval`** (round 122; Swift has none): the String is a swiftalk program, and a **`Result`** comes back (round 159) — `.success(v)` with its last statement's value, or `.failure(message)` for any error the program raises (a syntax error, an undefined name, a trap), never thrown: `eval(s)?` propagates, `eval(s) ?? d` defaults, `eval(s)!` unwraps or traps. Runs **at the file's top level** — sees what the top level sees, declares into it as a line at the REPL would, and cannot see a caller's locals. The round-trip law in the language: `eval(x.String())! == x`. Calling it with anything but one String is the caller's type error, as with any builtin |
 
 `eval` is the top level's one function since round 185 — `print`,
-`debugPrint`, `fetch`, and `Response` are the **`IO`** and **`Net`**
-modules' ([IO.md](IO.md), [Net.md](Net.md)), which the CLI **preimports
+`debugPrint`, `readLine`, and the `IO` type (round 191), `fetch` and
+`Response`, are the **`IO`** and **`Net`** modules' ([IO.md](IO.md),
+[Net.md](Net.md)), which the CLI **preimports
 as its prelude**, so a script and the REPL have them as before; an
 embedder calls `Interpreter.preimport()` for the same, or imports them
 (`import from "IO"`) or not. `zip` is `Sequence.zip` and `sleep` is

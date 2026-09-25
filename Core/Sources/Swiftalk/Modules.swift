@@ -45,6 +45,8 @@ final class ModuleSystem {
     /// Core-type members a module added (round 186), by type then member;
     /// consulted first in dispatch, a nil answer falling through.
     var nativeExtensions: [String: [String: (Value, [Value], Bool) throws -> Value?]] = [:]
+    /// Statics a module put on a type it exports (round 191): `IO.stdin`.
+    var nativeStatics: [String: [String: Value]] = [:]
 
     init(builtins: Environment) {
         self.builtins = builtins
@@ -69,6 +71,7 @@ final class ModuleSystem {
         }
         native[module.name] = Module(names: module.names, values: module.values)
         for e in module.extensions { nativeExtensions[e.type, default: [:]][e.member] = e.body }
+        for st in module.statics { nativeStatics[st.type, default: [:]][st.name] = st.value }
     }
 
     /// Runs source as a module's top level (round 100's rules: strict, a

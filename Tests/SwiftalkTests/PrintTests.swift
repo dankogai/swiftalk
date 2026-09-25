@@ -7,6 +7,7 @@ struct PrintTests {
         let interp = try interpreter()
         var out = ""
         interp.output = { out += $0 }
+        interp.errorOutput = { out += $0 }                  // debugPrint's, since round 191
         let result = try interp.eval(source)
         return (result, out)
     }

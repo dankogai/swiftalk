@@ -272,6 +272,9 @@ extension Swiftalk {
             /// unlabeled 2-tuples, until the shorter side ends. The sides
             /// are Values — an Array may be zipped with a Sequence.
             case zipped(Value, Value)
+            /// A module's sequence (round 191): `make` yields a fresh
+            /// puller per iteration — a file handle's lines, say.
+            case native(make: () -> () throws -> Value?)
         }
         let kind: Kind
 

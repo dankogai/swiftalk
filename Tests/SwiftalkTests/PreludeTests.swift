@@ -25,6 +25,7 @@ struct PreludeTests {
         i.modulePath = [dir]
         var out = ""
         i.output = { out += $0 }
+        i.errorOutput = { out += $0 }
         _ = try i.eval("import from \"IO\"\nprint(1, \"a\")\ndebugPrint(\"a\")")
         #expect(out == "1 a\n\"a\"\n")
         let j = Swiftalk.Interpreter()

@@ -222,6 +222,53 @@ Set(
 )
 ```
 
+**`IO` is a handle type** (round 191) — `IO(path:mode:)`, the standard
+three as statics, `.data` to get and set the whole file, `.lines` and
+`.read(size)` as lazy Sequences from where the handle is, `.append`,
+`readLine()`; `debugPrint` goes to stderr; a handle closes its
+descriptor when it dies:
+
+```text
+swiftalk> var fh = IO(path: "notes.txt", mode: .write)
+IO(path: "notes.txt", mode: .write)
+swiftalk> fh.write("one\ntwo\n")
+8
+swiftalk> fh.append("three\n")
+6
+swiftalk> fh.data.String(.utf8)
+"one\ntwo\nthree\n"
+swiftalk> IO(path: "notes.txt").lines.Array()
+["one", "two", "three"]
+swiftalk> for chunk in IO(path: "notes.txt").read(5) { print(chunk.count) }
+5
+5
+4
+swiftalk> fh.data = "replaced\n"
+"replaced\n"
+swiftalk> IO(path: "notes.txt").data
+.Data("cmVwbGFjZWQK")
+swiftalk> IO.stderr.print("to stderr")
+to stderr
+swiftalk> debugPrint("also stderr")
+"also stderr"
+swiftalk> [IO.stdin.fd, IO.stdout.fd, IO.stderr.fd]
+[0, 1, 2]
+swiftalk> IO(path: "nowhere.txt")
+type error: IO(path: "nowhere.txt", mode: .read): No such file or directory
+swiftalk> IO.stdin.data
+type error: IO.stdin.data: not seekable — read it with .lines or .read(size)
+```
+
+```text
+$ cat greet.swt
+let name = readLine()
+print("hello, \(name)")
+print(readLine())
+$ printf 'world\n' | swiftalk greet.swt
+hello, world
+nil
+```
+
 **`IO` and `Net` are libraries** (round 189) — the core registers no
 module and writes nothing; `libIO.dylib` and `libNet.dylib` sit beside
 the CLI, preimported as before. `Net`'s HTTP is curl unless the host

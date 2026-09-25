@@ -91,6 +91,7 @@ i * i == Complex(-1.0, 0.0)                   // true — and (*)(i, i), reduce(
 // /re/ is grammar, Regex is a module: the engine is modules/Regex (libRegex.dylib, preimported), the literal calls the Regex type in scope and is an error without it; modules now own values (Value.host), export types, and extend core types (round 186)
 // import from "POSIX"; readFile("notes.txt")!.String(.utf8); open(path, [O_WRONLY, O_CREAT])! — Env grew into POSIX: the environment and file I/O under C's names, every failure a Result (round 188)
 // IO and Net are libraries too: the core registers no module and writes nothing; a module reaches the interpreter through Swiftalk.output, spawn, offload, and host hooks, and ships swiftalk source as its prelude (round 189)
+// var fh = IO(path: "notes.txt", mode: .write); fh.data; for line in fh.lines { }; fh.append(x); IO.stderr.print(x); readLine() — IO is a handle type too, debugPrint goes to stderr, and a handle closes its descriptor when it dies (round 191)
 // Complex(1.0, -2.0).String() == "(1.0-2.0.i)" — an expression that re-enters; Complex("(1.0-2.0.i)") reads it (round 154)
 // and exact fractions: modules/Rational.swt — Rational(3, 4) + 1 == Rational(7, 4), Double(Rational(3, 4)) == 0.75, Rational(3, 4).String() == "(3/4)", Rational("(3/4)"), 1.over(3)
 let hex    = 255.String(.hex)                 // "0xff"; .String(.sign, .hex) is "+0xff"; radix: 16 for bare "ff"

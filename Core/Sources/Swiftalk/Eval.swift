@@ -39,12 +39,14 @@ extension Swiftalk {
         /// one eval persist — parked — into the next (the REPL's world).
         private let scheduler = Scheduler()
 
-        /// Where `print`/`debugPrint` write. Defaults to stdout; an
-        /// embedder may redirect it (the Lua way — the host owns I/O).
+        /// Where `print` writes. Defaults to stdout; an embedder may
+        /// redirect it (the Lua way — the host owns I/O).
         public var output: (String) -> Void {
             get { outputBox.write }
             set { outputBox.write = newValue }
         }
+        /// Where `debugPrint` writes (round 191): stderr by default.
+        public var errorOutput: (String) -> Void = { Swiftalk.writeStandardError($0) }
 
         /// `relaxed` is REPL mode (Design.md §2.2): assignment to an
         /// undeclared name implicitly declares a `var` — still type-locked
@@ -1525,6 +1527,9 @@ extension SequenceObject {
             }
         case .counting(let lower):
             return countingIterator(from: lower)
+        case .native(let make):
+            let next = make()
+            return ValueIterator { try next() }
         case .takenWhile(let base, let fn):
             // elements while the predicate holds; the first miss ends
             // it, and nothing past it is ever pulled
@@ -2649,6 +2654,7 @@ private func staticMember(_ f: FunctionObject, _ name: String,
     case .type(let n):
         typeName = n
         if let v = try? env.lookup("@ext:\(n):static:\(name)") { stored = v }
+        else if let v = ModuleContext.current?.nativeStatics[n]?[name] { stored = v }    // a module's (round 191)
         else if case .function(let g)? = try? env.lookup("@ext:\(n):static:get:\(name)") { getter = g }
     default:
         return nil
@@ -3088,7 +3094,7 @@ func knownElementLock(of value: Value) -> TypeAnnotation? {
         case .filtered(let base, _), .takenWhile(let base, _), .droppedWhile(let base, _), .dropped(let base, _):
             return knownElementLock(of: .sequence(base))
         case .enumerated, .zipped:                 return TypeAnnotation(name: "Tuple", optional: false)
-        case .mapped, .generator, .coroutine:      return nil
+        case .mapped, .generator, .coroutine, .native: return nil     // a module's (round 191): unknowable
         }
     default:                     return nil
     }
@@ -3376,6 +3382,12 @@ private func propertyWrite(_ container: Value, _ name: String, _ newValue: Value
         }
         t[index] = newValue
         return .tuple(t)
+    }
+    if case .host(let h) = container {                                   // a module's value (round 191)
+        guard try h.setMember(name, to: newValue) else {
+            throw SwiftalkError.type("cannot assign to \(h.typeName).\(name)")
+        }
+        return container
     }
     guard case .structValue(var sv) = container else {
         throw SwiftalkError.type("cannot assign through a property of \(container.typeName)")
