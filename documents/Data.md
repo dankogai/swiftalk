@@ -14,7 +14,7 @@ is `.Data("base64")`, and `Data(s)` decodes base64.
 | `s.Data(.utf8)` | the String's UTF-8 bytes — infallible (round 97; was the bare form) |
 | `Data([b, ...])` | from an Int Array; any non-byte value → `nil` |
 | `d.count` | byte count |
-| `d[i]` | the byte, a **`Byte`** (round 116) — see [Byte.md](Byte.md); it compares and mixes with Ints by value |
+| `d[i]` | the byte, a **`Byte`** (round 116) — see [Byte.md](Byte.md); it compares and mixes with Ints by value; `d[-1]` is the last byte — a negative index counts from the end (round 194) |
 | `d[1..<3]`, `d[1...]` | a Data of those bytes (round 92) — Swift's bounds rule, as Array's |
 | `d[i] = 255`, `d[i] = Byte(255)` | a byte write: a Byte, or an Int in 0...255, else a type error (rounds 92/116) |
 | `d[0..<1] = Data("...")`, `d[d.count...] = xs.Data(.utf8)` | assignment through a Range: `replaceSubrange`, the right side a Data (round 92) |

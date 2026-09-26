@@ -222,6 +222,30 @@ Set(
 )
 ```
 
+**Negative subscripts** (round 194) — `a[-1]` is `a[a.count - 1]`, on
+Arrays and Data, reading and writing; Ranges keep Swift's bounds:
+
+```text
+swiftalk> let a = [10, 20, 30]
+[10, 20, 30]
+swiftalk> a[-1]
+30
+swiftalk> a[-3]
+10
+swiftalk> a[-4]
+type error: index -4 out of range (count 3)
+swiftalk> var m = [[1, 2], [3, 4]]
+[[1, 2], [3, 4]]
+swiftalk> m[-1][-1] = 0
+0
+swiftalk> m
+[[1, 2], [3, 0]]
+swiftalk> Data([1, 2, 3])[-1]
+Byte(3)
+swiftalk> a[-2...]
+type error: range -2... is out of range (count 3)
+```
+
 **Bitwise operators, Raku's** (round 193) — `+&` `+|` `+^` `+<` `+>` and
 prefix `+^`, since `|` `&` `^` are the Set operators; `+&` `+<` `+>`
 bind like `*`, `+|` `+^` like `+`; Bytes stay Bytes; compound forms and

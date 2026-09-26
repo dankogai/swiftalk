@@ -2709,3 +2709,9 @@ the history. (Moved out of Design.md in round 65.)
   Raku's precedence levels, on Ints and Bytes; compound forms,
   operator Functions, and `infix(+&)` on a type came with them. `|`,
   `&`, `^` stay the Set operators; the methods stay too.
+
+* **2026-09-26, round 194 — negative subscripts** ("Allow arrays to
+  accept negative subscripts like `a[-1]` which is `a[a.count - 1]`.").
+  Done for Arrays and Data, reading and writing; out of range past the
+  front is the usual error. Ranges keep Swift's bounds — a negative
+  Range bound is left open.

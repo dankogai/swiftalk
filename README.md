@@ -94,6 +94,7 @@ i * i == Complex(-1.0, 0.0)                   // true — and (*)(i, i), reduce(
 // var fh = IO(path: "notes.txt", mode: .write); fh.data; for line in fh.lines { }; fh.append(x); IO.stderr.print(x); readLine() — IO is a handle type too, debugPrint goes to stderr, and a handle closes its descriptor when it dies (round 191)
 // Sequence.zip and Task.sleep are the Sequence and Task modules' — statics a module puts on a core type; the core keeps neither, and the prelude is IO, Net, Regex, Sequence, Task (round 192)
 // 6 +& 3, 6 +| 3, 6 +^ 3, 1 +< 4, 256 +> 4, +^0 — Raku's numeric bitwise operators, since | & ^ are the Set operators; +&= and the rest, (+&) as a Function, infix(+&) on a type (round 193)
+// a[-1] is a[a.count - 1] — a negative subscript counts from the end, reading and writing, on Arrays and Data; a divergence from Swift (round 194)
 // Complex(1.0, -2.0).String() == "(1.0-2.0.i)" — an expression that re-enters; Complex("(1.0-2.0.i)") reads it (round 154)
 // and exact fractions: modules/Rational.swt — Rational(3, 4) + 1 == Rational(7, 4), Double(Rational(3, 4)) == 0.75, Rational(3, 4).String() == "(3/4)", Rational("(3/4)"), 1.over(3)
 let hex    = 255.String(.hex)                 // "0xff"; .String(.sign, .hex) is "+0xff"; radix: 16 for bare "ff"

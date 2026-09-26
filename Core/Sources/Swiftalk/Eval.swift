@@ -2101,6 +2101,19 @@ private func sliceBounds(_ index: Value, lower: Int64, upper: Int64?, closed: Bo
     return Int(lower)..<Int(end)
 }
 
+/// An Int subscript's position (round 194): a negative index counts from
+/// the end — `a[-1]` is `a[a.count - 1]`, Python's and Ruby's rule, a
+/// divergence from Swift, whose Array traps on it. Out of range either
+/// way is the error it always was; shared by Array and Data, reading
+/// and writing.
+private func position(_ i: Int64, count: Int) throws -> Int {
+    let resolved = i < 0 ? i + Int64(count) : i
+    guard resolved >= 0, resolved < Int64(count) else {
+        throw SwiftalkError.type("index \(i) out of range (count \(count))")
+    }
+    return Int(resolved)
+}
+
 private func subscriptRead(_ container: Value, _ index: Value) throws -> Value {
     switch container {
     case .array(let a, _):
@@ -2113,10 +2126,7 @@ private func subscriptRead(_ container: Value, _ index: Value) throws -> Value {
         guard case .int(let i) = index else {
             throw SwiftalkError.type("Array index must be an Int or a Range, not \(index.typeName)")
         }
-        guard a.indices.contains(Int(i)) else {
-            throw SwiftalkError.type("index \(i) out of range (count \(a.count))")
-        }
-        return a[Int(i)]
+        return a[try position(i, count: a.count)]                  // a[-1] is the last (round 194)
     case .dictionary(let d, _):
         return d[index] ?? .nil
     case .range(let lower, let upper, let closed):
@@ -2145,10 +2155,7 @@ private func subscriptRead(_ container: Value, _ index: Value) throws -> Value {
         guard case .int(let i) = index else {
             throw SwiftalkError.type("Data index must be an Int or a Range, not \(index.typeName)")
         }
-        guard bytes.indices.contains(Int(i)) else {
-            throw SwiftalkError.type("index \(i) out of range (count \(bytes.count))")
-        }
-        return .byte(bytes[Int(i)])                       // a Byte since round 116
+        return .byte(bytes[try position(i, count: bytes.count)])   // a Byte since round 116; d[-1] the last (round 194)
     case .string:
         throw SwiftalkError.type("String subscripts are undecided (Design.md §11)")
     default:
@@ -2182,10 +2189,7 @@ private func subscriptWrite(_ container: Value, _ index: Value, _ newValue: Valu
         guard case .int(let i) = index else {
             throw SwiftalkError.type("Array index must be an Int or a Range, not \(index.typeName)")
         }
-        guard a.indices.contains(Int(i)) else {
-            throw SwiftalkError.type("index \(i) out of range (count \(a.count))")
-        }
-        a[Int(i)] = newValue
+        a[try position(i, count: a.count)] = newValue              // a[-1] = v writes the last (round 194)
         return .array(a)
     case .dictionary(var d, _):
         d[index] = newValue
@@ -2206,9 +2210,7 @@ private func subscriptWrite(_ container: Value, _ index: Value, _ newValue: Valu
         guard case .int(let i) = index else {
             throw SwiftalkError.type("Data index must be an Int or a Range, not \(index.typeName)")
         }
-        guard bytes.indices.contains(Int(i)) else {
-            throw SwiftalkError.type("index \(i) out of range (count \(bytes.count))")
-        }
+        let at = try position(i, count: bytes.count)              // d[-1] the last (round 194)
         let byte: UInt8
         switch newValue {
         case .byte(let b): byte = b
@@ -2220,7 +2222,7 @@ private func subscriptWrite(_ container: Value, _ index: Value, _ newValue: Valu
         default:
             throw SwiftalkError.type("a Data byte is a Byte, or an Int in 0...255, not \(newValue.sourceString())")
         }
-        bytes[Int(i)] = byte
+        bytes[at] = byte
         return .data(bytes)
     case .string:
         throw SwiftalkError.type("String subscripts are undecided (Design.md §11)")

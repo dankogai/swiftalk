@@ -3,13 +3,13 @@ import Testing
 
 @Suite("subscripts: a[i], d[k], and $0 as $[0]")
 struct SubscriptTests {
-    @Test("array reads: Int index, trapping out of range (Swift-faithful)")
+    @Test("array reads: Int index, trapping out of range; a negative index counts from the end (round 194)")
     func arrayReads() throws {
         #expect(try eval("[10, 20, 30][1]") == .int(20))
         #expect(try eval("let a = [1, 2, 3]\na[0] + a[2]") == .int(4))
         #expect(try eval("[[1], [2, 3]][1][0]") == .int(2))
         #expect(throws: SwiftalkError.self) { try eval("[1, 2][2]") }
-        #expect(throws: SwiftalkError.self) { try eval("[1, 2][-1]") }
+        #expect(try eval("[1, 2][-1]") == .int(2))                         // a[-1] is the last since round 194
         #expect(throws: SwiftalkError.self) { try eval("[1, 2][\"0\"]") }
     }
 

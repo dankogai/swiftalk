@@ -907,6 +907,20 @@ are; `min` keeps the first of equals and `max` the last, as Swift's
 do. Not added: `last` — O(n) on a lazy Sequence and undefined on an
 infinite one — OPEN.
 
+**Negative subscripts — DECIDED (round 194)** ("Allow arrays to accept
+negative subscripts like `a[-1]` which is `a[a.count - 1]`."). An Int
+subscript below zero counts from the end — `a[-1]` the last element,
+`a[-a.count]` the first, `a[-(a.count + 1)]` the same "index -4 out of
+range (count 3)" error as too large an index; reading and writing,
+through any path (`m[-1][-1] = 0`), on Arrays and — the rule being
+one for the two `[UInt8]`-shaped containers since round 92 — on Data.
+Python's and Ruby's rule, a **deliberate divergence from Swift**,
+whose Array traps on a negative index (Swift has `a[a.count - 1]` and
+`a.last`; swiftalk has both and `a[-1]`). A Range subscript keeps
+Swift's bounds (`0 ≤ from ≤ to ≤ count`), so `a[-2...]` is still an
+error: what a negative bound in a Range should mean — Python's slice,
+or nothing — is OPEN, and the request did not ask.
+
 **Bitwise operators, Raku's — DECIDED (round 193)** ("Let's add
 bitwise operators a la Raku. `+&` for `and`, `+|` for `or`, `+^` for
 `xor` and such."). `|`, `&`, `^` were spoken for in round 135 — the
