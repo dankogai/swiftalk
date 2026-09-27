@@ -73,3 +73,5 @@ fastlane/screenshots
 
 # Anything out of the sight of git
 .attic/
+js/test/fixtures.json
+js/node_modules/

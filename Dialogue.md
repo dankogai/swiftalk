@@ -2725,3 +2725,13 @@ the history. (Moved out of Design.md in round 65.)
   `String`"). Whitespace and newlines off both ends by grapheme; with a
   String argument, those graphemes instead. One-sided forms and a
   predicate form left to what the String already has.
+
+* **2026-09-28, round 197 — the JavaScript runtime, milestone A** (the
+  assessment asked for, then "Excellent! Let's go for it! Oh, do us a
+  favor. Make a single page app like jupyter that you can REPL
+  therein."). `js/`: the lexer and parser ported line for line, the
+  value model with Swift's Double spelling and structural keys, and an
+  extractor that turns 2,671 Swift test expectations into a JSON corpus
+  the JS runtime is checked against — every value fixture parses. The
+  generator-based evaluator is milestone B; the notebook page comes
+  with the prelude in D.

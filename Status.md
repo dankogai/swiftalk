@@ -222,6 +222,18 @@ Set(
 )
 ```
 
+**The JavaScript runtime, milestone A** (round 197) — `js/`: the lexer,
+the parser, and the value model in JavaScript, checked against the
+Swift tests through an extracted corpus:
+
+```text
+$ cd js && npm test
+2671 fixtures (2036 values, 635 throws) from 106 files; 486 expectations skipped
+ℹ tests 5
+ℹ pass 5
+ℹ fail 0
+```
+
 **`trimmed()`** (round 196) — whitespace and newlines off both ends,
 or the graphemes named:
 

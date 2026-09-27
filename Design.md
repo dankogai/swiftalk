@@ -2372,6 +2372,43 @@ page now (round 65).
 
 ---
 
+## 16. The JavaScript runtime — DECIDED (round 197)
+
+The core runs in JavaScript too — an interpreter, not a transpiler (the
+round-164 assessment weighed that and this is the cheaper, exact one):
+`js/` holds a line-for-line port of `Core/Sources/Swiftalk`, checked
+against the Swift tests themselves. The user's brief ("Now that `Core`
+is separated from `Prelude` and other modules, it should be relatively
+easier to implement the runtime in JavaScript (just Core)"): skip
+`import` for now; assume a modern engine — `Intl.Segmenter` for
+graphemes, `BigInt` for the 64-bit Int, `Map` for Dictionaries with
+any key; mark what will not port `FIXME`. The assessment before it
+(round 196's answer) named the tiers: the lexer, parser, value model,
+environments, types, and Formats translate mechanically, some 9,000
+lines; Double's printed form and structural keys each need a shim;
+colorless `await` and dynamic `yield` — pthreads in the Swift core —
+need a **generator-based evaluator**, every `evaluate` a `function*`
+so a suspension anywhere unwinds the whole interpreter stack, which
+must be decided before the first evaluator line. Four milestones: A
+the pure subset with the corpus harness, B the evaluator, C Tasks and
+coroutines, D the prelude modules in JS and a notebook page.
+
+**Milestone A (round 197)**: `js/src/lexer.js`, `parser.js`,
+`value.js` — the value model uses JS primitives where they fit (`null`,
+`boolean`, `BigInt`, `number`, `string`) and classes for the rest;
+`keyOf` gives Dictionary and Set their structural, canonically
+equivalent keys over a `Map`, so iteration order is insertion order
+(Swift's was unspecified); `formatDouble` reproduces Swift's
+`description` — shortest round-trip digits, positional for exponents
+in -4 ..< 16, else `1e+16`/`1e-05` — and `hexFloat` the `%a` form,
+both pinned against the Swift REPL's output; Unicode normalization is
+`String.prototype.normalize`, 900 lines of the core gone.
+`tools/extract-fixtures.mjs` reads every `#expect(try eval("…") ==
+.value)` and `#expect(throws:) { try eval("…") }` in the Swift tests
+(2,671 of them, from 106 files; suites Swift runs `.disabled` are
+dropped, the shelved `class`/`actor` ones), and the JS tests parse
+them all. A `js` job joins CI. The evaluator is next.
+
 ## 15. Modules — DECIDED (round 100)
 
 The user's spec, before the strict-`let`-with-`Any` round: "It will be
