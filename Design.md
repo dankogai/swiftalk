@@ -907,6 +907,19 @@ are; `min` keeps the first of equals and `max` the last, as Swift's
 do. Not added: `last` — O(n) on a lazy Sequence and undefined on an
 infinite one — OPEN.
 
+**Case mapping — DECIDED (round 195)** ("add `.uppercased`,
+`.lowercased`, `.ucfirst`, and `lcfirst` to `String`"). Four methods,
+called as String's methods are (`s.escaped()`, `s.reversed()` — the
+uncalled spelling is an unknown member, as for every method):
+**`uppercased()`** and **`lowercased()`** are Swift's, with Unicode's
+full mappings (`"straße".uppercased()` is `"STRASSE"`, so the count may
+change); **`ucfirst()`** and **`lcfirst()`** are Perl's, the first
+grapheme mapped and the rest left alone — a grapheme, not a scalar
+(§11), so `"e\u{301}lan".ucfirst()` maps the whole `é`. An empty String
+answers itself. Not taken: Foundation's `capitalized` (every word) —
+`s.split(" ").map { $0.ucfirst() }.joined(" ")` says it; a locale
+argument — the mappings are Unicode's default.
+
 **Negative subscripts — DECIDED (round 194)** ("Allow arrays to accept
 negative subscripts like `a[-1]` which is `a[a.count - 1]`."). An Int
 subscript below zero counts from the end — `a[-1]` the last element,

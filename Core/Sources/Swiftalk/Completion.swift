@@ -29,6 +29,7 @@ enum Completion {
                    "count", "first", "contains", "map", "filter", "reduce", "forEach", "sorted", "reversed",
                    "joined", "split", "enumerated", "prefix", "suffix", "dropFirst", "dropLast", "min", "max",
                    "escaped", "unescaped", "normalized", "isNormalized", "unicodeScalars", "utf8", "utf32",
+                   "uppercased", "lowercased", "ucfirst", "lcfirst",
                    "replacing", "firstMatch", "wholeMatch", "matches"],
         "Array": ["Set", "Sequence", "Tuple", "Data", "count", "first", "contains", "append",
                   "map", "filter", "reduce", "forEach", "sorted", "reversed", "joined", "split", "enumerated",

@@ -5065,6 +5065,20 @@ private func method(on receiver: Value, name: String,
         // which would call "e\u{301}" NFC-normalized already
         return name == "normalized" ? .string(normalized)
                                     : .bool(normalized.unicodeScalars.elementsEqual(s.unicodeScalars))
+    case ("uppercased", true), ("lowercased", true), ("ucfirst", true), ("lcfirst", true):
+        // Case mapping (round 195): Swift's uppercased()/lowercased() —
+        // Unicode's full mappings, so "ß".uppercased() is "SS" — and Perl's
+        // ucfirst/lcfirst, the first grapheme mapped and the rest left alone.
+        guard case .string(let s) = receiver else {
+            throw SwiftalkError.unknownMember("\(receiver.typeName).\(name)()")
+        }
+        guard args.isEmpty else { throw SwiftalkError.type(".\(name)() takes no arguments") }
+        switch name {
+        case "uppercased": return .string(s.uppercased())
+        case "lowercased": return .string(s.lowercased())
+        case "ucfirst":    return .string(s.prefix(1).uppercased() + s.dropFirst())
+        default:           return .string(s.prefix(1).lowercased() + s.dropFirst())
+        }
     case ("escaped", true), ("unescaped", true):
         // "Dan = 弾".escaped() == "Dan = \u{5f3e}"; unescaped reads it back (round 137)
         guard case .string(let s) = receiver else {

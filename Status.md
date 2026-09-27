@@ -222,6 +222,27 @@ Set(
 )
 ```
 
+**Case mapping** (round 195) — `uppercased()`, `lowercased()`
+(Swift's, Unicode's full mappings), `ucfirst()`, `lcfirst()` (Perl's,
+the first grapheme):
+
+```text
+swiftalk> "Hello, World".uppercased()
+"HELLO, WORLD"
+swiftalk> "Hello, World".lowercased()
+"hello, world"
+swiftalk> "hello world".ucfirst()
+"Hello world"
+swiftalk> "Hello World".lcfirst()
+"hello World"
+swiftalk> "straße".uppercased()
+"STRASSE"
+swiftalk> "élan".ucfirst()
+"Élan"
+swiftalk> ["dan", "kogai"].map { $0.ucfirst() }.joined(" ")
+"Dan Kogai"
+```
+
 **Negative subscripts** (round 194) — `a[-1]` is `a[a.count - 1]`, on
 Arrays and Data, reading and writing; Ranges keep Swift's bounds:
 

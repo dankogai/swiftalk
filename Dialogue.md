@@ -2715,3 +2715,8 @@ the history. (Moved out of Design.md in round 65.)
   Done for Arrays and Data, reading and writing; out of range past the
   front is the usual error. Ranges keep Swift's bounds — a negative
   Range bound is left open.
+
+* **2026-09-27, round 195 — case mapping** ("add `.uppercased`,
+  `.lowercased`, `.ucfirst`, and `lcfirst` to `String`"). Four String
+  methods: Swift's two with Unicode's full mappings, Perl's two on the
+  first grapheme. Called, as String's methods are.
