@@ -2409,6 +2409,40 @@ both pinned against the Swift REPL's output; Unicode normalization is
 dropped, the shelved `class`/`actor` ones), and the JS tests parse
 them all. A `js` job joins CI. The evaluator is next.
 
+**Milestone B (round 198)**: the evaluator — `js/src/eval.js`
+(statements, expressions, application, assignment paths, operators,
+iteration), `members.js` (the member switch, conversions, String
+formats, `.pretty`), `types.js` (locks, stamps, inference), `env.js`,
+`objects.js`, `builtins.js` (the type constructors, Result, the math
+library), `formats.js` (SION, JSON, both property lists, escapes), and
+`interpreter.js`. **Every function that can run swiftalk code is a
+`function*` called with `yield*`**, as planned: a `yield` statement in
+a coroutine body, an `await`, a `Task` spawn, a `sleep` each surface as
+a request object yielded up the whole interpreter stack to a driver,
+which answers and resumes — so a coroutine Sequence is a generator
+whose iterator feeds it `{coroutine: true}` and takes the yielded
+value, with no threads anywhere, and the pthread-per-coroutine and
+pthread-per-task machinery of the Swift core has no counterpart. What
+that costs: a builtin may return a value or a generator (`callBuiltin`
+runs either), a sort with a swiftalk comparator is a hand-written merge
+sort over `yield*`, and a value's printed form asks every user type's
+`String` member first and then prints purely. The driver in milestone
+B is synchronous — `Interpreter.eval` runs the generator to completion;
+tasks start eagerly as Swift's do and park at `sleep`, which waits
+nothing yet (`FIXME`, milestone C's timers). **The corpus decides**:
+of the 2,671 fixtures, 118 name a prelude module (`print`, `Regex` and
+the regex literal, `Sequence.zip`, `Task.sleep`, `readLine`) and wait
+for milestone D — the lexer picks them out, not a guess — and the
+other 2,553 evaluate to the Swift core's value or throw where it
+throws, every one. What the port found on the way: labels take no part
+in tuple equality or hashing (`(x: 1, y: 2) == (1, 2)`), `-0.0` hashes
+with `0.0`, `Int.min % -1` overflows, and `"\r\n"` is one grapheme to
+trim. `js/repl.mjs` is a REPL over the runtime for Node, `print`
+supplied by the host until IO is ported. FIXMEs stand where the port
+knowingly falls short: `fma` is not fused, `erf`/`tgamma`/the Bessels
+are approximations (`j0`/`j1` a power series inside |x| < 8), and
+`String.replacing` matches code units rather than Characters.
+
 ## 15. Modules — DECIDED (round 100)
 
 The user's spec, before the strict-`let`-with-`Any` round: "It will be

@@ -2735,3 +2735,11 @@ the history. (Moved out of Design.md in round 65.)
   the JS runtime is checked against — every value fixture parses. The
   generator-based evaluator is milestone B; the notebook page comes
   with the prelude in D.
+* **2026-09-28, round 198 — the JavaScript runtime, milestone B** (the
+  same "Let's go for it!"). The evaluator, generator-based as planned:
+  every function that can run swiftalk code is a `function*`, and a
+  `yield`, an `await`, a spawn, or a `sleep` is a request yielded up the
+  whole stack to the driver — coroutine Sequences without threads.
+  2,553 of the 2,671 fixtures evaluate to the Swift core's value or
+  throw where it throws; the 118 that name a prelude module wait for
+  milestone D. A Node REPL, `js/repl.mjs`. Tasks over real timers are C.

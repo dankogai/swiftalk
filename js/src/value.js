@@ -137,7 +137,7 @@ export function keyOf(v) {
     case 'bool': return v ? 'T' : 'F';
     case 'int': return 'i' + v.toString();
     case 'byte': return 'i' + String(v.v);
-    case 'double': return 'd' + (Object.is(v, -0) ? '-0' : String(v));
+    case 'double': return 'd' + String(v);                 // -0.0 hashes with 0.0, as Swift
     case 'string': return 's' + v.normalize('NFC');
     case 'array': return 'a[' + v.items.map(keyOf).join(',') + ']';
     case 'dictionary': return 'D[' + v.entries().map(([k, x]) => keyOf(k) + ':' + keyOf(x)).sort().join(',') + ']';
@@ -145,7 +145,7 @@ export function keyOf(v) {
     case 'data': return 'b' + Array.from(v.bytes).join(',');
     case 'date': return 't' + String(v.epoch);
     case 'range': return 'r' + v.from + (v.closed ? '...' : '..<') + (v.to === null ? '' : v.to);
-    case 'tuple': return 'T(' + v.values.map((x, i) => (v.labels[i] ?? '') + '=' + keyOf(x)).join(',') + ')';
+    case 'tuple': return 'T(' + v.values.map(keyOf).join(',') + ')';   // labels do not take part in == (round 70)
     case 'function': return 'f' + (v.identityKey ? v.identityKey() : String(v.id));
     case 'enumCase': return 'e' + v.type.name + '.' + v.caseName + '(' + v.associated.map(keyOf).join(',') + ')';
     case 'structValue': return 'v' + v.type.name + '(' + v.type.propertyOrder.map((p) => p + '=' + keyOf(v.values.get(p) ?? null)).join(',') + ')';

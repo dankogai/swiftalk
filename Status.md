@@ -222,6 +222,55 @@ Set(
 )
 ```
 
+**The JavaScript runtime, milestone B** (round 198) — the evaluator in
+`js/`, generator-based so `yield` and `await` suspend the whole
+interpreter stack; 2,553 of the 2,671 Swift fixtures evaluate as the
+Swift core does, the 118 that need a prelude module wait for milestone
+D. A REPL over it, `node js/repl.mjs` (the bare core; `print` is the
+host's until IO is ported):
+
+```text
+swiftalk> struct Point { var x: Double; var y: Double; let norm = { (self.x * self.x + self.y * self.y) ** 0.5 } }
+Point
+swiftalk> let p = Point(x: 3.0, y: 4.0)
+Point(x: 3.0, y: 4.0)
+swiftalk> p.norm()
+5.0
+swiftalk> enum Shape { case circle(r: Double), square(side: Double) }
+Shape
+swiftalk> switch Shape.circle(r: 2.0) { case let r = .circle: r * 2.0 default: 0.0 }
+4.0
+swiftalk> let evens = Sequence { var n = 0; while true { yield n; n = n + 2 } }
+Sequence { ... }
+swiftalk> evens.map { $0 * $0 }.prefix(5)
+[0, 4, 16, 36, 64]
+swiftalk> let t = async { 6 * 7 }
+Task { ... }
+swiftalk> await t
+42
+swiftalk> var d = ["a": 1, "b": 2]
+["a": 1, "b": 2]
+swiftalk> d["c"] = 3
+3
+swiftalk> d.keys.sorted()
+["a", "b", "c"]
+swiftalk> "straße".uppercased().count
+7
+swiftalk> Int.max + 1
+overflow: 9223372036854775807 + 1
+swiftalk> [1, 2, 3].String(.json)
+"[1,2,3]"
+```
+
+```text
+$ cd js && npm test
+2671 fixtures (2036 values, 635 throws) from 106 files; 486 expectations skipped
+2553 passed, 118 wait for the prelude modules
+ℹ tests 9
+ℹ pass 9
+ℹ fail 0
+```
+
 **The JavaScript runtime, milestone A** (round 197) — `js/`: the lexer,
 the parser, and the value model in JavaScript, checked against the
 Swift tests through an extracted corpus:

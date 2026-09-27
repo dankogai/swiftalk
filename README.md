@@ -151,8 +151,10 @@ swift test           # the suite
 
 **swiftalk in JavaScript** (round 197 onward) lives in [js/](js/README.md):
 the core runtime ported line for line and checked against the Swift
-tests' own expectations — `cd js && npm test`. The evaluator, the
-prelude modules, and a notebook page follow milestone by milestone.
+tests' own expectations — `cd js && npm test`; the evaluator runs 2,553
+of the 2,671 fixtures to the Swift core's answers (round 198), and
+`node js/repl.mjs` is a REPL over it. The prelude modules, Tasks over
+timers, and a notebook page follow milestone by milestone.
 
 The library is `Core/` — a dynamic library product in a package of
 its own since round 182, so the CLI, the tests, and the native modules
