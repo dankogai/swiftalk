@@ -23,6 +23,7 @@ view (§11). `"..."` literals with `\(interpolation)`, escapes `\" \\
 | `s.isNormalized(.nfc)` | would normalizing change anything, scalar for scalar? `"é".isNormalized(.nfc)` is true, `.isNormalized(.nfd)` false (round 138). Note `==` on Strings is canonical equivalence, as Swift's: `"e\u{301}" == "é"` is true — compare `.unicodeScalars` to tell the forms apart |
 | `s.uppercased()`, `s.lowercased()` | case mapping, Swift's names and Unicode's full mappings (round 195): `"straße".uppercased()` is `"STRASSE"` |
 | `s.ucfirst()`, `s.lcfirst()` | Perl's: the first grapheme mapped, the rest left alone — `"hello world".ucfirst()` is `"Hello world"`, `"élan".ucfirst()` `"Élan"` (round 195) |
+| `s.trimmed()`, `s.trimmed(chars)` | whitespace and newlines off both ends, grapheme by grapheme (Unicode's White_Space, so `\u{3000}` goes too); with a String, those graphemes instead — Python's `strip`: `"--x--".trimmed("-")` (round 196) |
 | `s.escaped()` | every non-ASCII scalar as `\u{hex}` and a backslash as `\\`, the rest untouched: `"Dan = 弾".escaped() == "Dan = \u{5f3e}"` — ASCII text that is a string literal's body (round 137) |
 | `s.unescaped()` | the opposite, reading the literal escapes — `\u{…}`, `\\`, `\n`, `\t`, `\r`, `\0`, `\"`, `\'` — an unknown one is an error |
 | `s.unicodeScalars`, `s.utf32` | the Unicode scalar values, as `[Int]` (round 114) |

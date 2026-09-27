@@ -2720,3 +2720,8 @@ the history. (Moved out of Design.md in round 65.)
   `.lowercased`, `.ucfirst`, and `lcfirst` to `String`"). Four String
   methods: Swift's two with Unicode's full mappings, Perl's two on the
   first grapheme. Called, as String's methods are.
+
+* **2026-09-27, round 196 — `trimmed()`** ("add `.trimmed()` to
+  `String`"). Whitespace and newlines off both ends by grapheme; with a
+  String argument, those graphemes instead. One-sided forms and a
+  predicate form left to what the String already has.

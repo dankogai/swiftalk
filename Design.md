@@ -907,6 +907,17 @@ are; `min` keeps the first of equals and `max` the last, as Swift's
 do. Not added: `last` — O(n) on a lazy Sequence and undefined on an
 infinite one — OPEN.
 
+**`trimmed()` — DECIDED (round 196)** ("add `.trimmed()` to `String`").
+Whitespace and newlines off both ends, grapheme by grapheme — Unicode's
+White_Space, so the ideographic space goes with the ASCII ones — and
+nothing inside; a method, called, as String's are. With one argument,
+a String, it strips those graphemes instead: Python's `strip(chars)`,
+Ruby's `delete_prefix`/`delete_suffix` folded into one — one member
+where Foundation spells `trimmingCharacters(in: .whitespacesAndNewlines)`.
+Not taken: one-sided `ltrimmed`/`rtrimmed` (`dropFirst { $0 == " " }`
+already says the left one), and a predicate form (`filter` and
+`prefix { }` are there).
+
 **Case mapping — DECIDED (round 195)** ("add `.uppercased`,
 `.lowercased`, `.ucfirst`, and `lcfirst` to `String`"). Four methods,
 called as String's methods are (`s.escaped()`, `s.reversed()` — the

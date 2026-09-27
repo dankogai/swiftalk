@@ -5079,6 +5079,28 @@ private func method(on receiver: Value, name: String,
         case "ucfirst":    return .string(s.prefix(1).uppercased() + s.dropFirst())
         default:           return .string(s.prefix(1).lowercased() + s.dropFirst())
         }
+    case ("trimmed", true):
+        // s.trimmed() (round 196): whitespace and newlines off both ends,
+        // grapheme by grapheme (Unicode's White_Space); s.trimmed(chars)
+        // strips the graphemes of that String instead — Python's strip.
+        guard case .string(let s) = receiver else {
+            throw SwiftalkError.unknownMember("\(receiver.typeName).trimmed()")
+        }
+        let unwanted: (Character) -> Bool
+        switch args.count {
+        case 0: unwanted = { $0.isWhitespace || $0.isNewline }
+        case 1:
+            guard case .string(let chars) = args[0] else {
+                throw SwiftalkError.type(".trimmed(chars) takes a String of the graphemes to strip, not \(args[0].typeName)")
+            }
+            let set = Set(chars)
+            unwanted = { set.contains($0) }
+        default: throw SwiftalkError.type(".trimmed() takes no arguments, or one String of graphemes to strip")
+        }
+        var body = Substring(s)
+        while let first = body.first, unwanted(first) { body.removeFirst() }
+        while let last = body.last, unwanted(last) { body.removeLast() }
+        return .string(String(body))
     case ("escaped", true), ("unescaped", true):
         // "Dan = 弾".escaped() == "Dan = \u{5f3e}"; unescaped reads it back (round 137)
         guard case .string(let s) = receiver else {

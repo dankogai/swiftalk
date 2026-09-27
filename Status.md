@@ -222,6 +222,22 @@ Set(
 )
 ```
 
+**`trimmed()`** (round 196) — whitespace and newlines off both ends,
+or the graphemes named:
+
+```text
+swiftalk> "  hello world \n".trimmed()
+"hello world"
+swiftalk> "--hello--".trimmed("-")
+"hello"
+swiftalk> "  a  b  ".trimmed()
+"a  b"
+swiftalk> "   ".trimmed().count
+0
+swiftalk> IO(path: "Package.swift").lines.prefix(2).map { $0.trimmed() }.Array()
+["// swift-tools-version:6.0", "import PackageDescription"]
+```
+
 **Case mapping** (round 195) — `uppercased()`, `lowercased()`
 (Swift's, Unicode's full mappings), `ucfirst()`, `lcfirst()` (Perl's,
 the first grapheme):
