@@ -101,7 +101,11 @@ export class AsyncScheduler extends SchedulerBase {
     this.offloaded++;
     Promise.resolve(promise).then(
       (v) => { current.pending = { value: { value: v } }; },
-      (e) => { current.pending = { throw: e instanceof SwiftalkError ? e : SwiftalkError.type(String(e && e.message ? e.message : e)) }; },
+      (e) => {
+        let error = e;
+        if (!(e instanceof SwiftalkError)) { error = SwiftalkError.type(String(e && e.message ? e.message : e)); error.fromHost = true; }
+        current.pending = { throw: error };
+      },
     ).then(() => { this.offloaded--; this.ready.push(current); if (this.wake) { const w = this.wake; this.wake = null; w(); } });
     return null;
   }

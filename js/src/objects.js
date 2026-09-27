@@ -121,6 +121,15 @@ export class TaskObject {
   constructor(body) { this.kind = 'task'; this.id = nextId++; this.body = body; this.state = 'ready'; this.result = undefined; this.error = null; }
 }
 
+/// A value a module owns (round 186): `object` answers for its type name,
+/// members, equality (`isEqual`), hashing (`hashKey`), printed form
+/// (`sourceString(debug)`), `switch` matching (`patternMatch(subject,
+/// binding)`), and assignment (`setMember(name, value)`); `type` is the
+/// type value `.Type` answers.
+export class HostValue {
+  constructor(object, type) { this.kind = 'host'; this.object = object; this.type = type; }
+}
+
 /// `break`/`continue` travel as thrown signals; loops catch them.
 export class ControlFlow extends Error {
   constructor(kind, label) { super(kind); this.kind = kind; this.label = label ?? null; }

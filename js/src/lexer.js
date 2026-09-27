@@ -46,8 +46,7 @@ export function tokDescribe(k) {
   }
 }
 
-const INT64_MAX = (1n << 63n) - 1n;
-const INT64_MIN = -(1n << 63n);
+const INT_MAX_LITERAL = (1n << 63n) - 1n;   // Int.max: what a literal may not exceed
 const isDigit = (c) => c !== undefined && c >= '0' && c <= '9';
 const isHexDigit = (c) => isDigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
 const alphabetic = /^\p{Alphabetic}$/u;
@@ -478,7 +477,7 @@ export class Lexer {
       return tok.double(d);
     }
     const i = BigInt(text);
-    if (i > INT64_MAX) throw SwiftalkError.overflow(`integer literal '${text}' does not fit in Int`);
+    if (i > INT_MAX_LITERAL) throw SwiftalkError.overflow(`integer literal '${text}' does not fit in Int`);
     return tok.int(i);
   }
 
@@ -515,7 +514,7 @@ export class Lexer {
     if (!text.length || !digitsFor.test(text)) throw SwiftalkError.syntax(`invalid integer literal for radix ${radix}: '${text}'`);
     const prefix = { 16: '0x', 8: '0o', 2: '0b' }[radix];
     const i = BigInt(prefix + text);
-    if (i > INT64_MAX) throw SwiftalkError.syntax(`invalid integer literal for radix ${radix}: '${text}'`);
+    if (i > INT_MAX_LITERAL) throw SwiftalkError.syntax(`invalid integer literal for radix ${radix}: '${text}'`);
     return i;
   }
 }

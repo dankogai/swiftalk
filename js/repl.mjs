@@ -1,21 +1,14 @@
 #!/usr/bin/env node
 // A REPL over the JavaScript runtime: `node js/repl.mjs`, or pipe a
-// program in. The prelude modules are milestone D, so this is the bare
-// core — `print` is supplied here, over console, so scripts can speak.
+// program in. The prelude — IO, Net, Regex, Sequence, Task — is
+// preimported, as the Swift CLI's is; Node lends stdin, stdout, files.
 import { createInterface } from 'node:readline';
-import { readFileSync } from 'node:fs';
 import { Interpreter, needsMoreInput } from './src/interpreter.js';
 import { SwiftalkError } from './src/errors.js';
-import { sourceString } from './src/value.js';
-import { TaskModule } from './src/modules/Task.js';
-import { SequenceModule } from './src/modules/Sequence.js';
+import { withPrelude } from './src/prelude.js';
+import { nodeHost } from './src/host/node.js';
 
-const interp = new Interpreter(true);
-interp.register(TaskModule());
-interp.register(SequenceModule());
-interp.preimport(['Task', 'Sequence']);
-interp.moduleLoader = (spec) => readFileSync(spec, 'utf8');
-interp.declareBuiltin('print', (args) => { interp.output(args.map((a) => (typeof a === 'string' ? a : sourceString(a))).join(' ') + '\n'); return null; });
+const interp = withPrelude(nodeHost(new Interpreter(true)));
 const tty = process.stdin.isTTY;
 const rl = createInterface({ input: process.stdin, output: tty ? process.stdout : undefined, prompt: 'swiftalk> ', terminal: tty });
 let buffer = '';

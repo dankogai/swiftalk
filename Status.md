@@ -222,6 +222,49 @@ Set(
 )
 ```
 
+**The JavaScript runtime, milestone D** (round 200) — the prelude
+complete in JS (IO, Net, Regex join Task and Sequence), a bundler, and
+the notebook: `cd js && npm run build`, then open `dist/notebook.html`
+— cells of swiftalk, Shift-Enter to run, bindings persisting from cell
+to cell. 2,665 of the 2,671 fixtures agree with the Swift core; the six
+that do not are Swift's Character-level Regex. The Node REPL with the
+prelude:
+
+```text
+swiftalk> "hello 42 world 7".matches(/\d+/)
+["42", "7"]
+swiftalk> "2026-09-03".firstMatch(/(?<year>\d+)-(?<month>\d+)/)
+("2026-09", year: "2026", month: "09")
+swiftalk> "a1b22c".replacing(/(\d)(\d)?/) { _, first, _ in first + "!" }
+"a1!b2!c"
+swiftalk> print("hi", [1, 2], 3.5)
+hi [1, 2] 3.5
+nil
+swiftalk> switch "ab" { case m = /a(b)?/ where m.1 != nil: "with b" default: "no" }
+"with b"
+swiftalk> let r = await fetch("https://example.com")
+Result.success(Response(status: 200, headers: ["content-type": "text/html", …], body: .Data("PCFkb2N0eXBl…")))
+swiftalk> r!.headers["content-type"]
+"text/html"
+swiftalk> var fh = IO(path: "/tmp/swiftalk-io-test.txt", mode: .write)
+IO(path: "/tmp/swiftalk-io-test.txt", mode: .write)
+swiftalk> fh.print("line one")
+nil
+swiftalk> fh.append("line two\n")
+9
+swiftalk> fh.data.String(.utf8)
+"line one\nline two\n"
+```
+
+```text
+$ cd js && npm test
+2671 fixtures (2036 values, 635 throws) from 106 files; 486 expectations skipped
+2665 passed, 6 known divergences
+ℹ tests 17
+ℹ pass 17
+ℹ fail 0
+```
+
 **The JavaScript runtime, milestone C** (round 199) — Tasks over real
 time in `js/`: `evalAsync` runs the scheduler on timers and Promises,
 `eval` runs it on a virtual clock; the module system in JS with `Task`

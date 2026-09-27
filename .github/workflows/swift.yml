@@ -37,3 +37,5 @@ jobs:
         run: node js/tools/extract-fixtures.mjs
       - name: Run the JS tests
         run: cd js && npm test
+      - name: Build the bundle and the notebook
+        run: cd js && npm run build

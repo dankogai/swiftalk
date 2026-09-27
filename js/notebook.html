@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>swiftalk notebook</title>
+<meta name="description" content="A notebook over the swiftalk runtime in JavaScript: cells of swiftalk, evaluated in the page.">
+<style>
+  :root {
+    --bg: #fbfaf7; --fg: #1d1d1b; --muted: #6f6c66; --line: #e3e0d8; --panel: #ffffff;
+    --accent: #c2410c; --accent-soft: #fdebe1; --ok: #2f6f4f; --err: #b3261e; --err-soft: #fbeaea;
+    --out: #f4f2ec; --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: -apple-system, "Segoe UI", Inter, Roboto, "Helvetica Neue", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #17181a; --fg: #e8e6e1; --muted: #9a978f; --line: #2c2e32; --panel: #1f2023;
+    --accent: #f0864a; --accent-soft: #3a2418; --ok: #7fc8a0; --err: #ff8a80; --err-soft: #3a1f1d; --out: #232428;
+    color-scheme: dark;
+  } }
+  :root[data-theme="dark"] {
+    --bg: #17181a; --fg: #e8e6e1; --muted: #9a978f; --line: #2c2e32; --panel: #1f2023;
+    --accent: #f0864a; --accent-soft: #3a2418; --ok: #7fc8a0; --err: #ff8a80; --err-soft: #3a1f1d; --out: #232428;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.45 var(--sans); }
+  header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center;
+    padding: 10px 16px; background: var(--bg); border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 17px; margin: 0 8px 0 0; font-weight: 650; letter-spacing: .01em; }
+  header h1 span { color: var(--muted); font-weight: 400; }
+  .tools { display: flex; flex-wrap: wrap; gap: 6px; }
+  button { font: inherit; font-size: 13px; color: var(--fg); background: var(--panel); border: 1px solid var(--line);
+    border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover { color: #fff; filter: brightness(1.08); }
+  .status { margin-left: auto; font-size: 13px; color: var(--muted); }
+  .status.busy { color: var(--accent); }
+  main { max-width: 900px; margin: 0 auto; padding: 18px 16px 40vh; }
+  .cell { display: grid; grid-template-columns: 64px 1fr; gap: 0 10px; margin: 0 0 14px; position: relative; }
+  .gutter { font: 12px/1.4 var(--mono); color: var(--muted); text-align: right; padding-top: 9px; user-select: none; }
+  .gutter .out { color: var(--accent); }
+  .body { min-width: 0; }
+  .editor { position: relative; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+  .cell.focused .editor { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  textarea { display: block; width: 100%; resize: none; border: 0; outline: 0; background: transparent; color: var(--fg);
+    font: 14px/1.5 var(--mono); padding: 9px 12px; tab-size: 4; min-height: 42px; overflow: hidden; }
+  .cellbar { position: absolute; top: -12px; right: 8px; display: none; gap: 4px; }
+  .cell:hover .cellbar, .cell.focused .cellbar { display: flex; }
+  .cellbar button { padding: 1px 7px; font-size: 12px; border-radius: 5px; }
+  .output { margin-top: 6px; display: grid; gap: 4px; }
+  .output:empty { display: none; }
+  pre { margin: 0; font: 13.5px/1.5 var(--mono); white-space: pre-wrap; word-break: break-word; padding: 7px 12px; border-radius: 6px; }
+  pre.stdout { background: var(--out); }
+  pre.stderr { background: var(--out); color: var(--muted); }
+  pre.result { color: var(--fg); border-left: 3px solid var(--accent); padding-left: 10px; }
+  pre.error { background: var(--err-soft); color: var(--err); }
+  .hint { color: var(--muted); font-size: 13px; margin: 0 0 18px 74px; }
+  kbd { font: 12px var(--mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--panel); }
+  @media (max-width: 600px) {
+    .cell { grid-template-columns: 1fr; }
+    .gutter { text-align: left; padding: 0 2px 2px; }
+    .hint { margin-left: 0; }
+    .status { width: 100%; margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>swiftalk <span>notebook</span></h1>
+  <div class="tools">
+    <button class="primary" id="run-all" title="Run every cell in order">Run all</button>
+    <button id="add" title="Add a cell at the end">+ Cell</button>
+    <button id="clear" title="Clear every output">Clear outputs</button>
+    <button id="restart" title="A fresh interpreter; the cells stay">Restart</button>
+    <button id="save" title="Download the notebook as JSON">Save</button>
+    <button id="open" title="Open a saved notebook">Open</button>
+    <input type="file" id="file" accept=".json,application/json" hidden>
+  </div>
+  <div class="status" id="status">ready</div>
+</header>
+<main>
+  <p class="hint"><kbd>⇧</kbd><kbd>⏎</kbd> runs a cell and moves on · <kbd>⌘</kbd>/<kbd>Ctrl</kbd><kbd>⏎</kbd> runs it in place · <kbd>⌥</kbd><kbd>⏎</kbd> runs and inserts a cell below · the notebook autosaves in this browser</p>
+  <div id="cells"></div>
+</main>
+<script type="module" src="./src/index.js" id="swiftalk"></script>
+<script type="module" id="notebook">
+import { Interpreter, withPrelude, needsMoreInput, SwiftalkError } from './src/index.js';
+
+const STARTER = [
+  '// swiftalk, in the browser: the core runtime in JavaScript, with the prelude (IO, Net, Regex, Sequence, Task).\n// Shift+Enter runs a cell. Bindings persist from cell to cell, as in a REPL.\nlet greeting = "Hello, notebook"\nprint(greeting.uppercased())\ngreeting.count',
+  'struct Point {\n    var x: Double\n    var y: Double\n    let norm = { (self.x * self.x + self.y * self.y) ** 0.5 }\n}\nlet p = Point(x: 3.0, y: 4.0)\np.norm()',
+  'enum Shape {\n    case circle(r: Double), square(side: Double)\n    let area = {\n        switch self {\n        case let r = .circle: 3.14159 * r * r\n        case let s = .square: s * s\n        }\n    }\n}\n[Shape.circle(r: 1.0), Shape.square(side: 2.0)].map { $0.area() }',
+  '// lazy Sequences: a coroutine that yields forever, pulled five times\nlet fib = Sequence {\n    var (a, b) = (0, 1)\n    while true { yield a; (a, b) = (b, a + b) }\n}\nfib.filter { $0 % 2 == 0 }.prefix(5)',
+  '// tasks interleave at their suspension points; the scheduler runs on timers here\nvar log = []\nlet slow = async { Task.sleep(0.3); log.append("slow"); 1 }\nlet quick = async { Task.sleep(0.1); log.append("quick"); 2 }\n[await slow, await quick, log]',
+  '// Regex, with Swift\'s spelling; String members that take one\nlet date = "2026-09-28".firstMatch(/(?<y>\\d+)-(?<m>\\d+)-(?<d>\\d+)/)\n(date.y, date.m, date.d)',
+  '// SION — the data notation that is also the source form; a mixed Dictionary says so in its type\nlet data: [String: SION] = ["name": "swiftalk", "tags": ["swift", "js"], "since": .Date(1750000000.0)]\nprint(data.String(.pretty))\ndata.String(.json)',
+  '// the network: fetch is a Task of a Result — CORS permitting\nlet r = await fetch("https://api.github.com/repos/dankogai/swiftalk")\nr?.json()["full_name"] ?? "no answer"',
+];
+
+const $ = (sel, el = document) => el.querySelector(sel);
+const cellsEl = $('#cells'), statusEl = $('#status');
+let kernel = null, counter = 0, running = false;
+
+function newKernel() {
+  kernel = withPrelude(new Interpreter(true));
+  kernel.hooks.set('readLine', () => window.prompt('readLine()'));
+  kernel.moduleLoader = (spec) => fetch(new URL(spec, location.href)).then((r) => { if (!r.ok) throw new Error(`${spec}: HTTP ${r.status}`); return r.text(); });
+  counter = 0;
+  for (const c of cellsEl.children) $('.gutter', c).innerHTML = 'In [ ]';
+}
+
+// ---- cells ----
+function makeCell(source = '') {
+  const cell = document.createElement('div');
+  cell.className = 'cell';
+  cell.innerHTML = `<div class="gutter">In [ ]</div><div class="body"><div class="editor"><textarea spellcheck="false" placeholder="swiftalk…"></textarea>
+    <div class="cellbar"><button data-act="run" title="Run (⇧⏎)">▶</button><button data-act="up" title="Move up">↑</button><button data-act="down" title="Move down">↓</button><button data-act="delete" title="Delete cell">✕</button></div></div><div class="output"></div></div>`;
+  const ta = $('textarea', cell);
+  ta.value = source;
+  const grow = () => { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 2 + 'px'; };
+  ta.addEventListener('input', () => { grow(); save(); });
+  ta.addEventListener('focus', () => { for (const c of cellsEl.children) c.classList.remove('focused'); cell.classList.add('focused'); });
+  ta.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.shiftKey || e.metaKey || e.ctrlKey || e.altKey)) {
+      e.preventDefault();
+      if (e.altKey) runCell(cell).then(() => focusCell(insertAfter(cell)));
+      else if (e.shiftKey) runCell(cell).then(() => focusCell(cell.nextElementSibling ?? insertAfter(cell)));
+      else runCell(cell);
+    } else if (e.key === 'Tab' && !e.shiftKey) {
+      e.preventDefault();
+      const { selectionStart: s, selectionEnd: t } = ta;
+      ta.setRangeText('    ', s, t, 'end'); grow(); save();
+    } else if (e.key === 'Escape') ta.blur();
+  });
+  $('.cellbar', cell).addEventListener('click', (e) => {
+    const act = e.target.dataset.act;
+    if (act === 'run') runCell(cell);
+    else if (act === 'delete') { if (cellsEl.children.length > 1) cell.remove(); else ta.value = ''; save(); }
+    else if (act === 'up' && cell.previousElementSibling) { cell.previousElementSibling.before(cell); save(); }
+    else if (act === 'down' && cell.nextElementSibling) { cell.nextElementSibling.after(cell); save(); }
+  });
+  requestAnimationFrame(grow);
+  return cell;
+}
+function insertAfter(cell) { const c = makeCell(); cell.after(c); save(); return c; }
+function focusCell(cell) { const ta = $('textarea', cell); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); cell.scrollIntoView({ block: 'nearest' }); }
+function section(out, cls) {
+  let el = out.querySelector(`pre.${cls}`);
+  if (!el) { el = document.createElement('pre'); el.className = cls; out.append(el); }
+  return el;
+}
+
+// ---- running ----
+async function runCell(cell) {
+  const ta = $('textarea', cell), out = $('.output', cell), gutter = $('.gutter', cell);
+  const source = ta.value;
+  out.innerHTML = '';
+  if (source.trim() === '' || source.split('\n').every((l) => l.trim() === '' || l.trim().startsWith('//'))) return;   // nothing to run
+  if (needsMoreInput(source)) { section(out, 'error').textContent = 'syntax error: the cell is incomplete — a bracket or string is still open'; return; }
+  while (running) await new Promise((r) => setTimeout(r, 10));
+  running = true;
+  const n = ++counter;
+  gutter.innerHTML = `In [${n}]`;
+  statusEl.textContent = `running In [${n}]…`; statusEl.classList.add('busy');
+  const previousOut = kernel.output, previousErr = kernel.errorOutput;
+  kernel.output = (s) => { section(out, 'stdout').textContent += s; };
+  kernel.errorOutput = (s) => { section(out, 'stderr').textContent += s; };
+  try {
+    const value = await kernel.evalAsync(source);
+    if (value !== null) {
+      section(out, 'result').textContent = kernel.sourceText(value);
+      gutter.innerHTML = `In [${n}]<br><span class="out">Out [${n}]</span>`;
+    }
+  } catch (e) {
+    if (e instanceof SwiftalkError) section(out, 'error').textContent = e.description;
+    else { section(out, 'error').textContent = `the runtime failed: ${e && e.message ? e.message : e}`; console.error(e); }
+  } finally {
+    kernel.output = previousOut; kernel.errorOutput = previousErr;
+    running = false;
+    statusEl.textContent = 'ready'; statusEl.classList.remove('busy');
+  }
+}
+async function runAll() { for (const cell of [...cellsEl.children]) await runCell(cell); }
+
+// ---- persistence ----
+const KEY = 'swiftalk-notebook';
+const sources = () => [...cellsEl.children].map((c) => $('textarea', c).value);
+function save() { try { localStorage.setItem(KEY, JSON.stringify({ cells: sources() })); } catch (e) { /* storage unavailable */ } }
+function load(list) {
+  cellsEl.innerHTML = '';
+  for (const s of (list.length ? list : [''])) cellsEl.append(makeCell(s));
+}
+function restore() {
+  let stored = null;
+  try { stored = JSON.parse(localStorage.getItem(KEY) ?? 'null'); } catch (e) { stored = null; }
+  load(stored && Array.isArray(stored.cells) ? stored.cells : STARTER);
+}
+
+// ---- toolbar ----
+$('#run-all').addEventListener('click', runAll);
+$('#add').addEventListener('click', () => { const c = makeCell(); cellsEl.append(c); save(); focusCell(c); });
+$('#clear').addEventListener('click', () => { for (const c of cellsEl.children) { $('.output', c).innerHTML = ''; $('.gutter', c).innerHTML = 'In [ ]'; } });
+$('#restart').addEventListener('click', () => { newKernel(); for (const c of cellsEl.children) $('.output', c).innerHTML = ''; statusEl.textContent = 'restarted'; });
+$('#save').addEventListener('click', () => {
+  // a download where the host allows one, and the clipboard everywhere — some hosts block downloads
+  const json = JSON.stringify({ format: 'swiftalk-notebook', version: 1, cells: sources() }, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'notebook.swiftalk.json'; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  const copied = navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(json) : Promise.reject();
+  copied.then(() => { statusEl.textContent = 'saved: notebook.swiftalk.json downloaded, and its JSON copied'; }, () => { statusEl.textContent = 'saved: notebook.swiftalk.json'; });
+});
+$('#open').addEventListener('click', () => $('#file').click());
+$('#file').addEventListener('change', async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  try { const doc = JSON.parse(await f.text()); if (!Array.isArray(doc.cells)) throw new Error('no cells'); load(doc.cells); save(); newKernel(); }
+  catch (err) { statusEl.textContent = `could not open ${f.name}: ${err.message}`; }
+  e.target.value = '';
+});
+
+newKernel();
+restore();
+focusCell(cellsEl.firstElementChild);
+</script>
+</body>
+</html>

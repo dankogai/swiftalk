@@ -307,11 +307,15 @@ export function* method(receiver, name, labeledArgs, called, env) {
   // A module's extension of a core type (round 186) answers first
   if (scheduler.modules) {
     const ext = scheduler.modules.nativeExtensions.get(typeName(receiver))?.get(name);
-    if (ext) { const answer = yield* callBuiltin(ext, [receiver, labeledArgs.map((a) => a.value), called]); if (answer !== null && answer !== undefined) return answer; }
+    if (ext) {
+      const r = ext(receiver, labeledArgs.map((a) => a.value), called);
+      const answer = (r && typeof r.next === 'function' && typeof r[Symbol.iterator] === 'function') ? yield* r : r;
+      if (answer !== undefined) return answer;                 // undefined declines; null is nil
+    }
   }
   if (rk === 'host') {
     const answer = yield* callBuiltin((xs) => receiver.object.member(name, xs, called), labeledArgs.map((a) => a.value));
-    if (answer !== null && answer !== undefined) return answer;
+    if (answer !== undefined) return answer;
   }
   if (name === 'conforms' && called) {
     if (!fnLike) throw SwiftalkError.type("'.conforms(to:)' is a question asked of a type");

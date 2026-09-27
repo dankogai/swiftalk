@@ -6,9 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Interpreter } from '../src/interpreter.js';
-import { Lexer } from '../src/lexer.js';
-import { TaskModule } from '../src/modules/Task.js';
-import { SequenceModule } from '../src/modules/Sequence.js';
+import { withPrelude } from '../src/prelude.js';
 import { SwiftalkError } from '../src/errors.js';
 import { equals, sourceString } from '../src/value.js';
 import { valueOf } from './fixture-values.js';
@@ -20,33 +18,36 @@ const same = (a, b) => {
   return equals(a, b);
 };
 
-/// The prelude modules not yet ported (IO, Net, Regex) are milestone D:
-/// a fixture that names one of them — or spells a regex literal — waits
-/// for it. Decided by the lexer, not by guessing. Task and Sequence are
-/// JS modules already (round 199) and preimported below, as the CLI does.
-const moduleNames = new Set(['Regex', 'print', 'debugPrint', 'readLine', 'fetch', 'IO', 'Net', 'POSIX']);
+/// The prelude — IO, Net, Regex, Sequence, Task — as JS modules, preimported
+/// as the CLI does; output silenced, no host hooks (no stdin, files, or network).
 function interpreter() {
-  const i = new Interpreter();
+  const i = withPrelude(new Interpreter());
   i.output = () => {};
   i.errorOutput = () => {};
-  i.register(TaskModule());
-  i.register(SequenceModule());
-  i.preimport(['Task', 'Sequence']);
   return i;
 }
-export function needsModule(source) {
-  let tokens;
-  try { tokens = new Lexer(source).tokenize(); } catch (e) { return false; }
-  return tokens.some((t) => t.t === 'regex' || (t.t === 'identifier' && moduleNames.has(t.v)));
-}
+
+/// Where the JS runtime knowingly differs from the Swift core, by fixture
+/// source: Swift's Regex matches Characters (grapheme clusters), RegExp
+/// matches code points (FIXME in modules/Regex.js). Each of these must
+/// still fail — a divergence that heals is removed from the list.
+export const knownDivergences = new Map([
+  ['"👨‍👩‍👧".matches(/./).count', 'a grapheme is one `.` in Swift, five code points here'],
+  ['"か\\u{309A}き".matches(/[\\u{3040}-\\u{309F}]/)', 'a class matches whole Characters in Swift'],
+  ['"🇯🇵🇺🇸".matches(/[\\u{1F1E6}-\\u{1F1FF}]/)', 'a flag is one Character of two scalars in Swift'],
+  ['"か\\u{309A}き".matches(/\\p{Hiragana}+/)', 'the combining mark rides with its base in Swift'],
+  ['"🇯🇵🇺🇸".matches(/\\p{RegionalIndicator}/)', 'a flag is one Character in Swift'],
+  ['"か\\u{309A}".matches(/[か\\u{309A}]/)', 'a class matches whole Characters in Swift'],
+]);
 
 const verbose = process.env.SWIFTALK_VERBOSE === '1';
 test('the fixtures evaluate as the Swift core does', async () => {
   const failures = [];
-  let passed = 0, skipped = 0;
+  let passed = 0, diverged = 0;
   const byFile = new Map();
+  const unhealed = new Set();
   for (const f of fixtures) {
-    if (needsModule(f.source)) { skipped++; continue; }
+    const known = knownDivergences.has(f.source);
     const interp = interpreter();
     let outcome;
     try {
@@ -60,22 +61,21 @@ test('the fixtures evaluate as the Swift core does', async () => {
       if (f.throws && e instanceof SwiftalkError) { /* as expected */ }
       else outcome = e instanceof SwiftalkError ? `threw ${e.description}` : `crashed: ${e && e.stack ? e.stack.split('\n').slice(0, 3).join(' | ') : e}`;
     }
+    if (known) {
+      if (outcome) { diverged++; unhealed.add(f.source); }
+      else failures.push(`${f.file}: a known divergence now agrees with Swift — drop it from knownDivergences\n    ${JSON.stringify(f.source)}`);
+      continue;
+    }
     if (outcome) {
       failures.push(`${f.file}: ${outcome}\n    ${JSON.stringify(f.source)}`);
       byFile.set(f.file, (byFile.get(f.file) ?? 0) + 1);
     } else passed++;
   }
+  for (const source of knownDivergences.keys()) if (!unhealed.has(source)) failures.push(`knownDivergences names no fixture: ${source}`);
   if (failures.length && verbose) console.error([...byFile].sort((a, b) => b[1] - a[1]).map(([k, v]) => `${v}\t${k}`).join('\n'));
-  if (verbose) console.error(`${passed} passed, ${skipped} wait for the prelude modules`);
+  if (verbose) console.error(`${passed} passed, ${diverged} known divergences`);
   assert.equal(failures.length, 0,
     `${failures.length} of ${passed + failures.length} fixtures failed:\n  ${failures.slice(0, verbose ? 400 : 30).join('\n  ')}`);
-});
-
-test('the module-dependent fixtures are only those', () => {
-  // the skip list must not hide core failures: every skipped fixture names a module or spells a regex literal
-  const skipped = fixtures.filter((f) => needsModule(f.source));
-  assert.ok(skipped.length < 120, `${skipped.length} fixtures skipped — too many`);
-  for (const f of skipped) assert.ok(/Regex|print|readLine|fetch|\bIO\b|Net|POSIX|\//.test(f.source), f.source);
 });
 
 test('the synchronous driver runs the same programs, time not passing', () => {

@@ -2752,3 +2752,11 @@ the history. (Moved out of Design.md in round 65.)
   modules and `.swt` imports through a host loader; 2,588 of 2,671
   fixtures pass, the 83 left waiting for IO, Net, and Regex — milestone D,
   with the notebook.
+* **2026-09-28, round 200 — the JavaScript runtime, milestone D** (the
+  brief's last clause: "Make a single page app like jupyter that you
+  can REPL therein"). IO, Net, and Regex as JS modules over host hooks
+  that may answer with Promises; a Node host and a browser host; a
+  dependency-free bundler; and `js/notebook.html`, a notebook of
+  swiftalk cells with the whole prelude, autosaving, restartable. 2,665
+  of 2,671 fixtures agree with the Swift core; the six that do not are
+  Swift's Character-level Regex, pinned as known divergences.

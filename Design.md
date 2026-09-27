@@ -2481,6 +2481,51 @@ coroutine's thread — round 53's OPEN item); in JS a coroutine is a
 generator inside the same context, so `Sequence { yield await t }`
 simply works, a divergence in the runtime's favor, recorded here.
 
+**Milestone D (round 200)**: the rest of the prelude, and the notebook
+the brief asked for ("Make a single page app like jupyter that you can
+REPL therein"). `js/src/modules/IO.js`, `Net.js`, `Regex.js` join `Task
+.js` and `Sequence.js`, and `prelude.js` registers and preimports the
+five in one call, as the CLI does. **The host lends what it has, as
+functions**: an Interpreter's `output` and `errorOutput` sinks, and its
+`hooks` — `readLine` (a String, null at the end, or a Promise of one),
+`openFile` (path and mode to a small file object: read, write,
+seekStart, seekEnd, truncate, close), `fetch` (round 189's request
+Dictionary in, response Dictionary out; absent, the platform's `fetch`)
+— every one of which may answer with a Promise, since the scheduler
+parks the asking context on an offload. `host/node.js` lends Node's:
+fd 0, stdout and stderr, `node:fs`, files or URLs for `.swt` imports.
+A browser page lends a prompt and the network. **Regex over RegExp**:
+the flags `i m s x` (x emulated by stripping free space and comments
+outside classes), always `u`; Swift's loose property spellings
+(`\p{Hiragana}`, `\p{RegionalIndicator}`) retried as `Script=` and
+snake_case; the subject matched in NFC, so canonical equivalents match
+alike; a match a String or a labeled tuple as the Swift module shapes
+it; `case /re/:` through `patternMatch`. **What does not port**: Swift's
+Regex matches Characters and RegExp code points, so `"👨‍👩‍👧".matches(/./)
+.count` is 1 there and 5 here — six fixtures, listed in the test as
+`knownDivergences` with their reasons, each asserted to still fail so
+the list cannot rot; the other 2,665 of 2,671 agree. A host member or
+extension now declines with `undefined` and answers nil with `null`,
+the `Value?`/`.nil` distinction the Swift API has by type. **The
+bundle**: `tools/bundle.mjs` is a bundler with no dependencies — the
+sources are plain ESM with relative imports and no top-level name
+collisions (checked), so the bundle is the files in dependency order
+with `import` lines dropped and `export` keywords stripped, the cyclic
+live bindings being one scope — producing `dist/swiftalk.js` and
+`dist/notebook.html`, the notebook with the runtime inlined, which
+opens from a file. **The notebook** (`js/notebook.html`; `npm run
+build` for the single file) is a page of cells: Shift-Enter runs a cell
+and moves on, Cmd/Ctrl-Enter runs in place, Alt-Enter inserts; a cell
+shows what it printed, then its value as the REPL would echo it (a nil
+result stays silent, as Jupyter's None does), or its error; bindings
+persist cell to cell, one Interpreter in REPL mode, restartable; the
+cells autosave in the browser and save and open as JSON. The kernel is
+`evalAsync` with the prelude, `readLine` a browser prompt, `import
+"./m.swt"` a fetch beside the page, `fetch` the browser's — CORS
+permitting. The runtime is now feature-complete against the Swift
+core's corpus; what remains is the Character-level Regex, and whatever
+the notebook asks for once it is used.
+
 ## 15. Modules — DECIDED (round 100)
 
 The user's spec, before the strict-`let`-with-`Any` round: "It will be

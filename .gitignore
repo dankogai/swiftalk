@@ -75,3 +75,4 @@ fastlane/screenshots
 .attic/
 js/test/fixtures.json
 js/node_modules/
+js/dist/

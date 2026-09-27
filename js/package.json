@@ -6,7 +6,9 @@
   "main": "src/index.js",
   "scripts": {
     "test": "node tools/extract-fixtures.mjs && node --test test/*.test.js",
-    "fixtures": "node tools/extract-fixtures.mjs"
+    "fixtures": "node tools/extract-fixtures.mjs",
+    "build": "node tools/bundle.mjs",
+    "repl": "node repl.mjs"
   },
   "engines": { "node": ">=22" },
   "license": "MIT"

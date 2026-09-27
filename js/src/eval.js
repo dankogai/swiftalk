@@ -48,7 +48,6 @@ export function* displayString(value) {
   if (typeof value === 'string') return value;
   return yield* valueSourceText(value);
 }
-export const plainString = (v) => (typeof v === 'string' ? v : sourceString(v));
 
 export function* regexLiteral(pattern, flags, env) {
   const t = env.tryLookup('Regex');
@@ -1228,7 +1227,8 @@ function* propertyWrite(container, name, newValue) {
     }
   }
   if (kindOf(container) === 'host') {
-    const ok = container.object.setMember ? container.object.setMember(name, newValue) : false;
+    let ok = container.object.setMember ? container.object.setMember(name, newValue) : false;
+    if (ok && typeof ok.next === 'function') ok = yield* ok;
     if (!ok) throw SwiftalkError.type(`cannot assign to ${container.object.typeName}.${name}`);
     return container;
   }
