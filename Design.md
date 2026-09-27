@@ -2443,6 +2443,44 @@ knowingly falls short: `fma` is not fused, `erf`/`tgamma`/the Bessels
 are approximations (`j0`/`j1` a power series inside |x| < 8), and
 `String.replacing` matches code units rather than Characters.
 
+**Milestone C (round 199)**: Tasks over real time — `js/src/scheduler
+.js` is Task.swift without threads. A context is a generator, the main
+program's or a task body's; it runs until it yields a request and the
+scheduler answers: a spawn seats the newborn and puts the spawner first
+in line behind it (eager, the JS way, as the Swift core decided in
+round 53), an await of a settled task answers at once and of a running
+one parks the awaiter on it, a sleep parks on a deadline, an offload —
+a host Promise, `fetch`'s — parks until it settles, and the baton
+passes to the next ready context; sleepers wake in deadline order,
+ties by insertion; nothing ready, nothing sleeping, nothing out on the
+host is the deadlock the Swift scheduler detects, thrown into the main
+context if it is the one parked, else into the first parked awaiter so
+the error propagates through its own awaiters. **Two drivers** share
+that machinery. `Interpreter.evalAsync` returns a Promise and is the
+faithful one: `Task.sleep(0.05)` takes fifty milliseconds on a timer,
+tasks interleave at their suspension points, a Promise from the host
+parks only its context, and tasks left parked persist into the next
+call — the REPL's world, one Interpreter's calls serialized. `eval`
+stays synchronous, for the one-liner and the 2,600-fixture corpus: it
+runs the same scheduler on a **virtual clock** that jumps to the
+earliest deadline only when nothing can run, so the interleaving is the
+one real time gives, in no time; a host Promise it refuses, naming
+`evalAsync`. **Modules arrive with it**: `js/src/modules.js` is the
+module API (`function`, `export`, `type`, `extend`, `static`, `prelude`)
+and the module system (`register`, `preimport`, `import from "Name"` for
+a registered module, `import "./m.swt"` through `Interpreter
+.moduleLoader` — a function of the resolved spec that may return a
+Promise, `fetch` in a browser, answered by an offload; cached, cycles
+refused, the namespace a type as round 184 decided), and the first two
+modules are the ones milestone C needs to be tested: `Task` (`Task
+.sleep`) and `Sequence` (`Sequence.zip`, lazy when a side is), forty
+lines each. The Task fixtures pass with them — 2,588 of 2,671 now; the
+83 left name IO, Net, or Regex. **One limitation lifted**: the Swift
+core cannot `await` inside a coroutine body (no task context on the
+coroutine's thread — round 53's OPEN item); in JS a coroutine is a
+generator inside the same context, so `Sequence { yield await t }`
+simply works, a divergence in the runtime's favor, recorded here.
+
 ## 15. Modules — DECIDED (round 100)
 
 The user's spec, before the strict-`let`-with-`Any` round: "It will be

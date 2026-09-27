@@ -3,30 +3,41 @@
 // program in. The prelude modules are milestone D, so this is the bare
 // core — `print` is supplied here, over console, so scripts can speak.
 import { createInterface } from 'node:readline';
+import { readFileSync } from 'node:fs';
 import { Interpreter, needsMoreInput } from './src/interpreter.js';
 import { SwiftalkError } from './src/errors.js';
 import { sourceString } from './src/value.js';
+import { TaskModule } from './src/modules/Task.js';
+import { SequenceModule } from './src/modules/Sequence.js';
 
 const interp = new Interpreter(true);
+interp.register(TaskModule());
+interp.register(SequenceModule());
+interp.preimport(['Task', 'Sequence']);
+interp.moduleLoader = (spec) => readFileSync(spec, 'utf8');
 interp.declareBuiltin('print', (args) => { interp.output(args.map((a) => (typeof a === 'string' ? a : sourceString(a))).join(' ') + '\n'); return null; });
 const tty = process.stdin.isTTY;
 const rl = createInterface({ input: process.stdin, output: tty ? process.stdout : undefined, prompt: 'swiftalk> ', terminal: tty });
 let buffer = '';
 if (tty) rl.prompt();
+// lines are evaluated one program at a time, in order — an eval may await
+let chain = Promise.resolve();
 rl.on('line', (line) => {
-  if (!tty) process.stdout.write(`${buffer ? '      ... ' : 'swiftalk> '}${line}\n`);
-  buffer = buffer ? `${buffer}\n${line}` : line;
-  if (needsMoreInput(buffer)) { if (tty) { rl.setPrompt('      ... '); rl.prompt(); } return; }
-  const source = buffer; buffer = '';
-  if (source.trim() !== '') {
-    try {
-      const value = interp.eval(source);
-      process.stdout.write(interp.sourceText(value) + '\n');
-    } catch (e) {
-      if (e instanceof SwiftalkError) process.stdout.write(e.description + '\n');
-      else throw e;
+  chain = chain.then(async () => {
+    if (!tty) process.stdout.write(`${buffer ? '      ... ' : 'swiftalk> '}${line}\n`);
+    buffer = buffer ? `${buffer}\n${line}` : line;
+    if (needsMoreInput(buffer)) { if (tty) { rl.setPrompt('      ... '); rl.prompt(); } return; }
+    const source = buffer; buffer = '';
+    if (source.trim() !== '') {
+      try {
+        const value = await interp.evalAsync(source);
+        process.stdout.write(interp.sourceText(value) + '\n');
+      } catch (e) {
+        if (e instanceof SwiftalkError) process.stdout.write(e.description + '\n');
+        else throw e;
+      }
     }
-  }
-  if (tty) { rl.setPrompt('swiftalk> '); rl.prompt(); }
+    if (tty) { rl.setPrompt('swiftalk> '); rl.prompt(); }
+  });
 });
 rl.on('close', () => { if (tty) process.stdout.write('\n'); });

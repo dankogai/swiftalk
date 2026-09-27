@@ -9,3 +9,6 @@ export { FunctionObject, EnumType, EnumCaseValue, StructType, StructValue, Seque
 export { Environment, Binding } from './env.js';
 export { Builtins, success, failure, isResult } from './builtins.js';
 export { Interpreter, Swiftalk, needsMoreInput } from './interpreter.js';
+export { Module, ModuleSystem } from './modules.js';
+export { TaskModule } from './modules/Task.js';
+export { SequenceModule } from './modules/Sequence.js';

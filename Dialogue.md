@@ -2743,3 +2743,12 @@ the history. (Moved out of Design.md in round 65.)
   2,553 of the 2,671 fixtures evaluate to the Swift core's value or
   throw where it throws; the 118 that name a prelude module wait for
   milestone D. A Node REPL, `js/repl.mjs`. Tasks over real timers are C.
+* **2026-09-28, round 199 — the JavaScript runtime, milestone C** (the
+  same brief). Tasks over real time: `scheduler.js` is the Swift
+  scheduler without threads — contexts are generators, requests are
+  answered by passing the baton; `evalAsync` waits on timers and
+  Promises, `eval` runs the same scheduler on a virtual clock. The
+  module API and system in JS, with `Task` and `Sequence` as its first
+  modules and `.swt` imports through a host loader; 2,588 of 2,671
+  fixtures pass, the 83 left waiting for IO, Net, and Regex — milestone D,
+  with the notebook.

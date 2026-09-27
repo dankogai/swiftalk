@@ -222,6 +222,39 @@ Set(
 )
 ```
 
+**The JavaScript runtime, milestone C** (round 199) — Tasks over real
+time in `js/`: `evalAsync` runs the scheduler on timers and Promises,
+`eval` runs it on a virtual clock; the module system in JS with `Task`
+and `Sequence` as its first modules, `.swt` imports through a host
+loader. 2,588 of the 2,671 fixtures pass; 83 wait for IO, Net, Regex:
+
+```text
+swiftalk> var log = []
+[]
+swiftalk> let t1 = async { log.append(1); Task.sleep(0.03); log.append(3) }
+Task { ... }
+swiftalk> let t2 = async { log.append(2); Task.sleep(0.01); log.append(4) }
+Task { ... }
+swiftalk> log
+[1, 2]
+swiftalk> Task.sleep(0.05)
+nil
+swiftalk> log
+[1, 2, 4, 3]
+swiftalk> let a = async { Task.sleep(0.02); "slow" }
+Task { ... }
+swiftalk> let b = async { "quick" }
+Task { ... }
+swiftalk> [await b, await a]
+["quick", "slow"]
+swiftalk> var t = async { Task.sleep(0.01); await t }
+Task { ... }
+swiftalk> await t
+type error: deadlock: 'await' on a Task that can never complete
+swiftalk> Sequence.zip(1..., ["a", "b", "c"]).Array()
+[(1, "a"), (2, "b"), (3, "c")]
+```
+
 **The JavaScript runtime, milestone B** (round 198) — the evaluator in
 `js/`, generator-based so `yield` and `await` suspend the whole
 interpreter stack; 2,553 of the 2,671 Swift fixtures evaluate as the

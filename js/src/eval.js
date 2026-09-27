@@ -594,7 +594,17 @@ function makeIterator(seq) {
       });
     }
     case 'counting': return countingIterator(k.from);
-    case 'native': { const next = k.make(); return new ValueIterator(function* () { const v = next(); const r = (v && typeof v.next === 'function') ? yield* v : v; return r === null || r === undefined ? undefined : r; }); }
+    case 'native': {
+      // a module's Sequence (round 191): `make` builds a puller on the first pull; either may be a generator
+      let next = null;
+      const isGen = (v) => v && typeof v.next === 'function' && typeof v[Symbol.iterator] === 'function';
+      return new ValueIterator(function* () {
+        if (!next) { const made = k.make(); next = isGen(made) ? yield* made : made; }
+        const v = next();
+        const r = isGen(v) ? yield* v : v;
+        return r === null || r === undefined ? undefined : r;
+      });
+    }
     case 'takenWhile': {
       const it = makeIterator(k.base);
       let done = false;
@@ -1636,5 +1646,17 @@ export function* spawnTask(f) {
 export function* awaitTask(task) {
   const answer = yield { suspend: 'await', task };
   if (!answer || !('value' in answer)) throw SwiftalkError.type("'await' needs a running Interpreter");
+  return answer.value;
+}
+/// `Task.sleep(seconds)`'s request: only the current context waits.
+export function* sleep(seconds) {
+  const answer = yield { suspend: 'sleep', seconds };
+  if (!answer || !answer.done) throw SwiftalkError.type("'sleep' needs a running Interpreter");
+}
+/// A Promise the host answers (round 163's offload): this context parks
+/// until it settles; the others run meanwhile. Only the async driver waits.
+export function* offload(promise) {
+  const answer = yield { suspend: 'offload', promise };
+  if (!answer || !('value' in answer)) throw SwiftalkError.type('this operation waits on the host — run it with evalAsync');
   return answer.value;
 }

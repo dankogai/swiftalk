@@ -12,85 +12,10 @@ import { FunctionObject, TaskObject, ControlFlow, ReturnSignal } from './objects
 import { Environment, Binding } from './env.js';
 import { Builtins } from './builtins.js';
 import { ann } from './types.js';
-import { execute, run, constructEnumCase, valueSourceText, scheduler } from './eval.js';
+import { execute, constructEnumCase, valueSourceText, scheduler } from './eval.js';
+import { AsyncScheduler, SyncScheduler } from './scheduler.js';
+import { Module, ModuleSystem } from './modules.js';
 import './members.js';
-
-/// A cooperative scheduler over generators (§12): a task is a generator
-/// stepped until it finishes; a request it yields is answered here.
-class Scheduler {
-  constructor() { this.tasks = []; }
-  /// Runs `gen` to completion, answering its requests; returns its value.
-  /// A `sleep` here (the main context's) runs the parked tasks first —
-  /// the time it would have waited is theirs. FIXME: milestone C waits
-  /// on real timers, asynchronously.
-  drive(gen) {
-    let step = gen.next();
-    for (;;) {
-      if (step.done) return step.value;
-      step = gen.next(this.answer(step.value, null));
-    }
-  }
-  /// Answers one request; `task` is the task that asked, or null for main.
-  answer(request, task) {
-    if (!request || typeof request !== 'object') return undefined;
-    switch (request.suspend) {
-      case 'spawn': return { task: this.spawn(request.body) };
-      case 'await': return { value: this.finish(request.task) };
-      case 'sleep': this.runOthers(task); return { done: true };
-      case 'yield': return { coroutine: false };             // no coroutine caught it
-      default: return undefined;
-    }
-  }
-  /// Swift's tasks start eagerly (round 53): the body runs until its
-  /// first suspension before the spawner continues.
-  spawn(body) {
-    const task = new TaskObject(body);
-    task.gen = run(body, []);
-    task.state = 'ready';
-    this.tasks.push(task);
-    this.step(task);
-    return task;
-  }
-  /// Steps a task until it finishes or sleeps (parks).
-  step(task) {
-    if (task.state !== 'ready') return;
-    task.state = 'running';
-    try {
-      let step = task.gen.next(task.pending);
-      task.pending = undefined;
-      for (;;) {
-        if (step.done) { task.result = step.value.result; task.state = 'done'; break; }
-        const request = step.value;
-        if (request && request.suspend === 'sleep') { task.pending = { done: true }; task.state = 'ready'; return; }
-        step = task.gen.next(this.answer(request, task));
-      }
-    } catch (e) {
-      if (!(e instanceof SwiftalkError)) throw e;
-      task.error = e; task.state = 'failed';
-    }
-    const i = this.tasks.indexOf(task);
-    if (i >= 0) this.tasks.splice(i, 1);
-  }
-  runOthers(except) {
-    for (const t of this.tasks.slice()) if (t !== except) this.step(t);
-  }
-  /// Runs a task to completion and returns its value, or rethrows its error.
-  finish(task) {
-    while (task.state === 'ready') this.step(task);
-    if (task.state === 'running') throw SwiftalkError.type('a Task cannot await itself');
-    if (task.state === 'failed') throw task.error;
-    return task.result;
-  }
-  /// The tasks nobody awaited still run, at the end of an eval.
-  drain() { let guard = 0; while (this.tasks.length && guard++ < 10000) this.runOthers(null); }
-}
-
-/// A stand-in for the module system (round 100+) until milestone D.
-class ModuleSystem {
-  constructor() { this.nativeExtensions = new Map(); this.nativeStatics = new Map(); }
-  *load(spec) { throw SwiftalkError.type(`FIXME: import from "${spec}" — modules are not ported yet`); }
-  namespaceType() { throw SwiftalkError.type('FIXME: modules are not ported yet'); }
-}
 
 export class Interpreter {
   constructor(relaxed = false) {
@@ -98,8 +23,16 @@ export class Interpreter {
     this.builtins = new Environment();
     this.environment = new Environment(this.builtins);
     this.environment.isFileScope = true;
-    this.modules = new ModuleSystem();
-    this.scheduler = new Scheduler();
+    this.modules = new ModuleSystem(this.builtins);
+    this.modules.fileScopeSetup = (scope) => this.installEval(scope);
+    /// resolved spec → source, or a Promise of it — how `import "./m.swt"` reads (round 100); none by default
+    this.moduleLoader = null;
+    this.scriptPath = null;
+    /// named functions over Values the host lends the modules (round 189): Net's "fetch"
+    this.hooks = new Map();
+    this.sync = new SyncScheduler();
+    this.async = new AsyncScheduler();
+    this.queue = Promise.resolve();
     this.output = (s) => { if (typeof process !== 'undefined' && process.stdout) process.stdout.write(s); else console.log(s); };
     this.errorOutput = (s) => { if (typeof process !== 'undefined' && process.stderr) process.stderr.write(s); else console.error(s); };
     this.installBuiltins();
@@ -144,13 +77,45 @@ export class Interpreter {
     }
     return last;
   }
-  /// Evaluates a program and returns its last statement's value.
+  /// Makes a native module importable by its name (round 182); its prelude runs now.
+  register(module) { this.withContext(() => this.modules.register(module)); }
+  /// Imports every export of the named modules into the builtins scope
+  /// (round 185) — the CLI's prelude. A name already bound to the same
+  /// value is skipped; to something else, an error.
+  preimport(specs = ['IO', 'Net']) {
+    for (const spec of specs) {
+      const module = this.modules.native.get(spec);
+      if (!module) throw SwiftalkError.type(`preimport: no module named '${spec}' is registered`);
+      module.names.forEach((name, i) => {
+        const value = module.values[i];
+        const existing = this.builtins.tryLookup(name);
+        if (existing !== undefined) {
+          if (existing !== value) throw SwiftalkError.type(`preimport: '${name}' from '${spec}' is already bound to something else`);
+          return;
+        }
+        this.builtins.declare(name, new Binding(false, ann(typeName(value), true), value));
+      });
+    }
+  }
+  prepare() {
+    this.modules.loader = this.moduleLoader;
+    this.modules.baseStack = [this.scriptPath ? ModuleSystem.directory(this.scriptPath) : '.'];
+  }
+  /// Evaluates a program and returns its last statement's value —
+  /// synchronously: a `Task.sleep` lets the other ready tasks run and
+  /// goes on without waiting, a host Promise is refused. The one-liner's
+  /// and the corpus's driver; `evalAsync` is the faithful one.
   eval(source) {
-    return this.withContext(() => {
-      const value = this.scheduler.drive(this.program(source, this.environment));
-      this.scheduler.drain();
-      return value;
-    });
+    return this.withContext(() => { this.prepare(); return this.sync.run(this.program(source, this.environment)); });
+  }
+  /// Evaluates a program with the real scheduler: `Task.sleep` waits on
+  /// a timer, an offloaded Promise parks only its context. Calls on one
+  /// Interpreter are serialized; tasks left parked persist to the next.
+  evalAsync(source) {
+    const job = () => this.withContextAsync(() => { this.prepare(); return this.async.run(this.program(source, this.environment)); });
+    const result = this.queue.then(job, job);
+    this.queue = result.catch(() => {});
+    return result;
   }
   withContext(body) {
     const previous = { current: scheduler.current, modules: scheduler.modules };
@@ -158,9 +123,19 @@ export class Interpreter {
     scheduler.modules = this.modules;
     try { return body(); } finally { scheduler.current = previous.current; scheduler.modules = previous.modules; }
   }
+  async withContextAsync(body) {
+    // one Interpreter runs at a time on the JS thread, but an await inside
+    // hands the thread on: the context is reinstalled around every resumption
+    // by being the only live one — evalAsync calls are serialized per Interpreter,
+    // and two Interpreters' evalAsyncs must not interleave (FIXME: per-context installation)
+    const previous = { current: scheduler.current, modules: scheduler.modules };
+    scheduler.current = this;
+    scheduler.modules = this.modules;
+    try { return await body(); } finally { scheduler.current = previous.current; scheduler.modules = previous.modules; }
+  }
   /// A value's source form for the REPL's echo (round 152): a String
   /// quoted, a user type's own `String` member honored.
-  sourceText(value) { return this.withContext(() => this.scheduler.drive(valueSourceText(value))); }
+  sourceText(value) { return this.withContext(() => this.sync.run(valueSourceText(value))); }
   /// The REPL's `:d name` (round 131).
   undefine(name) {
     if (this.environment.removeBinding(name) === null) throw SwiftalkError.type(`':d' — no top-level binding named '${name}'`);
@@ -213,6 +188,8 @@ export function needsMoreInput(source) {
 /// `Swiftalk.eval`: source in, value out — one-shot.
 export const Swiftalk = {
   eval: (source) => new Interpreter().eval(source),
+  evalAsync: (source) => new Interpreter().evalAsync(source),
   Interpreter,
+  Module,
   needsMoreInput,
 };
