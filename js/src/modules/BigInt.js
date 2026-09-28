@@ -11,7 +11,7 @@ import { kindOf, typeName, sourceString, Byte, INT64_MAX, INT64_MIN } from '../v
 import { HostValue } from '../objects.js';
 
 /// What the literal and `BigInt(s)` accept: a sign, a radix prefix, `_`, a trailing `n`.
-function parse(text) {
+function parseLiteral(text) {
   let s = text.replace(/_/g, '');
   if (s.endsWith('n')) s = s.slice(0, -1);
   let negative = false;
@@ -168,7 +168,7 @@ export function BigIntModule() {
           case 'double':
             if (!Number.isFinite(v) || Math.trunc(v) !== v) throw SwiftalkError.type(`BigInt(${sourceString(v)}): not an integer — round it first`);
             return make(BigInt(v));
-          case 'string': { const p = parse(v); if (p === null) throw SwiftalkError.type(`BigInt("${v}"): not an integer literal`); return make(p); }
+          case 'string': { const p = parseLiteral(v); if (p === null) throw SwiftalkError.type(`BigInt("${v}"): not an integer literal`); return make(p); }
           case 'host': if (v.object instanceof BigIntValue) return v; break;
           default: break;
         }
