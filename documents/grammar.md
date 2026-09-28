@@ -35,6 +35,8 @@ Shelved forms (`actor`, `class`, `super`) are not grammar today.
   `actor`, `super` (§9 and round 62).
 * **Literals**
   * Int: `42`, `1_000`, `0xff`, `0o377`, `0b101` — 64-bit, `_` allowed.
+  * BigInt: `123n`, `0xffn` — an Int literal's digits with JS's `n`
+    suffix (round 201); grammar here, meaning the BigInt module's.
   * Double: `1.0`, `1e3`, `1.5e-3`, hex floats `0x1.fep7` / `0x1p-2`
     (a hex fraction *requires* the `p` exponent, so `0xff.description`
     stays member access). A `.` needs a digit on both sides.

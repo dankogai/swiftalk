@@ -57,6 +57,16 @@ export function* regexLiteral(pattern, flags, env) {
   return yield* callBuiltin(t.builtin, [pattern, flags]);
 }
 
+/// `123n` (round 201): the BigInt module's — the `BigInt` type in scope is
+/// called with the digits; without it, an error naming the module.
+export function* bigintLiteral(text, env) {
+  const t = env.tryLookup('BigInt');
+  if (!t || kindOf(t) !== 'function' || t.role.k !== 'type' || t.role.name !== 'BigInt' || !t.builtin) {
+    throw SwiftalkError.type(`${text}n: a BigInt literal needs the BigInt module — import from "BigInt" (the CLI preimports it)`);
+  }
+  return yield* callBuiltin(t.builtin, [text]);
+}
+
 // ---- statements ----
 export function* execute(statement, env, relaxed = false) {
   switch (statement.k) {
@@ -666,6 +676,7 @@ export function rangeCount(from, to, closed) {
 export function* evaluate(expr, env) {
   switch (expr.k) {
     case 'regexLiteral': return yield* regexLiteral(expr.pattern, expr.flags, env);
+    case 'bigintLiteral': return yield* bigintLiteral(expr.text, env);
     case 'literal': return expr.v;
     case 'variable': return env.lookup(expr.name);
     case 'binary': return yield* binary(expr.op, yield* evaluate(expr.lhs, env), yield* evaluate(expr.rhs, env));
@@ -726,7 +737,7 @@ function* evaluateSlow(expr, env) {
   switch (expr.k) {
     case 'switch': return yield* evaluateSwitch(expr.subject, expr.clauses, expr.defaultBody, env);
     case 'if': case 'literal': case 'variable': case 'binary': case 'bitwise': case 'bitNot': case 'comparison': case 'ternary':
-    case 'call': case 'selfCall': case 'subscript': case 'regexLiteral':
+    case 'call': case 'selfCall': case 'subscript': case 'regexLiteral': case 'bigintLiteral':
       return yield* evaluate(expr, env);
     case 'tuple': {
       const values = [];
@@ -1375,7 +1386,12 @@ export function* userOperator(key, operands) {
     let table = null;
     if (v instanceof StructValue) table = v.type.operators;
     else if (v instanceof EnumCaseValue) table = v.type.operators;
-    else continue;
+    else if (kindOf(v) === 'host' && v.object.operate) {                 // a module's value (round 201: BigInt's arithmetic)
+      let r = v.object.operate(key, operands);
+      if (r && typeof r.next === 'function' && typeof r[Symbol.iterator] === 'function') r = yield* r;
+      if (r !== undefined) return r;
+      continue;
+    } else continue;
     const fn = table.get(key);
     if (fn) return yield* apply(fn, operands.map((x) => ({ label: null, value: x })));
   }
@@ -1384,9 +1400,10 @@ export function* userOperator(key, operands) {
 export function hasUserOperator(v, key) {
   if (v instanceof StructValue) return v.type.operators.has(key);
   if (v instanceof EnumCaseValue) return v.type.operators.has(key);
+  if (kindOf(v) === 'host') return v.object.hasOperator ? v.object.hasOperator(key) : false;
   return false;
 }
-const userTyped = (v) => v instanceof StructValue || (v instanceof EnumCaseValue && !isResult(v));
+const userTyped = (v) => v instanceof StructValue || (v instanceof EnumCaseValue && !isResult(v)) || kindOf(v) === 'host';
 const byteOrInt = (v) => (v instanceof Byte ? BigInt(v.v) : v);
 export function* bitwise(op, lhs, rhs) {
   const r = yield* userOperator(`infix:${op}`, [lhs, rhs]);

@@ -97,6 +97,7 @@ i * i == Complex(-1.0, 0.0)                   // true — and (*)(i, i), reduce(
 // a[-1] is a[a.count - 1] — a negative subscript counts from the end, reading and writing, on Arrays and Data; a divergence from Swift (round 194)
 // "straße".uppercased(), s.lowercased(), "hello world".ucfirst(), s.lcfirst() — case mapping: Swift's two and Perl's two, on graphemes (round 195)
 // "  hello \n".trimmed(), "--x--".trimmed("-") — whitespace and newlines off both ends, or the graphemes you name (round 196)
+// 2n ** 256n, BigInt(Int.max) + 1n, (2n ** 100n).Int() — arbitrary precision, JS's `n` literal; a BigInt meets a BigInt; the BigInt module, swift-bignum vendored (round 201)
 // Complex(1.0, -2.0).String() == "(1.0-2.0.i)" — an expression that re-enters; Complex("(1.0-2.0.i)") reads it (round 154)
 // and exact fractions: modules/Rational.swt — Rational(3, 4) + 1 == Rational(7, 4), Double(Rational(3, 4)) == 0.75, Rational(3, 4).String() == "(3/4)", Rational("(3/4)"), 1.over(3)
 let hex    = 255.String(.hex)                 // "0xff"; .String(.sign, .hex) is "+0xff"; radix: 16 for bare "ff"
@@ -145,7 +146,7 @@ when.y                                        // "2026"
 
 ```sh
 swift run swiftalk   # the REPL — :h for its commands (:r redefines a binding, a type, or an extension's members; :d undefines)
-swift run swiftalk -- --no-prelude   # bare: no IO, Net, Regex, Sequence, Task until a script imports them (rounds 187, 192); --help for the options
+swift run swiftalk -- --no-prelude   # bare: no IO, Net, Regex, Sequence, Task, BigInt until a script imports them (rounds 187, 192, 201); --help for the options
 swift test           # the suite
 ```
 

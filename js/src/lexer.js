@@ -8,6 +8,7 @@ import { keywords } from './keywords.js';
 
 export const tok = {
   int: (v) => ({ t: 'int', v }),
+  bigint: (v) => ({ t: 'bigint', v }),         // 123n, 0xffn (round 201): the digits with their radix prefix
   double: (v) => ({ t: 'double', v }),
   string: (v) => ({ t: 'string', v }),
   interpolated: (segments) => ({ t: 'interpolated', segments }),
@@ -452,7 +453,9 @@ export class Lexer {
       if (radix) {
         this.pos += 2;
         if (radix === 16) { const d = this.lexHexFloat(); if (d !== null) return tok.double(d); }
-        return tok.int(this.lexInteger(radix));
+        const text = this.lexIntegerText(radix);
+        if (this.peek === 'n') { this.pos++; return tok.bigint({ 16: '0x', 8: '0o', 2: '0b' }[radix] + text); }   // 0xffn: a BigInt literal
+        return tok.int(this.integer(text, radix));
       }
     }
     let text = '';
@@ -470,6 +473,11 @@ export class Lexer {
         const s = this.peek;
         if (s === '+' || s === '-') { text += s; this.pos++; }
       } else break digits;
+    }
+    if (this.peek === 'n') {                                          // 123n: a BigInt literal (round 201), any size
+      if (isDouble) throw SwiftalkError.syntax(`a BigInt literal is an integer: '${text}n' has a fraction or exponent`);
+      this.pos++;
+      return tok.bigint(text);
     }
     if (isDouble) {
       const d = Number(text);
@@ -504,14 +512,20 @@ export class Lexer {
     return parseHexFloat(text.slice(2), sign, expDigits);
   }
 
-  lexInteger(radix) {
+  /// The digits after a radix prefix; a trailing `n` is left for the caller.
+  lexIntegerText(radix) {
     let text = '';
     while (this.peek !== undefined && (isAlphabetic(this.peek) || isDigit(this.peek) || this.peek === '_')) {
+      if (this.peek === 'n') break;                                     // the BigInt suffix (round 201)
       if (this.peek !== '_') text += this.peek;
       this.pos++;
     }
+    if (!text.length) throw SwiftalkError.syntax(`invalid integer literal for radix ${radix}: '${text}'`);
+    return text;
+  }
+  integer(text, radix) {
     const digitsFor = { 16: /^[0-9a-fA-F]+$/, 8: /^[0-7]+$/, 2: /^[01]+$/ }[radix];
-    if (!text.length || !digitsFor.test(text)) throw SwiftalkError.syntax(`invalid integer literal for radix ${radix}: '${text}'`);
+    if (!digitsFor.test(text)) throw SwiftalkError.syntax(`invalid integer literal for radix ${radix}: '${text}'`);
     const prefix = { 16: '0x', 8: '0o', 2: '0b' }[radix];
     const i = BigInt(prefix + text);
     if (i > INT_MAX_LITERAL) throw SwiftalkError.syntax(`invalid integer literal for radix ${radix}: '${text}'`);

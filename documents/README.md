@@ -5,7 +5,7 @@ dispatches (round 68; derived from the evaluator, verified in the
 REPL). Sections in [Design.md](../Design.md) are cited as §n. **Where**
 says what ships the type (round 190): **Core** — the interpreter
 itself, there in every embedding; **Prelude** — a module the CLI
-preimports (`IO`, `Net`, `Regex`), there unless `--no-prelude`, an
+preimports (`IO`, `Net`, `Regex`, `Sequence`, `Task`, `BigInt`), there unless `--no-prelude`, an
 embedder's by `preimport()`; **Module** — imported on request
 (`import from "POSIX"`). Each page says the same under its title.
 
@@ -28,6 +28,7 @@ embedder's by `preimport()`; **Module** — imported on request
 | `Task` | Core | a spawned computation; `Task.sleep` is the Task module's (Prelude, round 192) | [Task.md](Task.md) |
 | `Tuple` | Core | a grab bag `(v0, v1, ...)`, one loose type | [Tuple.md](Tuple.md) |
 | `Regex` | Prelude (`Regex`) | `/pattern/flags` — the literal is grammar, the type the Regex module's (round 186) | [Regex.md](Regex.md) |
+| `BigInt` | Prelude (`BigInt`) | `123n` — arbitrary precision; the literal is grammar, the type the BigInt module's (round 201) | [BigInt.md](BigInt.md) |
 | `SION` | Core | the data format, built in: SION, JSON, property lists | [SION.md](SION.md) |
 | modules | Core | `import` / `export`, `.swt` files by path or URL; native modules | [module.md](module.md) |
 | `Result` | Core | built-in enum: `.success` / `.failure` | [Result.md](Result.md) |

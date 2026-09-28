@@ -15,4 +15,5 @@ export { SequenceModule } from './modules/Sequence.js';
 export { IOModule } from './modules/IO.js';
 export { NetModule } from './modules/Net.js';
 export { RegexModule, RegexValue } from './modules/Regex.js';
+export { BigIntModule, BigIntValue } from './modules/BigInt.js';
 export { preludeModules, preludeNames, withPrelude } from './prelude.js';

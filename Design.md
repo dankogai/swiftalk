@@ -2526,6 +2526,11 @@ permitting. The runtime is now feature-complete against the Swift
 core's corpus; what remains is the Character-level Regex, and whatever
 the notebook asks for once it is used.
 
+**Round 201** adds `js/src/modules/BigInt.js` beside the Swift module:
+the same members and operators over the platform's `BigInt`, the
+lexer's `123n` token, and the host operator hook (`operate`,
+`hasOperator`) in `userOperator`, `hasUserOperator`, and `compare`.
+
 ## 15. Modules — DECIDED (round 100)
 
 The user's spec, before the strict-`let`-with-`Any` round: "It will be
@@ -2834,6 +2839,40 @@ module's static, `print`'s sink, and the host's hooks were invisible
 inside `async { }` until the spawner's context travels with the thread,
 which it now does. The prelude is five modules: IO, Net, Regex,
 Sequence, Task.
+
+**`BigInt` is a module with a literal — DECIDED (round 201)** ("Add
+`BigInt` as a prelude module. You can extract implementation from
+swift-bignum for Swift (hey, it's us who implemented it) but do not make
+it SPM dependency. As for JS, just use native `BigInt` thereof. Literals
+follow the JS style, prefix `n` mandatory."). Round 186's shape, again:
+the literal `123n` is grammar — the lexer's, an Int literal's digits
+(any radix prefix, `_`) with JavaScript's `n` — and its meaning is the
+`BigInt` type in scope, an error naming the module when there is none.
+"JS style" is read as JS's own spelling, the `n` a suffix: `123n`,
+`0xffn`; the `n` is mandatory, so a twenty-digit number without it is
+still the Int overflow it always was, and `1.5n` is a syntax error.
+**The Swift engine is swift-bignum's `BigInt`, vendored**:
+`modules/BigInt/Vendored/` holds `BigUInt.swift`, `BigInt.swift`,
+`BigIntType.swift`, `Radix.swift` copied at a named commit with their
+MIT license, and nothing else of that package — no `BigRat`, `BigFloat`,
+primality, or random — so the umbrella package still fetches nothing.
+The JS engine is the platform's `BigInt`. **Strict**: a BigInt meets a
+BigInt, as an Int meets an Int (§3b) — `1n + 1`, `1n == 1`, `1n < 2`
+are type errors that name the conversion (`BigInt(x)`, `b.Int()`), a
+decision over implicit widening, which swiftalk has nowhere. Division
+and remainder are Int's (truncating, the dividend's sign); `**` takes a
+non-negative exponent; the Raku bitwise operators work at any width;
+`b.Int()` is an overflow error past 64 bits; `.String()` is `123n`, the
+source form that re-enters, `.String(.hex)` `0xffn`, `.String(radix)`
+bare digits; `power(e)`, `power(e, m)`, `squareRoot()`, `gcd(c)`,
+`magnitude`, `signum`, `bitWidth` follow Swift's names. **What the core
+grew**: a host value may answer operators — `HostValue.operate(key,
+operands)` and `hasOperator(key)`, the same keys a struct's operator
+members use (`"infix:+"`, `"prefix:-"`), asked wherever `userOperator`
+asks a struct, so comparisons, `sorted()`, and `**` reach a module's
+value; and the round-47 law reaches a host too: `Int(b)` is `b.Int()`,
+the host's member. Both runtimes, both corpora: the Swift tests are the
+JS fixtures, and they agree.
 
 ## Dialogue log
 

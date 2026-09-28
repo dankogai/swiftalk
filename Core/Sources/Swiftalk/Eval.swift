@@ -324,6 +324,16 @@ private func regexLiteral(_ pattern: String, _ flags: String, in env: Environmen
     return try construct([.string(pattern), .string(flags)])
 }
 
+/// `123n` (round 201): the BigInt module's — the `BigInt` type in scope
+/// is called with the digits (radix prefix included); without it the
+/// literal is an error naming the module, as a regex literal's is.
+private func bigintLiteral(_ text: String, in env: Environment) throws -> Value {
+    guard case .function(let t)? = try? env.lookup("BigInt"), case .type("BigInt") = t.role, let construct = t.builtin else {
+        throw SwiftalkError.type("\(text)n: a BigInt literal needs the BigInt module — import from \"BigInt\" (the CLI preimports it)")
+    }
+    return try construct([.string(text)])
+}
+
 func displayString(_ value: Value) throws -> String {
     if case .string(let s) = value { return s }
     return try valueSourceText(value)
@@ -1592,6 +1602,8 @@ func evaluate(_ expr: Expr, in env: Environment) throws -> Value {
     switch expr {
     case .regexLiteral(let pattern, let flags):
         return try regexLiteral(pattern, flags, in: env)
+    case .bigintLiteral(let text):
+        return try bigintLiteral(text, in: env)
     case .literal(let v):
         return v
     case .variable(let name):
@@ -1685,6 +1697,8 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
         return try evaluate(expr, in: env)     // handled on the hot path
     case .regexLiteral(let pattern, let flags):
         return try regexLiteral(pattern, flags, in: env)
+    case .bigintLiteral(let text):
+        return try bigintLiteral(text, in: env)
     case .literal(let v):
         return v
     case .variable(let name):
@@ -2570,6 +2584,9 @@ func userOperator(_ key: String, _ operands: [Value]) throws -> Value? {
         switch v {
         case .structValue(let sv): table = sv.type.operators
         case .enumCase(let ev):    table = ev.type.operators
+        case .host(let h):                                                   // a module's value (round 201: BigInt's arithmetic)
+            if let r = try h.operate(key, operands) { return r }
+            continue
         default: continue
         }
         if let fn = table[key] { return try apply(fn, args: operands.map { (nil, $0) }) }
@@ -2583,6 +2600,7 @@ func hasUserOperator(_ v: Value, _ key: String) -> Bool {
     switch v {
     case .structValue(let sv): return sv.type.operators[key] != nil
     case .enumCase(let ev):    return ev.type.operators[key] != nil
+    case .host(let h):         return h.hasOperator(key)
     default: return false
     }
 }
@@ -2590,6 +2608,7 @@ func hasUserOperator(_ v: Value, _ key: String) -> Bool {
 private func userTyped(_ v: Value) -> Bool {
     if case .structValue = v { return true }
     if case .enumCase(let ev) = v { return ev.type !== Builtins.resultType }
+    if case .host = v { return true }                                         // round 201: comparisons reach a module's value
     return false
 }
 
@@ -3985,6 +4004,11 @@ func convert(_ typeName: String, subject: Value?,
     if let subject, !asksCanonical(typeName, extra), let m = userConversion(subject, typeName) {
         let (bound, _) = try boundMethod(m, self: subject)
         return try apply(bound, args: extra)
+    }
+    // ...and a module's value (round 201): `Int(b)` is `b.Int()`, the
+    // host's member, labels dropped as a member's are
+    if case .host(let h)? = subject, let v = try h.member(typeName, args: extra.map(\.value), called: true) {
+        return v
     }
     let object = (Builtins.types[typeName] ?? Builtins.protocols[typeName])!
     if extra.isEmpty {

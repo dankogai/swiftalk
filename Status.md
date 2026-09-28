@@ -222,6 +222,41 @@ Set(
 )
 ```
 
+**`BigInt`** (round 201) — arbitrary-precision integers as a prelude
+module with a literal of its own, JS's `123n`; swift-bignum vendored
+for Swift, the platform's BigInt for JS; strict, a BigInt meets a BigInt:
+
+```text
+swiftalk> 123456789012345678901234567890n
+123456789012345678901234567890n
+swiftalk> 2n ** 256n
+115792089237316195423570985008687907853269984665640564039457584007913129639936n
+swiftalk> BigInt(Int.max) + 1n
+9223372036854775808n
+swiftalk> (1...30).reduce(1n) { acc, i in acc * BigInt(i) }
+265252859812191058636308480000000n
+swiftalk> 1n + 1
+type error: '+' between BigInt and Int: convert first — BigInt(x), or b.Int()
+swiftalk> (2n ** 100n).Int()
+overflow: 1267650600228229401496703205376n does not fit in an Int
+swiftalk> 255n.String(.hex)
+"0xffn"
+swiftalk> BigInt("0xdead_beef").String(16)
+"deadbeef"
+swiftalk> 3n.power(100n, 7n)
+4n
+swiftalk> [42n: "answer"][42n]
+"answer"
+swiftalk> switch 7n % 2n { case 1n: "odd" default: "even" }
+"odd"
+```
+
+```text
+$ swift run swiftalk -- --no-prelude
+swiftalk> 1n
+type error: 1n: a BigInt literal needs the BigInt module — import from "BigInt" (the CLI preimports it)
+```
+
 **The JavaScript runtime, milestone D** (round 200) — the prelude
 complete in JS (IO, Net, Regex join Task and Sequence), a bundler, and
 the notebook: `cd js && npm run build`, then open `dist/notebook.html`

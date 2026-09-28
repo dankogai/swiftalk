@@ -16,6 +16,8 @@ public extension Swiftalk.HostValue {
         return nil
     }
     func setMember(_ name: String, to value: Swiftalk.Value) throws -> Bool { false }
+    func operate(_ key: String, _ operands: [Swiftalk.Value]) throws -> Swiftalk.Value? { nil }
+    func hasOperator(_ key: String) -> Bool { false }
 }
 
 extension Swiftalk {
@@ -49,6 +51,15 @@ extension Swiftalk {
         /// false when the member is not assignable — an error then. The
         /// default takes nothing.
         func setMember(_ name: String, to value: Value) throws -> Bool
+        /// An operator with this value as an operand (round 201): `key` is
+        /// `"infix:+"`, `"prefix:-"`, `"postfix:!"` as a struct's operator
+        /// members are keyed; `operands` are all of them, in order, so the
+        /// object sees which side it is on. nil declines to the core's
+        /// meaning (and its error); the default declines everything.
+        /// Comparisons ask for `<` and `==` and derive the rest.
+        func operate(_ key: String, _ operands: [Value]) throws -> Value?
+        /// Whether `operate` answers `key` — `sorted()`'s Comparable question.
+        func hasOperator(_ key: String) -> Bool
     }
 
     /// A `Result` for a module to answer with (round 188): `.success(v)`

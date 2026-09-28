@@ -5,6 +5,9 @@ indirect enum Expr {
     /// `/pattern/flags` (round 86): grammar in the core, meaning in the
     /// Regex module — evaluated through the `Regex` type in scope (round 186).
     case regexLiteral(pattern: String, flags: String)
+    /// `123n` (round 201): grammar in the core, meaning in the BigInt
+    /// module — evaluated through the `BigInt` type in scope.
+    case bigintLiteral(String)
     case variable(String)
     case array([Expr])
     case dictionary([(Expr, Expr)])
@@ -1800,6 +1803,8 @@ struct Parser {
             // the literal is grammar; `Regex` in scope gives it meaning
             // (round 186) — compiled when evaluated, cached by the module
             return .regexLiteral(pattern: pattern, flags: flags)
+        case .bigint(let text):
+            return .bigintLiteral(text)                                     // likewise `BigInt` (round 201)
         case .interpolated(let segments):
             return .interpolation(try segments.map { segment in
                 switch segment {

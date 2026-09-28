@@ -988,6 +988,7 @@ export class Parser {
       case 'double': return { k: 'literal', v: k.v };
       case 'string': return { k: 'literal', v: k.v };
       case 'regex': return { k: 'regexLiteral', pattern: k.pattern, flags: k.flags };
+      case 'bigint': return { k: 'bigintLiteral', text: k.v };            // likewise `BigInt` in scope (round 201)
       case 'interpolated':
         return { k: 'interpolation', parts: k.segments.map((seg) => {
           if (seg.literal !== undefined) return { k: 'literal', v: seg.literal };

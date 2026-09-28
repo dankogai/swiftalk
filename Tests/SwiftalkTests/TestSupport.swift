@@ -14,7 +14,7 @@ func eval(_ source: String) throws -> Value {
 func interpreter(relaxed: Bool = false) throws -> Interpreter {
     let i = Interpreter(relaxed: relaxed)
     i.modulePath = [buildDirectory()].compactMap { $0 }
-    try i.preimport(["IO", "Net", "Regex", "Sequence", "Task"])
+    try i.preimport(["IO", "Net", "Regex", "Sequence", "Task", "BigInt"])
     return i
 }
 

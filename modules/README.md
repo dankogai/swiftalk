@@ -47,6 +47,15 @@ named with a capital like a type, by convention (round 183).
   (`Value.host`), an exported type, extensions of a core type, and
   calling a swiftalk closure from Swift. Preimported by the CLI —
   [documents/Regex.md](../documents/Regex.md).
+* **[BigInt/](BigInt/BigIntModule.swift)** — arbitrary-precision
+  integers (round 201): the `BigInt` type behind the literal `123n`
+  (JS's spelling, the `n` mandatory; grammar in the core), its
+  arithmetic through a host value's `operate` — the operator hook
+  round 201 gave module values — and `power`, `squareRoot`, `gcd`. The
+  engine is [swift-bignum](https://github.com/dankogai/swift-bignum),
+  vendored in [BigInt/Vendored/](BigInt/Vendored/README.md) rather than
+  depended on. Preimported by the CLI —
+  [documents/BigInt.md](../documents/BigInt.md).
 
 * **[Complex.swt](Complex.swt)** — C++'s `std::complex<double>` (round
   147): a struct with the arithmetic operators (either side may be a

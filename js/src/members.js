@@ -114,6 +114,11 @@ export function* convert(tn, subject, extra) {
     const m = userConversion(subject, tn);
     if (m) { const [bound] = boundMethod(m, subject); return yield* apply(bound, extra); }
   }
+  // ...and a module's value (round 201): `Int(b)` is `b.Int()`, the host's member, labels dropped
+  if (subject !== undefined && kindOf(subject) === 'host') {
+    const v = yield* callBuiltin((xs) => subject.object.member(tn, xs, true), extra.map((a) => a.value));
+    if (v !== undefined) return v;
+  }
   const object = Builtins.types.get(tn) ?? Builtins.protocols.get(tn);
   if (extra.length === 0) return yield* callBuiltin(object.builtin, subject === undefined ? [] : [subject]);
   switch (tn) {

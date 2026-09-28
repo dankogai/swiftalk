@@ -32,6 +32,7 @@ enum Token: Equatable {
     case punct(Character)     // [ ] ( ) { } : , . + - * / = ? ;
     case op(String)           // == != < <= > >=
     case regex(pattern: String, flags: String)   // /pattern/flags (round 86)
+    case bigint(String)       // 123n, 0xffn — JS's spelling (round 201): the digits with their radix prefix, the BigInt module's to read
     case newline              // statement separator (suppressed inside [ and ()
 }
 
@@ -313,7 +314,7 @@ struct Lexer {
                 && name != "true" && name != "false" && name != "nil"
         case .regex?:
             return false
-        case .int?, .double?, .string?, .interpolated?:
+        case .int?, .double?, .string?, .interpolated?, .bigint?:
             return false
         }
     }
@@ -591,7 +592,12 @@ struct Lexer {
                 if radix == 16, let d = try lexHexFloat() {
                     return .double(d)
                 }
-                return .int(try lexInteger(radix: radix))
+                let text = try lexIntegerText(radix: radix)
+                if peek == "n" {                                       // 0xffn: a BigInt literal (round 201)
+                    pos += 1
+                    return .bigint(["0b", "", "", "", "", "", "0o", "", "", "", "", "", "", "", "0x"][radix - 2] + text)
+                }
+                return .int(try integer(text, radix: radix))
             }
         }
         var text = ""
@@ -622,6 +628,11 @@ struct Lexer {
             default:
                 break digits
             }
+        }
+        if peek == "n" {                                               // 123n: a BigInt literal (round 201), any size
+            if isDouble { throw SwiftalkError.syntax("a BigInt literal is an integer: '\(text)n' has a fraction or exponent") }
+            pos += 1
+            return .bigint(text)
         }
         if isDouble {
             guard let d = Double(text) else {
@@ -686,13 +697,22 @@ struct Lexer {
         return d
     }
 
-    private mutating func lexInteger(radix: Int) throws -> Int64 {
+    /// The digits after a radix prefix — every alphanumeric, so a bad
+    /// digit is reported as such; a trailing `n` is left for the caller.
+    private mutating func lexIntegerText(radix: Int) throws -> String {
         var text = ""
         while let c = peek, c.properties.isAlphabetic || ("0"..."9").contains(c) || c == "_" {
+            if c == "n", radix < 24 { break }                             // the BigInt suffix (round 201) — a digit only in radix 24+
             if c != "_" { text.unicodeScalars.append(c) }
             pos += 1
         }
-        guard !text.isEmpty, let i = Int64(text, radix: radix) else {
+        guard !text.isEmpty else {
+            throw SwiftalkError.syntax("invalid integer literal for radix \(radix): '\(text)'")
+        }
+        return text
+    }
+    private func integer(_ text: String, radix: Int) throws -> Int64 {
+        guard let i = Int64(text, radix: radix) else {
             throw SwiftalkError.syntax("invalid integer literal for radix \(radix): '\(text)'")
         }
         return i

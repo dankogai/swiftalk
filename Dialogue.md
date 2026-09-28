@@ -2760,3 +2760,13 @@ the history. (Moved out of Design.md in round 65.)
   swiftalk cells with the whole prelude, autosaving, restartable. 2,665
   of 2,671 fixtures agree with the Swift core; the six that do not are
   Swift's Character-level Regex, pinned as known divergences.
+* **2026-09-29, round 201 — BigInt** ("Add `BigInt` as a prelude
+  module. You can extract implementation from swift-bignum for Swift
+  (hey, it's us who implemented it) but do not make it SPM dependency.
+  As for JS, just use native `BigInt` thereof. Literals follow the JS
+  style, prefix `n` mandatory."). A module with a literal, Regex's
+  shape: `123n` is grammar, the `BigInt` type in scope its meaning;
+  swift-bignum's integer files vendored into `modules/BigInt/Vendored`,
+  the JS module over the platform's BigInt. Strict — a BigInt meets a
+  BigInt. The core grew an operator hook for module values. "JS style"
+  read as the `n` suffix, `123n`.
