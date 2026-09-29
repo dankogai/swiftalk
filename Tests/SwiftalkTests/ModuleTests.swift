@@ -42,7 +42,7 @@ struct ModuleTests {
         #expect(try i.eval("count()") == .int(1))
         #expect(throws: SwiftalkError.self) { try i.eval("secret") }                       // unexported stays out
         #expect(throws: SwiftalkError.self) { try i.eval("G") }                            // no namespace was made
-        #expect(throws: SwiftalkError.self) { try i.eval("import from \"./geometry.swt\"") }   // twice: the names redeclare
+        #expect(try i.eval("import from \"./geometry.swt\"\ncount()") == .int(1))          // twice: the same values, a no-op (round 202)
         let j = interpreter(["m.swt": "let hidden = 1"])
         #expect(try j.eval("import from \"./m.swt\"\n1") == .int(1))                     // a module with no exports imports nothing
         let k = interpreter(["m.swt": "export let area = 1"])
@@ -57,7 +57,8 @@ struct ModuleTests {
         #expect(try i.eval("import (area, unit) from \"./geometry.swt\"\narea(2.0, 5.0) + unit") == .double(11))
         #expect(try i.eval("import G from \"./geometry.swt\"\nG.count()") == .int(1))   // the same instance
         #expect(throws: SwiftalkError.self) { try i.eval("import (secret) from \"./geometry.swt\"") }
-        #expect(throws: SwiftalkError.self) { try i.eval("import (area) from \"./geometry.swt\"") }   // redeclaration
+        #expect(try i.eval("import (area) from \"./geometry.swt\"\narea(1.0, 1.0)") == .double(1))   // again: the same value, a no-op (round 202)
+        #expect(throws: SwiftalkError.self) { try i.eval("let unit = 2.0") }                           // the imported let is a let
     }
 
     @Test("a module's scope: the builtins, never the importer's globals; export forms; only the top level")

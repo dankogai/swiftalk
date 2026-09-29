@@ -74,7 +74,7 @@ struct PreludeTests {
         #expect(out == "from a module\n")
         #expect(try i.eval("Response(status: 200).ok") == .bool(true))
         #expect(throws: SwiftalkError.self) { try i.eval("let print = 1") }            // a builtin, as ever
-        #expect(throws: SwiftalkError.self) { try i.eval("import from \"IO\"") }       // print is already bound
+        #expect(try i.eval("import from \"IO\"\nprint.Type == Function") == .bool(true))   // print is already bound to this: a no-op (round 202)
         let j = Swiftalk.Interpreter()
         j.modulePath = [dir]
         try j.preimport(["IO"])
