@@ -222,6 +222,28 @@ Set(
 )
 ```
 
+**`import` is idempotent** (round 202) — importing what is already
+bound to the same value is a no-op, so a script says what it needs and
+runs with or without the prelude:
+
+```text
+swiftalk> import from "BigInt"
+swiftalk> 2n ** 70n
+1180591620717411303424n
+swiftalk> import (print) from "IO"
+swiftalk> let Rational = 1
+1
+swiftalk> import from "./modules/Rational.swt"
+type error: redeclaration of 'Rational'
+```
+
+```text
+$ swift run swiftalk -- --no-prelude
+swiftalk> import from "BigInt"
+swiftalk> 2n ** 70n
+1180591620717411303424n
+```
+
 **`BigInt`** (round 201) — arbitrary-precision integers as a prelude
 module with a literal of its own, JS's `123n`; swift-bignum vendored
 for Swift, the platform's BigInt for JS; strict, a BigInt meets a BigInt:

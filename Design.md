@@ -2874,6 +2874,26 @@ value; and the round-47 law reaches a host too: `Int(b)` is `b.Int()`,
 the host's member. Both runtimes, both corpora: the Swift tests are the
 JS fixtures, and they agree.
 
+**`import` is idempotent — DECIDED (round 202)** ("How do you tell a
+type is available? e.g. whether `BigInt` is available while you do not
+know if you have Prelude. Resorting to `eval`?" — then "Make `import`
+idempotent as you recommend."). There was no way but `eval("BigInt")`'s
+Result, and worse, the natural line was refused: `import from "BigInt"`
+under the prelude was "redeclaration of 'BigInt' — a builtin", the
+file-scope rule of round 100, so a script could say what it needed only
+in the mode where it was missing. Now an import binds a name already
+bound to *this very value* — by the prelude, by an earlier import, the
+namespace type by an earlier `import M from` — by leaving it alone, the
+rule `preimport` has had since round 185; a name bound to anything else
+is the error it was. So a script's first line is `import from
+"BigInt"` (or `import (print) from "IO"`) and it runs the same with
+`--no-prelude` or without, which is Swift's own answer: there is no
+runtime probe, you import what you use. `eval("BigInt")` remains for
+the rare branch; a `defined(name)` at the top level was weighed and
+passed over — a String in, as `eval` takes, for one builtin name more.
+The Complex trap stays: under the prelude `IO` is the type, so `import
+IO from "IO"` still conflicts. Both runtimes.
+
 ## Dialogue log
 
 Moved to [Dialogue.md](Dialogue.md) (round 65) — append-only and

@@ -189,15 +189,21 @@ function* executeSlow(s, env, relaxed) {
       if (!modules) throw SwiftalkError.type('import needs a running Interpreter');
       const module = yield* modules.load(s.spec);
       const names = s.namespace === null && s.names.length === 0 ? module.names : s.names;
+      // idempotent (round 202): a name already bound to this very value is skipped; to anything else, the usual error
+      const bind = (name, value, lock) => {
+        const existing = env.tryLookup(name);
+        if (existing !== undefined && equals(existing, value)) return;
+        env.declare(name, new Binding(false, lock, value));
+      };
       if (s.namespace !== null) {
         const type = modules.namespaceType(module, s.namespace);
-        env.declare(s.namespace, new Binding(false, ann('Function'), type.constructor_));
+        bind(s.namespace, type.constructor_, ann('Function'));
       }
       for (const name of names) {
         const index = module.names.indexOf(name);
         if (index < 0) throw SwiftalkError.type(`module '${s.spec}' exports no '${name}'` + (module.names.length ? ` — it exports ${module.names.join(', ')}` : ''));
         const value = module.values[index];
-        env.declare(name, new Binding(false, ann(typeName(value), true), value));
+        bind(name, value, ann(typeName(value), true));
       }
       return null;
     }

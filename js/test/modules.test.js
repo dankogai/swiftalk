@@ -97,3 +97,21 @@ test('a bare Interpreter has no prelude; import brings a module by name', () => 
   assert.equal(bare.eval('import IO from "IO"\nIO.IO.stdout.Type == IO.IO'), true, 'the namespace and the type share a name — the Complex trap, accepted (round 191)');
   assert.equal(bare.eval('import (Regex) from "Regex"\n/x/.pattern'), 'x');
 });
+
+test('import is idempotent (round 202): what is already bound to the same value is skipped', async () => {
+  const [i, log] = make();
+  assert.equal(i.eval('import from "BigInt"\n(2n ** 70n).String()'), '1180591620717411303424n');   // the prelude brought it already
+  assert.equal(i.eval('import (print) from "IO"\nprint("still")'), null);
+  assert.equal(log.out, 'still\n');
+  i.moduleLoader = () => 'export let twice = { x in x * 2 }\nexport let name = "m"';
+  assert.equal(await i.evalAsync('import (twice) from "./m.swt"\ntwice(1)'), 2n);
+  assert.equal(await i.evalAsync('import (twice) from "./m.swt"\ntwice(2)'), 4n);
+  assert.equal(await i.evalAsync('import M from "./m.swt"\nimport M from "./m.swt"\nM.name'), 'm');
+  assert.equal(await i.evalAsync('import N from "./m.swt"\nN == M'), true);
+  await i.evalAsync('let other = 1');
+  const j = make()[0];
+  j.moduleLoader = () => 'export let other = 2';
+  await j.evalAsync('let other = 1');
+  await assert.rejects(j.evalAsync('import (other) from "./o.swt"'), (e) => /redeclaration/.test(e.description));
+  assert.throws(() => i.eval('import IO from "IO"'), (e) => /redeclaration/.test(e.description));   // the Complex trap stays
+});

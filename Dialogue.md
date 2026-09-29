@@ -2770,3 +2770,11 @@ the history. (Moved out of Design.md in round 65.)
   the JS module over the platform's BigInt. Strict — a BigInt meets a
   BigInt. The core grew an operator hook for module values. "JS style"
   read as the `n` suffix, `123n`.
+* **2026-09-29, round 202 — `import` is idempotent** ("How do you tell
+  a type is available? e.g. whether `BigInt` is available while you do
+  not know if you have Prelude. Resorting to `eval`?", then "Make
+  `import` idempotent as you recommend."). Importing what the prelude
+  already brought — or what an earlier import bound — is a no-op, so
+  `import from "BigInt"` is how a script says what it needs, with or
+  without the prelude; a name bound to something else is still the
+  error. `eval("BigInt")` stays the runtime probe; no `defined()`.

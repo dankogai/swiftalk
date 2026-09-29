@@ -715,11 +715,17 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
         // `import from` (round 148): no namespace, no list — every export,
         // bound by its own name
         let names = namespace == nil && names.isEmpty ? module.names : names
+        // Idempotent (round 202): a name already bound to this very value —
+        // by the prelude, or by an earlier import — is skipped, so
+        // `import from "BigInt"` says "I need this" whether or not the
+        // prelude brought it; bound to anything else, the usual error.
+        func bind(_ name: String, _ value: Value, lock: TypeAnnotation) throws {
+            if let existing = try? env.lookup(name), existing == value { return }
+            try env.declare(name, Binding(mutable: false, lock: lock, value: value))
+        }
         if let namespace {
             let type = modules.namespaceType(of: module, named: namespace)
-            try env.declare(namespace, Binding(
-                mutable: false, lock: TypeAnnotation(name: "Function", optional: false),
-                value: .function(type.constructor!)))
+            try bind(namespace, .function(type.constructor!), lock: TypeAnnotation(name: "Function", optional: false))
         }
         for name in names {
             guard let index = module.names.firstIndex(of: name) else {
@@ -727,8 +733,7 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
                     + (module.names.isEmpty ? "" : " — it exports \(module.names.joined(separator: ", "))"))
             }
             let value = module.values[index]
-            try env.declare(name, Binding(
-                mutable: false, lock: TypeAnnotation(name: value.typeName, optional: true), value: value))
+            try bind(name, value, lock: TypeAnnotation(name: value.typeName, optional: true))
         }
         return .nil
     case .exportS(let names, let declaration):

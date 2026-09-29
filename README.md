@@ -98,6 +98,7 @@ i * i == Complex(-1.0, 0.0)                   // true — and (*)(i, i), reduce(
 // "straße".uppercased(), s.lowercased(), "hello world".ucfirst(), s.lcfirst() — case mapping: Swift's two and Perl's two, on graphemes (round 195)
 // "  hello \n".trimmed(), "--x--".trimmed("-") — whitespace and newlines off both ends, or the graphemes you name (round 196)
 // 2n ** 256n, BigInt(Int.max) + 1n, (2n ** 100n).Int() — arbitrary precision, JS's `n` literal; a BigInt meets a BigInt; the BigInt module, swift-bignum vendored (round 201)
+// import from "BigInt" — say what you need: importing what the prelude already brought is a no-op, so a script runs with or without --no-prelude (round 202)
 // Complex(1.0, -2.0).String() == "(1.0-2.0.i)" — an expression that re-enters; Complex("(1.0-2.0.i)") reads it (round 154)
 // and exact fractions: modules/Rational.swt — Rational(3, 4) + 1 == Rational(7, 4), Double(Rational(3, 4)) == 0.75, Rational(3, 4).String() == "(3/4)", Rational("(3/4)"), 1.over(3)
 let hex    = 255.String(.hex)                 // "0xff"; .String(.sign, .hex) is "+0xff"; radix: 16 for bare "ff"

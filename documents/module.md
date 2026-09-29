@@ -9,7 +9,7 @@ file: `from` is required, and the "where" is a path or a URL.
 
 | Form | Meaning |
 |---|---|
-| `import from "./mod.swt"` | **every export, by its own name** (round 148) — the plain form: `import from "./modules/Complex.swt"` then `Complex(0.0, 1.0)`. A name already bound is the usual redeclaration error |
+| `import from "./mod.swt"` | **every export, by its own name** (round 148) — the plain form: `import from "./modules/Complex.swt"` then `Complex(0.0, 1.0)`. A name already bound to *this very value* — by the prelude, or by an earlier import — is skipped (round 202); bound to anything else, the usual redeclaration error |
 | `import M from "./mod.swt"` | every export under `M` — a **type whose statics are the exports** (round 184; a labeled tuple before), so `M.x` reads, `M.f(args)` calls through, `M.Point(x:)` constructs, `M` prints as `M`, `M.Type` is `Function`, and `M()` is an error: a module has no instances. `extension M { static let g = ... }` adds to it — for every importer, since the type object is one per module, named by its first importer and aliased by the next (`import N from` the same file: `N == M`). `M` is a `let`. Mind the trap: `import Complex from` makes `Complex` the *namespace*, so the struct is `Complex.Complex` — `import from` is what that sentence means |
 | `import (foo, bar) from "./mod.swt"` | the named exports, bound directly (as `let`s); a name the module does not export is an error that lists what it does. Parentheses, not braces |
 | `"./mod.swt"`, `"../lib/x.swt"`, `"/abs/x.swt"` | resolved **beside the importing file** (the CLI script, or the module doing the importing); the REPL resolves from the cwd |
@@ -157,4 +157,9 @@ and runs on: `/re/` literals, `Sequence.zip`, `Task.sleep` failing
 when reached. `swiftalk --no-prelude` (round
 187) skips all three: the top level has `eval` and nothing else, and
 `import from "IO"` or `import (Regex) from "Regex"` brings what a
-script wants.
+script wants. **`import` is idempotent** (round 202): importing what
+the prelude already brought is a no-op, so a script writes `import
+from "BigInt"` for what it needs and runs the same with `--no-prelude`
+or without; only a name bound to something else is an error. There is
+no runtime probe for a module beyond `eval("BigInt")`'s Result — you
+import what you use, as in Swift.
