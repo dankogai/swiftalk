@@ -11,7 +11,8 @@ spelling, and the `n` is mandatory: without it twenty digits are an Int
 overflow. The literal calls the `BigInt` type in scope; without it, it
 is an error naming the module. The Swift engine is
 [swift-bignum](https://github.com/dankogai/swift-bignum)'s `BigInt`,
-vendored into the module (not an SPM dependency); the JS engine is the
+vendored as the local package `modules/BigNum` (not an SPM dependency;
+shared with [BigRat](BigRat.md) since round 203); the JS engine is the
 platform's own `BigInt`.
 
 **Strict**, as swiftalk's numbers are (§3b): a BigInt meets a BigInt.

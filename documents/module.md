@@ -157,7 +157,7 @@ and runs on: `/re/` literals, `Sequence.zip`, `Task.sleep` failing
 when reached. `swiftalk --no-prelude` (round
 187) skips all three: the top level has `eval` and nothing else, and
 `import from "IO"` or `import (Regex) from "Regex"` brings what a
-script wants. **`import` is idempotent** (round 202): importing what
+script wants. The CLI's prelude since then also has **`BigInt`** and **`BigRat`** (rounds 201, 203). **`import` is idempotent** (round 202): importing what
 the prelude already brought is a no-op, so a script writes `import
 from "BigInt"` for what it needs and runs the same with `--no-prelude`
 or without; only a name bound to something else is an error. There is

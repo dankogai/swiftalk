@@ -43,6 +43,7 @@ const operators = new Set(['infix:+', 'infix:-', 'infix:*', 'infix:/', 'infix:%'
 
 export class BigIntValue {
   constructor(n, type) { this.n = n; this.type = type; this.typeName = 'BigInt'; }
+  get bigInt() { return this.n; }                    // what the BigRat module sees (round 203)
   make(v) { return new HostValue(new BigIntValue(v, this.type), this.type); }
   other(v, what) {
     if (kindOf(v) === 'host' && v.object instanceof BigIntValue) return v.object.n;
@@ -120,6 +121,7 @@ export class BigIntValue {
     const sides = operands.map((v) => {
       if (kindOf(v) === 'host' && v.object instanceof BigIntValue) return v.object.n;
       const k = kindOf(v);
+      if (k === 'host' && Array.isArray(v.object.bigRat)) throw SwiftalkError.type(`'${op}' between BigInt and BigRat: convert first — BigRat(b), or r.BigInt()`);
       if (k === 'int' || k === 'double' || k === 'byte') throw SwiftalkError.type(`'${op}' between BigInt and ${typeName(v)}: convert first — BigInt(x), or b.Int()`);
       throw SwiftalkError.type(`'${op}' is not defined between ${typeName(operands[0])} and ${typeName(operands[1])}`);
     });
@@ -169,7 +171,10 @@ export function BigIntModule() {
             if (!Number.isFinite(v) || Math.trunc(v) !== v) throw SwiftalkError.type(`BigInt(${sourceString(v)}): not an integer — round it first`);
             return make(BigInt(v));
           case 'string': { const p = parseLiteral(v); if (p === null) throw SwiftalkError.type(`BigInt("${v}"): not an integer literal`); return make(p); }
-          case 'host': if (v.object instanceof BigIntValue) return v; break;
+          case 'host':
+            if (v.object instanceof BigIntValue) return v;
+            if (Array.isArray(v.object.bigRat)) { const [n, d] = v.object.bigRat; return make(n / d); }   // truncation toward zero, as BigInt's / is (round 203)
+            break;
           default: break;
         }
         throw SwiftalkError.type(`cannot convert ${typeName(v)} to BigInt`);

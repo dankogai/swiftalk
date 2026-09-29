@@ -53,9 +53,21 @@ named with a capital like a type, by convention (round 183).
   arithmetic through a host value's `operate` — the operator hook
   round 201 gave module values — and `power`, `squareRoot`, `gcd`. The
   engine is [swift-bignum](https://github.com/dankogai/swift-bignum),
-  vendored in [BigInt/Vendored/](BigInt/Vendored/README.md) rather than
+  vendored as the local package [BigNum/](BigNum/README.md) rather than
   depended on. Preimported by the CLI —
   [documents/BigInt.md](../documents/BigInt.md).
+* **[BigRat/](BigRat/BigRatModule.swift)** — exact rationals (round
+  203): `BigRat(n, d)` over BigInts, reduced, the source form that
+  re-enters; `+ - * / **`, comparisons, Swift's rounding rules,
+  `numerator`/`denominator` as the BigInt module's values (found
+  through `Swiftalk.lookup`, new in round 203). The two modules
+  recognize each other's values through `Bridge.swift` in BigNum —
+  protocols in the library both link, since neither can see the
+  other's classes. Preimported by the CLI —
+  [documents/BigRat.md](../documents/BigRat.md).
+* **[BigNum/](BigNum/README.md)** — swift-bignum vendored, whole, as a
+  local package with a dynamic library product (round 203): one copy of
+  `BigInt` for both modules, the round-182 lesson.
 
 * **[Complex.swt](Complex.swt)** — C++'s `std::complex<double>` (round
   147): a struct with the arithmetic operators (either side may be a

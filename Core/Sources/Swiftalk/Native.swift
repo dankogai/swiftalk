@@ -166,6 +166,15 @@ extension Swiftalk {
     /// business (the Net module's `fetch` asks for "fetch" and falls
     /// back to curl). Resolve it before `offload`: a worker thread has
     /// no running Interpreter.
+    /// A global by name in the running Interpreter (round 203): what a
+    /// module reaches for when it needs another module's type — the
+    /// BigRat module makes `r.numerator` through `BigInt` in scope. nil
+    /// when there is no such name, or no Interpreter runs.
+    public static func lookup(_ name: String) -> Value? {
+        guard let interp = Interpreter.current else { return nil }
+        return try? interp.environment.lookup(name)
+    }
+
     public static func hook(_ name: String) -> (([Value]) throws -> Value)? {
         Interpreter.current?.hooks[name]
     }

@@ -20,9 +20,11 @@ let package = Package(
         .library(name: "POSIX", type: .dynamic, targets: ["POSIXModule"]),   // round 188: Env grown up — the environment and file I/O
         .library(name: "Regex", type: .dynamic, targets: ["RegexModule"]),    // round 186: the regex engine
         .library(name: "BigInt", type: .dynamic, targets: ["BigIntModule"]),  // round 201: arbitrary-precision Ints, swift-bignum vendored
+        .library(name: "BigRat", type: .dynamic, targets: ["BigRatModule"]),  // round 203: exact rationals, the same engine
     ],
     dependencies: [
         .package(path: "Core"),
+        .package(path: "modules/BigNum"),   // swift-bignum vendored, a dynamic library both BigInt and BigRat share (round 203)
     ],
     targets: [
         .executableTarget(name: "SwiftalkCLI", dependencies: [.product(name: "Swiftalk", package: "Core")]),
@@ -32,7 +34,8 @@ let package = Package(
         .target(name: "TaskModule", dependencies: [.product(name: "Swiftalk", package: "Core")], path: "modules/Task"),
         .target(name: "POSIXModule", dependencies: [.product(name: "Swiftalk", package: "Core")], path: "modules/POSIX"),
         .target(name: "RegexModule", dependencies: [.product(name: "Swiftalk", package: "Core")], path: "modules/Regex"),
-        .target(name: "BigIntModule", dependencies: [.product(name: "Swiftalk", package: "Core")], path: "modules/BigInt", exclude: ["Vendored/README.md", "Vendored/LICENSE"]),
+        .target(name: "BigIntModule", dependencies: [.product(name: "Swiftalk", package: "Core"), .product(name: "BigNum", package: "BigNum")], path: "modules/BigInt"),
+        .target(name: "BigRatModule", dependencies: [.product(name: "Swiftalk", package: "Core"), .product(name: "BigNum", package: "BigNum")], path: "modules/BigRat"),
         .testTarget(name: "SwiftalkTests", dependencies: [.product(name: "Swiftalk", package: "Core")]),
     ]
 )

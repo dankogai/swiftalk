@@ -1,10 +1,12 @@
 import Swiftalk
+import BigNum
 
 // `BigInt` — arbitrary-precision integers (round 201), a module: the type
 // `BigInt` behind the literal `123n` — JS's spelling, the `n` mandatory,
 // whose grammar is the core's — and its arithmetic. The engine is
 // swift-bignum's `BigInt` (github.com/dankogai/swift-bignum), vendored
-// in `Vendored/` rather than depended on. Preimported by the CLI;
+// as the local package `modules/BigNum` (round 203; in `Vendored/` here
+// in round 201) rather than depended on. Preimported by the CLI;
 // `import from "BigInt"` otherwise.
 //
 //     let f = (1n...100n).reduce(1n, *)      // no overflow, ever      (Range is Int-only; see .power)
@@ -19,10 +21,11 @@ import Swiftalk
 // or a Double — convert first. Division truncates and `%` follows the
 // dividend's sign, as Int's do; dividing by zero is the core's error.
 
-final class BigIntValue: Swiftalk.HostValue {
+final class BigIntValue: Swiftalk.HostValue, BigIntCarrier {
     let n: BigInt
     let type: Swiftalk.Value
     init(_ n: BigInt, type: Swiftalk.Value) { self.n = n; self.type = type }
+    var bigInt: BigInt { n }                       // what the BigRat module sees (round 203)
 
     var typeName: String { "BigInt" }
     func make(_ v: BigInt) -> Swiftalk.Value { .host(BigIntValue(v, type: type)) }
@@ -131,6 +134,8 @@ final class BigIntValue: Swiftalk.HostValue {
             switch v {
             case .int, .double, .byte:
                 throw Swiftalk.Error.type("'\(op)' between BigInt and \(v.typeName): convert first — BigInt(x), or b.Int()")
+            case .host(let h) where h is BigRatCarrier:
+                throw Swiftalk.Error.type("'\(op)' between BigInt and BigRat: convert first — BigRat(b), or r.BigInt()")
             default:
                 throw Swiftalk.Error.type("'\(op)' is not defined between \(operands[0].typeName) and \(operands[1].typeName)")
             }
@@ -199,6 +204,7 @@ func build() -> Swiftalk.Module {
                 return make(v)
             case .host(let h):
                 if let b = h as? BigIntValue { return .host(b) }
+                if let r = h as? BigRatCarrier { return make(r.bigRat.rounded(.towardZero).numerator) }   // truncation, as Int(d) is (round 203)
                 throw Swiftalk.Error.type("cannot convert \(args[0].typeName) to BigInt")
             default:
                 throw Swiftalk.Error.type("cannot convert \(args[0].typeName) to BigInt")

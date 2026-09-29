@@ -2874,6 +2874,34 @@ value; and the round-47 law reaches a host too: `Int(b)` is `b.Int()`,
 the host's member. Both runtimes, both corpora: the Swift tests are the
 JS fixtures, and they agree.
 
+**`BigRat` is a module beside it — DECIDED (round 203)** ("Add `BigRat`
+as a prelude module the same way"). Exact rationals: a BigInt over a
+BigInt, reduced on construction, the sign in the numerator, so equality
+is by value and a BigRat is a Dictionary key. No literal — `BigRat(1,
+3)` is the constructor and the source form, and it re-enters; from an
+Int, a BigInt, a Double *exactly* (`BigRat(0.1)` is the binary
+fraction the Double is, as swift-bignum reads it), or text (`"1/3"`,
+`"0.1"`, `"1e-2"`). Strict, as BigInt is. `+ - * /`, `**` with a
+negative exponent (the reciprocal's power), comparisons, Swift's
+rounding rules by name (`rounded(.down)`), `numerator`/`denominator`
+as BigInts, `.String(.fraction)` and `.String(.mixed)`. **REVISED
+(round 201's vendoring)**: the engine moved from `modules/BigInt/
+Vendored/` to a **local package with a dynamic library product**,
+`modules/BigNum`, holding all of swift-bignum's `BigNum` target at the
+same commit, because two modules now use it and a same-package target
+would be linked statically into each — two `BigInt`s, the round-182
+problem over again; the package declares tools 5.9 so the Swift 5
+sources compile as upstream compiles them. Two modules that cannot see
+each other's classes recognize each other's values through
+`Bridge.swift` in that shared library — `BigIntCarrier`,
+`BigRatCarrier` — and a module that needs another module's *type* (the
+BigRat module makes `r.numerator` a BigInt of the BigInt module's)
+finds it by name in the running Interpreter through `Swiftalk.lookup`,
+new in the module API: without BigInt in scope, `r.numerator` is an
+error naming the module. The JS module is a pair of the platform's
+BigInts and finds `BigInt` the same way. The prelude is seven modules:
+IO, Net, Regex, Sequence, Task, BigInt, BigRat.
+
 **`import` is idempotent — DECIDED (round 202)** ("How do you tell a
 type is available? e.g. whether `BigInt` is available while you do not
 know if you have Prelude. Resorting to `eval`?" — then "Make `import`

@@ -222,6 +222,36 @@ Set(
 )
 ```
 
+**`BigRat`** (round 203) — exact rationals over BigInts as a prelude
+module, the same engine; no literal, `BigRat(1, 3)` re-enters:
+
+```text
+swiftalk> BigRat(1, 3) + BigRat(1, 6)
+BigRat(1, 2)
+swiftalk> BigRat(0.1)
+BigRat(3602879701896397, 36028797018963968)
+swiftalk> BigRat("1e-2")
+BigRat(1, 100)
+swiftalk> let r = BigRat(7, 3)
+BigRat(7, 3)
+swiftalk> r.numerator
+7n
+swiftalk> r.Double()
+2.3333333333333335
+swiftalk> r.rounded(.down)
+BigRat(2, 1)
+swiftalk> r ** -2
+BigRat(9, 49)
+swiftalk> r.String(.mixed)
+"2 1/3"
+swiftalk> r * 3n
+type error: '*' between BigRat and BigInt: convert first — BigRat(b), or r.BigInt()
+swiftalk> r * BigRat(3) == BigRat(7)
+true
+swiftalk> [BigRat(1, 2), BigRat(1, 3)].sorted()
+[BigRat(1, 3), BigRat(1, 2)]
+```
+
 **`import` is idempotent** (round 202) — importing what is already
 bound to the same value is a no-op, so a script says what it needs and
 runs with or without the prelude:

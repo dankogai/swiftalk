@@ -2778,3 +2778,10 @@ the history. (Moved out of Design.md in round 65.)
   `import from "BigInt"` is how a script says what it needs, with or
   without the prelude; a name bound to something else is still the
   error. `eval("BigInt")` stays the runtime probe; no `defined()`.
+* **2026-09-30, round 203 — BigRat** ("Add `BigRat` as a prelude module
+  the same way"). Exact rationals over BigInts, no literal, `BigRat(1,
+  3)` the source form that re-enters; strict like BigInt; Swift's
+  rounding rules. The vendored swift-bignum became a local package with
+  a dynamic library both modules share (the round-182 lesson), with
+  bridge protocols for the two modules' values and `Swiftalk.lookup`
+  for a module to find another's type. Both runtimes; 79 new fixtures.

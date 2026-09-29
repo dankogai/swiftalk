@@ -109,11 +109,11 @@ let defaultModulePath: [String] = {
 }()
 
 /// The CLI's prelude (rounds 185–201): IO and Net, which a CLI cannot
-/// do without, then Regex, Sequence, Task, and BigInt from the module path —
+/// do without, then Regex, Sequence, Task, BigInt, and BigRat from the module path —
 /// each missing one is said once on stderr and lived without.
 func installPrelude(_ interp: Swiftalk.Interpreter) throws {
     try interp.preimport()
-    for name in ["Regex", "Sequence", "Task", "BigInt"] {
+    for name in ["Regex", "Sequence", "Task", "BigInt", "BigRat"] {
         do {
             try interp.preimport([name])
         } catch {
@@ -129,7 +129,7 @@ func installPrelude(_ interp: Swiftalk.Interpreter) throws {
 /// after the path is the script's.
 let usage = """
     usage: swiftalk [--no-prelude] [file.swt]
-      --no-prelude   start without the prelude modules (IO, Net, Regex, Sequence, Task, BigInt): only eval at the top level
+      --no-prelude   start without the prelude modules (IO, Net, Regex, Sequence, Task, BigInt, BigRat): only eval at the top level
       --help, -h     this message
     With no file, the REPL — :h for its commands.
 

@@ -3,7 +3,7 @@
 The core runtime — the interpreter of `Core/Sources/Swiftalk` — ported to
 JavaScript (round 197 onward), so swiftalk runs wherever a modern JS
 engine does: Node 22+, and the browser — the core, the prelude (IO,
-Net, Regex, Sequence, Task, BigInt) as JS modules, and a notebook page. What the Swift core does, this does, checked against the same
+Net, Regex, Sequence, Task, BigInt, BigRat) as JS modules, and a notebook page. What the Swift core does, this does, checked against the same
 corpus: `tools/extract-fixtures.mjs` turns every `eval(source) == value`
 expectation in `Tests/SwiftalkTests` into JSON, and the tests here run
 the JS runtime over it.
@@ -27,7 +27,7 @@ a file — the runtime is inlined.
 ```js
 import { Swiftalk, Interpreter, withPrelude } from './src/index.js';
 Swiftalk.eval('[1, 2, 3].map { $0 * $0 }.reduce(0, +)');   // 14n — Int is a BigInt
-const i = withPrelude(new Interpreter());                  // IO, Net, Regex, Sequence, Task, BigInt, as the CLI has them
+const i = withPrelude(new Interpreter());                  // IO, Net, Regex, Sequence, Task, BigInt, BigRat, as the CLI has them
 i.output = (s) => process.stdout.write(s);                 // where print goes
 i.hooks.set('readLine', () => 'a line');                   // what the host lends: readLine, openFile, fetch — may return a Promise
 i.eval('let x = 40'); i.eval('print(x + 2)');
@@ -52,7 +52,7 @@ stderr, files, and `.swt` modules from disk or URLs.
 | `src/formats.js` | SION text, JSON, XML and binary property lists, string escapes |
 | `src/scheduler.js` | the cooperative scheduler, Task.swift without threads: contexts are generators, requests (spawn, await, sleep, offload, yield) pass the baton; `AsyncScheduler` on timers and Promises, `SyncScheduler` on a virtual clock |
 | `src/modules.js` | the module API (`Module.function/export/type/extend/static/prelude`) and system (`register`, bare-name and `.swt` imports through `Interpreter.moduleLoader`, namespace types) |
-| `src/modules/` | the prelude in JS: `IO.js` (`print`, `debugPrint`, `readLine`, the `IO` handle type), `Net.js` (`fetch`, `Response`), `Regex.js` (the `Regex` type behind `/re/`, String's regex members — over RegExp; see its FIXME), `Sequence.js` (`Sequence.zip`), `Task.js` (`Task.sleep`), `BigInt.js` (the `BigInt` type behind `123n`, over the platform's BigInt) |
+| `src/modules/` | the prelude in JS: `IO.js` (`print`, `debugPrint`, `readLine`, the `IO` handle type), `Net.js` (`fetch`, `Response`), `Regex.js` (the `Regex` type behind `/re/`, String's regex members — over RegExp; see its FIXME), `Sequence.js` (`Sequence.zip`), `Task.js` (`Task.sleep`), `BigInt.js` (the `BigInt` type behind `123n`, over the platform's BigInt), `BigRat.js` (exact rationals, a pair of them) |
 | `src/prelude.js` | `withPrelude(interp)`: the five registered and preimported |
 | `src/host/node.js` | what Node lends: stdin, stdout, stderr, files, module loading |
 | `notebook.html` | the notebook page (loads `src/index.js`; `npm run build` inlines it) |
