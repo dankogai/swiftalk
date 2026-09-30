@@ -27,7 +27,7 @@ Date, was retired then; `SION` covers it.)
 | `SION(propertyList: text)` | read an XML property list (`<plist>`, `<dict>`/`<key>`, `<array>`, `<string>`, `<integer>`, `<real>`, `<true/>`, `<false/>`, `<date>` ISO 8601, `<data>` base64; entities; comments) |
 | `v.String(.propertyList)` | write one, Apple's layout — keys sorted, tabs; **nil and non-String keys are errors** (property lists have neither) |
 | `SION(propertyList: data)` | read Apple's binary form, `bplist00` |
-| `v.Data(.propertyList)` | write it |
+| `Data(v, .propertyList)` | write it (`v.Data(.propertyList)` is no member since round 208 — `.Data()` is a String's) |
 | `let x: SION = ...` | the annotation (round 59) still names the union — a mixed-key Dictionary, say, needs it under strict inference |
 
 A document that does not parse is a **type error with a position**,
@@ -45,7 +45,7 @@ doc.String()                          // the same document back, keys sorted
 doc.String(.json)                     // {"1.0":"goes","bytes":"AQID","name":"swiftalk","nil":"any key","when":0.0}
 let p: SION = ["n": 42, "tags": ["a", "b"]]
 SION(propertyList: p.String(.propertyList)) == p     // true
-SION(propertyList: p.Data(.propertyList)) == p       // true — bplist00, plutil-verified
+SION(propertyList: Data(p, .propertyList)) == p      // true — bplist00, plutil-verified
 ```
 
 msgPack and YAML: later.

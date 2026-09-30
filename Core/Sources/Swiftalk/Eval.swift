@@ -4239,13 +4239,13 @@ private func stringFormat(_ subject: Value,
     }
 }
 
-/// `.Bool()`, `.Int()`, `.Double()`, `.Byte()` are a String's parses and
-/// nothing else's (rounds 205–207): the places the round-47 law does not run
+/// `.Bool()`, `.Int()`, `.Double()`, `.Byte()`, `.Data()` are a String's parses
+/// and nothing else's (rounds 205–208): the places the round-47 law does not run
 /// both ways — `Int(x)` converts, `x.Int()` is no member. A type's own
 /// member of the name (round 151: `let Double = { }`) or an extension's
 /// is the type's, and stands.
 private func parseOnly(_ typeName: String, _ receiver: Value, called: Bool, env: Environment) throws {
-    guard called, typeName == "Bool" || typeName == "Int" || typeName == "Double" || typeName == "Byte" else { return }
+    guard called, ["Bool", "Int", "Double", "Byte", "Data"].contains(typeName) else { return }
     if case .string = receiver { return }
     if userConversion(receiver, typeName) != nil || lookupExtension(env, receiver.typeName, typeName) != nil { return }
     let hint = typeName == "Bool" ? "a Bool is a Bool already, and an Int is not one (i != 0)" : "\(typeName)(x) converts"
@@ -4264,8 +4264,8 @@ private func plainValues(_ args: [(label: String?, value: Value)], for member: S
 private func method(on receiver: Value, name: String,
                     args labeledArgs: [(label: String?, value: Value)], called: Bool,
                     env: Environment) throws -> Value {
-    // `.Bool()`, `.Int()`, `.Double()`, `.Byte()` are a String's parses and
-    // nothing else's (rounds 205–207): the constructors convert. A type's own
+    // `.Bool()`, `.Int()`, `.Double()`, `.Byte()`, `.Data()` are a String's parses
+    // and nothing else's (rounds 205–208): the constructors convert. A type's own
     // member of that name (round 151) is the type's, and answers.
     try parseOnly(name, receiver, called: called, env: env)
     // A module's extension of a core type (round 186) answers first, a

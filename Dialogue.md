@@ -2806,3 +2806,9 @@ the history. (Moved out of Design.md in round 65.)
   for `.Byte()`: parse on String only"). The fourth and last of the
   parsing constructors: `"255".Byte()` parses, `7.Byte()` is no member,
   `Byte(7)` converts. Both runtimes.
+* **2026-10-01, round 208 — `.Data()` on String only** ("Do the same
+  for `.Data()`: parse on String only"). The fifth: `s.Data()` decodes
+  base64 and `s.Data(.utf8)` encodes, a String's both; `[1, 2].Data()`
+  and `v.Data(.propertyList)` are no members, `Data([1, 2])` and
+  `Data(v, .propertyList)` convert. Revises round 207's "no more".
+  Both runtimes.

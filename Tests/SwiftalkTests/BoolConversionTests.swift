@@ -81,4 +81,21 @@ struct BoolConversionTests {
         #expect(throws: SwiftalkError.self) { try eval("let B = Byte\n7.B()") }
         #expect(try eval("eval(\"7.Byte()\") == .failure(\"unknown member: Int.Byte() — .Byte() is a String's parse; Byte(x) converts\")") == .bool(true))
     }
+
+    @Test(".Data() likewise (round 208): a String's base64 parse and .utf8 encoding; Data(x) and Data(x, .propertyList) convert")
+    func dataOnStringOnly() throws {
+        #expect(try eval("\"AQID\".Data()") == .data([1, 2, 3]))
+        #expect(try eval("\"hi\".Data(.utf8)") == .data([104, 105]))
+        #expect(try eval("\"***\".Data() == nil") == .bool(true))
+        #expect(try eval("Data([1, 2])") == .data([1, 2]))
+        #expect(try eval("Data([Byte(255)])") == .data([255]))
+        #expect(try eval("Data(\"x\", .propertyList)[0..<6].String(.utf8)") == .string("bplist"))
+        #expect(try eval("Data(Data([9]))") == .data([9]))
+        #expect(throws: SwiftalkError.self) { try eval("[1, 2].Data()") }
+        #expect(throws: SwiftalkError.self) { try eval("[1, 2].Data(.propertyList)") }
+        #expect(throws: SwiftalkError.self) { try eval("Data([9]).Data()") }
+        #expect(throws: SwiftalkError.self) { try eval("42.Data(.utf8)") }
+        #expect(throws: SwiftalkError.self) { try eval("let D = Data\n[1].D()") }
+        #expect(try eval("eval(\"[1].Data()\") == .failure(\"unknown member: Array.Data() — .Data() is a String's parse; Data(x) converts\")") == .bool(true))
+    }
 }

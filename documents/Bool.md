@@ -12,7 +12,7 @@ o + 1 }` (round 80) — and inside, `o` is itself.
 |---|---|
 | `Bool()` | `false` |
 | `Bool(b)` | `b` |
-| `Bool("true")`, `Bool("false")`, `s.Bool()` | the value; any other String → `nil` (failable). `.Bool()` is a String's alone (round 205; `.Int()`, `.Double()`, `.Byte()` likewise since 206–207): `true.Bool()` and `1.Bool()` are no members — the exceptions to the round-47 law |
+| `Bool("true")`, `Bool("false")`, `s.Bool()` | the value; any other String → `nil` (failable). `.Bool()` is a String's alone (round 205; `.Int()`, `.Double()`, `.Byte()`, `.Data()` likewise since 206–208): `true.Bool()` and `1.Bool()` are no members — the exceptions to the round-47 law |
 | `Bool(i)` for an Int | a type error naming the idiom — `i != 0` (round 204; from round 105 to 203 it was that conversion). Nothing is truthy, not even by conversion |
 | `Bool(x)` for other types | type error |
 | `b == c`, `b != c` | equality |

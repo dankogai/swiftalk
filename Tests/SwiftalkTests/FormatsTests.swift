@@ -114,15 +114,16 @@ struct FormatsTests {
     @Test("property lists, binary: bplist00 out and in, verified against Apple's own writer")
     func plistBinary() throws {
         let p = #"let p: SION = ["name": "swiftalk", "u": "héllo", "n": 97, "neg": -1, "big": 3000000000, "huge": 9223372036854775807, "r": 0.5, "on": true, "off": false, "when": .Date(1234567890.0), "bytes": Data("AQID"), "list": [1, "two", [0.25]], "empty": [:], "sixteen": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]]"# + "\n"
-        #expect(try eval(p + "p.Data(.propertyList)[0..<8].String(.utf8)") == .string("bplist00"))
-        #expect(try eval(p + "SION(propertyList: p.Data(.propertyList)) == p") == .bool(true))
-        #expect(try eval("SION(propertyList: [].Data(.propertyList))") == .array([]))
+        #expect(try eval(p + "Data(p, .propertyList)[0..<8].String(.utf8)") == .string("bplist00"))   // the constructor spelling: .Data() is a String's alone (round 208)
+        #expect(try eval(p + "SION(propertyList: Data(p, .propertyList)) == p") == .bool(true))
+        #expect(try eval("SION(propertyList: Data([], .propertyList))") == .array([]))
+        #expect(throws: SwiftalkError.self) { try eval(p + "p.Data(.propertyList)") }
         #expect(try eval("SION(propertyList: \"x\".Data(.propertyList))") == .string("x"))
         // a plist written by plutil -convert binary1 from swiftalk's XML
         #expect(try eval("let v: SION = SION(propertyList: Data(\"YnBsaXN0MDDZAQIDBAUGBwgJCgsMDQ4PECElVHdoZW5Sb25VZW1wdHlVYnl0ZXNXdmVyc2lvblVyYXRpb1NiaWdUbGlzdFRuYW1lM0GujHSkAAAACdBDAQIDEGEjP+AAAAAAAACvEBAREhMUFRYXGBkaGxwdHh8gEAEQAhADEAQQBRAGEAcQCBAJEAoQCxAMEA0QDhAPEBCkESIjJGUAaADpAGwAbABvE///////////ErLQXgBYc3dpZnRhbGsIGyAjKS83PUFGS1RVVlpcZXh6fH6AgoSGiIqMjpCSlJaYnaixtgAAAAAAAAEBAAAAAAAAACYAAAAAAAAAAAAAAAAAAAC/\"))\n[v[\"when\"], v[\"list\"], v[\"big\"].count, v[\"bytes\"]]")
                 == .array([.date(1234567890), .array([.int(1), .string("héllo"), .int(-1), .int(3000000000)]), .int(16), .data([1, 2, 3])]))
-        #expect(throws: SwiftalkError.self) { try eval("[nil].Data(.propertyList)") }
-        #expect(throws: SwiftalkError.self) { try eval("[1: 2].Data(.propertyList)") }
+        #expect(throws: SwiftalkError.self) { try eval("Data([nil], .propertyList)") }
+        #expect(throws: SwiftalkError.self) { try eval("Data([1: 2], .propertyList)") }
         #expect(throws: SwiftalkError.self) { try eval("SION(propertyList: Data(\"AAAA\"))") }
         #expect(throws: SwiftalkError.self) { try eval("SION(propertyList: 1)") }
         #expect(throws: SwiftalkError.self) { try eval("42.Data(.utf8)") }

@@ -31,7 +31,7 @@ print(SION(json: #"{"a": [1, 2.5, -3e2, "\u00e9", null, {"b": false}]}"#))
 let xml = config.String(.propertyList)
 print(xml.split("\n")[3...5].joined("\n"))
 print(SION(propertyList: xml) == config)
-let bin = config.Data(.propertyList)
+let bin = Data(config, .propertyList)
 print(bin[0..<8].String(.utf8), bin.count)
 print(SION(propertyList: bin) == config)
 

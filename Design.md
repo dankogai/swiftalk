@@ -502,8 +502,8 @@ string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bar
   constructor's `.name` (a `String`, mandatory on constructors,
   `nil` on anonymous functions) gives the name back.
 * **The two spellings are one operation — by law** (round 47,
-  closing round 39's OPEN; **the exceptions since rounds 205–207**: `.Bool()`,
-  `.Int()`, `.Double()`, `.Byte()` are a String's parses alone — the constructors have no method spelling): `x.TypeName(tag: ...)` is normally
+  closing round 39's OPEN; **the exceptions since rounds 205–208**: `.Bool()`,
+  `.Int()`, `.Double()`, `.Byte()`, `.Data()` are a String's parses alone — the constructors have no method spelling): `x.TypeName(tag: ...)` is normally
   identical to `TypeName(x, tag: ...)`, format arguments included —
 
   ```swift
@@ -1345,7 +1345,21 @@ only") adds the fourth: `"255".Byte()` parses, `7.Byte()` is no
 member, `Byte(7)` converts. That is every constructor that parses a
 String — `String` itself has no parse to be alone with, and the rest
 (`Data`, `SION`, `Date`, ...) read a String as one of several sources,
-which is the law's own case, not this one.
+which is the law's own case, not this one **(REVISED, round 208: Data
+joins them — see below)**.
+
+**`.Data()` likewise — DECIDED (round 208)** ("Do the same for
+`.Data()`: parse on String only"). Round 207 drew the line at the
+constructors that *only* parse; the user draws it at the method
+spelling: `s.Data()` decodes base64 and `s.Data(.utf8)` encodes — a
+String's both — and on anything else `.Data(...)` is no member:
+`[1, 2].Data()`, `v.Data(.propertyList)` (round 97's), `d.Data()`, the
+round-111 alias. The constructor side is untouched and takes the
+format argument as it always did: `Data([1, 2])`, `Data(v,
+.propertyList)`, `Data(d)`. So the law's exceptions are the five
+constructors whose String argument is a parse, whatever else they
+take. `examples/formats.swt` and the SION and Data pages moved to the
+constructor spelling. Both runtimes.
 
 **Loop labels; `forEach` — DECIDED (round 156)** ("Support loop
 labels. Without it it makes little difference from `.map{}`. Should

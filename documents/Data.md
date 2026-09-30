@@ -22,7 +22,7 @@ is `.Data("base64")`, and `Data(s)` decodes base64.
 | `d.String()` | source form: `.Data("Y2Fmw6k=")` — re-enters |
 | `d.debugDescription` | the bytes in hex: `Data([0x63, 0x61])` — re-enters too |
 | `d.String(.json)` | a base64 String (JSON has no bytes) |
-| `v.Data(.propertyList)` | any SION value as a binary property list — see [SION.md](SION.md) |
+| `Data(v, .propertyList)` | any SION value as a binary property list — see [SION.md](SION.md). The method spelling `.Data(...)` is a String's alone (round 208): `s.Data()` decodes base64, `s.Data(.utf8)` encodes; `[1, 2].Data()` is no member, `Data([1, 2])` converts |
 | `d == e` | byte equality; usable as a Dictionary key |
 | `Data.random(n)` | n random bytes from the system generator (round 116) |
 | `for b in d`, `d.map`, `d.filter`, `d.reduce`, `d.contains`, `d.sorted`, … | **a Sequence of its bytes, as Bytes** (rounds 115/116): every Sequence member; `filter`, `prefix`, `suffix`, `dropFirst`, `dropLast`, `split` give Datas back, `map`/`sorted`/`reversed` Arrays — Swift's shapes |

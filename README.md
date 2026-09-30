@@ -102,7 +102,7 @@ i * i == Complex(-1.0, 0.0)                   // true — and (*)(i, i), reduce(
 // BigRat(1, 3) + BigRat(1, 6) == BigRat(1, 2), BigRat(0.1), r.rounded(.down), r ** -2 — exact rationals over BigInts; the BigRat module, the same engine (round 203)
 // Bool(1) is a type error — write i != 0; Bool takes a Bool or "true"/"false" (round 204, revising 105): nothing is truthy, not even by conversion
 // "true".Bool() parses, and .Bool() is a String's alone — true.Bool() is no member, Bool(b) the constructor stays (round 205: the round-47 law's first exception)
-// "42".Int(), "1.5".Double(), "255".Byte() likewise: the parses are a String's, Int(3.9), Double(2), Byte(7) convert, 3.9.Int() is no member (rounds 206–207)
+// "42".Int(), "1.5".Double(), "255".Byte(), "AQID".Data() likewise: the parses are a String's; Int(3.9), Double(2), Byte(7), Data([1, 2], .propertyList) convert; 3.9.Int() is no member (rounds 206–208)
 // Complex(1.0, -2.0).String() == "(1.0-2.0.i)" — an expression that re-enters; Complex("(1.0-2.0.i)") reads it (round 154)
 // and exact fractions: modules/Rational.swt — Rational(3, 4) + 1 == Rational(7, 4), Double(Rational(3, 4)) == 0.75, Rational(3, 4).String() == "(3/4)", Rational("(3/4)"), 1.over(3)
 let hex    = 255.String(.hex)                 // "0xff"; .String(.sign, .hex) is "+0xff"; radix: 16 for bare "ff"
@@ -119,7 +119,7 @@ Set([3, 1, 2, 1]) == Set(1...3)               // true — Set (round 132): unord
 let doc: SION = SION("[\"n\": 42, \"when\": .Date(0x0p+0)]")   // any SION text, comments and all
 doc.String(.json)                             // {"n":42,"when":0.0}
 doc.String(.pretty)                           // the SION, one entry per line; .String(.json, .pretty) likewise
-SION(propertyList: doc.String(.propertyList)) == doc   // true; .Data(.propertyList) is bplist00
+SION(propertyList: doc.String(.propertyList)) == doc   // true; Data(doc, .propertyList) is bplist00
 
 // math is built in (round 108): libm and JS's Math, as Double's static members
 Double.hypot(3, 4)                            // 5.0 — Int arguments promote

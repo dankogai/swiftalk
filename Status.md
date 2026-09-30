@@ -222,6 +222,24 @@ Set(
 )
 ```
 
+**`.Data()` is a String's alone** (round 208) — base64 in, or `.utf8`
+out; the constructor takes the format argument for everything else:
+
+```text
+swiftalk> "AQID".Data()
+.Data("AQID")
+swiftalk> "hi".Data(.utf8)
+.Data("aGk=")
+swiftalk> Data([1, 2])
+.Data("AQI=")
+swiftalk> [1, 2].Data()
+unknown member: Array.Data() — .Data() is a String's parse; Data(x) converts
+swiftalk> Data(["n": 42], .propertyList)[0..<8].String(.utf8)
+"bplist00"
+swiftalk> ["n": 42].Data(.propertyList)
+unknown member: Dictionary.Data() — .Data() is a String's parse; Data(x) converts
+```
+
 **`.Byte()` is a String's alone** (round 207) — the fourth parsing
 constructor, the same cut:
 
@@ -2873,9 +2891,9 @@ swiftalk> p.String(.propertyList).split("\n")[3]
 "<dict>"
 swiftalk> SION(propertyList: p.String(.propertyList)) == p
 true
-swiftalk> p.Data(.propertyList)[0..<8].String(.utf8)
+swiftalk> Data(p, .propertyList)[0..<8].String(.utf8)
 "bplist00"
-swiftalk> SION(propertyList: p.Data(.propertyList)) == p
+swiftalk> SION(propertyList: Data(p, .propertyList)) == p
 true
 swiftalk> [nil].String(.propertyList)
 type error: property lists have no nil

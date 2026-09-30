@@ -21,7 +21,7 @@ enum Completion {
     /// the evaluator that each name is still one it knows.
     static let members: [String: [String]] = [
         "Nil": [],
-        "Bool": ["not", "and", "or", "xor"],           // .Bool()/.Int()/.Double()/.Byte() are a String's parses alone (rounds 205–207)
+        "Bool": ["not", "and", "or", "xor"],           // .Bool()/.Int()/.Double()/.Byte()/.Data() are a String's parses alone (rounds 205–208)
         "Int": ["bit", "bits", "bitAnd", "bitOr", "bitXor", "bitNot", "shifted",
                 "leadingZeroBitCount", "trailingZeroBitCount", "nonzeroBitCount"],
         "Double": ["Date"],
@@ -31,7 +31,7 @@ enum Completion {
                    "escaped", "unescaped", "normalized", "isNormalized", "unicodeScalars", "utf8", "utf32",
                    "uppercased", "lowercased", "ucfirst", "lcfirst", "trimmed",
                    "replacing", "firstMatch", "wholeMatch", "matches"],
-        "Array": ["Set", "Sequence", "Tuple", "Data", "count", "first", "contains", "append",
+        "Array": ["Set", "Sequence", "Tuple", "count", "first", "contains", "append",
                   "map", "filter", "reduce", "forEach", "sorted", "reversed", "joined", "split", "enumerated",
                   "prefix", "suffix", "dropFirst", "dropLast", "min", "max"],
         "Dictionary": ["Array", "Sequence", "Tuple", "count", "first", "has", "keys", "values",
