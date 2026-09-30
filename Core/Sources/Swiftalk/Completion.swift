@@ -21,10 +21,10 @@ enum Completion {
     /// the evaluator that each name is still one it knows.
     static let members: [String: [String]] = [
         "Nil": [],
-        "Bool": ["not", "and", "or", "xor"],
-        "Int": ["Double", "Byte", "bit", "bits", "bitAnd", "bitOr", "bitXor", "bitNot", "shifted",
+        "Bool": ["not", "and", "or", "xor"],           // .Bool()/.Int()/.Double() are a String's parses alone (rounds 205–206)
+        "Int": ["Byte", "bit", "bits", "bitAnd", "bitOr", "bitXor", "bitNot", "shifted",
                 "leadingZeroBitCount", "trailingZeroBitCount", "nonzeroBitCount"],
-        "Double": ["Int", "Date"],
+        "Double": ["Date"],
         "String": ["Int", "Double", "Bool", "Data", "SION", "Array", "Set", "Sequence", "Tuple",
                    "count", "first", "contains", "map", "filter", "reduce", "forEach", "sorted", "reversed",
                    "joined", "split", "enumerated", "prefix", "suffix", "dropFirst", "dropLast", "min", "max",
@@ -50,10 +50,10 @@ enum Completion {
                      "first", "min", "max"],
         "Data": ["Array", "Sequence", "count", "first", "contains", "map", "filter", "reduce", "forEach",
                  "sorted", "reversed", "enumerated", "prefix", "suffix", "dropFirst", "dropLast", "min", "max"],
-        "Date": ["Double"],
+        "Date": [],
         "Task": [],
         "Tuple": ["Array", "Tuple", "count", "first", "map", "filter", "reduce", "forEach", "enumerated"],
-        "Byte": ["Int", "bitAnd", "bitOr", "bitXor", "bitNot", "shifted"],
+        "Byte": ["bitAnd", "bitOr", "bitXor", "bitNot", "shifted"],
         "Result": ["success", "failure", "then", "catch"],
     ]
 

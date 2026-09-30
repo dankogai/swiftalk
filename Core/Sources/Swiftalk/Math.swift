@@ -197,7 +197,7 @@ func power(_ base: Value, _ exponent: Value) throws -> Value {
     switch (base, exponent) {
     case (.int(let b), .int(let e)):
         guard e >= 0 else {
-            throw SwiftalkError.type("'**' with a negative Int exponent has no Int answer — \(b).Double() ** \(e).Double()")
+            throw SwiftalkError.type("'**' with a negative Int exponent has no Int answer — Double(\(b)) ** Double(\(e))")
         }
         var result: Int64 = 1, x = b, n = e
         while n > 0 {

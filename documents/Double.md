@@ -53,14 +53,14 @@ Not carried over from JS: `clz32` and `imul` (Int's business — see
 | `d.String()` | the shortest round-tripping decimal: `0.30000000000000004` |
 | `d.String(.hex)` | hex float, `"0x1.fep7"`, `"-0x0p0"` — re-enters as a literal; `nan`/`inf` as they are |
 | `d.String(.sign)`, `d.String(.sign, .hex)` | the `+` a positive number otherwise omits (round 125): `"+1.5"`, `"+0x0p0"` beside `"-0x0p0"` — the signed zeros told apart; `+inf`; `nan` has no sign |
-| `d.Int()` | truncation toward zero; `nil` if unrepresentable |
+| `Int(d)` | truncation toward zero; `nil` if unrepresentable (`d.Int()` is no member since round 206 — `.Int()` is a String's parse) |
 | `d.debugDescription` | `d.String(.sign, .hex)`: `+0x1.8p0` (round 125) |
 
 ```swift
 (0.1 + 0.2).String()     // "0.30000000000000004"
 Double("0x1.fep7")       // 255.0
 +0x1.999999999999ap-4 == 0.1  // true — debugPrint output round-trips
-3.9.Int()                // 3
+Int(3.9)                 // 3
 ```
 
 `radix:` is an Int format; `.oct`/`.bin` too. Double has `.hex` only.

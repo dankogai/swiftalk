@@ -4239,13 +4239,17 @@ private func stringFormat(_ subject: Value,
     }
 }
 
-/// `.Bool()` is a String's parse and nothing else's (round 205): the one
-/// place the round-47 law does not run both ways.
-private func boolParseOnly(_ typeName: String, _ receiver: Value) throws {
-    if typeName == "Bool", case .string = receiver { return }
-    if typeName == "Bool" {
-        throw SwiftalkError.unknownMember("\(receiver.typeName).Bool() — .Bool() is a String's parse; a Bool is a Bool already, and an Int is not one (i != 0)")
-    }
+/// `.Bool()`, `.Int()`, `.Double()` are a String's parses and nothing
+/// else's (rounds 205–206): the places the round-47 law does not run
+/// both ways — `Int(x)` converts, `x.Int()` is no member. A type's own
+/// member of the name (round 151: `let Double = { }`) or an extension's
+/// is the type's, and stands.
+private func parseOnly(_ typeName: String, _ receiver: Value, called: Bool, env: Environment) throws {
+    guard called, typeName == "Bool" || typeName == "Int" || typeName == "Double" else { return }
+    if case .string = receiver { return }
+    if userConversion(receiver, typeName) != nil || lookupExtension(env, receiver.typeName, typeName) != nil { return }
+    let hint = typeName == "Bool" ? "a Bool is a Bool already, and an Int is not one (i != 0)" : "\(typeName)(x) converts"
+    throw SwiftalkError.unknownMember("\(receiver.typeName).\(typeName)() — .\(typeName)() is a String's parse; \(hint)")
 }
 
 /// Rejects labeled arguments where a member takes none, yielding the
@@ -4260,6 +4264,10 @@ private func plainValues(_ args: [(label: String?, value: Value)], for member: S
 private func method(on receiver: Value, name: String,
                     args labeledArgs: [(label: String?, value: Value)], called: Bool,
                     env: Environment) throws -> Value {
+    // `.Bool()`, `.Int()`, `.Double()` are a String's parses and nothing
+    // else's (rounds 205–206): the constructors convert. A type's own
+    // member of that name (round 151) is the type's, and answers.
+    try parseOnly(name, receiver, called: called, env: env)
     // A module's extension of a core type (round 186) answers first, a
     // nil declining to the core; a module's own value answers for itself.
     if let modules = ModuleContext.current, let ext = modules.nativeExtensions[receiver.typeName]?[name],
@@ -4444,7 +4452,6 @@ private func method(on receiver: Value, name: String,
     // exception (round 205): `.Bool()` is a String's alone — the parse;
     // `Bool(b)` stays a constructor, `b.Bool()` is no member.
     if called, Builtins.types[name] != nil || Builtins.protocols[name] != nil {
-        try boolParseOnly(name, receiver)
         return try convert(name, subject: receiver, extra: labeledArgs)
     }
     // ...and through a binding that holds a type (round 111): with
@@ -4452,7 +4459,7 @@ private func method(on receiver: Value, name: String,
     if called, Builtins.types[name] == nil, case .function(let f)? = try? env.lookup(name),
        case .type(let typeName) = f.role {
         if Builtins.types[typeName] != nil || Builtins.protocols[typeName] != nil {
-            try boolParseOnly(typeName, receiver)
+            try parseOnly(typeName, receiver, called: true, env: env)                // the alias path (round 111)
             return try convert(typeName, subject: receiver, extra: labeledArgs)
         }
         if let construct = f.builtin {                                            // a module's type (round 186)

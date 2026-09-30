@@ -519,7 +519,7 @@ export function* power(base, exponent) {
   if (r !== undefined) return r;
   const kb = kindOf(base), ke = kindOf(exponent);
   if (kb === 'int' && ke === 'int') {
-    if (exponent < 0n) throw SwiftalkError.type(`'**' with a negative Int exponent has no Int answer — ${base}.Double() ** ${exponent}.Double()`);
+    if (exponent < 0n) throw SwiftalkError.type(`'**' with a negative Int exponent has no Int answer — Double(${base}) ** Double(${exponent})`);
     let result = 1n, x = base, n = exponent;
     while (n > 0n) {
       if (n & 1n) { result *= x; if (!fits64(result)) throw SwiftalkError.overflow(`${base} ** ${exponent}`); }

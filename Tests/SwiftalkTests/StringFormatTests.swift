@@ -74,14 +74,16 @@ struct ConversionLawTests {
         #expect(try eval(#""42".Int()"#) == .int(42))
         #expect(try eval(#""0xff".Int()"#) == .int(255))
         #expect(try eval(#""nope".Int()"#) == .nil)
-        #expect(try eval("(3.9).Int()") == .int(3))
-        #expect(try eval("2.Double()") == .double(2.0))
+        #expect(try eval("Int(3.9)") == .int(3))                             // the method spelling is a String's alone since round 206
+        #expect(try eval("Double(2)") == .double(2.0))
+        #expect(throws: SwiftalkError.self) { try eval("(3.9).Int()") }
+        #expect(throws: SwiftalkError.self) { try eval("2.Double()") }
         #expect(try eval(#""1.5".Double()"#) == .double(1.5))
         #expect(try eval(#""true".Bool()"#) == .bool(true))
         #expect(try eval(#""abc".Array()"#) == .array([.string("a"), .string("b"), .string("c")]))
         // chaining, the law's motivation
         #expect(try eval("255.String(radix: 16).count") == .int(2))
-        #expect(try eval(#""0x1.8p0".Double().Int()"#) == .int(1))
+        #expect(try eval(#"Int("0x1.8p0".Double())"#) == .int(1))
     }
 
     @Test("the law's bonus: state.Sequence { next } constructs a generator")

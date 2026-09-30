@@ -2796,3 +2796,9 @@ the history. (Moved out of Design.md in round 65.)
   round-47 law; the word *only* takes the law's other half away for
   Bool: `true.Bool()` and `1.Bool()` are no members, `Bool(b)` stays.
   The law's first exception, recorded. Both runtimes.
+* **2026-09-30, round 206 — `.Int()` and `.Double()` on String only**
+  ("Do the same for `.Int()` and `.Double()`: parse on String only").
+  The same cut as 205: the parses stay, the method spelling is no
+  member on anything else, the constructors convert; a type's own
+  `let Double = { }` stands. Two example modules and a hint moved to
+  `Double(x)`/`Int(b)`. Both runtimes.

@@ -53,13 +53,13 @@ export struct Complex {
             self.real = x.real
             self.imag = x.imag
         } else {
-            self.real = x.Double()
+            self.real = Double(x)
             self.imag = 0.0
         }
     }
 
     // — a scalar as a Complex: Int and Double lift, a Complex is itself
-    static let lift = { x in x.Type == Self ? x : Self(x.Double(), 0.0) }
+    static let lift = { x in x.Type == Self ? x : Self(Double(x), 0.0) }
 
     // — text (round 154): "(real+imag.i)" — an expression that re-enters,
     //   since Double.i is the imaginary unit: (1.0-2.0.i) is 1.0 - 2.0.i.
@@ -229,4 +229,4 @@ export struct Complex {
 // property. Extensions of builtin types are program-wide (round 147), so
 // these reach whoever imports the module.
 extension Double { var i { Complex(0.0, self) } }
-extension Int { var i { Complex(0.0, self.Double()) } }
+extension Int { var i { Complex(0.0, Double(self)) } }

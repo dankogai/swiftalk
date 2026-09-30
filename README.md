@@ -97,11 +97,12 @@ i * i == Complex(-1.0, 0.0)                   // true — and (*)(i, i), reduce(
 // a[-1] is a[a.count - 1] — a negative subscript counts from the end, reading and writing, on Arrays and Data; a divergence from Swift (round 194)
 // "straße".uppercased(), s.lowercased(), "hello world".ucfirst(), s.lcfirst() — case mapping: Swift's two and Perl's two, on graphemes (round 195)
 // "  hello \n".trimmed(), "--x--".trimmed("-") — whitespace and newlines off both ends, or the graphemes you name (round 196)
-// 2n ** 256n, BigInt(Int.max) + 1n, (2n ** 100n).Int() — arbitrary precision, JS's `n` literal; a BigInt meets a BigInt; the BigInt module, swift-bignum vendored (round 201)
+// 2n ** 256n, BigInt(Int.max) + 1n, Int(2n ** 100n) — arbitrary precision, JS's `n` literal; a BigInt meets a BigInt; the BigInt module, swift-bignum vendored (round 201)
 // import from "BigInt" — say what you need: importing what the prelude already brought is a no-op, so a script runs with or without --no-prelude (round 202)
 // BigRat(1, 3) + BigRat(1, 6) == BigRat(1, 2), BigRat(0.1), r.rounded(.down), r ** -2 — exact rationals over BigInts; the BigRat module, the same engine (round 203)
 // Bool(1) is a type error — write i != 0; Bool takes a Bool or "true"/"false" (round 204, revising 105): nothing is truthy, not even by conversion
-// "true".Bool() parses, and .Bool() is a String's alone — true.Bool() is no member, Bool(b) the constructor stays (round 205: the round-47 law's one exception)
+// "true".Bool() parses, and .Bool() is a String's alone — true.Bool() is no member, Bool(b) the constructor stays (round 205: the round-47 law's first exception)
+// "42".Int() and "1.5".Double() likewise: the parses are a String's, Int(3.9) and Double(2) convert, 3.9.Int() is no member (round 206)
 // Complex(1.0, -2.0).String() == "(1.0-2.0.i)" — an expression that re-enters; Complex("(1.0-2.0.i)") reads it (round 154)
 // and exact fractions: modules/Rational.swt — Rational(3, 4) + 1 == Rational(7, 4), Double(Rational(3, 4)) == 0.75, Rational(3, 4).String() == "(3/4)", Rational("(3/4)"), 1.over(3)
 let hex    = 255.String(.hex)                 // "0xff"; .String(.sign, .hex) is "+0xff"; radix: 16 for bare "ff"

@@ -43,7 +43,7 @@ struct DataDateTests {
         #expect(try eval("Date(1234567890)") == .date(1234567890))
         #expect(try eval("Date(1.5).Type == Date") == .bool(true))
         #expect(try eval("Double(Date(1.5))") == .double(1.5))
-        #expect(try eval("Date(2.5).Double()") == .double(2.5))   // the law
+        #expect(try eval("Double(Date(2.5))") == .double(2.5))   // the law's constructor side; .Double() is a String's alone (round 206)
         #expect(throws: SwiftalkError.self) { try eval("Date(\"tomorrow\")") }
         // Date() is now — a plausible epoch, monotonic-ish
         #expect(try eval("Date() < Date(9999999999.0)") == .bool(true))

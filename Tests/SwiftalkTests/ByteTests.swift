@@ -21,8 +21,9 @@ struct ByteTests {
         #expect(try eval("Byte(5).String()") == .string("Byte(5)"))
         #expect(try eval("Byte(255).debugDescription") == .string("Byte(0xff)"))
         #expect(try eval("Byte(5).Type == Byte") == .bool(true))
-        #expect(try eval("Byte(5).Int()") == .int(5))
-        #expect(try eval("Byte(5).Double()") == .double(5))
+        #expect(try eval("Int(Byte(5))") == .int(5))
+        #expect(try eval("Double(Byte(5))") == .double(5))
+        #expect(throws: SwiftalkError.self) { try eval("Byte(5).Int()") }      // a String's parse alone (round 206)
         guard case .string(let src) = try eval("Byte(9).String()") else { throw SwiftalkError.type("expected string") }
         #expect(try eval(src) == .byte(9))                                    // the round-trip law
         #expect(throws: SwiftalkError.self) { try eval("Byte([1])") }

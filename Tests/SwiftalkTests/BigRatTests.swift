@@ -48,7 +48,7 @@ struct BigRatConstructionTests {
         let bare = Swiftalk.Interpreter()
         #expect(throws: SwiftalkError.self) { try bare.eval("BigRat(1, 2)") }
         bare.modulePath = [buildDirectory()].compactMap { $0 }
-        #expect(try bare.eval("import from \"BigRat\"\nBigRat(1, 2).Double()") == .double(0.5))
+        #expect(try bare.eval("import from \"BigRat\"\nDouble(BigRat(1, 2))") == .double(0.5))
         // r.numerator is the BigInt module's value — without it, an error naming the module
         #expect(throws: SwiftalkError.self) { try bare.eval("BigRat(1, 2).numerator") }
         #expect(try bare.eval("import from \"BigInt\"\nBigRat(1, 2).numerator") == (try bare.eval("1n")))
@@ -100,13 +100,14 @@ struct BigRatArithmeticTests {
 
     @Test("conversions: Double, BigInt, Int (truncation); rounding rules; the members")
     func members() throws {
-        #expect(try eval("BigRat(7, 3).Double()") == .double(2.3333333333333335))
+        #expect(try eval("Double(BigRat(7, 3))") == .double(2.3333333333333335))
+        #expect(throws: SwiftalkError.self) { try eval("BigRat(7, 3).Double()") }   // a String's parse alone (round 206)
         #expect(try eval("Double(BigRat(1, 4))") == .double(0.25))
         #expect(try eval("BigRat(7, 3).BigInt()") == (try eval("2n")))
         #expect(try eval("BigRat(-7, 3).BigInt()") == (try eval("-2n")))
         #expect(try eval("BigInt(BigRat(7, 3))") == (try eval("2n")))
-        #expect(try eval("BigRat(-7, 3).Int()") == .int(-2))
-        #expect(throws: SwiftalkError.self) { try eval("BigRat(2n ** 70n, 1).Int()") }
+        #expect(try eval("Int(BigRat(-7, 3))") == .int(-2))
+        #expect(throws: SwiftalkError.self) { try eval("Int(BigRat(2n ** 70n, 1))") }
         #expect(try eval("BigRat(7, 3).rounded() == BigRat(2)") == .bool(true))
         #expect(try eval("BigRat(5, 2).rounded() == BigRat(3)") == .bool(true))              // away from zero
         #expect(try eval("BigRat(5, 2).rounded(.toNearestOrEven) == BigRat(2)") == .bool(true))

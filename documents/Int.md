@@ -34,7 +34,7 @@ separators.
 | `i.String(.hex)` / `.oct` / `.bin` | prefixed, literal-ready: `"0xff"`, `"-0o377"`, `"0b11"` |
 | `i.String(.sign)`, `i.String(.sign, .hex)`, `i.String(.sign, radix: 16)` | the `+` a positive number otherwise omits (round 125): `"+42"`, `"+0xff"`, `"+ff"`; a negative is `-` either way; `.sign` rides beside any number format |
 | `i.String(radix: n)` | bare digits, n in 2...36: `"ff"` |
-| `i.Double()` | `Double(i)` |
+| `Double(i)` | the Double (`i.Double()` is no member since round 206 — `.Double()` is a String's parse) |
 | `i.debugDescription` | `i.String(.sign, .hex)`: `+0xff`, `-0x10` (round 125) |
 
 ```swift

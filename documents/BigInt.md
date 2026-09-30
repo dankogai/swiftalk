@@ -17,8 +17,8 @@ platform's own `BigInt`.
 
 **Strict**, as swiftalk's numbers are (§3b): a BigInt meets a BigInt.
 `1n + 1` is a type error that names the conversion; so are `1n == 1`
-and `1n < 2`. `BigInt(x)` widens, `b.Int()` narrows (an overflow error
-past 64 bits), `b.Double()` approximates.
+and `1n < 2`. `BigInt(x)` widens, `Int(b)` narrows (an overflow error
+past 64 bits), `Double(b)` approximates.
 
 | Form | Meaning |
 |---|---|
@@ -31,8 +31,8 @@ past 64 bits), `b.Double()` approximates.
 | `BigInt("0xdead_beef")`, `BigInt("-12n")` | from the literal's spelling — sign, radix prefix, `_`, an optional `n` |
 | `BigInt("zz", 36)` | bare digits in a radix 2...36 |
 | `BigInt(b)`, `x.BigInt()` | itself; the round-47 law in both spellings |
-| `b.Int()`, `Int(b)` | back to an Int, or an overflow error |
-| `b.Double()`, `Double(b)` | the nearest Double |
+| `Int(b)` | back to an Int, or an overflow error (`b.Int()` is no member — `.Int()` is a String's parse, round 206) |
+| `Double(b)` | the nearest Double |
 | `b.String()`, `String(b)`, `"\(b)"` | `123n` — re-enters (§3d); `b.description` the same, `b.debugDescription` hex: `+0x7bn` |
 | `b.String(.hex)`, `.oct`, `.bin` | `0xffn`, `-0o377n`, `0b101n` — literal-ready, prefixed |
 | `b.String(16)`, `b.String(radix: 36)` | bare digits in that radix |
@@ -68,7 +68,7 @@ past 64 bits), `b.Double()` approximates.
 ```swift
 let f = (1...30).reduce(1n) { acc, i in acc * BigInt(i) }   // 265252859812191058636308480000000n
 BigInt(Int.max) + 1n                                        // 9223372036854775808n — Int would trap
-(2n ** 100n).Int()                                          // overflow: ... does not fit in an Int
+Int(2n ** 100n)                                             // overflow: ... does not fit in an Int
 3n.power(100n, 7n)                                          // 4n
 ```
 

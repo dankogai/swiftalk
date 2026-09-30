@@ -13,7 +13,7 @@ type call: it re-enters.
 | `Date(t)` | `t` |
 | `Date(d)` for a Double, `Date(i)` for an Int | that epoch |
 | `Date(x)` otherwise | type error |
-| `t.Double()` | the epoch seconds |
+| `Double(t)` | the epoch seconds (`t.Double()` is no member since round 206) |
 | `t < u` etc., `==` | Comparable — `Date` is not comparable to a bare Double |
 | `t.String()` | `".Date(1234567890.5)"` |
 | `t.debugDescription` | hex-float epoch, as SION writes it — re-enters since round 59 |

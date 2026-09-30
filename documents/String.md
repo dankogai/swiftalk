@@ -17,7 +17,7 @@ view (§11). `"..."` literals with `\(interpolation)`, escapes `\" \\
 | `s.count` | grapheme count |
 | `s.String()` | `s` itself (argless `.String()` is description) |
 | `s.String(.quoted)` | source form, escaped: `"\"hi\""` — `eval` re-enters it |
-| `s.Int()`, `s.Double()`, `s.Bool()` | failable parses (see those pages) |
+| `s.Int()`, `s.Double()`, `s.Bool()` | failable parses (see those pages) — and a String's alone: on anything else the method spelling is no member, the constructor converts (rounds 205–206) |
 | `s.Data(.utf8)` | UTF-8 bytes, infallible (round 97; the bare `s.Data()` decodes base64) |
 | `s.normalized(with: .nfc)`, `.nfd`, `.nfkc`, `.nfkd` | Unicode normalization (round 137; Swift's `-ed` since 138 — it does not mutate), UAX #15, Foundation-free — the UCD's tables in the core, Unicode 17.0; the `with:` label optional. `"e\u{301}".normalized(with: .nfc) == "é"`, `"ﬁ①".normalized(with: .nfkc) == "fi1"` |
 | `s.isNormalized(.nfc)` | would normalizing change anything, scalar for scalar? `"é".isNormalized(.nfc)` is true, `.isNormalized(.nfd)` false (round 138). Note `==` on Strings is canonical equivalence, as Swift's: `"e\u{301}" == "é"` is true — compare `.unicodeScalars` to tell the forms apart |

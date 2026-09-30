@@ -78,7 +78,7 @@ struct BigIntArithmeticTests {
         #expect(throws: SwiftalkError.self) { try eval("1n == 1") }
         #expect(throws: SwiftalkError.self) { try eval("1n < 2") }
         #expect(try eval("1n + BigInt(1)") == (try eval("2n")))
-        #expect(try eval("1n.Int() + 1") == .int(2))
+        #expect(try eval("Int(1n) + 1") == .int(2))
     }
 
     @Test("comparison and equality; sorting, min, max; Dictionary keys and switch")
@@ -128,10 +128,11 @@ struct BigIntMemberTests {
 
     @Test("back to Int (or an overflow), to Double, to String in a radix")
     func convert() throws {
-        #expect(try eval("(2n ** 62n).Int()") == .int(4611686018427387904))
+        #expect(try eval("Int(2n ** 62n)") == .int(4611686018427387904))
+        #expect(throws: SwiftalkError.self) { try eval("(2n ** 62n).Int()") }   // the method spelling is a String's parse alone (round 206)
         #expect(try eval("Int(-1n)") == .int(-1))
-        #expect(throws: SwiftalkError.self) { try eval("(2n ** 64n).Int()") }
-        #expect(try eval("(2n ** 100n).Double()") == .double(1.2676506002282294e+30))
+        #expect(throws: SwiftalkError.self) { try eval("Int(2n ** 64n)") }
+        #expect(try eval("Double(2n ** 100n)") == .double(1.2676506002282294e+30))
         #expect(try eval("Double(3n)") == .double(3.0))
         #expect(try eval("String(255n)") == .string("255n"))
         #expect(try eval("255n.String(.hex)") == .string("0xffn"))

@@ -12,7 +12,7 @@ import BigNum
 //     BigRat(0.1)                             // BigRat(3602879701896397, 36028797018963968): the Double, exactly
 //     BigRat("0.1"), BigRat("-2/3"), BigRat("1e-2")   // from text: 1/10, -2/3, 1/100
 //     r.numerator, r.denominator              // BigInts (the BigInt module's), the sign in the numerator
-//     r.Double(), r.BigInt(), r.Int()         // nearest Double; truncation toward zero
+//     Double(r), r.BigInt(), Int(r)           // nearest Double; truncation toward zero
 //     r.rounded(), r.rounded(.down)           // Swift's rules: .toNearestOrAwayFromZero, .down, .up, .towardZero, .toNearestOrEven
 //     r ** -2, r.power(-2), r.reciprocal      // negative exponents: the reciprocal's power
 

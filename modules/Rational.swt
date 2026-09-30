@@ -74,7 +74,7 @@ export struct Rational {
     // — a scalar beside a Rational: an Int lifts; a Double makes the whole thing a Double
     static let lift = { x in x.Type == Self ? x : Self(x, 1) }
     static let isDouble = { a, b in a.Type == Double || b.Type == Double }
-    static let toDouble = { x in x.Type == Self ? x.num.Double() / x.den.Double() : x.Double() }
+    static let toDouble = { x in x.Type == Self ? Double(x.num) / Double(x.den) : Double(x) }
 
     infix(+) = { a, b in
         if Self.isDouble(a, b) { return Self.toDouble(a) + Self.toDouble(b) }
@@ -138,7 +138,7 @@ export struct Rational {
     }
 
     // — conversions, by the round-47 law's spelling: r.Double() and Double(r) alike (round 151)
-    let Double = { .num.Double() / .den.Double() }
+    let Double = { Double(.num) / Double(.den) }
     let Int = { .truncated }
     // .String() is "(num/den)" (round 152) — wherever the value prints: print,
     // interpolation, the REPL, inside a container; a format goes to both

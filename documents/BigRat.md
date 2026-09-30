@@ -15,8 +15,8 @@ the JS engine is a pair of the platform's `BigInt`s.
 true, which is what the type is for. **Strict**, as swiftalk's numbers
 are (§3b): a BigRat meets a BigRat. `BigRat(1, 2) + 1`, `r * 3n`, `r ==
 0.5` are type errors that name the conversion; `BigRat(x)` widens from
-an Int, a BigInt, or a Double, `r.BigInt()` and `r.Int()` truncate,
-`r.Double()` is the nearest Double.
+an Int, a BigInt, or a Double, `r.BigInt()` and `Int(r)` truncate,
+`Double(r)` is the nearest Double.
 
 | Form | Meaning |
 |---|---|
@@ -27,8 +27,8 @@ an Int, a BigInt, or a Double, `r.BigInt()` and `r.Int()` truncate,
 | `BigRat()` | `BigRat(0, 1)` |
 | `BigRat(r)`, `x.BigRat()` | itself; the round-47 law in both spellings |
 | `r.numerator`, `r.denominator` | BigInts — the BigInt module's values, so they need it in scope (the prelude has both) |
-| `r.Double()`, `Double(r)` | the nearest Double |
-| `r.BigInt()`, `BigInt(r)`, `r.Int()`, `Int(r)` | truncation toward zero; `Int` overflows past 64 bits |
+| `Double(r)` | the nearest Double (`r.Double()` is no member — a String's parse, round 206) |
+| `r.BigInt()`, `BigInt(r)`, `Int(r)` | truncation toward zero; `Int` overflows past 64 bits |
 | `r.String()`, `String(r)`, `"\(r)"` | `BigRat(7, 3)` — re-enters; `r.description` the same, `r.debugDescription` hex: `BigRat(+0x7n, +0x3n)` |
 | `r.String(.fraction)` | `7/3` |
 | `r.String(.mixed)` | `2 1/3`; `-2 1/3`; `-1/3`; an integer as `2` |
@@ -60,6 +60,6 @@ an Int, a BigInt, or a Double, `r.BigInt()` and `r.Int()` truncate,
 ```swift
 BigRat(1, 3) + BigRat(1, 6)                 // BigRat(1, 2)
 BigRat(7, 3).rounded(.down).BigInt()        // 2n
-BigRat(2n ** 70n, 3).Double()               // 3.935305402391371e+20
+Double(BigRat(2n ** 70n, 3))                // 3.935305402391371e+20
 (1...10).reduce(BigRat(0)) { acc, i in acc + BigRat(1, i) }   // BigRat(7381, 2520) — the tenth harmonic number, exactly
 ```

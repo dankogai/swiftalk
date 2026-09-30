@@ -31,7 +31,7 @@ struct BoolConversionTests {
         #expect(try eval("let i = 3\ni != 0") == .bool(true))
     }
 
-    @Test(".Bool() is a String's parse and nothing else's (round 205) — the law's one exception")
+    @Test(".Bool() is a String's parse and nothing else's (round 205) — the law's first exception")
     func methodOnStringOnly() throws {
         #expect(try eval("\"true\".Bool()") == .bool(true))
         #expect(try eval("\"false\".Bool()") == .bool(false))
@@ -43,5 +43,26 @@ struct BoolConversionTests {
         #expect(try eval("Bool(true)") == .bool(true))                       // the constructor is untouched
         #expect(try eval("let B = Bool\nB(false)") == .bool(false))
         #expect(try eval("eval(\"true.Bool()\") == .failure(\"unknown member: Bool.Bool() — .Bool() is a String's parse; a Bool is a Bool already, and an Int is not one (i != 0)\")") == .bool(true))
+    }
+
+    @Test(".Int() and .Double() likewise (round 206): a String's parses; the constructors convert")
+    func intAndDoubleOnStringOnly() throws {
+        #expect(try eval("\"42\".Int()") == .int(42))
+        #expect(try eval("\"1.5\".Double()") == .double(1.5))
+        #expect(try eval("\"x\".Int() ?? -1") == .int(-1))
+        #expect(try eval("Int(3.9)") == .int(3))
+        #expect(try eval("Double(2)") == .double(2))
+        #expect(try eval("Int(Byte(7))") == .int(7))
+        #expect(try eval("Double(Date(1.5))") == .double(1.5))
+        #expect(throws: SwiftalkError.self) { try eval("3.9.Int()") }
+        #expect(throws: SwiftalkError.self) { try eval("2.Double()") }
+        #expect(throws: SwiftalkError.self) { try eval("2.Int()") }               // not even the identity
+        #expect(throws: SwiftalkError.self) { try eval("Byte(7).Int()") }
+        #expect(throws: SwiftalkError.self) { try eval("Date(1.5).Double()") }
+        #expect(throws: SwiftalkError.self) { try eval("let D = Double\n2.D()") }
+        #expect(try eval("eval(\"2.Double()\") == .failure(\"unknown member: Int.Double() — .Double() is a String's parse; Double(x) converts\")") == .bool(true))
+        // a type's own member of the name is the type's (round 151), and so is an extension's
+        #expect(try eval("struct T { var k: Double; let Double = { .k - 1.0 } }\nT(k: 3.0).Double()") == .double(2))
+        #expect(try eval("extension Int { let Double = { 0.5 } }\n7.Double()") == .double(0.5))
     }
 }

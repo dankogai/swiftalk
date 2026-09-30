@@ -222,6 +222,30 @@ Set(
 )
 ```
 
+**`.Int()` and `.Double()` are a String's alone** (round 206) — the
+parses; the constructors convert; a type's own member stands:
+
+```text
+swiftalk> "42".Int()
+42
+swiftalk> "1.5".Double()
+1.5
+swiftalk> Int(3.9)
+3
+swiftalk> 3.9.Int()
+unknown member: Double.Int() — .Int() is a String's parse; Int(x) converts
+swiftalk> 2.Double()
+unknown member: Int.Double() — .Double() is a String's parse; Double(x) converts
+swiftalk> Double(2n ** 100n)
+1.2676506002282294e+30
+swiftalk> (2n ** 100n).Double()
+unknown member: BigInt.Double() — .Double() is a String's parse; Double(x) converts
+swiftalk> struct T { var k: Double; let Double = { .k - 1.0 } }
+T
+swiftalk> T(k: 3.0).Double()
+2.0
+```
+
 **`.Bool()` is a String's alone** (round 205) — the parse, and the one
 exception to the round-47 law: `Bool(b)` has no method spelling:
 
@@ -321,8 +345,8 @@ swiftalk> BigInt(Int.max) + 1n
 swiftalk> (1...30).reduce(1n) { acc, i in acc * BigInt(i) }
 265252859812191058636308480000000n
 swiftalk> 1n + 1
-type error: '+' between BigInt and Int: convert first — BigInt(x), or b.Int()
-swiftalk> (2n ** 100n).Int()
+type error: '+' between BigInt and Int: convert first — BigInt(x), or Int(b)
+swiftalk> Int(2n ** 100n)
 overflow: 1267650600228229401496703205376n does not fit in an Int
 swiftalk> 255n.String(.hex)
 "0xffn"
@@ -1832,7 +1856,7 @@ swiftalk> x **= 2
 swiftalk> 2 ** 63
 overflow: 2 ** 63
 swiftalk> 2 ** -1
-type error: '**' with a negative Int exponent has no Int answer — 2.Double() ** -1.Double()
+type error: '**' with a negative Int exponent has no Int answer — Double(2) ** Double(-1)
 swiftalk> 2 ** 2.0
 type error: '**' is not defined between Int and Double — two Ints or two Doubles
 ```

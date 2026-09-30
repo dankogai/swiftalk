@@ -306,9 +306,20 @@ const isWhite = (g) => /^[\s\p{White_Space}]+$/u.test(g);   // a grapheme, so "\
 const stringType = ann('String');
 
 // ---- the member switch ----
+/// `.Bool()`, `.Int()`, `.Double()` are a String's parses and nothing else's
+/// (rounds 205–206): the constructors convert; a type's own member of the
+/// name (round 151) or an extension's stands.
+function parseOnly(tn, receiver, called, env) {
+  if (!called || !(tn === 'Bool' || tn === 'Int' || tn === 'Double') || typeof receiver === 'string') return;
+  if (userConversion(receiver, tn) || lookupExtension(env, typeName(receiver), tn)) return;
+  const hint = tn === 'Bool' ? 'a Bool is a Bool already, and an Int is not one (i != 0)' : `${tn}(x) converts`;
+  throw SwiftalkError.unknownMember(`${typeName(receiver)}.${tn}() — .${tn}() is a String's parse; ${hint}`);
+}
+
 export function* method(receiver, name, labeledArgs, called, env) {
   const rk = kindOf(receiver);
   const fnLike = rk === 'function' ? receiver : null;
+  parseOnly(name, receiver, called, env);
   // A module's extension of a core type (round 186) answers first
   if (scheduler.modules) {
     const ext = scheduler.modules.nativeExtensions.get(typeName(receiver))?.get(name);
@@ -402,16 +413,12 @@ export function* method(receiver, name, labeledArgs, called, env) {
       return yield* apply(value, labeledArgs);
     }
   }
-  // the round-47 law, with one exception (round 205): `.Bool()` is a String's parse alone
-  const boolParseOnly = (tn) => {
-    if (tn === 'Bool' && typeof receiver !== 'string') throw SwiftalkError.unknownMember(`${typeName(receiver)}.Bool() — .Bool() is a String's parse; a Bool is a Bool already, and an Int is not one (i != 0)`);
-  };
-  if (called && (Builtins.types.has(name) || Builtins.protocols.has(name))) { boolParseOnly(name); return yield* convert(name, receiver, labeledArgs); }
+  if (called && (Builtins.types.has(name) || Builtins.protocols.has(name))) return yield* convert(name, receiver, labeledArgs);
   if (called && !Builtins.types.has(name)) {
     const f = env.tryLookup(name);
     if (f !== undefined && kindOf(f) === 'function' && f.role.k === 'type') {
       const tn = f.role.name;
-      if (Builtins.types.has(tn) || Builtins.protocols.has(tn)) { boolParseOnly(tn); return yield* convert(tn, receiver, labeledArgs); }
+      if (Builtins.types.has(tn) || Builtins.protocols.has(tn)) { parseOnly(tn, receiver, true, env); return yield* convert(tn, receiver, labeledArgs); }   // the alias path (round 111)
       if (f.builtin) return yield* callBuiltin(f.builtin, [receiver, ...labeledArgs.map((a) => a.value)]);
     }
   }

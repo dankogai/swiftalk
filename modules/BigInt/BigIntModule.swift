@@ -13,7 +13,7 @@ import BigNum
 //     2n ** 256n                              // 115792089237316195423570985008687907853269984665640564039457584007913129639936n
 //     BigInt(Int.max) + 1n                    // 9223372036854775808n
 //     BigInt("0xdead_beef"), BigInt(1e3)      // from a String (any radix prefix), an integral Double
-//     b.Int()                                 // back, or an overflow error; b.Double() approximates
+//     Int(b), Double(b)                       // back, or an overflow error; the nearest Double
 //     b.String(.hex), b.String(radix: 36)     // 0x...n (re-enters), bare digits
 //     b.power(e), b.power(e, m), b.squareRoot(), b.gcd(c), b.magnitude, b.signum, b.bitWidth
 //
@@ -133,7 +133,7 @@ final class BigIntValue: Swiftalk.HostValue, BigIntCarrier {
             if case .host(let h) = v, let b = h as? BigIntValue { return b.n }
             switch v {
             case .int, .double, .byte:
-                throw Swiftalk.Error.type("'\(op)' between BigInt and \(v.typeName): convert first — BigInt(x), or b.Int()")
+                throw Swiftalk.Error.type("'\(op)' between BigInt and \(v.typeName): convert first — BigInt(x), or Int(b)")
             case .host(let h) where h is BigRatCarrier:
                 throw Swiftalk.Error.type("'\(op)' between BigInt and BigRat: convert first — BigRat(b), or r.BigInt()")
             default:

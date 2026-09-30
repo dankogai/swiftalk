@@ -122,7 +122,7 @@ export class BigIntValue {
       if (kindOf(v) === 'host' && v.object instanceof BigIntValue) return v.object.n;
       const k = kindOf(v);
       if (k === 'host' && Array.isArray(v.object.bigRat)) throw SwiftalkError.type(`'${op}' between BigInt and BigRat: convert first — BigRat(b), or r.BigInt()`);
-      if (k === 'int' || k === 'double' || k === 'byte') throw SwiftalkError.type(`'${op}' between BigInt and ${typeName(v)}: convert first — BigInt(x), or b.Int()`);
+      if (k === 'int' || k === 'double' || k === 'byte') throw SwiftalkError.type(`'${op}' between BigInt and ${typeName(v)}: convert first — BigInt(x), or Int(b)`);
       throw SwiftalkError.type(`'${op}' is not defined between ${typeName(operands[0])} and ${typeName(operands[1])}`);
     });
     const [a, b] = sides;
