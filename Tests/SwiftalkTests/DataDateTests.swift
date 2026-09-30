@@ -44,7 +44,14 @@ struct DataDateTests {
         #expect(try eval("Date(1.5).Type == Date") == .bool(true))
         #expect(try eval("Double(Date(1.5))") == .double(1.5))
         #expect(try eval("Double(Date(2.5))") == .double(2.5))   // the law's constructor side; .Double() is a String's alone (round 206)
-        #expect(throws: SwiftalkError.self) { try eval("Date(\"tomorrow\")") }
+        #expect(try eval("Date(\"tomorrow\")") == .nil)                    // the parse is failable (round 209)
+        #expect(try eval("Date(\"2009-02-13T23:31:30Z\")") == .date(1234567890))
+        #expect(try eval("\"2009-02-13T23:31:30.5Z\".Date()") == .date(1234567890.5))
+        #expect(try eval("Date(1234567890).String(.iso8601)") == .string("2009-02-13T23:31:30Z"))
+        #expect(try eval("Date(Date(0.0).String(.iso8601)) == Date(0.0)") == .bool(true))
+        #expect(throws: SwiftalkError.self) { try eval("Date(1.5).Date()") }       // a String's parse alone (round 209)
+        #expect(throws: SwiftalkError.self) { try eval("1.5.Date()") }
+        #expect(throws: SwiftalkError.self) { try eval("42.String(.iso8601)") }
         // Date() is now — a plausible epoch, monotonic-ish
         #expect(try eval("Date() < Date(9999999999.0)") == .bool(true))
         #expect(try eval("Date(0.0) < Date()") == .bool(true))

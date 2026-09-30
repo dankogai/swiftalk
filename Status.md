@@ -222,6 +222,24 @@ Set(
 )
 ```
 
+**`.Date()` is a String's alone, and it parses** (round 209) — ISO 8601
+in UTC, the property-list form, and `.String(.iso8601)` writes it back:
+
+```text
+swiftalk> "2009-02-13T23:31:30Z".Date()
+.Date(1234567890.0)
+swiftalk> Date("2009-02-13T23:31:30.5Z")
+.Date(1234567890.5)
+swiftalk> "tomorrow".Date() == nil
+true
+swiftalk> Date(1234567890).String(.iso8601)
+"2009-02-13T23:31:30Z"
+swiftalk> 1.5.Date()
+unknown member: Double.Date() — .Date() is a String's parse; Date(x) converts
+swiftalk> Date(1.5)
+.Date(1.5)
+```
+
 **`.Data()` is a String's alone** (round 208) — base64 in, or `.utf8`
 out; the constructor takes the format argument for everything else:
 

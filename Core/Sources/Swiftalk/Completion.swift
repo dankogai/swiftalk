@@ -21,11 +21,11 @@ enum Completion {
     /// the evaluator that each name is still one it knows.
     static let members: [String: [String]] = [
         "Nil": [],
-        "Bool": ["not", "and", "or", "xor"],           // .Bool()/.Int()/.Double()/.Byte()/.Data() are a String's parses alone (rounds 205–208)
+        "Bool": ["not", "and", "or", "xor"],           // .Bool()/.Int()/.Double()/.Byte()/.Data()/.Date() are a String's parses alone (rounds 205–209)
         "Int": ["bit", "bits", "bitAnd", "bitOr", "bitXor", "bitNot", "shifted",
                 "leadingZeroBitCount", "trailingZeroBitCount", "nonzeroBitCount"],
-        "Double": ["Date"],
-        "String": ["Int", "Double", "Bool", "Data", "SION", "Array", "Set", "Sequence", "Tuple",
+        "Double": [],
+        "String": ["Int", "Double", "Bool", "Data", "Date", "SION", "Array", "Set", "Sequence", "Tuple",
                    "count", "first", "contains", "map", "filter", "reduce", "forEach", "sorted", "reversed",
                    "joined", "split", "enumerated", "prefix", "suffix", "dropFirst", "dropLast", "min", "max",
                    "escaped", "unescaped", "normalized", "isNormalized", "unicodeScalars", "utf8", "utf32",

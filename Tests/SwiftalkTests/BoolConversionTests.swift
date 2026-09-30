@@ -98,4 +98,16 @@ struct BoolConversionTests {
         #expect(throws: SwiftalkError.self) { try eval("let D = Data\n[1].D()") }
         #expect(try eval("eval(\"[1].Data()\") == .failure(\"unknown member: Array.Data() — .Data() is a String's parse; Data(x) converts\")") == .bool(true))
     }
+
+    @Test(".Date() likewise (round 209): a String's ISO 8601 parse, new with the rule; Date(x) converts")
+    func dateOnStringOnly() throws {
+        #expect(try eval("\"1970-01-01T00:00:00Z\".Date()") == .date(0))
+        #expect(try eval("\"1970-01-01\".Date()") == .nil)
+        #expect(try eval("Date(0)") == .date(0))
+        #expect(try eval("Date(Date(1.0))") == .date(1))
+        #expect(throws: SwiftalkError.self) { try eval("0.Date()") }
+        #expect(throws: SwiftalkError.self) { try eval("0.0.Date()") }
+        #expect(throws: SwiftalkError.self) { try eval("let D = Date\n0.D()") }
+        #expect(try eval("eval(\"0.Date()\") == .failure(\"unknown member: Int.Date() — .Date() is a String's parse; Date(x) converts\")") == .bool(true))
+    }
 }

@@ -9,7 +9,7 @@ import { kindOf, typeName, equals, keyOf, sourceString, graphemes, spreadsInSet,
 import { FunctionObject, EnumType, EnumCaseValue, StructType, StructValue, SequenceObject } from './objects.js';
 import { Builtins, isResult, DoubleMath, IntStatics, stringFromCodePoint, dataRandom, intRandom } from './builtins.js';
 import { ann, inferLock, tryInfer, knownElementLock, stampedArray, typeValue, typeValueForParameter, callBuiltin } from './types.js';
-import { JSONFormat, PlistXML, PlistBinary, StringEscapes } from './formats.js';
+import { JSONFormat, PlistXML, PlistBinary, StringEscapes, CivilDate } from './formats.js';
 import { apply, boundMethod, iteratorOf, collect, lazyBase, restamp, reshape, holds, requireFinite, rangeCount,
   compare, hasUserOperator, containsSubstring, constructEnumCase, caseAccessor, computedProperty, readComputed,
   lookupExtension, mergeDictionaries, setElements, resolveStatic, scheduler } from './eval.js';
@@ -200,6 +200,9 @@ function* stringFormat(subject, formatsIn) {
     case 'quoted': case 'sion': return pretty ? yield* prettyText(subject) : sourceString(subject);
     case 'json': return JSONFormat.emit(subject, pretty);
     case 'propertyList': return PlistXML.emit(subject);
+    case 'iso8601':
+      if (!(subject instanceof SDate)) throw SwiftalkError.type(".String(.iso8601) is a Date's format");
+      return CivilDate.iso8601(subject.epoch);
     case 'utf8': {
       if (!(subject instanceof SData)) throw SwiftalkError.type('.String(.utf8) decodes Data');
       try { return new TextDecoder('utf-8', { fatal: true }).decode(subject.bytes); } catch (e) { return null; }
@@ -306,10 +309,10 @@ const isWhite = (g) => /^[\s\p{White_Space}]+$/u.test(g);   // a grapheme, so "\
 const stringType = ann('String');
 
 // ---- the member switch ----
-/// `.Bool()`, `.Int()`, `.Double()`, `.Byte()`, `.Data()` are a String's parses
-/// and nothing else's (rounds 205–208): the constructors convert; a type's own
-/// member of the name (round 151) or an extension's stands.
-const stringParses = new Set(['Bool', 'Int', 'Double', 'Byte', 'Data']);
+/// `.Bool()`, `.Int()`, `.Double()`, `.Byte()`, `.Data()`, `.Date()` are a String's
+/// parses and nothing else's (rounds 205–209): the constructors convert; a type's
+/// own member of the name (round 151) or an extension's stands.
+const stringParses = new Set(['Bool', 'Int', 'Double', 'Byte', 'Data', 'Date']);
 function parseOnly(tn, receiver, called, env) {
   if (!called || !stringParses.has(tn) || typeof receiver === 'string') return;
   if (userConversion(receiver, tn) || lookupExtension(env, typeName(receiver), tn)) return;

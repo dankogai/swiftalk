@@ -293,6 +293,7 @@ enum Builtins {
             case .date(let t)?:    return .date(t)
             case .double(let t)?:  return .date(t)
             case .int(let t)?:     return .date(Double(t))
+            case .string(let s)?:  return CivilDate.epoch(fromISO8601: s).map(Value.date) ?? .nil   // the parse (round 209): ISO 8601, UTC, as plists spell it
             case let v?: throw SwiftalkError.type("cannot convert \(v.typeName) to Date")
             }
         },

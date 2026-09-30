@@ -8,7 +8,7 @@ import { FunctionObject, EnumType, EnumCaseValue, SequenceObject } from './objec
 import { Environment } from './env.js';
 import { inferLock, knownElementLock, tryInfer, ann, isSION } from './types.js';
 import { collect, isSequenceValue, displayString, spawnTask, userOperator } from './eval.js';
-import { SIONFormat } from './formats.js';
+import { SIONFormat, CivilDate } from './formats.js';
 
 export const Builtins = {};
 Builtins.emptyEnvironment = new Environment();
@@ -240,6 +240,7 @@ Builtins.types = new Map([
       case 'date': return v;
       case 'double': return new SDate(v);
       case 'int': return new SDate(Number(v));
+      case 'string': { const e = CivilDate.epochFromISO8601(v); return e === null ? null : new SDate(e); }   // the parse (round 209)
       default: throw SwiftalkError.type(`cannot convert ${typeName(v)} to Date`);
     }
   })],

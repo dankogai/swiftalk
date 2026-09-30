@@ -2812,3 +2812,9 @@ the history. (Moved out of Design.md in round 65.)
   and `v.Data(.propertyList)` are no members, `Data([1, 2])` and
   `Data(v, .propertyList)` convert. Revises round 207's "no more".
   Both runtimes.
+* **2026-10-01, round 209 — `.Date()` on String only, with the parse**
+  ("Do the same for `.Date()`: parse on String only"). Date had no
+  String parse, so the rule brought one: ISO 8601 in UTC, the plist
+  form, failable — and `t.String(.iso8601)` to write it back. The
+  method spelling goes from Doubles, Ints, and Dates; the constructor
+  converts. The sixth exception. Both runtimes.

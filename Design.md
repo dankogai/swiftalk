@@ -502,8 +502,8 @@ string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bar
   constructor's `.name` (a `String`, mandatory on constructors,
   `nil` on anonymous functions) gives the name back.
 * **The two spellings are one operation — by law** (round 47,
-  closing round 39's OPEN; **the exceptions since rounds 205–208**: `.Bool()`,
-  `.Int()`, `.Double()`, `.Byte()`, `.Data()` are a String's parses alone — the constructors have no method spelling): `x.TypeName(tag: ...)` is normally
+  closing round 39's OPEN; **the exceptions since rounds 205–209**: `.Bool()`,
+  `.Int()`, `.Double()`, `.Byte()`, `.Data()`, `.Date()` are a String's parses alone — the constructors have no method spelling): `x.TypeName(tag: ...)` is normally
   identical to `TypeName(x, tag: ...)`, format arguments included —
 
   ```swift
@@ -1360,6 +1360,18 @@ format argument as it always did: `Data([1, 2])`, `Data(v,
 constructors whose String argument is a parse, whatever else they
 take. `examples/formats.swt` and the SION and Data pages moved to the
 constructor spelling. Both runtimes.
+
+**`.Date()` likewise, and the parse it needed — DECIDED (round 209)**
+("Do the same for `.Date()`: parse on String only"). Date had no String
+parse to keep — `Date("...")` was a type error — so the rule brought
+one: `Date(s)` and `s.Date()` read ISO 8601 in UTC, the form property
+lists have written since round 97 (`"2009-02-13T23:31:30Z"`, a fraction
+allowed), `nil` for anything else, as the other parses are failable;
+and `t.String(.iso8601)` writes it, so `Date(t.String(.iso8601)) == t`
+— a parse without its writer would have been half a feature. The
+method spelling goes from everything else: `1.5.Date()`, `t.Date()`,
+the round-111 alias; `Date(1.5)`, `Date(t)`, `Date()` convert and tell
+time as before. The sixth exception, the same check. Both runtimes.
 
 **Loop labels; `forEach` — DECIDED (round 156)** ("Support loop
 labels. Without it it makes little difference from `.map{}`. Should
