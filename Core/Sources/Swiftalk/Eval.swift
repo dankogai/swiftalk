@@ -4239,6 +4239,15 @@ private func stringFormat(_ subject: Value,
     }
 }
 
+/// `.Bool()` is a String's parse and nothing else's (round 205): the one
+/// place the round-47 law does not run both ways.
+private func boolParseOnly(_ typeName: String, _ receiver: Value) throws {
+    if typeName == "Bool", case .string = receiver { return }
+    if typeName == "Bool" {
+        throw SwiftalkError.unknownMember("\(receiver.typeName).Bool() — .Bool() is a String's parse; a Bool is a Bool already, and an Int is not one (i != 0)")
+    }
+}
+
 /// Rejects labeled arguments where a member takes none, yielding the
 /// bare values.
 private func plainValues(_ args: [(label: String?, value: Value)], for member: String) throws -> [Value] {
@@ -4431,8 +4440,11 @@ private func method(on receiver: Value, name: String,
         return try apply(fn, args: labeledArgs)
     }
     // The round-47 law: x.TypeName(tag: ...) is TypeName(x, tag: ...) —
-    // one operation, two spellings; the method form chains.
+    // one operation, two spellings; the method form chains. One
+    // exception (round 205): `.Bool()` is a String's alone — the parse;
+    // `Bool(b)` stays a constructor, `b.Bool()` is no member.
     if called, Builtins.types[name] != nil || Builtins.protocols[name] != nil {
+        try boolParseOnly(name, receiver)
         return try convert(name, subject: receiver, extra: labeledArgs)
     }
     // ...and through a binding that holds a type (round 111): with
@@ -4440,6 +4452,7 @@ private func method(on receiver: Value, name: String,
     if called, Builtins.types[name] == nil, case .function(let f)? = try? env.lookup(name),
        case .type(let typeName) = f.role {
         if Builtins.types[typeName] != nil || Builtins.protocols[typeName] != nil {
+            try boolParseOnly(typeName, receiver)
             return try convert(typeName, subject: receiver, extra: labeledArgs)
         }
         if let construct = f.builtin {                                            // a module's type (round 186)

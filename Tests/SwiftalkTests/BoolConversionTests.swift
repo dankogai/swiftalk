@@ -30,4 +30,18 @@ struct BoolConversionTests {
         #expect(try eval("eval(\"Bool(1)\") == .failure(\"type error: cannot convert Int to Bool — write i != 0\")") == .bool(true))
         #expect(try eval("let i = 3\ni != 0") == .bool(true))
     }
+
+    @Test(".Bool() is a String's parse and nothing else's (round 205) — the law's one exception")
+    func methodOnStringOnly() throws {
+        #expect(try eval("\"true\".Bool()") == .bool(true))
+        #expect(try eval("\"false\".Bool()") == .bool(false))
+        #expect(try eval("\"maybe\".Bool()") == .nil)
+        #expect(try eval("\"true\".Bool() ?? false") == .bool(true))
+        #expect(throws: SwiftalkError.self) { try eval("true.Bool()") }        // a Bool is a Bool already
+        #expect(throws: SwiftalkError.self) { try eval("1.Bool()") }
+        #expect(throws: SwiftalkError.self) { try eval("let B = Bool\ntrue.B()") }   // the alias path too (round 111)
+        #expect(try eval("Bool(true)") == .bool(true))                       // the constructor is untouched
+        #expect(try eval("let B = Bool\nB(false)") == .bool(false))
+        #expect(try eval("eval(\"true.Bool()\") == .failure(\"unknown member: Bool.Bool() — .Bool() is a String's parse; a Bool is a Bool already, and an Int is not one (i != 0)\")") == .bool(true))
+    }
 }

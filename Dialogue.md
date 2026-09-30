@@ -2791,3 +2791,8 @@ the history. (Moved out of Design.md in round 65.)
   round 105: the Int conversion was truthiness one call away; `i != 0`
   says it. `Bool()`, `Bool(b)`, and the failable String parse stay; an
   Int is a type error naming the idiom. Both runtimes.
+* **2026-09-30, round 205 — `.Bool()` on String only** ("Add `.Bool()`
+  to `String` only, as the parse"). The parse already existed by the
+  round-47 law; the word *only* takes the law's other half away for
+  Bool: `true.Bool()` and `1.Bool()` are no members, `Bool(b)` stays.
+  The law's first exception, recorded. Both runtimes.

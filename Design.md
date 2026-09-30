@@ -502,7 +502,8 @@ string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bar
   constructor's `.name` (a `String`, mandatory on constructors,
   `nil` on anonymous functions) gives the name back.
 * **The two spellings are one operation — by law** (round 47,
-  closing round 39's OPEN): `x.TypeName(tag: ...)` is normally
+  closing round 39's OPEN; **one exception since round 205**: `.Bool()`
+  is a String's parse alone — `Bool(b)` has no method spelling): `x.TypeName(tag: ...)` is normally
   identical to `TypeName(x, tag: ...)`, format arguments included —
 
   ```swift
@@ -1312,6 +1313,18 @@ the type error it is for a Double; the Int's error names the idiom
 (`write i != 0`). `.Bool()` on an Int goes with it, by the round-47
 law. Swift agrees: `Bool(1)` does not compile there either. Both
 runtimes.
+
+**`.Bool()` is a String's alone — DECIDED (round 205)** ("Add `.Bool()`
+to `String` only, as the parse"). `"true".Bool()` already parsed, by
+the round-47 law; what the word *only* removes is the law's other
+half for this one type: `true.Bool()`, the identity, is now no member
+("`.Bool()` is a String's parse; a Bool is a Bool already, and an Int
+is not one"), and so is `let B = Bool; true.B()` through the round-111
+alias. `Bool(b)` and `Bool("true")` the constructors are untouched.
+The first exception to the law, recorded as one: for every other type
+`x.T()` is still `T(x)`; for Bool the method spelling is the parse,
+and the parse only — there is nothing else a `.Bool()` should mean.
+Both runtimes.
 
 **Loop labels; `forEach` — DECIDED (round 156)** ("Support loop
 labels. Without it it makes little difference from `.map{}`. Should

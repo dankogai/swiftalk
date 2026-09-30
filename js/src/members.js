@@ -402,12 +402,16 @@ export function* method(receiver, name, labeledArgs, called, env) {
       return yield* apply(value, labeledArgs);
     }
   }
-  if (called && (Builtins.types.has(name) || Builtins.protocols.has(name))) return yield* convert(name, receiver, labeledArgs);
+  // the round-47 law, with one exception (round 205): `.Bool()` is a String's parse alone
+  const boolParseOnly = (tn) => {
+    if (tn === 'Bool' && typeof receiver !== 'string') throw SwiftalkError.unknownMember(`${typeName(receiver)}.Bool() — .Bool() is a String's parse; a Bool is a Bool already, and an Int is not one (i != 0)`);
+  };
+  if (called && (Builtins.types.has(name) || Builtins.protocols.has(name))) { boolParseOnly(name); return yield* convert(name, receiver, labeledArgs); }
   if (called && !Builtins.types.has(name)) {
     const f = env.tryLookup(name);
     if (f !== undefined && kindOf(f) === 'function' && f.role.k === 'type') {
       const tn = f.role.name;
-      if (Builtins.types.has(tn) || Builtins.protocols.has(tn)) return yield* convert(tn, receiver, labeledArgs);
+      if (Builtins.types.has(tn) || Builtins.protocols.has(tn)) { boolParseOnly(tn); return yield* convert(tn, receiver, labeledArgs); }
       if (f.builtin) return yield* callBuiltin(f.builtin, [receiver, ...labeledArgs.map((a) => a.value)]);
     }
   }

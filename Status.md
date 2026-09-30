@@ -222,6 +222,22 @@ Set(
 )
 ```
 
+**`.Bool()` is a String's alone** (round 205) — the parse, and the one
+exception to the round-47 law: `Bool(b)` has no method spelling:
+
+```text
+swiftalk> "true".Bool()
+true
+swiftalk> "maybe".Bool() == nil
+true
+swiftalk> true.Bool()
+unknown member: Bool.Bool() — .Bool() is a String's parse; a Bool is a Bool already, and an Int is not one (i != 0)
+swiftalk> 1.Bool()
+unknown member: Int.Bool() — .Bool() is a String's parse; a Bool is a Bool already, and an Int is not one (i != 0)
+swiftalk> Bool(true)
+true
+```
+
 **`Bool(Int)` is gone** (round 204, revising round 105) — `Bool(x)`
 takes a Bool or the two Strings; an Int is a type error that names the
 idiom:
