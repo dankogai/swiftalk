@@ -222,6 +222,18 @@ Set(
 )
 ```
 
+**`.SION()` is a String's alone** (round 210) — the seventh and, of the
+core's constructors that read a String, the last:
+
+```text
+swiftalk> "[1, 0xff, .Date(0.0)]".SION()
+[1, 255, .Date(0.0)]
+swiftalk> SION([1, 2])
+[1, 2]
+swiftalk> [1, 2].SION()
+unknown member: Array.SION() — .SION() is a String's parse; SION(x) converts
+```
+
 **`.Date()` is a String's alone, and it parses** (round 209) — ISO 8601
 in UTC, the property-list form, and `.String(.iso8601)` writes it back:
 

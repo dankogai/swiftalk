@@ -309,10 +309,10 @@ const isWhite = (g) => /^[\s\p{White_Space}]+$/u.test(g);   // a grapheme, so "\
 const stringType = ann('String');
 
 // ---- the member switch ----
-/// `.Bool()`, `.Int()`, `.Double()`, `.Byte()`, `.Data()`, `.Date()` are a String's
-/// parses and nothing else's (rounds 205–209): the constructors convert; a type's
-/// own member of the name (round 151) or an extension's stands.
-const stringParses = new Set(['Bool', 'Int', 'Double', 'Byte', 'Data', 'Date']);
+/// `.Bool()`, `.Int()`, `.Double()`, `.Byte()`, `.Data()`, `.Date()`, `.SION()` are a
+/// String's parses and nothing else's (rounds 205–210): the constructors convert; a
+/// type's own member of the name (round 151) or an extension's stands.
+const stringParses = new Set(['Bool', 'Int', 'Double', 'Byte', 'Data', 'Date', 'SION']);
 function parseOnly(tn, receiver, called, env) {
   if (!called || !stringParses.has(tn) || typeof receiver === 'string') return;
   if (userConversion(receiver, tn) || lookupExtension(env, typeName(receiver), tn)) return;

@@ -502,8 +502,8 @@ string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bar
   constructor's `.name` (a `String`, mandatory on constructors,
   `nil` on anonymous functions) gives the name back.
 * **The two spellings are one operation — by law** (round 47,
-  closing round 39's OPEN; **the exceptions since rounds 205–209**: `.Bool()`,
-  `.Int()`, `.Double()`, `.Byte()`, `.Data()`, `.Date()` are a String's parses alone — the constructors have no method spelling): `x.TypeName(tag: ...)` is normally
+  closing round 39's OPEN; **the exceptions since rounds 205–210**: `.Bool()`,
+  `.Int()`, `.Double()`, `.Byte()`, `.Data()`, `.Date()`, `.SION()` are a String's parses alone — the constructors have no method spelling): `x.TypeName(tag: ...)` is normally
   identical to `TypeName(x, tag: ...)`, format arguments included —
 
   ```swift
@@ -1372,6 +1372,16 @@ and `t.String(.iso8601)` writes it, so `Date(t.String(.iso8601)) == t`
 method spelling goes from everything else: `1.5.Date()`, `t.Date()`,
 the round-111 alias; `Date(1.5)`, `Date(t)`, `Date()` convert and tell
 time as before. The sixth exception, the same check. Both runtimes.
+
+**`.SION()` likewise — DECIDED (round 210)** ("Do the same for
+`.SION()`: parse on String only"). `s.SION()` reads a SION document,
+as it did; `v.SION()` — the identity on what SION carries, by the law —
+is no member, and `SION(v)` stays. The seventh exception, and with it
+every core constructor that reads a String is a String's parse in the
+method spelling: `String` itself has none, and the rest take a String
+as data, not as text to read (`Set("ab")`, `Array("ab")` — a String is
+a Sequence of graphemes there, which is the law's own case). The same
+check. Both runtimes.
 
 **Loop labels; `forEach` — DECIDED (round 156)** ("Support loop
 labels. Without it it makes little difference from `.map{}`. Should

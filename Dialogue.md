@@ -2818,3 +2818,8 @@ the history. (Moved out of Design.md in round 65.)
   form, failable — and `t.String(.iso8601)` to write it back. The
   method spelling goes from Doubles, Ints, and Dates; the constructor
   converts. The sixth exception. Both runtimes.
+* **2026-10-01, round 210 — `.SION()` on String only** ("Do the same
+  for `.SION()`: parse on String only"). The seventh: `s.SION()` reads
+  a document, `v.SION()` is no member, `SION(v)` stays. With it every
+  core constructor that reads a String has its method spelling as the
+  parse alone. Both runtimes.

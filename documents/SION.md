@@ -19,7 +19,7 @@ Date, was retired then; `SION` covers it.)
 | Form | Meaning |
 |---|---|
 | `SION(text)`, `text.SION()` | read a SION document: one value; comments, `0x`/`_` numbers, hex floats, Swift's escapes, `"""` — swiftalk's own lexer reads it, and only literal forms are admitted, so a document is data, never code |
-| `SION(v)` | a value SION can carry, as it is; a Function, Task, Regex… is a type error |
+| `SION(v)` | a value SION can carry, as it is; a Function, Task, Regex… is a type error. `.SION()` is a String's alone (round 210): `v.SION()` is no member |
 | `v.String()`, `v.String(.sion)` | the SION text (what the REPL echoes) |
 | `SION(json: text)` | read JSON (RFC 8259): `null` → nil, numbers → Int when they fit and have no fraction or exponent, else Double; objects → Dictionaries with String keys |
 | `v.String(.json)` | write JSON — canonical (keys sorted), **lossy where JSON is poorer**: Data → a base64 String, Date → the epoch as a number, a non-String key → its `String()`; an infinite or NaN Double is an error |

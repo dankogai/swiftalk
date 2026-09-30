@@ -110,4 +110,17 @@ struct BoolConversionTests {
         #expect(throws: SwiftalkError.self) { try eval("let D = Date\n0.D()") }
         #expect(try eval("eval(\"0.Date()\") == .failure(\"unknown member: Int.Date() — .Date() is a String's parse; Date(x) converts\")") == .bool(true))
     }
+
+    @Test(".SION() likewise (round 210): a String's parse of a SION document; SION(v) is the identity on what SION carries")
+    func sionOnStringOnly() throws {
+        #expect(try eval("\"[1, 0xff, .Date(0.0)]\".SION()") == .array([.int(1), .int(255), .date(0)]))
+        #expect(try eval("\"[\\\"k\\\": nil]\".SION()") == .dictionary([.string("k"): .nil]))
+        #expect(try eval("SION([1, 2]) == [1, 2]") == .bool(true))
+        #expect(try eval("SION(42)") == .int(42))
+        #expect(throws: SwiftalkError.self) { try eval("\"[1,\".SION()") }         // a bad document is an error, as before
+        #expect(throws: SwiftalkError.self) { try eval("[1, 2].SION()") }
+        #expect(throws: SwiftalkError.self) { try eval("42.SION()") }
+        #expect(throws: SwiftalkError.self) { try eval("let S = SION\n42.S()") }
+        #expect(try eval("eval(\"42.SION()\") == .failure(\"unknown member: Int.SION() — .SION() is a String's parse; SION(x) converts\")") == .bool(true))
+    }
 }
