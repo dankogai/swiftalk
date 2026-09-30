@@ -15,7 +15,7 @@ land in an `Int`-locked variable.
 | `Byte(b)` | `b` |
 | `Byte(i)` for an Int | the byte, or `nil` outside 0...255 |
 | `Byte(d)` for a Double | truncated toward zero, then as for an Int |
-| `Byte(s)` for a String | parsed as `Int(s)` is, then as for an Int |
+| `Byte(s)` for a String, `s.Byte()` | parsed as `Int(s)` is, then as for an Int. `.Byte()` is a String's alone (round 207): `7.Byte()` is no member, `Byte(7)` converts |
 | `Byte.min`, `Byte.max`, `Byte.bitWidth`, `Byte.zero`, `Byte.isSigned` | `Byte(0)`, `Byte(255)`, 8, `Byte(0)`, false |
 | `b + c`, `b - c`, `b * c`, `b / c`, `b % c` | Bytes, trapping on overflow and `/ 0` |
 | `b + 1`, `b * n` | an Int — a Byte meets an Int as an Int |

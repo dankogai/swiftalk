@@ -2802,3 +2802,7 @@ the history. (Moved out of Design.md in round 65.)
   member on anything else, the constructors convert; a type's own
   `let Double = { }` stands. Two example modules and a hint moved to
   `Double(x)`/`Int(b)`. Both runtimes.
+* **2026-09-30, round 207 — `.Byte()` on String only** ("Do the same
+  for `.Byte()`: parse on String only"). The fourth and last of the
+  parsing constructors: `"255".Byte()` parses, `7.Byte()` is no member,
+  `Byte(7)` converts. Both runtimes.

@@ -65,4 +65,20 @@ struct BoolConversionTests {
         #expect(try eval("struct T { var k: Double; let Double = { .k - 1.0 } }\nT(k: 3.0).Double()") == .double(2))
         #expect(try eval("extension Int { let Double = { 0.5 } }\n7.Double()") == .double(0.5))
     }
+
+    @Test(".Byte() likewise (round 207): a String's parse; Byte(x) converts")
+    func byteOnStringOnly() throws {
+        #expect(try eval("\"255\".Byte()") == .byte(255))
+        #expect(try eval("\"0xff\".Byte()") == .byte(255))
+        #expect(try eval("\"256\".Byte()") == .nil)
+        #expect(try eval("\"x\".Byte() ?? Byte(0)") == .byte(0))
+        #expect(try eval("Byte(7)") == .byte(7))
+        #expect(try eval("Byte(7.9)") == .byte(7))
+        #expect(try eval("Byte(Byte(7))") == .byte(7))
+        #expect(throws: SwiftalkError.self) { try eval("7.Byte()") }
+        #expect(throws: SwiftalkError.self) { try eval("7.9.Byte()") }
+        #expect(throws: SwiftalkError.self) { try eval("Byte(7).Byte()") }
+        #expect(throws: SwiftalkError.self) { try eval("let B = Byte\n7.B()") }
+        #expect(try eval("eval(\"7.Byte()\") == .failure(\"unknown member: Int.Byte() — .Byte() is a String's parse; Byte(x) converts\")") == .bool(true))
+    }
 }

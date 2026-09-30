@@ -102,7 +102,7 @@ i * i == Complex(-1.0, 0.0)                   // true — and (*)(i, i), reduce(
 // BigRat(1, 3) + BigRat(1, 6) == BigRat(1, 2), BigRat(0.1), r.rounded(.down), r ** -2 — exact rationals over BigInts; the BigRat module, the same engine (round 203)
 // Bool(1) is a type error — write i != 0; Bool takes a Bool or "true"/"false" (round 204, revising 105): nothing is truthy, not even by conversion
 // "true".Bool() parses, and .Bool() is a String's alone — true.Bool() is no member, Bool(b) the constructor stays (round 205: the round-47 law's first exception)
-// "42".Int() and "1.5".Double() likewise: the parses are a String's, Int(3.9) and Double(2) convert, 3.9.Int() is no member (round 206)
+// "42".Int(), "1.5".Double(), "255".Byte() likewise: the parses are a String's, Int(3.9), Double(2), Byte(7) convert, 3.9.Int() is no member (rounds 206–207)
 // Complex(1.0, -2.0).String() == "(1.0-2.0.i)" — an expression that re-enters; Complex("(1.0-2.0.i)") reads it (round 154)
 // and exact fractions: modules/Rational.swt — Rational(3, 4) + 1 == Rational(7, 4), Double(Rational(3, 4)) == 0.75, Rational(3, 4).String() == "(3/4)", Rational("(3/4)"), 1.over(3)
 let hex    = 255.String(.hex)                 // "0xff"; .String(.sign, .hex) is "+0xff"; radix: 16 for bare "ff"

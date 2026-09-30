@@ -21,8 +21,8 @@ enum Completion {
     /// the evaluator that each name is still one it knows.
     static let members: [String: [String]] = [
         "Nil": [],
-        "Bool": ["not", "and", "or", "xor"],           // .Bool()/.Int()/.Double() are a String's parses alone (rounds 205–206)
-        "Int": ["Byte", "bit", "bits", "bitAnd", "bitOr", "bitXor", "bitNot", "shifted",
+        "Bool": ["not", "and", "or", "xor"],           // .Bool()/.Int()/.Double()/.Byte() are a String's parses alone (rounds 205–207)
+        "Int": ["bit", "bits", "bitAnd", "bitOr", "bitXor", "bitNot", "shifted",
                 "leadingZeroBitCount", "trailingZeroBitCount", "nonzeroBitCount"],
         "Double": ["Date"],
         "String": ["Int", "Double", "Bool", "Data", "SION", "Array", "Set", "Sequence", "Tuple",

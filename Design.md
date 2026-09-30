@@ -502,8 +502,8 @@ string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bar
   constructor's `.name` (a `String`, mandatory on constructors,
   `nil` on anonymous functions) gives the name back.
 * **The two spellings are one operation — by law** (round 47,
-  closing round 39's OPEN; **the exceptions since rounds 205–206**: `.Bool()`,
-  `.Int()`, `.Double()` are a String's parses alone — the constructors have no method spelling): `x.TypeName(tag: ...)` is normally
+  closing round 39's OPEN; **the exceptions since rounds 205–207**: `.Bool()`,
+  `.Int()`, `.Double()`, `.Byte()` are a String's parses alone — the constructors have no method spelling): `x.TypeName(tag: ...)` is normally
   identical to `TypeName(x, tag: ...)`, format arguments included —
 
   ```swift
@@ -1340,7 +1340,12 @@ members, and answer. So the round-47 law now reads: `x.T(...)` is
 String — for those the method spelling is the parse, and the parse
 only. Two example modules (`Complex.swt`, `Rational.swt`) and the
 BigInt module's hint moved to the constructor spelling. Both
-runtimes.
+runtimes. **Round 207** ("Do the same for `.Byte()`: parse on String
+only") adds the fourth: `"255".Byte()` parses, `7.Byte()` is no
+member, `Byte(7)` converts. That is every constructor that parses a
+String — `String` itself has no parse to be alone with, and the rest
+(`Data`, `SION`, `Date`, ...) read a String as one of several sources,
+which is the law's own case, not this one.
 
 **Loop labels; `forEach` — DECIDED (round 156)** ("Support loop
 labels. Without it it makes little difference from `.map{}`. Should

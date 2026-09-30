@@ -306,11 +306,11 @@ const isWhite = (g) => /^[\s\p{White_Space}]+$/u.test(g);   // a grapheme, so "\
 const stringType = ann('String');
 
 // ---- the member switch ----
-/// `.Bool()`, `.Int()`, `.Double()` are a String's parses and nothing else's
-/// (rounds 205–206): the constructors convert; a type's own member of the
-/// name (round 151) or an extension's stands.
+/// `.Bool()`, `.Int()`, `.Double()`, `.Byte()` are a String's parses and nothing
+/// else's (rounds 205–207): the constructors convert; a type's own member of
+/// the name (round 151) or an extension's stands.
 function parseOnly(tn, receiver, called, env) {
-  if (!called || !(tn === 'Bool' || tn === 'Int' || tn === 'Double') || typeof receiver === 'string') return;
+  if (!called || !(tn === 'Bool' || tn === 'Int' || tn === 'Double' || tn === 'Byte') || typeof receiver === 'string') return;
   if (userConversion(receiver, tn) || lookupExtension(env, typeName(receiver), tn)) return;
   const hint = tn === 'Bool' ? 'a Bool is a Bool already, and an Int is not one (i != 0)' : `${tn}(x) converts`;
   throw SwiftalkError.unknownMember(`${typeName(receiver)}.${tn}() — .${tn}() is a String's parse; ${hint}`);

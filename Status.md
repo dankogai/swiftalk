@@ -222,6 +222,20 @@ Set(
 )
 ```
 
+**`.Byte()` is a String's alone** (round 207) — the fourth parsing
+constructor, the same cut:
+
+```text
+swiftalk> "255".Byte()
+Byte(255)
+swiftalk> "256".Byte() == nil
+true
+swiftalk> Byte(7)
+Byte(7)
+swiftalk> 7.Byte()
+unknown member: Int.Byte() — .Byte() is a String's parse; Byte(x) converts
+```
+
 **`.Int()` and `.Double()` are a String's alone** (round 206) — the
 parses; the constructors convert; a type's own member stands:
 
