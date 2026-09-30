@@ -44,11 +44,12 @@ struct BitwiseTests {
         #expect(throws: SwiftalkError.self) { try eval("Int(bits: (0...64).map { true })") }
     }
 
-    @Test("Bool(Int) is a conversion — false for 0, true otherwise — and not truthiness; Ints only elsewhere")
+    @Test("Bool(Int) is gone (round 204, revising round 105): `i != 0` says it; nothing is truthy; Ints only elsewhere")
     func boolAndErrors() throws {
-        #expect(try eval("Bool(0)") == .bool(false))
-        #expect(try eval("Bool(-3)") == .bool(true))
-        #expect(try eval("3.Bool()") == .bool(true))                       // the round-47 law
+        #expect(throws: SwiftalkError.self) { try eval("Bool(0)") }
+        #expect(throws: SwiftalkError.self) { try eval("Bool(-3)") }
+        #expect(throws: SwiftalkError.self) { try eval("3.Bool()") }        // the round-47 law reaches the same refusal
+        #expect(try eval("-3 != 0") == .bool(true))
         #expect(throws: SwiftalkError.self) { try eval("if 3 { }") }         // §3b stands
         #expect(throws: SwiftalkError.self) { try eval("Bool(1.5)") }
         #expect(throws: SwiftalkError.self) { try eval("5.bitAnd(1.5)") }

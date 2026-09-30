@@ -2785,3 +2785,9 @@ the history. (Moved out of Design.md in round 65.)
   a dynamic library both modules share (the round-182 lesson), with
   bridge protocols for the two modules' values and `Swiftalk.lookup`
   for a module to find another's type. Both runtimes; 79 new fixtures.
+* **2026-09-30, round 204 — `Bool(Int)` removed** ("Remove `Bool(int)`
+  because `int == 0` is more explicit and intuitive. Only
+  `Bool("true")|Bool("false")` or `Bool(bool)` are allowed."). Revises
+  round 105: the Int conversion was truthiness one call away; `i != 0`
+  says it. `Bool()`, `Bool(b)`, and the failable String parse stay; an
+  Int is a type error naming the idiom. Both runtimes.

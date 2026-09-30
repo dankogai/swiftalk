@@ -1260,7 +1260,8 @@ vocabulary anyway and `&&` on Arrays would break "Bools only";
 width and sign have no natural answer; and the real uses (packing,
 checksums, base64) want a word, not 64 allocations. `Bool(Int)` is
 `false` for 0 and `true` otherwise — a conversion, which leaves §3b
-untouched: nothing is truthy in a condition. A recorded divergence
+untouched: nothing is truthy in a condition **(REVISED, round 204:
+removed — see below)**. A recorded divergence
 from Swift and JavaScript both; `& | ^ ~ << >>` stay free — `|` in
 particular for a type union, `Int | String`, should annotations ever
 want one. **Round 106**: the four bare names on a *Bool* are the
@@ -1297,6 +1298,20 @@ does, and a leading `and`/`or`/`xor` with a space after it continues
 too; a leading `not` starts a statement. No `and=`. Recorded as a
 divergence from Swift, which has no word operators; the symbols
 remain the primary spelling in the docs.
+
+**`Bool(Int)` is gone — DECIDED (round 204, revising round 105)**
+("Remove `Bool(int)` because `int == 0` is more explicit and intuitive.
+Only `Bool("true")|Bool("false")` or `Bool(bool)` are allowed."). Round
+105's `Bool(i)` as `i != 0` was a conversion that quietly reintroduced
+the truthiness §3b refuses everywhere else, one call away: `Bool(n)`
+read as "is n set" when it meant "is n nonzero", and `i != 0` (or `i ==
+0`) says which. So `Bool()` is `false`, `Bool(b)` is `b`, `Bool("true")`
+and `Bool("false")` are the values and any other String is `nil` (the
+failable parse, unchanged), and everything else — an Int included — is
+the type error it is for a Double; the Int's error names the idiom
+(`write i != 0`). `.Bool()` on an Int goes with it, by the round-47
+law. Swift agrees: `Bool(1)` does not compile there either. Both
+runtimes.
 
 **Loop labels; `forEach` — DECIDED (round 156)** ("Support loop
 labels. Without it it makes little difference from `.map{}`. Should

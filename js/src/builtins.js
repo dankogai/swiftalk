@@ -96,8 +96,8 @@ Builtins.types = new Map([
     switch (kindOf(v)) {
       case 'bool': return v;
       case 'string': return v === 'true' ? true : v === 'false' ? false : null;
-      case 'int': return v !== 0n;
-      default: throw SwiftalkError.type(`cannot convert ${typeName(v)} to Bool`);
+      // Bool(i) as `i != 0` was round 105's; removed in round 204 — `i != 0` says it
+      default: throw SwiftalkError.type(`cannot convert ${typeName(v)} to Bool` + (kindOf(v) === 'int' ? ' — write i != 0' : ''));
     }
   })],
   ['Byte', type('Byte', (args) => {

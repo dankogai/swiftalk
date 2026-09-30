@@ -13,7 +13,7 @@ o + 1 }` (round 80) — and inside, `o` is itself.
 | `Bool()` | `false` |
 | `Bool(b)` | `b` |
 | `Bool("true")`, `Bool("false")` | the value; any other String → `nil` (failable) |
-| `Bool(i)` for an Int | `false` for 0, `true` otherwise (round 105) — a conversion, not truthiness: `if 3 { }` is still an error |
+| `Bool(i)` for an Int | a type error naming the idiom — `i != 0` (round 204; from round 105 to 203 it was that conversion). Nothing is truthy, not even by conversion |
 | `Bool(x)` for other types | type error |
 | `b == c`, `b != c` | equality |
 | `b &&= c`, `b ||= c` | `b = b && c` / `b = b || c`, short-circuit: `c` is evaluated only when `b` does not decide (round 104) |

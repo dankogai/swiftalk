@@ -222,6 +222,23 @@ Set(
 )
 ```
 
+**`Bool(Int)` is gone** (round 204, revising round 105) — `Bool(x)`
+takes a Bool or the two Strings; an Int is a type error that names the
+idiom:
+
+```text
+swiftalk> Bool(1)
+type error: cannot convert Int to Bool — write i != 0
+swiftalk> 3 != 0
+true
+swiftalk> Bool("true")
+true
+swiftalk> Bool("yes") == nil
+true
+swiftalk> Bool(false)
+false
+```
+
 **`BigRat`** (round 203) — exact rationals over BigInts as a prelude
 module, the same engine; no literal, `BigRat(1, 3)` re-enters:
 
@@ -2580,10 +2597,6 @@ swiftalk> Int(bits: [true, false, true])
 5
 swiftalk> 255.nonzeroBitCount
 8
-swiftalk> Bool(0)
-false
-swiftalk> Bool(-3)
-true
 swiftalk> 0xC0.bitOr(0x1F600.shifted(by: -18))
 192
 ```
