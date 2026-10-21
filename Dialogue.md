@@ -2823,3 +2823,9 @@ the history. (Moved out of Design.md in round 65.)
   a document, `v.SION()` is no member, `SION(v)` stays. With it every
   core constructor that reads a String has its method spelling as the
   parse alone. Both runtimes.
+* **2026-10-21, round 211 — `d[k] !!= v` updates, never creates** ("add
+  `d[k] !!= v` to Dictionary. d[k] is updated only if it exist. new
+  d[k] is not created."). Override needs something to override: an
+  existing entry is overridden (a stored nil counts), a missing key is
+  left alone and the statement is nil; `??=` still creates, that being
+  its point. The key is evaluated once. Both runtimes.

@@ -124,7 +124,15 @@ function* executeSlow(s, env, relaxed) {
       }
       if (op === '!!') {
         const rhs = yield* evaluate(expr, env);
-        return yield* assign(target, null, env, function* (old) {
+        // d[k] !!= v (round 211): an existing entry is overridden, a missing key is not created — the key evaluated once
+        let where = target;
+        if (target.k === 'index') {
+          const key = yield* evaluate(target.index, env);
+          where = { k: 'index', base: target.base, index: { k: 'literal', v: key } };
+          const container = yield* readPath(target.base, env);
+          if (kindOf(container) === 'dictionary' && !container.has(key)) return null;
+        }
+        return yield* assign(where, null, env, function* (old) {
           if (kindOf(rhs) === 'dictionary') return coalesceDictionaries(rhs, old, '!!=');
           return isAbsent(rhs) ? old : rhs;
         });
@@ -1006,6 +1014,15 @@ function position(i, count) {
   const resolved = i < 0n ? i + BigInt(count) : i;
   if (!(resolved >= 0n && resolved < BigInt(count))) throw SwiftalkError.type(`index ${i} out of range (count ${count})`);
   return Number(resolved);
+}
+/// The value an assignment path names, read without writing (round 211).
+function* readPath(target, env) {
+  switch (target.k) {
+    case 'variable': return env.lookup(target.name);
+    case 'index': return subscriptRead(yield* readPath(target.base, env), yield* evaluate(target.index, env));
+    case 'property': return yield* propertyRead(yield* readPath(target.base, env), target.name);
+    default: throw SwiftalkError.type('a tuple pattern cannot be part of an assignment path');
+  }
 }
 export function subscriptRead(container, index) {
   switch (kindOf(container)) {

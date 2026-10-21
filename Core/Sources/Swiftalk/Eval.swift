@@ -623,6 +623,14 @@ private func executeSlow(_ statement: Stmt, in env: Environment, relaxed: Bool) 
         if op == "!!" {
             // x !!= y is x = y ?? x (round 130): both sides evaluated
             let rhs = try evaluate(expr, in: env)
+            // d[k] !!= v (round 211): an existing entry is overridden, a
+            // missing key is not created — the key is evaluated once
+            var target = target
+            if case .index(let base, let keyExpr) = target {
+                let key = try evaluate(keyExpr, in: env)
+                target = .index(base, .literal(key))
+                if case .dictionary(let d, _) = try readPath(base, in: env), d[key] == nil { return .nil }
+            }
             return try assign(target, .nil, in: env) { old in
                 if case .dictionary(let e, _) = rhs {
                     return .dictionary(try coalesceDictionaries(base: e, fill: old, op: "!!="))
@@ -2131,6 +2139,16 @@ private func position(_ i: Int64, count: Int) throws -> Int {
         throw SwiftalkError.type("index \(i) out of range (count \(count))")
     }
     return Int(resolved)
+}
+
+/// The value an assignment path names, read without writing (round 211).
+private func readPath(_ target: LValue, in env: Environment) throws -> Value {
+    switch target {
+    case .variable(let name):        return try env.lookup(name)
+    case .index(let base, let i):    return try subscriptRead(try readPath(base, in: env), try evaluate(i, in: env))
+    case .property(let base, let n): return try propertyRead(try readPath(base, in: env), n)
+    case .tuple:                     throw SwiftalkError.type("a tuple pattern cannot be part of an assignment path")
+    }
 }
 
 private func subscriptRead(_ container: Value, _ index: Value) throws -> Value {

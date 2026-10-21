@@ -26,6 +26,24 @@ struct CoalesceMergeTests {
         #expect(throws: SwiftalkError.self) { try eval("[1] !! [\"a\": 1]") }              // d ?? [1]: a Dictionary coalesces with a Dictionary
     }
 
+    @Test("d[k] !!= v overrides an existing entry and never creates one (round 211)")
+    func overrideEntry() throws {
+        #expect(try eval("var d = [\"a\": 1]\nd[\"a\"] !!= 9\nd") == .dictionary([.string("a"): .int(9)]))
+        #expect(try eval("var d = [\"a\": 1]\nd[\"b\"] !!= 9\nd") == .dictionary([.string("a"): .int(1)]))      // not created
+        #expect(try eval("var d = [\"a\": 1]\nd[\"b\"] !!= 9") == .nil)                                     // the statement's value when nothing was written
+        #expect(try eval("var d = [\"a\": 1]\nd[\"a\"] !!= 9") == .int(9))
+        #expect(try eval("var d = [\"a\": 1]\nd[\"a\"] !!= nil\nd") == .dictionary([.string("a"): .int(1)]))  // an absent right side keeps the old
+        #expect(try eval("var d: [String: Int?] = [\"a\": nil]\nd[\"a\"] !!= 2\nd") == .dictionary([.string("a"): .int(2)]))   // a key holding nil exists
+        #expect(try eval("var d: [String: Int?] = [\"a\": nil]\nd[\"b\"] !!= 2\nd.count") == .int(1))
+        #expect(try eval("var n = 0\nvar d = [\"a\": 1]\nd[{ n += 1; return \"b\" }()] !!= 9\nn") == .int(1))   // the key is evaluated once
+        #expect(try eval("var s = (d: [\"a\": 1], n: 0)\ns.d[\"a\"] !!= 5\ns.d[\"b\"] !!= 5\ns.d") == .dictionary([.string("a"): .int(5)]))   // through a path
+        #expect(try eval("var m = [\"x\": [\"a\": 1]]\nm[\"x\"][\"b\"] !!= 2\nm[\"x\"][\"a\"] !!= 3\nm") == .dictionary([.string("x"): .dictionary([.string("a"): .int(3)])]))
+        #expect(try eval("var a = [1, 2]\na[1] !!= 9\na") == .array([.int(1), .int(9)]))                // an Array index is bounds-checked as ever
+        #expect(throws: SwiftalkError.self) { try eval("var a = [1, 2]\na[5] !!= 9") }
+        #expect(throws: SwiftalkError.self) { try eval("let d = [\"a\": 1]\nd[\"a\"] !!= 9") }        // a let
+        #expect(try eval("var d = [\"a\": 1]\nd[\"b\"] ??= 2\nd.count") == .int(2))                   // ??= still creates: that is its point
+    }
+
     @Test("??= fills in place, !!= overrides in place; a var path; the lock holds")
     func assignment() throws {
         #expect(try eval("var d = [\"a\": 1]\nd ??= [\"a\": 9, \"b\": 2]\nd") == .dictionary([.string("a"): .int(1), .string("b"): .int(2)]))

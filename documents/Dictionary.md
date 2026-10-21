@@ -21,7 +21,8 @@ under, and `d.Type` reports them. **`nil` is a storable value** (round
 | `d[k]` | the value, or `nil` when absent |
 | `d[k] = v` | insert or replace (`v` may be `nil`); needs a `var` root |
 | `d.has(k)` | presence — true for a key holding nil, false for a missing key |
-| `d[k] ??= v` | set a default: writes `v` only when `d[k]` is nil (round 103) |
+| `d[k] ??= v` | set a default: writes `v` only when `d[k]` is nil (round 103) — creating the key |
+| `d[k] !!= v` | override an **existing** entry: writes `v` where `k` exists (a stored `nil` counts as existing), does nothing — and is `nil` — where it does not; a missing key is never created (round 211). A `nil` right side keeps the old value, as `!!` does |
 | `d.remove(k)` | deletes the entry; returns the removed value or `nil`; needs a `var` root |
 | `d.subtract(keys)` | removes every listed key (round 133, as `delete`; Swift's Set name since 135): a Set or Array of keys, or another Dictionary's keys; returns `nil`; needs a `var` root |
 | `d0 ?? d1`, `d0 ??= d1` | **fill in**: `d0`'s values kept, missing ones taken from `d1` — per key, `d0[k] ?? d1[k]`, so a stored `nil` is filled (round 130); `??=` in place on a `var` |

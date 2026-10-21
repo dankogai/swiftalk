@@ -222,6 +222,25 @@ Set(
 )
 ```
 
+**`d[k] !!= v` updates, never creates** (round 211) — override needs
+something to override; `??=` still fills in, creating the key:
+
+```text
+swiftalk> var d = ["a": 1]
+["a": 1]
+swiftalk> d["a"] !!= 9
+9
+swiftalk> d["b"] !!= 9
+swiftalk> d
+["a": 9]
+swiftalk> d["b"] ??= 2
+2
+swiftalk> d
+["a": 9, "b": 2]
+swiftalk> d["a"] !!= nil
+9
+```
+
 **`.SION()` is a String's alone** (round 210) — the seventh and, of the
 core's constructors that read a String, the last:
 

@@ -1383,6 +1383,22 @@ as data, not as text to read (`Set("ab")`, `Array("ab")` — a String is
 a Sequence of graphemes there, which is the law's own case). The same
 check. Both runtimes.
 
+**`d[k] !!= v` updates, never creates — DECIDED (round 211)** ("add
+`d[k] !!= v` to Dictionary. d[k] is updated only if it exist. new d[k]
+is not created."). `??=` and `!!=` are a pair (round 130): fill in and
+override. On a Dictionary subscript they diverged from their own words:
+`d[k] ??= v` writes a default, creating the key — that is its point —
+but `d[k] !!= v`, reading `nil` for a missing key and overriding it
+with `v`, *also* created the key, which is not what "override" says.
+Now an override needs something to override: where `k` exists (a
+stored `nil` counts) the entry is overridden, as `!!` has it, a `nil`
+right side keeping the old value; where it does not, nothing is
+written and the statement is `nil`. The key expression is evaluated
+once. Through a path (`s.d[k] !!= v`, `m[x][k] !!= v`) alike; an Array
+index stays bounds-checked, since an Array has no missing index to
+leave alone. The core gained `readPath`, a read of an assignment path
+without a write. Both runtimes.
+
 **Loop labels; `forEach` — DECIDED (round 156)** ("Support loop
 labels. Without it it makes little difference from `.map{}`. Should
 we add `.forEach{}` or just `_ = seq.map{}`?"). Swift's spelling,
