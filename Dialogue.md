@@ -2834,3 +2834,6 @@ the history. (Moved out of Design.md in round 65.)
   told `*.swt` is Swift, so the examples and `.swt` modules highlight as
   what they read like; the vendored swift-bignum sources are marked
   vendored, so the repository's language statistics are its own.
+  The push found CI's `ubuntu-latest` had become Ubuntu 26, where the
+  Swift 6.3 toolchain (built for 24.04) cannot load `libxml2.so.2`; the
+  Swift job is pinned to `ubuntu-24.04`.

@@ -12,7 +12,7 @@ jobs:
     name: Swift ${{ matrix.swift }} on ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-24.04, macos-latest]   # 24.04 by name: the 6.3 toolchain is built for it, and ubuntu-latest moved to 26 (round 212)
         swift: ["6.3"]
     runs-on: ${{ matrix.os }}
     steps:
