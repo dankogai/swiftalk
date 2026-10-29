@@ -2900,3 +2900,14 @@ the history. (Moved out of Design.md in round 65.)
   Everything else that reads stale — `x.type` in round 1, `if case`
   retained in 77, round 97's hope for the next item — is history the
   next entry already corrects, and stays as written.
+* **2026-10-29, round 218 — README.md audited** ("Check README.md for
+  stale lines too"). The front page is meant to be current everywhere,
+  so every line was checked: the tour block is `examples/tour.swt`
+  verbatim and the suite proves it; every link and path resolves; the
+  command lines run. Two lines had aged: the JavaScript paragraph gave
+  a fixture count as a present fact (2,665 of 2,671 — the corpus is
+  2,925 today and grows with every Swift test), and now says what is
+  true at any size — every fixture, all but six; and the native-module
+  list ended at `POSIX`, before `BigInt`, `BigRat`, and their shared
+  `modules/BigNum`. The per-milestone counts in `js/README.md` are a
+  history and stay.

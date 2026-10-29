@@ -126,11 +126,15 @@ swift test           # the suite
 **swiftalk in JavaScript** (rounds 197–200) lives in [js/](js/README.md):
 the core runtime ported line for line, with the prelude as JS modules,
 and checked against the Swift tests' own expectations — `cd js && npm
-test` runs 2,665 of the 2,671 fixtures to the Swift core's answers (the
-six left are Swift's Character-level Regex). `node js/repl.mjs` is a
+test` extracts every fixture from the Swift tests and runs it to the
+Swift core's answer, all but six (Swift's Character-level Regex, listed
+in the test so the list cannot rot). `node js/repl.mjs` is a
 REPL over it, and `npm run build` makes `dist/notebook.html`, a
 notebook of swiftalk cells that opens from a file.
 
 The library is `Core/` — a dynamic library product in a package of
 its own since round 182, so the CLI, the tests, and the native modules
-(`modules/IO`, `Net`, `Regex`, `Sequence`, `Task`, `POSIX`, built as `libIO.dylib` and so on) all share one copy of it.
+(`modules/IO`, `Net`, `Regex`, `Sequence`, `Task`, `BigInt`, `BigRat`,
+`POSIX`, built as `libIO.dylib` and so on — `BigInt` and `BigRat` sharing
+`modules/BigNum`, the vendored engine, the same way) all share one copy
+of it.
