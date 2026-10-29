@@ -52,7 +52,8 @@ the history. (Moved out of Design.md in round 65.)
   spelling, `&+` family, initializer-style conversions, Optional/nil
   interplay.
 * **2026-08-29, round 7** — Added §13 Milestones: 0. `eval()`,
-  1. REPL (a loop around `eval()`); later milestones TBD. Opened:
+  1. REPL (a loop around `eval()`); later milestones TBD *(round 4's
+  "swiftalk by example" moved down to §14 with it)*. Opened:
   whether `eval()` is exposed in the language itself.
 * **2026-08-29, round 8** — Decided: file extension is **`.swt`** (§13).
 * **2026-08-29, round 9** — Decided: **no `func` — `{}` closure
@@ -2766,7 +2767,8 @@ the history. (Moved out of Design.md in round 65.)
   As for JS, just use native `BigInt` thereof. Literals follow the JS
   style, prefix `n` mandatory."). A module with a literal, Regex's
   shape: `123n` is grammar, the `BigInt` type in scope its meaning;
-  swift-bignum's integer files vendored into `modules/BigInt/Vendored`,
+  swift-bignum's integer files vendored into `modules/BigInt/Vendored` *(`modules/BigNum`
+  since round 203)*,
   the JS module over the platform's BigInt. Strict — a BigInt meets a
   BigInt. The core grew an operator hook for module values. "JS style"
   read as the `n` suffix, `123n`.
@@ -2882,3 +2884,19 @@ the history. (Moved out of Design.md in round 65.)
   and `import` (86, 100, 186), fetch's move to `Net` (185, 189), the
   prelude's size (203), milestone 2 arrived unnamed — each carry an
   italic note naming the resolving round; no paragraph was rewritten.
+* **2026-10-29, round 217 — Dialogue.md audited** ("Check Dialogue.md
+  for stale lines too"). The log's own rule — nothing rewritten, a
+  revision citing what it revises — leaves little that can be stale: an
+  entry is true of its round, and the round that changed it has its own
+  entry. So the checks were the ones a log can fail. The 219 round
+  headers run straight, no gap, no duplicate, dates in order. The one
+  code block has no statements to replay. Every path and link named
+  still exists or has its rename on record (`eg/` and `doc/` in rounds
+  178–179, `FlowControl.md` in 157). Section numbers point where they
+  say, with one exception: round 7 made Milestones §13 and never said
+  that round 4's "swiftalk by example" had become §14 — a pointer says
+  so now. And round 201's `modules/BigInt/Vendored`, dissolved in 203
+  by an entry that did not name `modules/BigNum`, carries the name.
+  Everything else that reads stale — `x.type` in round 1, `if case`
+  retained in 77, round 97's hope for the next item — is history the
+  next entry already corrects, and stays as written.
