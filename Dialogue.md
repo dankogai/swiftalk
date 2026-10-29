@@ -2958,3 +2958,23 @@ the history. (Moved out of Design.md in round 65.)
   on the page — the exports of `src/index.js`, the hooks `readLine`,
   `openFile`, `fetch`, the notebook's keys and autosave, the ignored
   `fixtures.json` and `dist/` — was checked against the file it names.
+* **2026-10-30, round 221 — modules/BigNum/README.md and examples/sion.md
+  audited** ("Check modules/BigNum/README.md and examples/sion.md for
+  stale lines too"). The vendoring note held to the byte: the pinned
+  commit exists upstream with the date given and is still its HEAD, the
+  thirteen vendored files are identical to it, `Bridge.swift` alone is
+  ours, `BigRat` is upstream's own typealias, the license is beside
+  them, and the umbrella package declares only the two local paths.
+  Nothing changed there. The SION write-up is round 85's and keeps its
+  voice, so like Design.md it is annotated, never rewritten: one
+  transcript line was wrong — the Data round-trip now prints `.Data(
+  "Y2Fmw6k=")`, the source form since round 97, which item 8 already
+  recorded — and is corrected to what the program prints; the rest are
+  italic notes naming the round that closed an open item (SION built in
+  — 97; the law's spelling — 122 and 159; bit operators — 193; the
+  slicing family and `a[1..<3]` — 89–90; `uppercased` — 195; `import`
+  and the Regex module — 100 and 186; `joined` leaving with 94's `"""`)
+  or confirming one still open (the `.utf8` shadowing hazard, errors
+  without line numbers, no recursion guard, all probed today). The
+  program's output and its sketch of the code were checked against the
+  file; the `String.fromCodePoint` and the bit-method claims hold.

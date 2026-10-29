@@ -5,7 +5,8 @@ far can swiftalk go without RegExp?* The test case is a parser for
 [SION](https://github.com/dankogai/swift-sion) — JSON in Swift's
 literal syntax — written entirely in swiftalk, as
 [sion.swt](sion.swt). SION is to become a built-in type, so the
-example lives under its own name, `MySION`.
+example lives under its own name, `MySION`. *(It did, in round 97 —
+[documents/SION.md](../documents/SION.md); the name stays.)*
 
 The answer: **all the way.** The parser handles every SION form —
 `nil`, Bool, Int with `0x`/`0o`/`0b` and `_`, Double with exponents
@@ -13,7 +14,8 @@ and hex floats, Strings with Swift's escapes including `\u{...}`,
 `.Date(epoch)`, `.Data("base64")`, Arrays, Dictionaries with *any*
 key, `[:]`, trailing commas, `//` and `/* */` comments — and the
 round-trip law `eval(x.String(.quoted)) == x` (§3d) holds through it
-for every value type. RegExp was never missed, and neither were
+for every value type *(spelled `eval(x.String())! == x` since the
+language got its own `eval`, a Result — rounds 122 and 159)*. RegExp was never missed, and neither were
 String subscripts.
 
 ```sh
@@ -42,7 +44,7 @@ true [1, [2, [3]]]
 true ["k": [nil, 1.5]]
 true ["😇": true, 1.0: [], nil: [:]]
 true .Date(1234567890.5)
-true Data([99, 97, 102, 195, 169])
+true .Data("Y2Fmw6k=")
 expected ',' or ']' at 5
 expected ',' or ']' at 3
 unterminated string at 5
@@ -93,7 +95,8 @@ MySION(text).parse()        // Result.success(value) or Result.failure("what at 
   with `Data(bytes).String(.utf8)`. *(Round 114 added
   `String.fromCodePoint`; the example keeps the hand-rolled encoder
   as round 105's bitwise demonstration.)* Base64 is the same trick in the
-  other direction: `n / 65536`, `n - n / 256 * 256`.
+  other direction: `n / 65536`, `n - n / 256 * 256` *(the bit methods
+  too, since round 105 — item 2 below)*.
 * **A dictionary with any key** just works: `dict[key] = r.value`
   with `nil`, `1.0`, `[]`, `[:]` as keys, `nil` as a stored value,
   `.has` telling the two apart.
@@ -103,7 +106,8 @@ MySION(text).parse()        // Result.success(value) or Result.failure("what at 
 `struct` with `let` methods and implicit self (`.at(i)`, round 49),
 labeled tuples and field access, `Result` with `?`, `if` as an
 expression (round 80), `for (a, b) in [...]` over tuples, `contains`
-(round 83), `joined` (round 84), `enumerated()`, flat optionals (`if
+(round 83), `joined` (round 84; gone from the example with round 94's
+`"""` literal, item 4), `enumerated()`, flat optionals (`if
 v == nil` then use `v` — nothing to unwrap), `Data(bytes).String(.utf8)`,
 `Int("0x..")`/`Double("..p..")`, and value-semantics structs whose
 methods are pure.
@@ -125,7 +129,8 @@ Each of these is a finding, with the workaround the example uses.
 2. **No `%`.** `v - v / n * n` throughout the base64 and UTF-8
    arithmetic. *(Landed in round 93. Round 105 then gave bitwise
    operations as methods, and the example's base64 and UTF-8 code
-   now reads `n.shifted(by: -16)`, `c.bitAnd(63)`, `0x80.bitOr(...)`.)* No bit operators either (already OPEN). `%` is cheap
+   now reads `n.shifted(by: -16)`, `c.bitAnd(63)`, `0x80.bitOr(...)`.)* No bit operators either (already OPEN) *(round 193:
+   `+&`, `+|`, `+^`, `+<`, `+>`, Raku's spellings)*. `%` is cheap
    and Swift has it.
 3. **Newlines end statements everywhere except inside `[ ]` and
    `( )`** — a long `||` chain had to be parenthesized to continue on
@@ -139,19 +144,24 @@ Each of these is a finding, with the workaround the example uses.
 5. **Implicit self shadows format tags.** A method named `utf8` made
    `.String(.utf8)` inside the struct resolve to `self.utf8`. Renamed
    to `fromCodePoint`. A rule ("a `.name` argument to a builtin is a
-   tag") would remove the trap; for now it is a naming hazard.
+   tag") would remove the trap; for now it is a naming hazard. *(Still
+   so in round 221's audit: inside a type with a `utf8` member,
+   `.String(.utf8)` is a type error.)*
 6. **No Array Range subscript** (`a[1..<3]`) — the scanner
    accumulates `text = text + c` instead. Planned with the slicing
-   family (`suffix`, `dropFirst`, `dropLast`, `split`).
+   family (`suffix`, `dropFirst`, `dropLast`, `split`). *(Landed in
+   rounds 89–90: the slicing family, then `a[1..<3]` on Arrays.)*
 7. **Errors carry no line number** — `swiftalk file.swt` says what
    went wrong, not where. Finding a syntax error in 300 lines meant
-   bisecting. Worth adding to the lexer's error path.
+   bisecting. Worth adding to the lexer's error path. *(Still so in
+   round 221's audit: the CLI names the file, not the line.)*
 8. **Data's source form was `Data([99, 97])`, not SION's
    `.Data("base64")`** — the parser accepts both. *(Settled in round
    97, when SION became built-in: the source form is SION's, and
    `Data(s)` decodes base64.)*
-9. Minor: no `uppercased()`/`lowercased()`; `.count` on a Sequence
-   is deliberately an error, so lengths come from `.Array().count`.
+9. Minor: no `uppercased()`/`lowercased()` *(round 195)*; `.count` on
+   a Sequence is deliberately an error, so lengths come from
+   `.Array().count` *(still, by design)*.
 10. **No recursion guard.** The tree-walker's recursion budget is its
     thread's stack (round 45), and nothing checks it: this parser
     runs fine from the CLI's 8 MB main thread, but the test suite's
@@ -160,6 +170,8 @@ Each of these is a finding, with the workaround the example uses.
     for their bodies. A depth counter that throws "recursion too
     deep" would turn a crash into an error; an embedder running
     swiftalk on a pool thread will hit this before anyone else.
+    *(Still none in round 221's audit; the test still runs it on a
+    64 MB thread.)*
 
 ## Verdict
 
@@ -170,4 +182,5 @@ structured text with nothing added. Where RegExp earns its footprint
 is ad-hoc text: "does this line look like a date", "split on runs of
 whitespace", "replace every `\s+` with one space". That is the case
 for making it a module rather than a core type — which puts
-`import` on the table first (OPEN, round 85).
+`import` on the table first (OPEN, round 85). *(Both came: `import`
+in round 100, and `Regex` is the module since round 186.)*
