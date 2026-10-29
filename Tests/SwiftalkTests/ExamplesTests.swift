@@ -239,6 +239,37 @@ struct ExamplesTests {
             """)
     }
 
+    @Test("tour.swt: the README's example, run — so the README cannot drift (round 213)")
+    func tour() throws {
+        let root = #filePath.split(separator: "/", omittingEmptySubsequences: false).dropLast(3).joined(separator: "/")
+        #expect(try output(of: try slurp("tour.swt"), scriptPath: "\(root)/examples/tour.swt") == """
+            2432902008176640000 1267650600228229401496703205376n
+            2 4
+            smalltalk: 1972
+            1987 nil Nil
+            true 3
+            10 2432902008176640000 1024 6
+            12.0
+            true Complex(real: -0.0, imag: -1.0)
+            0 42 nil 3
+            1: Int
+            one: String
+            2.0: Double
+            0xff .Data("Y2Fmw6k=") true
+            {"n":42,"when":0.0}
+            true
+            [0, 2, 8, 34, 144]
+            2026 ["a", "b", "c"]
+            5.0 [1.0, 2.0, 3.0]
+            done
+            12.0 Point(x: 2.0, y: 4.0)
+
+            """)
+        // and the README carries the file verbatim
+        let readme = try slurp("../README.md")
+        #expect(readme.contains(try slurp("tour.swt")), "README.md's example block is not examples/tour.swt")
+    }
+
     @Test("import.swt + geometry.swt: modules — one instance, a namespace type (round 184), named imports (round 100)")
     func modules() throws {
         let root = #filePath.split(separator: "/", omittingEmptySubsequences: false).dropLast(3).joined(separator: "/")

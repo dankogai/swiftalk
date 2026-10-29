@@ -13,6 +13,9 @@ bare `swiftalk` remains REPL mode, echoes and all.)
 Every example is verified by the test suite (`ExamplesTests`) — the quine
 laws are checked byte-for-byte, the outputs line-for-line.
 
+* **[tour.swt](tour.swt)** — the README's "swiftalk by example", as a
+  program (round 213): the README embeds this file verbatim and the
+  suite runs it, so the first thing a reader sees is checked.
 * **[quine.swt](quine.swt)** — the *value* quine:
   `Swiftalk.eval(source)` returns `.string(source)`, exactly. The
   engine is `.String(.quoted)`, whose escaping is canonical (§3d) —

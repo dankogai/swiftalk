@@ -8,40 +8,46 @@ recorded in [Design.md](Design.md).
 
 ## swiftalk by example
 
-A taste of the language as decided so far (§§1–11):
+A tour — [examples/tour.swt](examples/tour.swt), verbatim: a program the
+test suite runs and checks line for line, so it cannot drift from the
+language. Every feature's own entry, round by round, is in
+[Status.md](Status.md).
 
 ```swift
-// bindings: type-locked at first assignment (§3), Int is 64-bit (§3b)
+// swiftalk by example — the README's tour, as a program: this file runs
+// (`swift run swiftalk examples/tour.swt`) and the test suite checks its
+// output line for line, so what you read here is what the language does.
+
+// bindings are type-locked at first assignment (§3); Int is 64-bit and traps (§3b)
 let fact20 = (1...20).reduce(1) { $0 * $1 }   // 2432902008176640000: still fits
 var n = 42
 // n = "42"                                   // runtime error: n is Int
-// n = 1.5                                    // runtime error: Double ≠ Int
+let big = 2n ** 100n                          // 1267650600228229401496703205376n — BigInt, JS's `n` suffix (round 201)
+print(fact20, big)
 
-// dictionaries are [Key: Value] (§2.1); collections are COW values (§4)
+// collections are [T] and [K: V] (§2.1), copy-on-write values (§4)
 var langs = ["swift": 2014, "smalltalk": 1972]
-let snapshot = langs                          // logical copy
+let snapshot = langs                          // a logical copy
 langs["swiftalk"] = 2026                      // snapshot unaffected
+langs["perl6"] !!= 2015                       // override only what exists: no such key, nothing happens (round 211)
+langs["perl6"] ??= 2015                       // fill in: created
+print(snapshot.count, langs.count)            // 2 4
 
-// optionals, full suite on the flat model (§3a)
-if let year = langs["smalltalk"] {
-    print("smalltalk: \(year)")
-}
-let y = langs["perl6"] ?? 2015
-var maybe: Int? = langs["swift"]              // Int-or-nil, no box
-maybe.Type                                    // Int (or Nil when nil)
+// optionals on the flat model (§3a): a value or nil, no box
+if let year = langs["smalltalk"] { print("smalltalk: \(year)") }
+let y = langs["perl5"] ?? 1987
+var maybe: Int? = langs["ruby"]               // Int-or-nil
+print(y, maybe, maybe.Type)                   // 1987 nil Nil
 
-// functions are closure literals (§2.4); labels optional & reorderable (§2.3)
+// functions are closure literals (§2.4); labels are optional and reorderable (§2.3)
 let move = { x, y in x + y }
-move(x: 1, y: 2)
-move(y: 2, x: 1)                              // same call
-move(1, 2)                                    // same call
-let sum = { $.reduce(0) { $0 + $1 } }         // $ = the arguments (§2.4)
-sum(1, 2, 3, 4)                               // 10; $.count was 4
-let fac = { n in n < 2 ? 1 : n * $(n - 1) }   // $() = recurse (§2.4)
-fac(20)                                       // 2432902008176640000
+print(move(x: 1, y: 2) == move(y: 2, x: 1), move(1, 2))   // true 3
+let total = { $.reduce(0) { $0 + $1 } }       // $ is the argument list
+let fac = { n in n < 2 ? 1 : n * $(n - 1) }   // $() recurses
+let six = [1, 2, 3].reduce(0, +)              // an operator is a Function (round 144)
+print(total(1, 2, 3, 4), fac(20), 2 ** 10, six)   // 10 2432902008176640000 1024 6
 
-// enums with associated values, runtime-exhaustive switch (§7);
-// switch is an expression — its branch's value is the closure's (round 79)
+// enums with associated values; switch is an expression (§7, round 79)
 enum Shape {
     case circle(r: Double)
     case rect(w: Double, h: Double)
@@ -50,91 +56,52 @@ let area = { s in
     switch s {
     case let r = .circle:    3.14159265358979 * r * r
     case let (w, h) = .rect: w * h
-    }   // a future third case reaching here without a match: runtime error
+    }
 }
+print(area(Shape.rect(w: 3.0, h: 4.0)))       // 12.0
 
-// Result-first errors, postfix ? to propagate (§8)
-let readConfig = { path in
-    let text = File.read(path)?               // failure returns early
-    let json = JSON.parse(text)?              // (see §8 note on error types)
-    return .success(Config(json))
-}
-
-// runtime type queries (§3) and obj.TypeName conversion (§3d)
-let mixed: [SION] = [1, "one", 2.0]           // mixed literals annotate (§3c)
-for x in mixed {
-    print("\(x.String()): \(x.Type)")         // .String() is universal (§3d)
-}
-let answer = "42".Int() ?? 0                  // failable conversion + default
-let kib    = 2 ** 10                          // 1024 — ** on two Ints (trapping) or two Doubles (round 142)
-let sum    = [1, 2, 3].reduce(0, +)           // 6 — an operator is a Function (rounds 144–145)
-
-struct Complex {                              // operators on your own types (round 146): no static, no func
+// structs with operators of their own (round 146), printed as source (§3d)
+struct Complex {
     var real: Double = 0.0
     var imag: Double = 0.0
-    infix(*) = { lhs, rhs in Self(lhs.real * rhs.real - lhs.imag * rhs.imag, lhs.real * rhs.imag + lhs.imag * rhs.real) }
+    infix(*) = { a, b in Self(a.real * b.real - a.imag * b.imag, a.real * b.imag + a.imag * b.real) }
     prefix(-) = { z in Self(-z.real, -z.imag) }
 }
 let i = Complex(0.0, 1.0)
-i * i == Complex(-1.0, 0.0)                   // true — and (*)(i, i), reduce(one, *), *= all reach it
-// the whole of C++'s <complex>, written in swiftalk: modules/Complex.swt (round 147)
-// import from "./modules/Complex.swt"; Complex.exp(Double.pi.i) == -1.0   — every export by name (round 148)
-// Tab completes at the REPL (round 164): names in scope, and members from the receiver's value — p.<Tab>, Double.sq<Tab>
-// [0].Type == [Int], [1: "a"].Type == [Int: String] — and [Int]() is an empty Array that still refuses a String (round 165)
-// [Int].Element == Int, [Int: String].Key == Int, Set([1]).Type.Element == Int; [Int].Element("42") is Int("42") (round 166)
-// Int?, Optional<Int>, Set<Int>, [Int?] — the spellings as expressions: Int?("x") is nil, var s = Set<Int>() refuses a String (round 167)
-// [Int]().filter { }.Type == [Int], [1].dropFirst().Type == [Int] — filter and the slices keep the element type (rounds 168–169); map infers one from its results (round 170); seq.Array(), Set(seq), Array([Int]()) keep theirs (rounds 171–172); Dictionary(pairs) builds from (k, v) tuples and infers [K: V] (round 173); zip(keys, values) pairs them, lazily when a side is (round 174); enumerated() is [Tuple] even when empty (round 175); reversed() and sorted() keep the element type (round 176); split() and joined() move it a level, [Int]().split(0) is [[Int]] and [[Int]]().joined() an empty [Int] (round 177); [Int: String]().keys is a Set<Int>, .values a [String] (round 180)
-// [].Type == [SION], [:].Type == [SION: SION], Set().Type == Set<SION> — an empty literal bound without an annotation holds data and refuses a Function; Primitives is retired, SION covers it (round 181)
-// import (getenv) from "POSIX" — a native module: Swift exports behind one C symbol, found as libPOSIX.dylib beside the CLI; the core is a dynamic library so both share one Value (round 182; Env then, POSIX since 188); module names take a capital, by convention (round 183)
-// import Net from "Net"; extension Net { static let resolve = { host in ... } } — a namespace is a type whose statics are the exports, so an extension adds to a module and Net() is refused (round 184)
-// the top level keeps eval: print/debugPrint are the IO module's, fetch/Response the Net module's — both preimported by the CLI as its prelude — and zip, sleep are Sequence.zip, Task.sleep (round 185)
-// /re/ is grammar, Regex is a module: the engine is modules/Regex (libRegex.dylib, preimported), the literal calls the Regex type in scope and is an error without it; modules now own values (Value.host), export types, and extend core types (round 186)
-// import from "POSIX"; readFile("notes.txt")!.String(.utf8); open(path, [O_WRONLY, O_CREAT])! — Env grew into POSIX: the environment and file I/O under C's names, every failure a Result (round 188)
-// IO and Net are libraries too: the core registers no module and writes nothing; a module reaches the interpreter through Swiftalk.output, spawn, offload, and host hooks, and ships swiftalk source as its prelude (round 189)
-// var fh = IO(path: "notes.txt", mode: .write); fh.data; for line in fh.lines { }; fh.append(x); IO.stderr.print(x); readLine() — IO is a handle type too, debugPrint goes to stderr, and a handle closes its descriptor when it dies (round 191)
-// Sequence.zip and Task.sleep are the Sequence and Task modules' — statics a module puts on a core type; the core keeps neither, and the prelude is IO, Net, Regex, Sequence, Task (round 192)
-// 6 +& 3, 6 +| 3, 6 +^ 3, 1 +< 4, 256 +> 4, +^0 — Raku's numeric bitwise operators, since | & ^ are the Set operators; +&= and the rest, (+&) as a Function, infix(+&) on a type (round 193)
-// a[-1] is a[a.count - 1] — a negative subscript counts from the end, reading and writing, on Arrays and Data; a divergence from Swift (round 194)
-// "straße".uppercased(), s.lowercased(), "hello world".ucfirst(), s.lcfirst() — case mapping: Swift's two and Perl's two, on graphemes (round 195)
-// "  hello \n".trimmed(), "--x--".trimmed("-") — whitespace and newlines off both ends, or the graphemes you name (round 196)
-// 2n ** 256n, BigInt(Int.max) + 1n, Int(2n ** 100n) — arbitrary precision, JS's `n` literal; a BigInt meets a BigInt; the BigInt module, swift-bignum vendored (round 201)
-// import from "BigInt" — say what you need: importing what the prelude already brought is a no-op, so a script runs with or without --no-prelude (round 202)
-// BigRat(1, 3) + BigRat(1, 6) == BigRat(1, 2), BigRat(0.1), r.rounded(.down), r ** -2 — exact rationals over BigInts; the BigRat module, the same engine (round 203)
-// Bool(1) is a type error — write i != 0; Bool takes a Bool or "true"/"false" (round 204, revising 105): nothing is truthy, not even by conversion
-// "true".Bool() parses, and .Bool() is a String's alone — true.Bool() is no member, Bool(b) the constructor stays (round 205: the round-47 law's first exception)
-// d[k] !!= v — override an existing entry, never create one; d[k] ??= v fills in, creating the key (round 211)
-// "42".Int(), "1.5".Double(), "255".Byte(), "AQID".Data(), "2009-02-13T23:31:30Z".Date(), "[1, 2]".SION() likewise: the parses are a String's; Int(3.9), Double(2), Byte(7), Data([1, 2], .propertyList), Date(1.5), SION(v) convert; 3.9.Int() is no member (rounds 206–210)
-// Complex(1.0, -2.0).String() == "(1.0-2.0.i)" — an expression that re-enters; Complex("(1.0-2.0.i)") reads it (round 154)
-// and exact fractions: modules/Rational.swt — Rational(3, 4) + 1 == Rational(7, 4), Double(Rational(3, 4)) == 0.75, Rational(3, 4).String() == "(3/4)", Rational("(3/4)"), 1.over(3)
-let hex    = 255.String(.hex)                 // "0xff"; .String(.sign, .hex) is "+0xff"; radix: 16 for bare "ff"
-let bytes  = "café".Data(.utf8)               // infallible; .Data("base64") is the literal
-let text   = bytes.String(.utf8)              // String? — bytes may not be text
-let src    = bytes.String()                   // .Data("Y2Fmw6k=") — SION
-eval(src)! == bytes                           // true — eval() is the language's own (round 122); a Result since round 159: eval("1 +") ?? 0
-(await fetch("https://example.com")).then { $0.status }   // Result.success(200) — JS's fetch, a Task of a Result (round 163); curl underneath
-Set([3, 1, 2, 1]) == Set(1...3)               // true — Set (round 132): unordered, unique; Set<Int> annotates
-"e\u{301}".normalized(with: .nfc) == "é"       // true — NFC/NFD/NFKC/NFKD, Foundation-free (round 137); .isNormalized(.nfc) asks
-"Dan = 弾".escaped()                           // "Dan = \u{5f3e}"; .unescaped() reads it back
+print(i * i == Complex(-1.0, 0.0), -i)        // true Complex(real: -0.0, imag: -1.0)
+
+// Result-first errors (§8): ?? defaults, ! traps, postfix ? propagates a failure to the caller
+let parsed = eval("1 +") ?? 0                 // eval is the language's own, a Result (rounds 122, 159)
+let answer = "42".Int() ?? 0                  // the parses are a String's; Int(3.9) converts (rounds 205–210)
+print(parsed, answer, "x".Int(), Int(3.9))    // 0 42 nil 3
+
+// runtime types (§3); .String() is every value's source form (§3d), and it re-enters
+let mixed: [SION] = [1, "one", 2.0]
+for x in mixed { print("\(x.String()): \(x.Type)") }
+let bytes = "café".Data(.utf8)
+print(255.String(.hex), bytes, eval(bytes.String())! == bytes)   // 0xff .Data("Y2Fmw6k=") true
 
 // SION is built in (round 97): the same values, three formats
-let doc: SION = SION("[\"n\": 42, \"when\": .Date(0x0p+0)]")   // any SION text, comments and all
-doc.String(.json)                             // {"n":42,"when":0.0}
-doc.String(.pretty)                           // the SION, one entry per line; .String(.json, .pretty) likewise
-SION(propertyList: doc.String(.propertyList)) == doc   // true; Data(doc, .propertyList) is bplist00
+let doc: SION = SION("[\"n\": 42, \"when\": .Date(0x0p+0)]")
+print(doc.String(.json))                      // {"n":42,"when":0.0}
+print(SION(propertyList: doc.String(.propertyList)) == doc)   // true; Data(doc, .propertyList) is bplist00
 
-// math is built in (round 108): libm and JS's Math, as Double's static members
-Double.hypot(3, 4)                            // 5.0 — Int arguments promote
-[1.0, 4.0, 9.0].map(Double.sqrt)              // [1.0, 2.0, 3.0] — a function member is a value
+// lazy Sequences: generators and coroutines (§10)
+let fib = Sequence { var (a, b) = (0, 1); while true { yield a; (a, b) = (b, a + b) } }
+print(fib.filter { $0 % 2 == 0 }.prefix(5))   // [0, 2, 8, 34, 144]
 
-// modules (round 100): a .swt file, evaluated once; only exports cross
-import Geometry from "./geometry.swt"         // every export, as Geometry.name
-import (area) from "./geometry.swt"           // the named ones, directly — the same instance
-Geometry.area(3.0, 4.0) == area(3.0, 4.0)     // true
+// Regex has a literal (round 86); a match with captures is a tuple
+let when = "2026-09-03".firstMatch(/(?<y>\d+)-(?<m>\d+)-(?<d>\d+)/)
+print(when.y, "a, b,,c".split(/,\s*/))        // 2026 ["a", "b", "c"]
 
-// Regex is a core type with a literal (round 86); a match with captures is a tuple
-let when = "2026-09-03".firstMatch(/(?<y>\d+)-(?<m>\d+)-(?<d>\d+)/)   // (whole, y:, m:, d:)
-when.y                                        // "2026"
-"a, b,,c".split(/,\s*/)                       // ["a", "b", "c"]
+// math is Double's (round 108); tasks are JS's (round 53)
+print(Double.hypot(3, 4), [1.0, 4.0, 9.0].map(Double.sqrt))   // 5.0 [1.0, 2.0, 3.0]
+let t = async { Task.sleep(0.01); "done" }
+print(await t)
+
+// modules are files (round 100): evaluated once, only exports cross
+import G from "./geometry.swt"                // every export, as G.name; `import (area) from` for the named ones
+print(G.area(3.0, 4.0), G.Point(x: 1.0, y: 2.0).scaled(2.0))   // 12.0 Point(x: 2.0, y: 4.0)
 ```
 
 ---

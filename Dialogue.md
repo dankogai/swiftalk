@@ -2837,3 +2837,13 @@ the history. (Moved out of Design.md in round 65.)
   The push found CI's `ubuntu-latest` had become Ubuntu 26, where the
   Swift 6.3 toolchain (built for 24.04) cannot load `libxml2.so.2`; the
   Swift job is pinned to `ubuntu-24.04`.
+* **2026-10-29, round 213 — the README's example is a program**
+  ("`README.md` appears to be broken. specifically, the 'swiftalk by
+  example' section ... See the giant comment-out?"). Since round 164
+  every round had appended a `//` line to the example block, and it had
+  become a wall — with stale lines inside it (`File.read`, `JSON.parse`,
+  Regex "a core type"). The block is now `examples/tour.swt` verbatim: a
+  runnable tour whose output the suite checks line for line, and whose
+  presence in the README the suite checks too. The round-by-round lines
+  are gone from the README; Status.md has had every one of them all
+  along. The per-round README line is retired from the routine.
