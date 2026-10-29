@@ -2829,3 +2829,8 @@ the history. (Moved out of Design.md in round 65.)
   existing entry is overridden (a stored nil counts), a missing key is
   left alone and the statement is nil; `??=` still creates, that being
   its point. The key is evaluated once. Both runtimes.
+* **2026-10-29, round 212 — `.gitattributes`** ("add `.gitattributes`
+  so the sources look prettier on GitHub. *.swt to Swift"). Linguist is
+  told `*.swt` is Swift, so the examples and `.swt` modules highlight as
+  what they read like; the vendored swift-bignum sources are marked
+  vendored, so the repository's language statistics are its own.

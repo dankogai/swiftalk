@@ -1,0 +1,5 @@
+# swiftalk sources: Swift's syntax, Swift's highlighting on GitHub (round 212)
+*.swt linguist-language=Swift
+
+# swift-bignum, vendored (rounds 201, 203): not this repository's own code
+modules/BigNum/Sources/BigNum/* linguist-vendored
