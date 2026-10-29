@@ -1,7 +1,8 @@
 # The top level
 
-What a program sees before it declares anything (round 157): four
-functions, the types and protocols as values, one built-in enum, and
+What a program sees before it declares anything (round 157): one
+function (`eval`; four until round 185), the types and protocols as
+values, one built-in enum, and
 the names the language binds on its own. Everything here is an
 ordinary `let` in the outermost scope (§2.4) — not a keyword — so it
 can be passed, aliased, and shadowed by a declaration of your own.
@@ -38,8 +39,9 @@ eval("1 +") ?? 0              // 0 — .failure("syntax error: unexpected token 
 
 ### `Response`
 
-What a successful `fetch` carries — a struct **declared in swiftalk**
-at startup (the first prelude), so it is an ordinary type: `Response(
+What a successful `fetch` carries — a struct **declared in swiftalk**,
+in the `Net` module's prelude (round 189; at startup from round 163
+until then), so it is an ordinary type: `Response(
 status: 200, body: "hi".Data(.utf8))` constructs one, `r.Type ==
 Response`, and it prints memberwise.
 
@@ -66,9 +68,10 @@ let a = fetch(u1); let b = fetch(u2)                 // both in flight at once
 Mind the precedence: `await fetch(u).then { }` is `await (fetch(u).then { })`,
 a `then` on a Task — parenthesize, `(await fetch(u)).then { }`, as in JS.
 
-There is no `readLine`, `exit`, `assert`, or `args` (yet): a script
-reads nothing and ends when its last statement does; a runtime error
-ends it early with the message on stderr.
+There is no `assert` or `args` (yet); `readLine` is the `IO` module's
+(round 191) and `exit` is `POSIX`'s (round 188). A script ends when its
+last statement does; a runtime error ends it early with the message on
+stderr.
 
 ## Types and protocols, as values
 
@@ -110,6 +113,7 @@ construct — `[Int].Element("42")` is `42`. The erased `Array` has no
 | `Result` | the built-in enum, `.success(v)` / `.failure(e)` — [Result.md](Result.md) |
 | `Response` | `fetch`'s answer, a struct declared in swiftalk — the `Net` module's, preimported by the CLI (rounds 163, 185) — [Net.md](Net.md) |
 | `Regex` | the Regex **module's** type (round 186), preimported by the CLI — the literal `/re/` is grammar and calls it, an error when it is not in scope — [Regex.md](Regex.md) |
+| `BigInt` `BigRat` | the BigInt and BigRat **modules'** types (rounds 201, 203), preimported by the CLI — the literal `123n` is grammar and calls `BigInt` — [BigInt.md](BigInt.md), [BigRat.md](BigRat.md) |
 | `Optional` | `Optional<Int>` is the type `Int?` (round 167) — the bare name is the identity constructor, `Optional(x)` is `x`, and no annotation |
 | `Any` | an annotation-only name (round 59): not a value, a type error as one. (`Primitives` was retired in round 181 — `SION` covers it) |
 

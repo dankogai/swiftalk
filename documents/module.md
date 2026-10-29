@@ -131,9 +131,10 @@ String members, `replacing(/re/) { m in }`, and `split`'s `[String]`.
 The Net module (`modules/Net/NetModule.swift`) uses a prelude for
 `Response`, `spawn` around `offload` for `fetch`, the `"fetch"` hook,
 the labeled call. The IO module (`modules/IO/IOModule.swift`) uses
-the last four: a handle is a `HostValue` with `setMember` for `data
-=`, its `lines` and `read(size)` are `Swiftalk.sequence`s, `IO.stdin`
-a static, `debugPrint` the error output.
+`setMember`, `Swiftalk.sequence`, `m.static`, and `Swiftalk.errorOutput`:
+a handle is a `HostValue` with `setMember` for `data =`, its `lines`
+and `read(size)` are `Swiftalk.sequence`s, `IO.stdin` a static,
+`debugPrint` the error output.
 
 ## The prelude (round 185)
 
@@ -155,7 +156,7 @@ silent. The top level itself keeps one function, `eval`; `zip` and
 beside the executable — and, for each that is missing, says so once
 and runs on: `/re/` literals, `Sequence.zip`, `Task.sleep` failing
 when reached. `swiftalk --no-prelude` (round
-187) skips all three: the top level has `eval` and nothing else, and
+187) skips them all — seven today: the top level has `eval` and nothing else, and
 `import from "IO"` or `import (Regex) from "Regex"` brings what a
 script wants. The CLI's prelude since then also has **`BigInt`** and **`BigRat`** (rounds 201, 203). **`import` is idempotent** (round 202): importing what
 the prelude already brought is a no-op, so a script writes `import

@@ -20,7 +20,7 @@ source form round-trips.
 | `t.String()` | `"(1, \"a\")"` — `(7,)` for a 1-tuple |
 | `t.String(.pretty)` | one element per line, two spaces a level, labels kept; `(7,)` keeps its comma (round 118) |
 | `for x in t`, `t.map`, `t.filter`, `t.reduce`, `t.Array()` | a Tuple conforms to Sequence |
-| `seq.enumerated()` | `(index, element)` tuples — see [Sequence.md](Sequence.md) |
+| `seq.enumerated()` | `(key:, value:)` tuples, the index as `key` (round 128) — see [Sequence.md](Sequence.md) |
 | `Tuple()`, `Tuple(seq)`, `seq.Tuple()` | empty; gathered from any Sequence conformer |
 | `case (1, "x"):` | a tuple literal is an expression pattern — matched by equality |
 | `let (a, b) = t`, `var (a, b) = t`, `let a, b = t` | destructuring (round 71): by position, arity checked, `_` discards, nests; each name takes its own lock; the parentheses are optional (round 99) — labels need them |

@@ -10,8 +10,9 @@ Shelved forms (`actor`, `class`, `super`) are not grammar today.
 * **Comments**: `// ...` to end of line; `/* ... */`, nesting.
 * **Separators**: a newline or `;` ends a statement. Newlines are
   *suppressed* inside `[ ]` and `( )` (literals and calls span lines),
-  and after a trailing binary operator — `+ - * / % =`, a comparison,
-  `&& || ??` — which continues the expression on the next line
+  and after a trailing binary operator — `+ - * / % ** =`, a comparison,
+  `&& || ?? !!`, the Set and bitwise operators, the words — which
+  continues the expression on the next line
   (round 95); not after postfix `!`/`?`, and not after `...`, since
   `0...` at a line's end is the unbounded range. A *leading* operator
   continues the previous line too (round 96, Swift's rule): an
@@ -29,7 +30,7 @@ Shelved forms (`actor`, `class`, `super`) are not grammar today.
   else while repeat for break continue return yield async await enum
   case switch default struct extension import export not and or xor`. Contextual
   (identifiers elsewhere): `init self get set willSet didSet newValue
-  oldValue where from`. (`Regex` and `SION` are type names, not
+  oldValue where from static infix prefix postfix`. (`Regex` and `SION` are type names, not
   keywords.)
   Not keywords, deliberately: `guard`, `func`, `mutating`, `class`,
   `actor`, `super` (§9 and round 62).
@@ -57,7 +58,7 @@ Shelved forms (`actor`, `class`, `super`) are not grammar today.
     keyword) and is division after a value, a name, or a closing
     bracket — JavaScript's rule. `//` is a comment, never an empty
     regex.
-* **Operators & punctuation**: `+ - * / % **`, `| & ^` (Sets), `+= -= *= /= %= **= |= &= ^= ??= !!= &&= ||= ^^=`, `== != === !== < <= > >=`, `&& ^^ ||`, the words `not and or xor` (round 155),
+* **Operators & punctuation**: `+ - * / % **`, `| & ^` (Sets), `+& +| +^ +< +>` and prefix `+^` (bitwise, round 193), `+= -= *= /= %= **= |= &= ^= +&= +|= +^= +<= +>= ??= !!= &&= ||= ^^=`, `== != === !== < <= > >=`, `&& ^^ ||`, the words `not and or xor` (round 155),
   prefix `! - +`, `...` `..<`, `??` `!!`, `= : , . ; ( ) [ ] { }`. Four
   spacing-sensitive rules:
   * `!!` — infix (`a !! b`, round 130) only after an operand and with

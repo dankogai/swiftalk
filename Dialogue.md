@@ -2999,3 +2999,30 @@ the history. (Moved out of Design.md in round 65.)
   the completion engine's name, the history file, the five shelved
   suites under `.disabled("shelved")`, and `"foo".String()` echoing
   `"foo"` — the REPL's quotes, not the value's.
+* **2026-10-30, round 223 — documents/ prose audited** ("Check the
+  documents/ pages' prose for stale lines too"). Round 215 replayed the
+  pages' code; this round read the 1,620 lines of prose around it, every
+  row and paragraph of the thirty pages, as the present claims a
+  reference makes — so what had aged is fixed, not annotated. Eleven
+  lines were stale: `String.md` still called `s[i]` "undecided — an error
+  for now" nine rounds after 89 closed it (and so did the interpreter's
+  own message, in Swift and in JS — it now says no String subscripts and
+  names `s.Array()` and the slicing family); `Sequence.md` wrote a bare
+  `zip` (the `Sequence` static since 185); `Tuple.md` gave `enumerated()`
+  Swift's `(index, element)` (ours are `(key:, value:)`, round 128);
+  `toplevel.md` opened with "four functions" (one since 185), placed
+  `Response` "at startup, the first prelude" (the `Net` module's since
+  189), listed `readLine` and `exit` as missing (IO's and POSIX's since
+  191 and 188), and had no row for `BigInt` and `BigRat` among the types
+  as values; `grammar.md`'s contextual words lacked `static infix prefix
+  postfix`, its operator list lacked round 193's bitwise family, and its
+  continuation rule named a few operators where every binary one
+  continues; `IO.md` called its module "a hundred lines" (253);
+  `module.md` pointed the IO module at "the last four" API rows (two
+  Sequence-module rows had been appended since) and said `--no-prelude`
+  "skips all three" (seven). And three tables — Double's, Set's,
+  String's — had a paragraph wedged between their rows, so the rows
+  after it rendered as text; each paragraph now follows its table. What
+  was probed and holds stays: no `popFirst`, no `=~`, no `$1` templates,
+  no `M.Point` in an annotation, the POSIX not-yet list, curl's flags,
+  the keyword list against the parser's.

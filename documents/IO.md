@@ -50,7 +50,7 @@ let name = readLine()                            // a line of stdin, or nil
 IO.stdin.data                                    // error: not seekable — read it with .lines or .read(size)
 ```
 
-The module is a hundred lines of Swift over the module API
+The module is some 250 lines of Swift over the module API
 ([module.md](module.md)): a `HostValue` for the handle with
 `setMember` for `data =`, `Swiftalk.sequence` for `lines` and `read`,
 `Module.static` for the three handles, `Swiftalk.output` and

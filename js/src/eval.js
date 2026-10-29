@@ -1046,7 +1046,7 @@ export function subscriptRead(container, index) {
       if (kindOf(index) === 'range') { const [a, b] = sliceBounds(index, index.from, index.to, index.closed, container.bytes.length); return new SData(container.bytes.slice(a, b)); }
       if (typeof index !== 'bigint') throw SwiftalkError.type(`Data index must be an Int or a Range, not ${typeName(index)}`);
       return new Byte(container.bytes[position(index, container.bytes.length)]);
-    case 'string': throw SwiftalkError.type('String subscripts are undecided (Design.md §11)');
+    case 'string': throw SwiftalkError.type('no String subscripts (round 89, Design.md §11) — index s.Array(), or slice with prefix/suffix/dropFirst/dropLast');
     default: throw SwiftalkError.type(`cannot subscript ${typeName(container)}`);
   }
 }
@@ -1082,7 +1082,7 @@ function subscriptWrite(container, index, newValue) {
       bytes[at] = byte;
       return new SData(bytes);
     }
-    case 'string': throw SwiftalkError.type('String subscripts are undecided (Design.md §11)');
+    case 'string': throw SwiftalkError.type('no String subscripts (round 89, Design.md §11) — index s.Array(), or slice with prefix/suffix/dropFirst/dropLast');
     default: throw SwiftalkError.type(`cannot subscript ${typeName(container)}`);
   }
 }

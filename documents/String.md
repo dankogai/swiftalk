@@ -42,13 +42,6 @@ view (§11). `"..."` literals with `\(interpolation)`, escapes `\" \\
 | `s.prefix(n)`, `s.suffix(n)` | the first / last n graphemes, **as a String** (round 89, revising 41's Array) |
 | `s.dropFirst(n)`, `s.dropLast(n)` | all but the first / last n graphemes, a String; `n` defaults to 1 (round 89) |
 | `s.split { }` | pieces between graphemes the predicate accepts, as Strings — beside `split(", ")` and `split(/re/)` (round 89); a `[String]` even when none (round 177) |
-
-Literals (round 94): `"..."` with escapes and `\(expr)`; `"""` multi-line
-(content on the lines between the delimiters, the closing `"""`'s
-indentation stripped, `"` unescaped, `\` at a line's end joining
-lines); raw `#"..."#` / `#"""..."""#` (backslashes and `"` verbatim,
-`\#(expr)` to interpolate, more `#`s to nest a `"#`). See
-[grammar.md](grammar.md).
 | `s.sorted()` | the graphemes, sorted, as an Array (round 83) |
 | `s.contains("ell")`, `s.contains { }` | substring (as Swift's; `""` is found) / grapheme predicate (round 83) |
 | `s.reversed()` | the graphemes, reversed, as an Array — a `[String]`, empty or not (round 176) — `s.reversed().joined()` reverses a String (round 84) |
@@ -57,7 +50,14 @@ lines); raw `#"..."#` / `#"""..."""#` (backslashes and `"` verbatim,
 | `s.contains(/re/)`, `s.firstMatch(/re/)`, `s.wholeMatch(/re/)`, `s.matches(/re/)` | Regex search (round 86) — see [Regex.md](Regex.md) for the match shape |
 | `s.replacing(/re/, "x")`, `s.replacing(/re/) { }`, `s.replacing("a", "b")` | replace every match / substring (round 86) |
 | `s.split(/re/)`, `s.split(", ")` | the pieces, empty ones omitted (round 86); a `[String]` even when none (round 177) |
-| `s[i]` | undecided (§11) — an error for now |
+| `s[i]` | **no String subscripts**, by decision (round 89, §11) — a type error that says so; index `s.Array()`, or slice with `prefix`/`suffix`/`dropFirst`/`dropLast` |
+
+Literals (round 94): `"..."` with escapes and `\(expr)`; `"""` multi-line
+(content on the lines between the delimiters, the closing `"""`'s
+indentation stripped, `"` unescaped, `\` at a line's end joining
+lines); raw `#"..."#` / `#"""..."""#` (backslashes and `"` verbatim,
+`\#(expr)` to interpolate, more `#`s to nest a `"#`). See
+[grammar.md](grammar.md).
 
 ```swift
 "héllo".count                       // 5

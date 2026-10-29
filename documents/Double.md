@@ -44,9 +44,6 @@ Bool from the predicates, and labeled tuples from `modf`/`frexp`/`remquo`.
 | `fround(x)` | JS's: rounded through a 32-bit float |
 | `isNaN`, `isFinite`, `isInfinite`, `isZero`, `isNormal`, `isSubnormal` | Bools |
 | `random()`, `random(to: x)`, `random(from: a, to: x)` | in [0, 1), [0, x), [a, x) — **half-open**, the system generator; bounds finite, from < to (round 112; labels round 119, and they may be omitted: positional is (from, to)). Range is Int-only, so a Double's bounds are arguments; Int's own `random` takes a Range |
-
-Not carried over from JS: `clz32` and `imul` (Int's business — see
-`leadingZeroBitCount`).
 | `d < e` etc., `==` | Comparable, Equatable — IEEE's: `0.0 == -0.0`, `nan != nan` |
 | `d === e`, `d !== e` | the same bits (round 121): `Double.nan === Double.nan`, `+0.0 !== -0.0`, `1.0 !== 1`; never a type error |
 | `+d`, `-d` | prefix: the number itself / negation (`+` since round 121) |
@@ -55,6 +52,9 @@ Not carried over from JS: `clz32` and `imul` (Int's business — see
 | `d.String(.sign)`, `d.String(.sign, .hex)` | the `+` a positive number otherwise omits (round 125): `"+1.5"`, `"+0x0p0"` beside `"-0x0p0"` — the signed zeros told apart; `+inf`; `nan` has no sign |
 | `Int(d)` | truncation toward zero; `nil` if unrepresentable (`d.Int()` is no member since round 206 — `.Int()` is a String's parse) |
 | `d.debugDescription` | `d.String(.sign, .hex)`: `+0x1.8p0` (round 125) |
+
+Not carried over from JS: `clz32` and `imul` (Int's business — see
+`leadingZeroBitCount`).
 
 ```swift
 (0.1 + 0.2).String()     // "0.30000000000000004"

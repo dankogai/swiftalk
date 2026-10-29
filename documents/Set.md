@@ -34,11 +34,6 @@ annotation is Swift's generic spelling, `Set<Int>`, `Set<String>?`,
 | `s \|= t`, `s &= t`, `s -= t`, `s ^= t` | in place, on a `var` path |
 | `s.merge(t)` | the in-place `\|`, with no function (there is nothing to combine); `t` a Set or any Sequence; returns `nil`; needs a `var` root |
 | `s.subtract(t)` | the in-place `-` (Swift's name; `delete` in round 133): every element of `t` removed; `t` a Set or any Sequence; returns `nil`; needs a `var` root |
-
-Precedence is Swift's: `&` binds with `* / %`, `|` and `^` with `+ -`,
-so `a | b & c` is `a | (b & c)`. Off Sets the three are type errors —
-bitwise operations stay methods (`bitAnd`, `bitOr`, `bitXor`), and
-`&&`, `||`, `^^` are the Bool operators.
 | `s == t` | equality — order is not a property a Set has |
 | `s.union(t)`, `s.intersection(t)`, `s.subtracting(t)`, `s.symmetricDifference(t)` | new Sets; `t` a Set or any finite Sequence, as Swift's take |
 | `s.isSubset(of: t)`, `s.isSuperset(of: t)`, `s.isStrictSubset(of: t)`, `s.isStrictSuperset(of: t)`, `s.isDisjoint(with: t)` | Bools; the labels optional, as Swift's labels are elsewhere |
@@ -53,6 +48,11 @@ bitwise operations stay methods (`bitAnd`, `bitOr`, `bitXor`), and
 | `s.String(.json)`, `s.String(.propertyList)` | a sorted **array** — JSON and property lists have no sets (lossy, as Data's base64 is); a Set is not a SION value |
 | `d.keys` | a Dictionary's keys are a Set (round 132, revising 127): `d0 == d1` implies `d0.keys == d1.keys`, which no Array could promise |
 | `[s: v]` | a Set is Hashable, so it is a Dictionary key |
+
+Precedence is Swift's: `&` binds with `* / %`, `|` and `^` with `+ -`,
+so `a | b & c` is `a | (b & c)`. Off Sets the three are type errors —
+bitwise operations stay methods (`bitAnd`, `bitOr`, `bitXor`), and
+`&&`, `||`, `^^` are the Bool operators.
 
 No subscript: a Set has no positions. **No `??` or `!!` of their own**
 (round 133): a Set is keys only, so "keep mine" and "take theirs"

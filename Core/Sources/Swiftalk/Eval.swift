@@ -2194,7 +2194,7 @@ private func subscriptRead(_ container: Value, _ index: Value) throws -> Value {
         }
         return .byte(bytes[try position(i, count: bytes.count)])   // a Byte since round 116; d[-1] the last (round 194)
     case .string:
-        throw SwiftalkError.type("String subscripts are undecided (Design.md §11)")
+        throw SwiftalkError.type("no String subscripts (round 89, Design.md §11) — index s.Array(), or slice with prefix/suffix/dropFirst/dropLast")
     default:
         throw SwiftalkError.type("cannot subscript \(container.typeName)")
     }
@@ -2262,7 +2262,7 @@ private func subscriptWrite(_ container: Value, _ index: Value, _ newValue: Valu
         bytes[at] = byte
         return .data(bytes)
     case .string:
-        throw SwiftalkError.type("String subscripts are undecided (Design.md §11)")
+        throw SwiftalkError.type("no String subscripts (round 89, Design.md §11) — index s.Array(), or slice with prefix/suffix/dropFirst/dropLast")
     default:
         throw SwiftalkError.type("cannot subscript \(container.typeName)")
     }
