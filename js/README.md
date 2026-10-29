@@ -12,7 +12,7 @@ the JS runtime over it.
 cd js
 npm test            # extracts the fixtures, then node --test
 npm run repl        # a REPL over the runtime, with the prelude (pipe a program in, or type)
-npm run build       # dist/swiftalk.js (one file) and dist/notebook.html (the notebook, runtime inlined)
+npm run build       # dist/swiftalk.js (one file), dist/notebook.html (the notebook, runtime inlined), and dist/notebook.fragment.html (the same page without its document skeleton, for hosts that supply one)
 ```
 
 **The notebook**: `notebook.html` is a page of swiftalk cells — Shift-Enter
@@ -41,6 +41,7 @@ stderr, files, and `.swt` modules from disk or URLs.
 |---|---|
 | `src/errors.js` | `SwiftalkError` — the five kinds, the core's wording |
 | `src/lexer.js` | the lexer, line for line: tokens as tagged objects |
+| `src/keywords.js` | the keyword list, Parser.swift's, as one Set |
 | `src/parser.js` | the parser, line for line: the AST as tagged objects, `TypeAnnotation` |
 | `src/value.js` | the value model — JS primitives where they fit (`BigInt` for Int, `number` for Double, `string`, `boolean`, `null`), classes for the rest; `keyOf` for Dictionary and Set keys (canonical equivalence for Strings), `sourceString` with Swift's `Double` spelling and hex floats, graphemes through `Intl.Segmenter` |
 | `src/objects.js` | `FunctionObject`, enum and struct types and values, `SequenceObject`, `TaskObject`, the control-flow signals |
@@ -53,7 +54,8 @@ stderr, files, and `.swt` modules from disk or URLs.
 | `src/scheduler.js` | the cooperative scheduler, Task.swift without threads: contexts are generators, requests (spawn, await, sleep, offload, yield) pass the baton; `AsyncScheduler` on timers and Promises, `SyncScheduler` on a virtual clock |
 | `src/modules.js` | the module API (`Module.function/export/type/extend/static/prelude`) and system (`register`, bare-name and `.swt` imports through `Interpreter.moduleLoader`, namespace types) |
 | `src/modules/` | the prelude in JS: `IO.js` (`print`, `debugPrint`, `readLine`, the `IO` handle type), `Net.js` (`fetch`, `Response`), `Regex.js` (the `Regex` type behind `/re/`, String's regex members — over RegExp; see its FIXME), `Sequence.js` (`Sequence.zip`), `Task.js` (`Task.sleep`), `BigInt.js` (the `BigInt` type behind `123n`, over the platform's BigInt), `BigRat.js` (exact rationals, a pair of them) |
-| `src/prelude.js` | `withPrelude(interp)`: the five registered and preimported |
+| `src/prelude.js` | `withPrelude(interp)`: the seven registered and preimported (five until round 201; `preludeNames` is the list) |
+| `src/index.js` | the public surface — every name the runtime exports, what the examples above import |
 | `src/host/node.js` | what Node lends: stdin, stdout, stderr, files, module loading |
 | `notebook.html` | the notebook page (loads `src/index.js`; `npm run build` inlines it) |
 | `tools/bundle.mjs` | the bundler, no dependencies: `dist/swiftalk.js`, `dist/notebook.html` |
@@ -86,5 +88,12 @@ stderr, files, and `.swt` modules from disk or URLs.
    2,671 fixtures agree with the Swift core; the six that do not are
    Swift's Character-level Regex, pinned in the test as known
    divergences with their reasons.
+
+Since D the port has kept pace with the Swift core round by round:
+`BigInt` (round 201, the `123n` literal over the platform's BigInt) and
+`BigRat` (round 203) joined the prelude as JS modules, and the fixtures
+are extracted afresh on every `npm test`, so the corpus is whatever the
+Swift tests hold — 2,925 fixtures as of round 220, the same six
+divergences and no others.
 
 FIXMEs are marked in the source where the port knowingly falls short.

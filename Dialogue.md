@@ -2936,3 +2936,25 @@ the history. (Moved out of Design.md in round 65.)
   line in `Array.md` say so now; `insert` and `removeLast` still are
   not); and `sion.swt`'s "No RegExp" dates from round 85, the round
   before the literal.
+* **2026-10-30, round 220 — modules/README.md and js/README.md audited**
+  ("Check modules/README.md and js/README.md for stale lines too"). The
+  modules index held entire: every native module and both `.swt`
+  libraries are listed, every path and link resolves, every API name
+  it cites (`Swiftalk.spawn`, `offload`, `sequence`, `lookup`,
+  `Module.static`, `Value.host`, `operate`, `Bridge.swift`) is in the
+  source it points at, the POSIX function list matches the module, and
+  every claim about `Complex.swt` and `Rational.swt` — the printed
+  forms, the readers, the statics, `1.over(3)` — ran as written in the
+  REPL. The JavaScript page had aged in four places: the `src/prelude.js`
+  row still said "the five" (seven since rounds 201 and 203 — the
+  comment over `withPrelude` said the same and is corrected too); the
+  file table had no row for `src/keywords.js` or `src/index.js`, both
+  there; the build line named two outputs where the bundler writes three
+  (`dist/notebook.fragment.html`, the page without its skeleton, for
+  hosts that supply one); and the milestones ended at D as if the port
+  had stopped in round 200 — a paragraph after them says BigInt and
+  BigRat followed, and that the corpus is extracted afresh each run,
+  2,925 fixtures today with the same six divergences. Every other name
+  on the page — the exports of `src/index.js`, the hooks `readLine`,
+  `openFile`, `fetch`, the notebook's keys and autosave, the ignored
+  `fixtures.json` and `dist/` — was checked against the file it names.

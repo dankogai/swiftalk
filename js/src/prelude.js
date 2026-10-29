@@ -13,7 +13,7 @@ import { BigRatModule } from './modules/BigRat.js';
 export const preludeModules = () => [IOModule(), NetModule(), RegexModule(), SequenceModule(), TaskModule(), BigIntModule(), BigRatModule()];
 export const preludeNames = ['IO', 'Net', 'Regex', 'Sequence', 'Task', 'BigInt', 'BigRat'];
 
-/// Registers the five and preimports them; returns the interpreter.
+/// Registers the seven and preimports them; returns the interpreter.
 export function withPrelude(interp) {
   for (const m of preludeModules()) interp.register(m);
   interp.preimport(preludeNames);
