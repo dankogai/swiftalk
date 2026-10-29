@@ -2857,3 +2857,12 @@ the history. (Moved out of Design.md in round 65.)
   (shown with `Net` instead), and three oldest blocks that left out the
   REPL's echo. All corrected to what the REPL says today. The replay is
   `tools/replay-status.py`, part of the routine from here.
+* **2026-10-29, round 215 — documents/ audited** ("Check documents/ for
+  stale lines too"). Every ```swift block in the 31 pages run against the
+  build by `tools/replay-docs.py`, 209 statements: four lines were wrong
+  — `not true == false` is true, not false; the Dictionary `filter`
+  example ran over a stored nil it had just put there; Net's example
+  fetched a path example.com does not serve; toplevel's `sleep(0.5)`
+  predates round 185. The rest of the flags are snippets with unbound
+  names, Swift code on the module page, and the network. The tool joins
+  `replay-status.py` in the routine.

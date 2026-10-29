@@ -76,5 +76,5 @@ false && probe()          // probe never runs
 false and probe()         // nor here
 d["k"] != nil && d["k"]! > 0
 !true == false            // true — (!true) == false
-not true == false         // false — not (true == false)
+not true == false         // true — not (true == false); the two parses agree here, unlike not 1 == 2 above
 ```

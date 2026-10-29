@@ -22,10 +22,10 @@ stubs the network there; an embedder routes it, or refuses it.
 | `extension Net { static let resolve = { host in ... } }` | the namespace is a type (round 184): what a Swift or swiftalk extension adds sits beside `fetch` |
 
 ```swift
-let r = (await fetch("https://example.com/data.json"))!
+let r = (await fetch("https://example.com/"))!       // the Result, unwrapped
 r.status                       // 200
-r.headers["content-type"]      // "application/json"
-r.json()                       // the document, as a SION value
+r.ok                           // true
+r.text()!.contains("Example Domain")   // true — the body as text; r.json() reads a JSON body as SION
 (await fetch("https://nowhere.invalid/")) ?? nil   // a .failure defaults
 ```
 

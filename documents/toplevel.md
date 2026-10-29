@@ -31,7 +31,7 @@ sees that module's unexported names, never the importer's.
 print(1, "two", [3])          // 1 two [3]
 debugPrint(1, "two", [3])     // +0x1 "two" [+0x3]
 let r = print("x")            // r is nil
-sleep(0.5)
+Task.sleep(0.5)               // the Task module's (round 192); the top-level sleep went in round 185
 eval("1 + 1")                 // Result.success(2); eval("1 + 1")! is 2
 eval("1 +") ?? 0              // 0 — .failure("syntax error: unexpected token end of input")
 ```

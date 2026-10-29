@@ -53,6 +53,6 @@ years["perl6"] ?? 2015         // 2015
 years["unknown"] = nil
 years.has("unknown")           // true — stored nil
 years.has("perl6")             // false — absent
-years.filter { k, v in v > 2020 }   // ["swiftalk": 2026]
+years.filter { k, v in (v ?? 0) > 2020 }   // ["swiftalk": 2026] — a stored nil is an element too
 var sparse = [0: "zero", 1000000: "million"]   // a sparse array (round 59)
 ```
