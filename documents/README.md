@@ -43,8 +43,8 @@ The pages above are the types. The rest of the language has its own
 pages, in lowercase (round 157): [grammar.md](grammar.md) for the
 syntax as parsed, [flowcontrol.md](flowcontrol.md) for `if`/`switch`/
 the loops/early exit, [toplevel.md](toplevel.md) for the top level — `eval`, the prelude
-(`IO` and `Net`, round 185), the types as values, and the names the
-language binds —, [module.md](module.md) for
+(`IO` and `Net` in round 185, seven modules since 203), the types as
+values, and the names the language binds —, [module.md](module.md) for
 `import`/`export`. [Bool.md](Bool.md) has the logical operators — the
 symbols and, since round 155, the words `not and or xor`.
 
@@ -107,12 +107,15 @@ I`), annotates (`let n: I = 42`, a struct property `var r: R`, an
 enum payload `case some(N)`, nested `[N]`), and converts by the
 round-47 law: with `let S = String`, `42.S()` is `42.String()`; a
 conversion the type does not have fails as it would by its real
-name. What a binding cannot alias: a parameterized or optional
-annotation (`[String]`, `Int?`) — spell those out, or annotate `Any`.
+name. A parameterized or optional type is a value too, so it aliases
+the same way (rounds 165, 167): `let A = [String]`, `let O = Int?`,
+then `let xs: A = ["a"]`, `let o: O = nil`.
 
 ## The global functions
 
-`print`, `debugPrint`, `sleep`, and `eval` — see
+`eval` — the one left at the top level since round 185; `print`,
+`debugPrint`, and `readLine` are the `IO` module's, `sleep` is
+`Task.sleep` (round 192), both preimported — see
 [toplevel.md](toplevel.md), which also lists the types and protocols
 as values and the names the language binds (`$`, `self`, `Self`, …).
 
@@ -130,7 +133,8 @@ as values and the names the language binds (`$`, `self`, `Self`, …).
 | `&&= ||=` | Bool targets and Bools only; short-circuit like the operators (round 104) — the `op=` family is now every binary operator that can spell one | | | | | | |
 | `^^`, `^^=` | logical xor, Bools only, both sides evaluated; between `&&` and `||` (round 106) | | | | | | |
 | `.not()`, `.and()`, `.or()`, `.xor()` | logical, on a Bool, eager (round 106) | | | | | | |
-| `.bitNot()`, `.bitAnd()`, `.bitOr()`, `.bitXor()`, `.shifted(by:)` | bitwise, on an Int (rounds 105/107) | ✓ | | | | | |
+| `.bitNot()`, `.bitAnd()`, `.bitOr()`, `.bitXor()`, `.shifted(by:)` | bitwise, on an Int (rounds 105/107) | | | | | | |
+| `+& +\| +^ +< +>`, prefix `+^`, `+&=` and the rest | the same as operators — Raku's spellings, since `\| & ^` are Sets' (round 193); `+&` and the shifts at `*`'s level, `+\|` `+^` at `+`'s | | | | | | |
 | `< <= > >=` | ✓ | ✓ | ✓ | | ✓ | | |
 | `== !=` | | | | | | | ✓ same type, or vs nil |
 | `=== !==` | | | | | | | ✓ same type and bits; any pair, never an error (round 121) |
@@ -140,9 +144,11 @@ as values and the names the language binds (`$`, `self`, `Self`, …).
 
 Mixed arithmetic (`1 + 1.5`) is a type error — convert explicitly.
 Precedence, high to low: `**` (right-assoc) · prefix `! -` · `* / %` · `+ -` · `... ..<` ·
-`??` · comparison · `&&` · `^^` · `||` · `? :`. **An operator in
+`?? !!` · comparison · `&&` · `^^` · `||` · `? :` · the words `not`,
+`and`, `or xor`, loosest of all (round 155) — [grammar.md](grammar.md)
+has every level. **An operator in
 parentheses is a Function** (round 144): `(+)(2, 4)`, `xs.reduce(0,
 (+))` — see [Function.md](Function.md). A lone `&`, `|`, or `^`
 is a Set operator (round 135) — `&` at `*`'s level, `|` and `^` at
-`+`'s — and a type error on anything else; bitwise operations are
-methods on Int.
+`+`'s — and a type error on anything else; the bitwise operators wear
+a `+` (`+&`, round 193) and are also methods on Int.

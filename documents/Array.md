@@ -58,6 +58,7 @@ snapshot                              // [2, 3, 5] — a copy is a copy
 [1, 2] + [3]                          // [1, 2, 3]
 ```
 
-Not yet builtin (OPEN): `sort`, `contains`, `reverse`, `join`,
-`insert`, `removeLast` — [examples/array.swt](../examples/array.swt) writes each
-in a line or a loop.
+`sorted`, `contains`, `reversed`, `joined` are builtin since rounds
+83–84 (above); `insert` and `removeLast` are not yet (OPEN).
+[examples/array.swt](../examples/array.swt) writes the first four by
+hand regardless, each in a line or a loop — the exercise it was.

@@ -2911,3 +2911,28 @@ the history. (Moved out of Design.md in round 65.)
   list ended at `POSIX`, before `BigInt`, `BigRat`, and their shared
   `modules/BigNum`. The per-milestone counts in `js/README.md` are a
   history and stay.
+* **2026-10-29, round 219 — documents/README.md and examples/README.md
+  audited** ("Check documents/README.md and examples/README.md for stale
+  lines too"). Both are indexes, meant to be current, so every row and
+  entry was checked against the tree and the REPL: all thirty pages and
+  twelve examples are listed and exist, each page's **Where** line
+  agrees with the table, `ExamplesTests` is where the suite keeps the
+  examples honest, and the type reference's one code block replays
+  clean. Six lines in the type reference had aged: the lowercase-pages
+  paragraph still called the prelude `IO` and `Net` (seven modules since
+  203); "The global functions" named `print`, `debugPrint`, `sleep`, and
+  `eval` four rounds after 185 left `eval` alone at the top level and
+  192 made `sleep` the Task module's; the aliasing section still said a
+  binding cannot alias `[String]` or `Int?` — round 165 let that limit
+  fall and 167 gave `Int?` its spelling, so `let A = [String]` and
+  `let O = Int?` annotate today; the operator table had the bitwise
+  methods ticked under Double (`1.5.bitNot()` is an unknown member) and
+  no row at all for round 193's `+& +| +^ +< +>`; the precedence line
+  lacked `!!` and the words. Two in the examples index: `array.swt`'s
+  entry said no builtin for `reverse`, `contains`, `join`, or sort
+  existed yet — `reversed`, `contains`, `joined`, `sorted` came in
+  rounds 83–84, and the example keeps its hand-written four as the
+  exercise they are (its comment and the stale "Not yet builtin (OPEN)"
+  line in `Array.md` say so now; `insert` and `removeLast` still are
+  not); and `sion.swt`'s "No RegExp" dates from round 85, the round
+  before the literal.

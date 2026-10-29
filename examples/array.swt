@@ -34,8 +34,8 @@ print([1, 2] + [3])                          // [1, 2, 3]
 print((1...5).Array())                       // [1, 2, 3, 4, 5]
 print("héllo".Array())                       // ["h", "é", "l", "l", "o"] — graphemes
 
-// there is no reverse, contains, join, or sort builtin (yet).
-// none is needed to write one:
+// reversed, contains, joined, and sorted are builtin since rounds 83–84 (documents/Array.md);
+// none is needed to write one, and this example predates them:
 let reverse  = { xs in xs.reduce([]) { [$1] + $0 } }
 let contains = { xs, x in xs.filter { $0 == x }.count > 0 }
 let join     = { xs, sep in xs.reduce("") { $0 == "" ? "\($1)" : $0 + sep + "\($1)" } }
