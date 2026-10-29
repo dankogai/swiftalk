@@ -128,6 +128,8 @@ move(1, 2)         // fine — labels are optional (positional)
   Python/OCaml keyword arguments.)
 * **OPEN**: consequence for overloading — if labels aren't part of the
   name, can two functions share a base name at all? (See §7, dispatch.)
+  *(Answered in §6: one name, one function — multi-dispatch only in
+  `init`s, round 61.)*
 
 ### 2.4 Functions: `{}` is the *only* function — DECIDED (core)
 
@@ -282,7 +284,8 @@ Further decisions:
 * **Methods / `init` without `func` — DECIDED (round 48).** Methods
   are **`let name = { ... }` closure properties** in the type body —
   the uniform no-`func` spelling — with `self` bound at invocation
-  (a `let`; mutating methods OPEN). Uncalled access yields the bound
+  (a `let`; mutating methods OPEN — closed in round 50a: no
+  `mutating`, §9). Uncalled access yields the bound
   `Function`. Initializers are **`init { params in ... }`**: the body
   assigns `self.x = ...` with defaults prefilled; a non-optional
   annotated property left unset errors. **Initializers are
@@ -312,6 +315,11 @@ Further decisions:
 * String interpolation `\(expr)`? (presumably yes)
 * Multiple trailing closures?
 
+*(Round 216's audit: the first two have been so since milestone 0 —
+newlines and `;` both end a statement, `\(expr)` interpolates, and
+rounds 95–96 added the line-continuation rules; multiple trailing
+closures were never built, and nothing has asked.)*
+
 ## 3. Type discipline — DECIDED (core), details OPEN
 
 **Strong latent typing with type-locked bindings.** Deliberately *more*
@@ -336,8 +344,8 @@ and most especially JavaScript):
 Details:
 
 * Presumably annotations are allowed and enforced: `var x: Int = 1`.
-* **`x.type` is first-class** (decided round 25, §10; **implemented
-  round 39**): types are constructor `Function`s — `x.type == Int`
+* **`x.Type` is first-class** (decided round 25, §10; **implemented
+  round 39**): types are constructor `Function`s — `x.Type == Int`
   compares identity against the very object the global `Int` binds,
   `Int("42")`-style construction calls, `.conforms(to:)` tests
   protocol conformance. (**OPEN**: whether `is` / `as?` / `as!` also
@@ -371,7 +379,9 @@ Primitives:
   bignum-as-`Int` is acknowledged as a success in Python/Ruby/Scheme,
   but swiftalk keeps `Int` fixed and `BigInt` separate.
   (**OPEN**: literal spelling — JS-style `123n` suffix or otherwise;
-  mixing rules with `Int` — presumably explicit conversion only.)
+  mixing rules with `Int` — presumably explicit conversion only.
+  **Both decided in round 201, §15**: JavaScript's suffix, `123n`, and
+  explicit conversion only — `BigInt(x)` and `Int(b)`.)
 * **`Double`** — IEEE 754 binary64; what JS calls `Number`. Integers and
   floating point are **distinct types** — one numeric type for
   everything has caused zillions of tragedies (so `var x = 1; x = 1.5`
@@ -405,7 +415,9 @@ Primitives:
   representation — printing as SION's own spelling, `.Date(epoch)`
   (hex-float under debug, exactly as SION serializes). `Date()` is
   now (wall clock, Foundation-free); `Date(x)` ⇄ `Double(date)`
-  convert; `Comparable`. Calendar/format output stays **OPEN**.
+  convert; `Comparable`. Calendar/format output stays **OPEN** *(round
+  209 gave it ISO 8601 — `t.String(.iso8601)` writes, `Date(s)` reads;
+  a calendar is still open)*.
 * **`Range`** — first-class and **lazy** (round 38): `a...b` / `a..<b`.
   Spelled `Range<I>` in the design: `I` is `Int` today, `BigInt`
   someday (unimplemented), and **never `Double`** — a deliberate
@@ -495,7 +507,8 @@ string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bar
     failable decode is `data.String(.utf8) → String?` (revises the
     round-6 example where bare `data.String()` decoded).
   * `Function.String()` — source text of the function (JS can;
-    Lua punts)? **OPEN**.
+    Lua punts)? **OPEN**. *(A placeholder today — `{ x, y in ... }`,
+    the parameters and an ellipsis.)*
 * Symmetry with §3 (revised round 40): `.Type` *queries* — a
   property returning the constructor — and `.TypeName(...)`
   *converts* — a method. Capitalized members are type-talk; the
@@ -555,18 +568,23 @@ string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bar
   }
   ```
 
-  *(Case spelling above is provisional; see OPEN below.)*
+  *(Case spelling above is provisional; see OPEN below. Round 216's
+  audit: it stayed so — `SION` never became an enum with cases, and the
+  classifying switch is over the type: `switch x.Type { case Int: …
+  case String: … case Double: … }`, type values being comparable since
+  round 39.)*
 * **`SION` is a flat union** — the same model as `T?` (§3a).
   There is no box: a value in a `SION` slot *is* itself, and
   **`x.Type` reports `Int`, not `SION`**:
 
   ```swift
   let mixed: [SION] = [1, "one", 2.0]
-  mixed[0].type                 // Int — the lift is invisible at runtime
+  mixed[0].Type                 // Int — the lift is invisible at runtime
   ```
 
   `switch`'s `case let i = .Int` *classifies* rather than unwraps —
-  `i` binds the value itself. swiftalk's two built-in unions are thus
+  `i` binds the value itself *(in the event, `x.Type` is what the
+  switch inspects — see the note above; the point stands)*. swiftalk's two built-in unions are thus
   the same animal: `T?` is the union of `T` with `Nil`; `SION`
   is the union of the SION types. (User-defined enums with associated
   values remain real, boxing enums — flatness is a property of these
@@ -627,7 +645,8 @@ string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bar
   extension type) — mirror it or leave it to the serializer?
   `BigInt` (not in SION today)? case naming (`.Int` mirroring the
   type name vs. Swift-lowercase `.int`; the `nil` case vs. the
-  keyword).
+  keyword) *(moot — there are no cases; a SION value is classified by
+  `.Type`, round 216's note above)*.
 
 **Logical operators — DECIDED (round 69)**: `&&`, `||`, and prefix
 `!`, exactly Swift's — Bool operands only (nothing is truthy),
@@ -740,7 +759,8 @@ chains) — while a failure passes through untouched. A chain `.then {
 `catch` settles it: JavaScript's Promise shape on a value, with `?`
 still the short form when the enclosing function is the handler.
 
-**`fetch` — DECIDED (round 163)** ("add toplevel `async fetch()` a la
+**`fetch` — DECIDED (round 163; the `Net` module's since round 185,
+its transport the module's own since 189 — §15)** ("add toplevel `async fetch()` a la
 JS. Swift's `URLSession` is too cumbersome"). `fetch(url)` and
 `fetch(url, options)` return a **Task** — `await` it — whose value is
 a **Result**: `.success(Response)` for any HTTP answer, a 404
@@ -1148,6 +1168,8 @@ subset, civil dates, and bplist are hand-written in `Formats.swift`.
 **OPEN**: msgPack, YAML; `Any`-lock inference so `let doc = SION(text)`
 binds a mixed document without an annotation (the strict `let` of
 round 59 refuses mixed keys and values — the next round's subject).
+*(Round 101 took the `nil` half; a mixed document still asks for `let
+doc: SION = SION(text)`.)*
 
 **`.pretty` — DECIDED (round 117)** ("Add `.pretty` option to
 (Array|Dictionary|SION).String()"). One more word in `.String()`'s
@@ -1277,7 +1299,8 @@ only, both sides evaluated, with a precedence level of its own
 between `&&` and `||` (C's `^` sits between `&` and `|` for the same
 reason); `^^=` joins the `op=` family by round 104's rule. A lone `^`
 is a syntax error that names both spellings — the symbol is still
-unspent. **Round 155 — DECIDED** ("add logical `not`, `and`, `xor`
+unspent *(spent in round 135 — `|`, `&`, `^` are Set operators — and
+the Int family got Raku's `+&` `+|` `+^` in round 193)*. **Round 155 — DECIDED** ("add logical `not`, `and`, `xor`
 operators. same as `!`, `&&`, and `^^` but in English words. see
 Perl and Ruby for operator precedences"): the words **`not`, `and`,
 `or`, `xor`** are the same operations — the parser builds the very
@@ -1811,7 +1834,9 @@ tradition. But unlike Swift, **`T?` is not a wrapper**:
   JS's `typeof null === 'object'` lie.
 * **Bare `var x = nil` is an error** — there is nothing to infer; write
   `var x: Int? = nil`. (Consistent with §2.2's mandatory declarations
-  and §3's type locks: `x` must know what it is.)
+  and §3's type locks: `x` must know what it is.) **(REVISED, round
+  101: `nil` infers `Any` — `var x = nil` binds and takes anything
+  later; §3c.)**
 * Type locks and optionals compose the obvious way: `var x: Int? = 1`
   accepts `Int`s and `nil`, never a `String`.
 * **Postfix `?` is unified with §8**: `expr?` unwraps the value or
@@ -1990,10 +2015,15 @@ Clarifications (not overloading):
   of the receiver. This is ordinary method lookup, and it's how operators
   work across types.
 * Default parameter values (presumably supported) cover most of what
-  Swift uses arity overloads for.
+  Swift uses arity overloads for. *(Never built, as of round 216 — no
+  round asked; `$.count` and `??` serve the same end.)*
 * **OPEN**: user-defined operators / per-type operator definitions —
   presumably "an operator is a method on its left operand's type," but
   the exact story (and protocols like `Equatable`) is TBD (§10).
+  *(DECIDED in round 146, §3: `infix(*) = { lhs, rhs in }` members on
+  a struct or enum, dispatched to the first operand whose type has the
+  operator — either side, not the left alone; `==` and `<` make a type
+  Equatable and Comparable, `!=`, `>`, `<=`, `>=` derived.)*
 
 ## 7. Enums & pattern matching — DECIDED (core)
 
@@ -2083,13 +2113,20 @@ values, and the call stack never unwinds invisibly.
 * **OPEN**: what genuinely unrecoverable failures do (index out of
   range, type-lock violation from §3, non-exhaustive switch from §7) —
   presumably trap/abort like Swift's `fatalError`, not a catchable value.
+  *(Settled by use: they are thrown errors that end the program or the
+  REPL line — and `eval` turns every one into a `.failure` (round 159),
+  the one place a trap is a value; round 186 says why not
+  `fatalError`.)*
 * **OPEN — mixed error types under `?`**: if `f` returns
   `Result<T, IOError>` and `g` returns `Result<U, ParseError>`, what does
   a function using both with `?` declare as its error type? Candidates:
   Rust-style implicit conversion (an `Error` protocol every error
   conforms to, `?` upcasts to it); require a common declared supertype
   (`Result<T, Error>` and you switch on `e.type` at the catch site);
-  an enum-of-errors per module, hand-rolled.
+  an enum-of-errors per module, hand-rolled. *(Dissolved rather than
+  answered: `Result` is one type (round 51), its failure payload any
+  value — a String from `eval`, POSIX, and `fetch` — so `?` carries
+  whatever it finds and nothing declares an error type.)*
 
 ## 9. Non-goals — the keyword graveyard, and more
 
@@ -2131,7 +2168,12 @@ stability, Objective-C interop.
   exact per-type coverage — `Function` equality (identity?),
   which types are `Comparable` (`Int`/`Double`/`String`/`Date`
   surely; `Array` lexicographically?); whether user types conform by
-  declaration + definition as in Swift, or get synthesis.)
+  declaration + definition as in Swift, or get synthesis.) *(Since
+  answered: Function equality is identity — round 144's `(+) == (+)`
+  rests on it; Comparable is Int, Double, String, Date, Byte, and any
+  type declaring `<` (round 146), Arrays not; structs and enums get
+  structural `==` and hashing synthesized — round 149's Rational is a
+  Dictionary key by it — and `<` by declaration.)*
 * **Types are constructor `Function`s.** Like Swift, `Type()`
   constructs — and so a type is itself a first-class value of type
   `Function`: `Int.Type == Function`. This retroactively answers §3's
@@ -2142,7 +2184,7 @@ stability, Objective-C interop.
 
   ```swift
   Array.conforms(to: Sequence)          // true
-  "abc".type.conforms(to: Sequence)     // true — via the type
+  "abc".Type.conforms(to: Sequence)     // true — via the type
   ```
 * **Extensions, Swift-style**: methods can be added to any type,
   including built-ins. (Yes, this is monkey-patching territory; the
@@ -2153,6 +2195,10 @@ stability, Objective-C interop.
   resolved at runtime. Acknowledged as great-but-expensive; if the
   implementation cost proves too high, the fallback is "built-ins
   parameterized + types as ordinary values" (pass a `Type` argument).
+  *(The fallback is what came: types are values (round 39), a binding
+  is an alias (round 111), and the builtin containers are parameterized
+  — `[Int]`, `Set<Int>`, `T?` (rounds 165–167); a user `struct Box<T>`
+  was never built, and no round has asked.)*
 
 **`sorted` and `contains` — DECIDED (round 83)**, on every Sequence
 conformer. `s.sorted()` is always an Array (a String's graphemes, a
@@ -2253,7 +2299,10 @@ O(1) indexing.
 * Binary data is **`Data`**, not `String` (§3b) — no latin-1-ish
   "binary string" abuse.
 * **OPEN**: whether to relax Swift's index-type dance
-  (integer subscripts at O(n)?), regex literals.
+  (integer subscripts at O(n)?), regex literals. *(Both decided: no
+  String subscripts — round 89, `s.Array()` and the slicing family
+  instead — and `/re/` is a literal, round 86, the module's since
+  186.)*
 
 **String subscripts, slicing, and RegExp — LEANING (round 85)**. The
 user's question: "Both JavaScript and Swift screwed hard on
@@ -2271,7 +2320,8 @@ back. LEANING next: the index-free slicing family on every Sequence
 conformer (`suffix`, `dropFirst`, `dropLast`, `split`) plus a Range
 subscript on Array; then RegExp **as a module**, which makes
 `import` the prerequisite design — **OPEN**: modules and `import`
-(shape, what a module is, whether builtins like Regex live in one).
+(shape, what a module is, whether builtins like Regex live in one)
+*(§15, round 100 — and Regex did end up in one, round 186)*.
 Findings from the experiment, each OPEN (`%` landed in round 93 —
 Swift's remainder, Int only, `% 0` a zero-division and `Int.min % -1`
 an overflow, both as `/`; `"""` and raw `#"..."#` literals landed in
@@ -2285,7 +2335,7 @@ landed in round 96 by Swift's whitespace rule — an operator leading
 a line with whitespace after it is infix and continues, `-x`/`!x`
 with none is a prefix; a leading `.` is excluded, since `.x = 1` at
 a line's start is implicit self); a strict `let` refusing `nil` (and `let` destructuring refusing a nil
-element); implicit-self `.name` shadowing format tags inside a type
+element — round 101 settled both, `nil` inferring `Any`); implicit-self `.name` shadowing format tags inside a type
 body; error messages without line numbers; Data's source form
 `Data([...])` vs SION's `.Data("base64")` (settled in round 97: SION's);
 and **no recursion
@@ -2326,7 +2376,8 @@ the stdlib has no scalar mode today (`(?u)` refused). **OPEN**: `=~`;
 `$1` templates; match ranges; a `u` flag for scalar semantics if the
 stdlib's API switch is ever wanted; the slicing family and the Array
 Range subscript stay LEANING; `import` is still undesigned (Regex no
-longer waits on it).
+longer waits on it). *(The slicing family and the Range subscript:
+rounds 89–90; `import`: §15, round 100.)*
 
 ## 12. Concurrency — `async`/`await`, colorless (round 53)
 
@@ -2372,7 +2423,8 @@ property of the *running context*, not of the function.
 green thread, a real pthread parked on a condvar; `await`/`sleep`/
 `Task{}` find the current context through a thread-local, which is
 what colorless costs. **OPEN**: `await` inside a §2.4 coroutine body
-(the two baton systems don't compose yet — it errors); structured
+(the two baton systems don't compose yet — it errors — in the Swift
+runtime; the JS runtime has no such limit, §16's milestone C); structured
 concurrency (task groups, cancellation as API); whether `Task` gets
 members like `.done`.)
 
@@ -2451,7 +2503,12 @@ there — errors, same as `await`); nonisolated escape hatches;
    of the same name where a file's extension refuses them — stored
    properties and enum cases never give way. `:d` removes a type as
    it removes any binding.
-2. *(TBD — script runner, embedding API, stdlib growth...)*
+2. *(TBD — script runner, embedding API, stdlib growth...)* — all
+   three arrived without a milestone's name: the CLI runs a file
+   (`swiftalk hello.swt`; options since round 187), the embedding API
+   is §15's `register`/`preimport`/`hooks` (rounds 182–189) and §16's
+   JavaScript runtime, and the stdlib is §3's rounds 83–196 with the
+   prelude modules.
 
 ∞. **Make swiftalk self-hosting** *(added round 43; not necessarily
    the next milestone)* — a swiftalk interpreter written in swiftalk
@@ -2710,7 +2767,7 @@ Apple platforms; library evolution for the core is a flag for later if
 plugins must outlive a compiler); the dynamic tier does not exist for
 a JS or wasm host, where the registry is filled by the host instead;
 `fetch` moving onto a `Net` module and POSIX as a module are the next
-steps, in that order.
+steps, in that order *(rounds 185 and 188)*.
 
 **Module names start with a capital — DECIDED (round 183)** ("Module
 names should start with a capital. `Env` instead of `env`. Note it is
@@ -2889,7 +2946,7 @@ whether the Type is included in `Core` or `Prelude` in `documents/`").
 Three words, one per type, in the index's new **Where** column and
 under every page's title: **Core** — the interpreter itself, there in
 every embedding; **Prelude** — a module the CLI preimports (`IO`,
-`Net`, `Regex`), there unless `--no-prelude`, an embedder's by
+`Net`, `Regex` then — seven since round 203), there unless `--no-prelude`, an embedder's by
 `preimport()`; **Module** — imported on request (`POSIX`). A reader
 of `Regex.md` learns in its second line that a bare embedding has no
 `/re/`, which rounds 185–189 made true and nothing said in one place.

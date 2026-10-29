@@ -2866,3 +2866,19 @@ the history. (Moved out of Design.md in round 65.)
   predates round 185. The rest of the flags are snippets with unbound
   names, Swift code on the module page, and the network. The tool joins
   `replay-status.py` in the routine.
+* **2026-10-29, round 216 — Design.md audited** ("Check Design.md for
+  stale lines too"). A log is not rewritten, so stale here means a line
+  the record still presents as current after a later round changed it.
+  Its 19 code blocks went through `tools/replay-docs.py Design.md`: two
+  lines spelled the round-40 `.Type` as `.type` and are corrected; the
+  §3c `switch` over SION cases, marked provisional in round 17, never
+  came and the note now says what did (`switch x.Type`). The prose was
+  read whole, against the build: 28 OPEN, LEANING, or "presumably"
+  lines that later rounds had settled — `var x = nil` (101), the
+  BigInt literal (201), operators on types (146), Comparable and
+  synthesis (146, 149), `Int(s, radix:)` and `is`/`as?` still open,
+  default parameters and user generics never built, `Function.String()`
+  a placeholder, the two §8 OPENs settled by use and dissolved, Regex
+  and `import` (86, 100, 186), fetch's move to `Net` (185, 189), the
+  prelude's size (203), milestone 2 arrived unnamed — each carry an
+  italic note naming the resolving round; no paragraph was rewritten.
