@@ -2,7 +2,9 @@
 
 What is implemented, feature by feature, with REPL transcripts
 (every transcript is verified against the real REPL before it
-lands). Moved out of [README.md](README.md) in round 65.
+lands, and `python3 tools/replay-status.py` replays them all against
+the current build — round 214's audit, now a command). Moved out of
+[README.md](README.md) in round 65.
 
 
 **Milestone 0 — `eval()`** is underway: primitives, collection
@@ -374,7 +376,7 @@ swiftalk> let r = BigRat(7, 3)
 BigRat(7, 3)
 swiftalk> r.numerator
 7n
-swiftalk> r.Double()
+swiftalk> Double(r)
 2.3333333333333335
 swiftalk> r.rounded(.down)
 BigRat(2, 1)
@@ -757,8 +759,8 @@ swiftalk> print("hello")
 hello
 swiftalk> debugPrint("hello", 255)
 "hello" +0xff
-swiftalk> import IO from "IO"
-swiftalk> IO.print == print
+swiftalk> import Net from "Net"
+swiftalk> Net.fetch == fetch
 true
 swiftalk> Response(status: 204).ok
 true
@@ -881,8 +883,8 @@ type error: undefined variable 'zip'
 swiftalk> import Net from "Net"
 swiftalk> Response == Net.Response
 true
-swiftalk> import IO from "IO"
-swiftalk> IO.print == print
+swiftalk> import Net from "Net"
+swiftalk> Net.fetch == fetch
 true
 swiftalk> let print = 1                    // the prelude's names are builtins
 type error: redeclaration of 'print' — a builtin
@@ -1034,7 +1036,7 @@ swiftalk> var r = [Int]().sorted()
 swiftalk> r.append("s")
 type error: cannot assign String to 'r'[0] of type Int
 swiftalk> [Int]().map { $0 }.reversed().Type
-Array
+[SION]
 ```
 
 **`enumerated()` keeps the stamp** (round 175) — an eager enumeration
@@ -1098,7 +1100,7 @@ type error: cannot assign String to a key of 'e' of type Int
 swiftalk> Dictionary([(1, "a"), (1, "b")])
 type error: Dictionary(pairs): duplicate key 1
 swiftalk> Dictionary([]).Type
-Dictionary
+[SION: SION]
 ```
 
 **`Set(x)` keeps or infers the stamp** (round 172) — the mirror of
@@ -1139,7 +1141,7 @@ type error: cannot assign String to 'a'[0] of type Int
 swiftalk> (1...).prefix(0).Array().Type
 [Int]
 swiftalk> (1...).prefix(0).map { $0 }.Array().Type
-Array
+[SION]
 swiftalk> Array([Int]()).Type
 [Int]
 swiftalk> Set<Int>().Array().Type
@@ -1164,7 +1166,7 @@ type error: cannot assign Int to 'a'[0] of type String
 swiftalk> [1, nil].map { $0 }.Type
 [Int?]
 swiftalk> [Int]().map { "\($0)" }.Type
-Array
+[SION]
 swiftalk> [1, 2].map { $0 == 1 ? 1 : "a" }.Type
 Array
 ```
@@ -1190,7 +1192,7 @@ swiftalk> var d = [Int: String]()
 swiftalk> d.suffix(1).Type
 [Int: String]
 swiftalk> a.map { $0 }.Type
-Array
+[SION]
 ```
 
 **`filter` and `dropFirst` keep the stamp** (round 168) — a container
@@ -1217,9 +1219,9 @@ swiftalk> var d = [Int: String]()
 swiftalk> d.filter { k, v in k > 0 }.Type
 [Int: String]
 swiftalk> a.map { $0 }.Type
-Array
+[SION]
 swiftalk> a.dropLast().Type
-Array
+[Int]
 ```
 
 **`Optional<T>`, `T?`, `Set<T>` as expressions** (round 167) — postfix
@@ -1305,7 +1307,7 @@ P
 swiftalk> Array.Element
 type error: Array is the erased type and has no Element — a parameterized one does: [Int].Element
 swiftalk> [nil, 1].Type.Element
-type error: Int? is an annotation, not a value
+Int?
 ```
 
 **Parameterized container types** (round 165) — a container carries its
@@ -1537,9 +1539,9 @@ x
 swiftalk> r
 swiftalk> Task.sleep(0)
 swiftalk> eval("1 + 1")
-2
+Result.success(2)
 swiftalk> ["1", "[2]"].map(eval)
-[1, [2]]
+[Result.success(1), Result.success([2])]
 swiftalk> [Int, Sequence, Comparable, Result].map { $0.Type }
 [Function, Function, Function, Function]
 swiftalk> Task.sleep(-1)
@@ -2001,7 +2003,7 @@ swiftalk> ["bb", "a", "ccc"].max { $0.count < $1.count }
 swiftalk> ["a": 3, "b": 1].min { $0.value < $1.value }
 (key: "b", value: 1)
 swiftalk> [(1, 2), (3, 4)].min()
-type error: '<' is not defined between Tuple and Tuple
+type error: .min() needs Comparable elements — a Tuple is not; give it a Function (a, b) -> Bool
 swiftalk> [1, "a"].max()
 type error: '<' is not defined between String and Int
 ```
@@ -2104,8 +2106,8 @@ true
 swiftalk> d0.keys
 Set("a", "b")
 swiftalk> let t: Set<Int> = Set(["x"])
-type error: cannot assign String to an element of 't' of type Int
-swiftalk> eval(s.String()) == s
+type error: cannot assign Set<String> to 't' of type Set<Int>
+swiftalk> eval(s.String())! == s
 true
 ```
 
@@ -2130,7 +2132,9 @@ type error: undefined variable 'x'
 swiftalk> :h
 :h              this help
 :r let x = ...  redefine a top-level let or var — the old binding is replaced, whatever its type or mutability
-:d x            undefine a top-level binding
+:r struct P {}  redefine a struct or enum (existing values keep the old type)
+:r extension T {}  add to a type, overwriting members of the same name
+:d x            undefine a top-level binding — a let, var, struct, or enum
 ```
 
 **`??` and `!!` on Dictionaries; `!!` everywhere** (round 130) — `d0 ??
@@ -2304,7 +2308,7 @@ type error: undefined variable 'minted'
 swiftalk> let secret = "mine"
 "mine"
 swiftalk> eval("secret")
-"mine"
+Result.success("mine")
 ```
 
 **`eval()`** (round 122) — the language's own, a divergence from Swift:
@@ -2313,27 +2317,27 @@ program's top level; the round-trip law, said in the language:
 
 ```text
 swiftalk> eval("1 + 2")
-3
+Result.success(3)
 swiftalk> let v: SION = ["a": [1, 2.5, nil], "d": Data("AQID")]
 ["a": [1, 2.5, nil], "d": .Data("AQID")]
-swiftalk> eval(v.String()) == v
+swiftalk> eval(v.String())! == v
 true
 swiftalk> struct P { var x: Int = 0 }
 P
-swiftalk> eval(P(x: 3).String()) == P(x: 3)
+swiftalk> eval(P(x: 3).String())! == P(x: 3)
 true
 swiftalk> eval("let y = 40")
-40
+Result.success(40)
 swiftalk> y + 2
 42
 swiftalk> ["1", "2"].map(eval)
-[1, 2]
+[Result.success(1), Result.success(2)]
 swiftalk> let f = { a in eval("a") }
 { a in ... }
 swiftalk> f(1)
-type error: undefined variable 'a'
+Result.failure("type error: undefined variable 'a'")
 swiftalk> eval("1 +")
-syntax error: unexpected token end of input
+Result.failure("syntax error: unexpected token end of input")
 ```
 
 **Prefix `+` and `===` / `!==`** (round 121) — `+x` is the number
@@ -2566,7 +2570,7 @@ true
 swiftalk> (1...300).map { Double.random(-1, 1) }.filter { $0 < -1.0 || $0 >= 1.0 }.count
 0
 swiftalk> Double.random(3, 3)
-type error: Double.random needs finite bounds with min < max, got 3.0 and 3.0
+type error: Double.random needs finite bounds with from < to, got 3.0 and 3.0
 ```
 
 **`let I = Int` is the alias** (round 111; round 110's `typealias` is
@@ -2591,7 +2595,7 @@ swiftalk> [1, 2].S()
 swiftalk> let D = Data
 Data
 swiftalk> 42.D()
-type error: cannot convert Int to Data
+unknown member: Int.Data() — .Data() is a String's parse; Data(x) converts
 swiftalk> typealias N = Int
 syntax error: expected a newline or ';' between statements
 ```
@@ -2688,7 +2692,7 @@ true
 swiftalk> 5.bitXor(3)
 6
 swiftalk> 1 ^ 2
-syntax error: '^' is not an operator — '^^' is xor on Bools, '.xor()' on Ints
+type error: '^' is a Set operator — not defined between Int and Int; Bools use '^^', Ints +^
 ```
 
 **Bitwise, as methods** (round 105; bit-prefixed since round 107) — `bitAnd`, `bitOr`, `bitXor`, `bitNot`,
@@ -3052,7 +3056,7 @@ swiftalk> d
 swiftalk> d[0..<1] = [9]
 type error: assigning through a Range of a Data takes a Data, not a Array
 swiftalk> d[0] = 256
-type error: a Data byte is an Int in 0...255, not 256
+type error: a Data byte is a Byte, or an Int in 0...255, not 256
 ```
 
 **`a[0..<1] = [9]`** — assignment through a Range subscript (round 91):
@@ -3077,7 +3081,7 @@ type error: cannot assign String to 'a'[0] of type Int
 swiftalk> a[0..<1] = 5
 type error: assigning through a Range takes an Array, not a Int
 swiftalk> a[3...] = [1]
-type error: range 3... is out of range (count 1)
+[1]
 ```
 
 **`a[1..<3]`** — Range subscripts on Arrays (round 90): a new Array of
@@ -3104,7 +3108,7 @@ swiftalk> b.append(0)
 swiftalk> a
 [10, 20, 30, 40, 50]
 swiftalk> a[0..<1] = [9]
-type error: Array index must be an Int, not Range
+type error: cannot assign to let constant 'a'
 ```
 
 **The slicing family** (round 89) — `suffix`, `dropFirst`, `dropLast`,
@@ -3562,7 +3566,7 @@ false
 swiftalk> 1 && true                 // nothing is truthy
 type error: '&&' takes Bools — nothing is truthy (§3b)
 swiftalk> 1 & 2
-syntax error: unexpected '&' — did you mean '&&'?
+type error: '&' is a Set operator — not defined between Int and Int; Bools use '&&', Ints +&
 ```
 
 **The type reference** is in (round 68): [documents/](documents/README.md), one
@@ -3818,7 +3822,9 @@ Point
 swiftalk> var p = Point(x: 3, y: 4)
 Point(x: 3, y: 4)
 swiftalk> let q = p
+Point(x: 3, y: 4)
 swiftalk> p.x = 30
+30
 swiftalk> q                      // a copy is a copy (§4)
 Point(x: 3, y: 4)
 ```
@@ -3855,6 +3861,7 @@ swiftalk> struct Stack {
   }
 Stack
 swiftalk> var s = Stack()
+Stack(value: [])
 swiftalk> s.push(1)
 swiftalk> s.push(2)
 swiftalk> s.top()
@@ -3882,7 +3889,9 @@ true
 
 ```text
 swiftalk> let halve = { n in n / 2 * 2 == n ? Result.success(n / 2) : Result.failure("odd: \(n)") }
+{ n in ... }
 swiftalk> let quarter = { n in Result.success(halve(halve(n)?)?) }
+{ n in ... }
 swiftalk> quarter(8)
 Result.success(2)
 swiftalk> quarter(6)                 // the failure propagated through ?

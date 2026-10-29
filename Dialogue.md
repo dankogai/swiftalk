@@ -2847,3 +2847,13 @@ the history. (Moved out of Design.md in round 65.)
   presence in the README the suite checks too. The round-by-round lines
   are gone from the README; Status.md has had every one of them all
   along. The per-round README line is retired from the routine.
+* **2026-10-29, round 214 — Status.md audited** ("Check Status.md for
+  stale lines too"). Every transcript replayed against the current
+  build: of 1,345 prompts in 156 blocks, 32 lines had gone stale behind
+  later rounds — `eval` as a Result (159), the data default `[SION]`
+  for empty results (181), the Set operators' messages (135, 193), `:h`
+  grown (141), `.Double()` and `.D()` after 206–208, `r.Double()` in the
+  round-203 block itself, `import IO from "IO"` now the Complex trap
+  (shown with `Net` instead), and three oldest blocks that left out the
+  REPL's echo. All corrected to what the REPL says today. The replay is
+  `tools/replay-status.py`, part of the routine from here.
