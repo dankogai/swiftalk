@@ -176,14 +176,7 @@ func runCurl(_ args: [String], input: [UInt8]? = nil) throws -> [UInt8] {
     posix_spawn_file_actions_destroy(&actions)
     close(out[1]); close(inp[0])
     guard rc == 0 else { close(out[0]); close(inp[1]); throw Swiftalk.Error.type("cannot run curl: \(String(cString: strerror(rc)))") }
-    if let input {
-        var written = 0
-        while written < input.count {
-            let n = input[written...].withUnsafeBufferPointer { write(inp[1], $0.baseAddress, $0.count) }
-            if n <= 0 { break }
-            written += n
-        }
-    }
+    if let input { writeWithoutSIGPIPE(inp[1], input) }   // a short write leaves curl to say what went wrong
     close(inp[1])
     var data: [UInt8] = []
     var chunk = [UInt8](repeating: 0, count: 65536)
@@ -200,6 +193,40 @@ func runCurl(_ args: [String], input: [UInt8]? = nil) throws -> [UInt8] {
         throw Swiftalk.Error.type(String(decoding: data, as: UTF8.self).split(separator: "\n").last.map(String.init) ?? "curl exited with \(exitCode)")
     }
     return data
+}
+
+/// Writes `bytes` to `fd` with SIGPIPE held off (round 224): curl may
+/// exit before reading its stdin, and a write to a pipe nobody reads
+/// must come back as EPIPE — curl's exit code then says why — never kill
+/// the host process. Darwin has a per-descriptor switch; Linux has none
+/// for pipes, so the signal is blocked on this thread around the write
+/// and the one it leaves pending is drained before the mask returns.
+/// False on a short write.
+@discardableResult
+func writeWithoutSIGPIPE(_ fd: Int32, _ bytes: [UInt8]) -> Bool {
+    #if canImport(Darwin)
+    _ = fcntl(fd, F_SETNOSIGPIPE, 1)
+    #else
+    var mask = sigset_t(), saved = sigset_t()
+    sigemptyset(&mask); sigaddset(&mask, SIGPIPE)
+    pthread_sigmask(SIG_BLOCK, &mask, &saved)
+    defer {
+        var pending = sigset_t(); sigemptyset(&pending)
+        if sigpending(&pending) == 0, sigismember(&pending, SIGPIPE) == 1 {
+            var now = timespec(), info = siginfo_t()
+            _ = sigtimedwait(&mask, &info, &now)
+        }
+        pthread_sigmask(SIG_SETMASK, &saved, nil)
+    }
+    #endif
+    var written = 0
+    while written < bytes.count {
+        let n = bytes[written...].withUnsafeBufferPointer { write(fd, $0.baseAddress, $0.count) }
+        if n < 0, errno == EINTR { continue }
+        guard n > 0 else { return false }
+        written += n
+    }
+    return true
 }
 
 /// `curl -sSL -i`, the response parsed here — the last header block's

@@ -17,7 +17,11 @@ struct CLITests {
         process.standardOutput = stdout
         process.standardError = stdout
         try process.run()
-        stdin.fileHandleForWriting.write(Data((input + "\n").utf8))
+        // The child may exit without reading its stdin (--help, an unknown
+        // option) before this write lands: with SIGPIPE ignored (TestSupport,
+        // round 224) that is an EPIPE error, not a kill, and it says nothing
+        // about what the test asks — the child's output and exit do.
+        try? stdin.fileHandleForWriting.write(contentsOf: Data((input + "\n").utf8))
         try stdin.fileHandleForWriting.close()
         let data = stdout.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()

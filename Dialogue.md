@@ -3026,3 +3026,34 @@ the history. (Moved out of Design.md in round 65.)
   was probed and holds stays: no `popFirst`, no `=~`, no `$1` templates,
   no `M.Point` in an annotation, the POSIX not-yet list, curl's flags,
   the keyword list against the parser's.
+* **2026-10-30, round 224 — SIGPIPE: a closed pipe is an error, never a
+  kill** ("the Swift test process exited with unexpected signal code 13
+  in CI for a docs-only commit; the rerun passed; make the suite immune
+  so a closed pipe surfaces as a write error"). Run 40974548029, Ubuntu,
+  attempt 1: the crash came a quarter second after CLITests' `--help`
+  test started, and that test is the one whose child exits without
+  reading its stdin — the CLI prints the usage and leaves, the test
+  writes a newline to the child's stdin pipe, and when the child is gone
+  first the write raises SIGPIPE, whose default disposition is death for
+  the whole process, every suite with it. A race, so the rerun was green.
+  Three changes, no language behaviour touched. TestSupport ignores
+  SIGPIPE once for the test process — a global whose initializer calls
+  `signal(SIGPIPE, SIG_IGN)`, which Swift runs once under a lock; both
+  `interpreter()` and `buildDirectory()` touch it, so every suite that
+  evaluates anything or spawns the CLI has it set before the first pipe.
+  CLITests' stdin write moves to the throwing `write(contentsOf:)` and
+  tolerates its failure: with the signal ignored, that write is EPIPE,
+  and Foundation's non-throwing `write(_:)` would have turned the error
+  into a trap — the child's output and exit are what the test asks about.
+  And the Net module's body write to curl's stdin, the one pipe write a
+  user's program reaches, gets `writeWithoutSIGPIPE`: on Darwin the
+  descriptor's `F_SETNOSIGPIPE`; on Linux, where pipes have no such
+  switch, the signal is blocked on the calling thread around the write
+  and the one it leaves pending is drained with `sigtimedwait` before
+  the mask returns — thread-local, so a library loaded into an embedder
+  never changes the host's signal dispositions. A short write there was
+  already a break; it still is, and curl's exit code names the cause.
+  The CLI keeps the default: `swiftalk file.swt | head` dying quietly
+  when `head` leaves is the Unix convention, and ignoring the signal
+  would have a printing loop spin on EPIPE instead. Status.md and
+  Design.md have nothing to record.
