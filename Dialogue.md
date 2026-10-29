@@ -2978,3 +2978,24 @@ the history. (Moved out of Design.md in round 65.)
   without line numbers, no recursion guard, all probed today). The
   program's output and its sketch of the code were checked against the
   file; the `String.fromCodePoint` and the bit-method claims hold.
+* **2026-10-30, round 222 — Status.md's prose audited** ("Check
+  Status.md's prose for stale lines too"). Round 214 replayed the
+  transcripts; this round read the words around them, all 861 lines of
+  prose, as present claims. Status.md is a log too — each block dated by
+  its round, the newest on top — so a line a later round overtook gets
+  an italic note naming that round and pointing up, Design.md's
+  manner; nothing is rewritten. Ten lines got one: milestone 0 "is
+  underway" (and the law's `!`, round 159); the embedding API "claims
+  exactly one top-level name" (two since 215, `TypeAnnotation`); Regex
+  "is a core type" (the module's since 186); milestone B's `print`
+  "until IO is ported" (D, 200); `fetch` "at the top level" (Net's since
+  185/189); round 122's `eval` handing back "its last statement's value"
+  (a Result since 159); round 105's "no operator symbols spent" and
+  `Bool(Int)` (193 and 204); round 127's `keys` "as Arrays" (a Set since
+  132/180); script mode's list of examples (five files since); and
+  `print`/`debugPrint` as "the first built-in Function values" (IO's
+  since 185). What was probed and still holds stays as written: no
+  `.utf16`, `.todo`, `Task { }` as `async`'s long form, Ranges Int-only,
+  the completion engine's name, the history file, the five shelved
+  suites under `.disabled("shelved")`, and `"foo".String()` echoing
+  `"foo"` — the REPL's quotes, not the value's.

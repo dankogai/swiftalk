@@ -10,10 +10,14 @@ the current build — round 214's audit, now a command). Moved out of
 **Milestone 0 — `eval()`** is underway: primitives, collection
 literals (`[element]`, `[Key: Value]`), same-type arithmetic with
 trapping overflow, `let`/`var` bindings with type locks, and the
-round-trip law `eval(x.String()) == x`.
+round-trip law `eval(x.String()) == x`. *(Long since in — milestone 1
+follows below, and everything above it; the law reads
+`eval(x.String())! == x` since round 159 made `eval` a Result.)*
 
 The embedding API lives in the `Swiftalk` namespace — importing the
-library claims exactly one top-level name:
+library claims exactly one top-level name *(two since round 215:
+`TypeAnnotation`, the module API's element type, stands beside
+`Swiftalk`)*:
 
 ```swift
 import Swiftalk
@@ -130,7 +134,8 @@ swiftalk> switch 9 { case 1: 1 }
 type error: switch is not exhaustive — nothing matches 9
 ```
 
-**Regex** is a core type with a literal (round 86) — `/pattern/flags`,
+**Regex** is a core type with a literal (round 86) *(the `Regex`
+module's since round 186, above)* — `/pattern/flags`,
 Swift's engine, Swift's names on String; a match with captures is a
 labeled tuple, so destructuring and `switch` bindings just work:
 
@@ -530,7 +535,7 @@ swiftalk> Sequence.zip(1..., ["a", "b", "c"]).Array()
 interpreter stack; 2,553 of the 2,671 Swift fixtures evaluate as the
 Swift core does, the 118 that need a prelude module wait for milestone
 D. A REPL over it, `node js/repl.mjs` (the bare core; `print` is the
-host's until IO is ported):
+host's until IO is ported — milestone D, round 200, above):
 
 ```text
 swiftalk> struct Point { var x: Double; var y: Double; let norm = { (self.x * self.x + self.y * self.y) ** 0.5 } }
@@ -1379,7 +1384,9 @@ transcript cannot show a keystroke, so none here.
 
 **`fetch`** (round 163) — JS's, at the top level: a Task of a Result of a
 `Response` (a struct declared in swiftalk at startup); the request runs
-on a worker thread while the task is parked; curl underneath in the CLI:
+on a worker thread while the task is parked; curl underneath in the CLI
+*(the `Net` module's since round 185, its transport the module's since
+189, above)*:
 
 ```text
 swiftalk> let t = fetch("https://example.com")
@@ -2209,7 +2216,8 @@ unknown member: Tuple.offset
 ```
 
 **`d.keys` and `d.values`** (round 127) — Swift's properties, as Arrays,
-aligned with each other:
+aligned with each other *(`keys` a Set since round 132, a `Set<K>` since
+180, above)*:
 
 ```text
 swiftalk> let d = ["b": 2, "a": 1, "c": 3]
@@ -2312,7 +2320,8 @@ Result.success("mine")
 ```
 
 **`eval()`** (round 122) — the language's own, a divergence from Swift:
-a String of source in, its last statement's value out, run at the
+a String of source in, its last statement's value out *(wrapped in a
+Result since round 159, above)*, run at the
 program's top level; the round-trip law, said in the language:
 
 ```text
@@ -2697,7 +2706,8 @@ type error: '^' is a Set operator — not defined between Int and Int; Bools use
 
 **Bitwise, as methods** (round 105; bit-prefixed since round 107) — `bitAnd`, `bitOr`, `bitXor`, `bitNot`,
 `shifted(by:)` (negative shifts right), `bit`, the `[Bool]` view, and
-`Bool(Int)`; no operator symbols spent:
+`Bool(Int)`; no operator symbols spent *(spent in round 193 — `+&` and
+kin, above; `Bool(Int)` went in round 204)*:
 
 ```text
 swiftalk> 0b1100.bitAnd(0b1010)
@@ -3577,7 +3587,9 @@ evaluates the whole file as one strict program — no echoes, only
 `print()` output. Examples live in [examples/](examples/README.md): two quines,
 lambda calculus up to the Z combinator, SKI, and the collection
 types (Array, Dictionary, Sequence) — each verified by the test
-suite.
+suite. *(Since then: `sion.swt` (round 85), `formats.swt` (97),
+`import.swt` with `geometry.swt` (100), and `tour.swt` (213) — the
+index is [examples/README.md](examples/README.md).)*
 
 **Milestone 1 — REPL** is in — with line editing and **history**
 (round 64): arrow keys browse (persisted in `~/.swiftalk_history`),
@@ -3674,7 +3686,8 @@ swiftalk> "0.1 + 0.2 = \(0.1 + 0.2), exactly"
 
 **`print()` and `debugPrint()`** are in — the first built-in
 `Function` values (`print` shows Strings raw; `debugPrint` shows
-source form) — which means FizzBuzz, at last:
+source form) — which means FizzBuzz, at last *(the `IO` module's since
+round 185, preimported by the CLI, above)*:
 
 ```text
 swiftalk> for i in 1...15 {
