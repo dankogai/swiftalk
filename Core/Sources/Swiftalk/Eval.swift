@@ -1926,6 +1926,14 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
             if let m = userMethod {
                 let (bound, selfEnv) = try boundMethod(m, self: receiver, mutableSelf: true)
                 let result = try apply(bound, args: evaluated)
+                // Round 233: a String member owns the value's text, so its
+                // result is a String on this spelling too, not only where
+                // the value prints.
+                if name == "String" {
+                    guard case .string = result else {
+                        throw SwiftalkError.type("\(receiver.typeName).String() must return a String")
+                    }
+                }
                 let newSelf = try selfEnv.lookup("self")
                 if newSelf != receiver {
                     guard let target = asLValue(receiverExpr) else {
@@ -2824,18 +2832,30 @@ func constructStruct(_ st: StructType,
     for prop in st.propertyOrder {
         let def = st.properties[prop]!
         var value: Value
-        if let given = slots[prop] {
-            value = given
+        var given = true
+        if let slot = slots[prop] {
+            value = slot
         } else if !remaining.isEmpty {
             value = remaining.removeFirst()
         } else if let defaultExpr = def.defaultExpr {
             value = try evaluate(defaultExpr, in: Environment(parent: st.declEnv))
+            given = false
         } else {
             throw SwiftalkError.type("missing property '\(prop)' of \(st.name)")
         }
         if let annotation = def.annotation {
             try checkValue(value, against: annotation, context: "\(st.name).\(prop)")
             value = stamp(value, with: annotation)                          // round 165
+        } else if given, let defaultExpr = def.defaultExpr {
+            // Round 233: the §3 lock reaches the memberwise init. A property
+            // without an annotation is locked to its default's type, as it is
+            // on assignment — so the default is evaluated for its type and the
+            // given value must match it (a nil default locks nothing).
+            let initial = try evaluate(defaultExpr, in: Environment(parent: st.declEnv))
+            if initial != .nil, value.typeName != initial.typeName {
+                throw SwiftalkError.type(
+                    "cannot assign \(value.typeName) to \(st.name).\(prop) of type \(initial.typeName)")
+            }
         }
         values[prop] = value
     }
@@ -2897,17 +2917,29 @@ func constructActor(_ at: ActorType,
     for prop in at.propertyOrder {
         let def = at.properties[prop]!
         let value: Value
-        if let given = slots[prop] {
-            value = given
+        var given = true
+        if let slot = slots[prop] {
+            value = slot
         } else if !remaining.isEmpty {
             value = remaining.removeFirst()
         } else if let defaultExpr = def.defaultExpr {
             value = try evaluate(defaultExpr, in: Environment(parent: at.declEnv))
+            given = false
         } else {
             throw SwiftalkError.type("missing property '\(prop)' of \(at.name)")
         }
         if let annotation = def.annotation {
             try checkValue(value, against: annotation, context: "\(at.name).\(prop)")
+        } else if given, let defaultExpr = def.defaultExpr {
+            // Round 233: the §3 lock reaches the memberwise init. A property
+            // without an annotation is locked to its default's type, as it is
+            // on assignment — so the default is evaluated for its type and the
+            // given value must match it (a nil default locks nothing).
+            let initial = try evaluate(defaultExpr, in: Environment(parent: at.declEnv))
+            if initial != .nil, value.typeName != initial.typeName {
+                throw SwiftalkError.type(
+                    "cannot assign \(value.typeName) to \(at.name).\(prop) of type \(initial.typeName)")
+            }
         }
         storage[prop] = value
     }
@@ -4026,7 +4058,16 @@ func convert(_ typeName: String, subject: Value?,
     // text; `String(self)` would be the member again.)
     if let subject, !asksCanonical(typeName, extra), let m = userConversion(subject, typeName) {
         let (bound, _) = try boundMethod(m, self: subject)
-        return try apply(bound, args: extra)
+        let result = try apply(bound, args: extra)
+        // Round 233: the String member owns the value's text, so its result
+        // is a String on every spelling — x.String() and String(x) as much
+        // as print and interpolation (which checked already).
+        if typeName == "String" {
+            guard case .string = result else {
+                throw SwiftalkError.type("\(subject.typeName).String() must return a String")
+            }
+        }
+        return result
     }
     // ...and a module's value (round 201): `Int(b)` is `b.Int()`, the
     // host's member, labels dropped as a member's are

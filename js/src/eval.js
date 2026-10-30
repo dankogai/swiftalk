@@ -913,6 +913,8 @@ function* evaluateMethodCall(expr, env) {
     if (userMethod) {
       const [bound, selfEnv] = boundMethod(userMethod, receiver, true);
       const result = yield* apply(bound, evaluated);
+      // Round 233: a String member's result is a String on this spelling too, not only where the value prints
+      if (name === 'String' && typeof result !== 'string') throw SwiftalkError.type(`${typeName(receiver)}.String() must return a String`);
       const newSelf = selfEnv.lookup('self');
       if (!equals(newSelf, receiver) || (receiver instanceof StructValue && newSelf !== receiver && keyOf(newSelf) !== keyOf(receiver))) {
         const target = asLValue(receiverExpr);
@@ -1227,11 +1229,18 @@ export function* constructStruct(st, args) {
   for (const prop of st.propertyOrder) {
     const def = st.properties.get(prop);
     let value;
+    let given = true;
     if (slots.has(prop)) value = slots.get(prop);
     else if (positionals.length) value = positionals.shift();
-    else if (def.defaultExpr) value = yield* evaluate(def.defaultExpr, new Environment(st.declEnv));
+    else if (def.defaultExpr) { value = yield* evaluate(def.defaultExpr, new Environment(st.declEnv)); given = false; }
     else throw SwiftalkError.type(`missing property '${prop}' of ${st.name}`);
     if (def.annotation) { checkValue(value, def.annotation, `${st.name}.${prop}`); value = stamp(value, def.annotation); }
+    else if (given && def.defaultExpr) {
+      // Round 233: the §3 lock reaches the memberwise init — a property without an annotation
+      // is locked to its default's type, as on assignment; a nil default locks nothing.
+      const initial = yield* evaluate(def.defaultExpr, new Environment(st.declEnv));
+      if (initial !== null && typeName(value) !== typeName(initial)) throw SwiftalkError.type(`cannot assign ${typeName(value)} to ${st.name}.${prop} of type ${typeName(initial)}`);
+    }
     values.set(prop, value);
   }
   if (positionals.length) throw SwiftalkError.type(`too many values for ${st.name}`);

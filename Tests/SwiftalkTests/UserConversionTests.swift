@@ -52,7 +52,8 @@ struct UserConversionTests {
         #expect(try i.eval("Coin.tails.String()") == .string("Coin.tails"))                      // its member says .description
         #expect(try i.eval("Plain().String()") == .string("Plain(x: 1)"))                        // no member: the builtin, as before
         #expect(try i.eval("Plain().String(.pretty)") == .string("Plain(\n  x: 1\n)"))
-        #expect(try i.eval("Bad().String()") == .int(42))                                        // a direct call is just a call; the interpreter's own asks below must get a String
+        #expect(throws: SwiftalkError.self) { try i.eval("Bad().String()") }                   // round 233: every spelling must return a String (round 152 had let a direct call through)
+        #expect(throws: SwiftalkError.self) { try i.eval("String(Bad())") }
         #expect(throws: SwiftalkError.self) { try i.eval("\"\\(Bad())\"") }
     }
 

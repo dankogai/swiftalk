@@ -112,7 +112,13 @@ export function* prettyText(value) { return prettyString(value, yield* userPrett
 export function* convert(tn, subject, extra) {
   if (subject !== undefined && !asksCanonical(tn, extra)) {
     const m = userConversion(subject, tn);
-    if (m) { const [bound] = boundMethod(m, subject); return yield* apply(bound, extra); }
+    if (m) {
+      const [bound] = boundMethod(m, subject);
+      const result = yield* apply(bound, extra);
+      // Round 233: the String member's result is a String on every spelling — x.String() and String(x) too
+      if (tn === 'String' && typeof result !== 'string') throw SwiftalkError.type(`${typeName(subject)}.String() must return a String`);
+      return result;
+    }
   }
   // ...and a module's value (round 201): `Int(b)` is `b.Int()`, the host's member, labels dropped
   if (subject !== undefined && kindOf(subject) === 'host') {

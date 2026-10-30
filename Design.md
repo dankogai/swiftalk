@@ -356,6 +356,21 @@ Details:
   `.conforms(to:)` serve.*) A container's `.Type` carries its element type —
   `[0].Type` is `[Int]` — since round 165 (below, §3c's end).
 
+**The memberwise init locks a property to its default's type — DECIDED
+(round 233)**. The lock above was checked at construction only for an
+annotated property; one declared `var y = 0` took any value from the
+memberwise init (`P(y: "s")`) and refused the same value a line later
+(`p.y = "s"`), and a declared `init` assigning `self.y` refused it
+too. Now the memberwise init evaluates the default for its type and
+holds the given value to it, with assignment's message — `cannot
+assign String to P.y of type Int`. A `nil` default locks nothing (as
+`var x = nil` is `Any`, round 101); an annotated property is checked
+against its annotation as before; a defaulted `let` is locked the
+same way. The cost is the default's evaluation when a value is given
+— the same evaluation a declared init already performs to prefill
+every property — so a default with a side effect runs once per
+construction either way.
+
 ### 3b. Basic types — DECIDED (core)
 
 *(Revises round 2: `Int` was to be arbitrary-precision; it is now fixed
@@ -1267,6 +1282,19 @@ same offer, and its text is an *expression*: `(1.0-2.0.i)` re-enters
 as written because `Double.i` is the imaginary unit — the round trip
 a custom text gives up is recovered by making the text source. The
 module's one-argument init reads it back too, `Complex("(1.0-2.0.i)")`.
+
+**A `String` member returns a String on every spelling — DECIDED
+(round 233), REVISING round 152's "a direct call is just a call"**.
+Round 152 checked the member's result only where the interpreter
+itself asked for text — `print`, interpolation, a container's
+elements — and let `x.String()` and `String(x)` hand back whatever
+the member returned, an Int included. The member owns the value's
+text, so a non-String result is the same fault on every spelling:
+`B.String() must return a String` from the method call, the
+converter, `.String(.pretty)`, and the printing forms alike. Only the
+`String` member is held to this; the other conversion members keep
+round 47's law (a failable one may return nil, and the language does
+not say what `let Int = { }` must produce).
 
 **`nil` infers `Any` — DECIDED (round 101)**. Round 59's inference
 refused to bind a strict `let`/`var` from `nil` ("cannot infer a type

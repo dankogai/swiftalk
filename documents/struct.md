@@ -24,7 +24,7 @@ struct Point {
 
 | Form | Meaning |
 |---|---|
-| `Point(x: 3, y: 4)`, `Point(3, 4)` | memberwise init: labels optional & reorderable, positionals in declaration order over every stored property (a defaulted `let` keeps its slot, so the block's Point takes `Point(3, "pt", 4)`), defaults fill the rest — the LAST dispatch candidate |
+| `Point(x: 3, y: 4)`, `Point(3, 4)` | memberwise init: labels optional & reorderable, positionals in declaration order over every stored property (a defaulted `let` keeps its slot, so the block's Point takes `Point(3, "pt", 4)`), defaults fill the rest; every value is held to the property's annotation or its default's type, as an assignment is (round 233) — the LAST dispatch candidate |
 | `Point(7)`, `Complex(abs: 2.0, arg: 1.0)` | a declared `init { }` matching arity/labels — first match wins, so **declaration order disambiguates** (round 150): declare the primary init first and a same-arity labeled alternative after it — `init { real, imag in }` then `init { abs, arg in }` makes `Complex(1.0, 2.0)` rectangular and `Complex(abs: 2.0, arg: 1.0)` polar |
 | `p.x` | property read; `p.x = v` write (needs a `var` root; `let` properties refuse) |
 | `p.m(args)` | method call: `self` bound; leading-dot members (`.x`) mean `self.x` |
@@ -33,7 +33,7 @@ struct Point {
 | `p == q` | structural equality; `p.Type == Point`; `Point.name` |
 | `p.String()` | `"Point(x: 3, y: 4)"` — round-trips wherever Point is declared |
 | `p.String(.pretty)` | the same, one property per line, two spaces a level (round 118) |
-| `let String = { "(\(.x), \(.y))" }`, `let Double = { … }` | **conversion members** (rounds 47, 151–152): `p.Double()` and `Double(p)` both run the member, format arguments as `$` (`$.contains(.hex)`); a `String` member owns `p`'s text **wherever it prints** — `p.String()`, `String(p)`, `print(p)`, `"\(p)"`, the REPL, `[p]`, `[p: 1]`, plain or `.pretty` — as Swift's `description` does; it must return a String |
+| `let String = { "(\(.x), \(.y))" }`, `let Double = { … }` | **conversion members** (rounds 47, 151–152): `p.Double()` and `Double(p)` both run the member, format arguments as `$` (`$.contains(.hex)`); a `String` member owns `p`'s text **wherever it prints** — `p.String()`, `String(p)`, `print(p)`, `"\(p)"`, the REPL, `[p]`, `[p: 1]`, plain or `.pretty` — as Swift's `description` does; it must return a String, on every spelling — `p.String()` and `String(p)` refuse a non-String as `print` does (round 233) |
 | `p.description`, `p.debugDescription`, `p.String(.canonical)` | the **builtin** memberwise text, never the member's — `"Point(x: 3, y: 4)"`, and `debugDescription` the same in the debug form, `Point(x: +0x3, y: +0x4)` (§3b) — so a `String` member may return `.description` for the forms it leaves alone (`String(self)` would recurse); `.String(.canonical)` (round 153) is the same text as a format word, at any depth (`[p].String(.canonical)`) and with `.pretty`; the member never receives `.canonical`. `.String(.sion)` on a container is a data format and stays builtin too, while `.json` and `.propertyList` refuse a user type at any depth ([type.md](type.md)) |
 | `static let origin = Self(x: 0, y: 0)`, `static let plus = { a, b in ... }` | **static members** (round 143), read off the type: `Point.origin`, `Point.plus(a, b)`; a `static let` holding a Function is a static method, uncalled it is the Function. Their own namespace beside the instance's; a stored `static var` does not exist (a type is a value, not storage) |
 | `static var unit { Self(x: 1, y: 1) }` | a static computed property: a getter run on each read, no setter |
@@ -50,5 +50,6 @@ back through the receiver, so a `let` receiver or a temporary errors
 only when actually mutated. Observers (`willSet`/`didSet`) fire on
 stored-property writes, stay silent during init, and a `didSet` may
 reassign its own property without recursing. Properties are locked to
-their annotation or their initial type (§3). Computed properties on
+their annotation or their initial type (§3), at construction as much as
+on assignment (round 233). Computed properties on
 enums, and property observers outside types, are OPEN.

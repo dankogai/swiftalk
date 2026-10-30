@@ -3262,3 +3262,25 @@ the history. (Moved out of Design.md in round 65.)
   a `String` member's result is checked only where the value prints
   (`"\(x)"`, `print`) — `x.String()` and `String(x)` hand back whatever
   it returned. No behaviour changes; Status.md and Design.md untouched.
+* **2026-10-31, round 233 — the memberwise init's lock, and a String
+  member's result** ("Fix the two gaps"). Round 232's two findings,
+  closed. (1) The §3 lock reached an unannotated property only after
+  construction: `struct P { var y = 0 }` took `P(y: "s")` and refused
+  `p.y = "s"` a line later, while a declared `init` assigning `self.y`
+  refused it (the setter's check). The memberwise init — struct and the
+  shelved actor alike — now evaluates the default for its type when a
+  value is given and holds the value to it, with assignment's message;
+  a `nil` default locks nothing, an annotation is checked as before, a
+  defaulted `let` is locked too. The default's evaluation is the cost,
+  the one a declared init already pays to prefill. (2) Round 152's
+  "a direct call is just a call": the `String` member's result was
+  checked only where the interpreter asked for text, so `x.String()`,
+  `String(x)` and `x.String(.pretty)` handed back an Int. The check sits
+  at the method call and the converter now, so all five spellings say
+  `B.String() must return a String`; the other conversion members are
+  untouched (round 47's law lets a failable one return nil). Both
+  runtimes; round 152's test line revised; MemberwiseLockTests, three
+  tests — the JS corpus is 2,977 fixtures (21 new), 18/18. Design.md
+  takes a paragraph in §3 and one in §3d, Status.md a block after round
+  228's, struct.md and type.md a clause each. Suite: 588 tests in 135
+  suites passed, release, macOS.

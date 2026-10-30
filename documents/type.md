@@ -50,7 +50,7 @@ take:
 | `static let s = value`, `static let f = { ... }` | a **static** (round 143), read off the type: `T.s`; a Function is a static method, `T.f(args)`. Evaluated on first read, in the type's scope, then kept (round 149) — statics may refer to one another in any order |
 | `static var g { ... }` | a static getter, run on each read; no setter and no stored `static var` — a type is a value, not storage |
 | `infix(+) = { a, b in ... }`, `prefix(-) = { x in ... }`, `postfix(!) = { x in ... }` | **operators** (round 146): existing operators at their existing precedence; either operand's type answers an infix. `infix(<)` makes the type Comparable, `infix(==)` replaces structural equality |
-| `let String = { ... }`, `let Int = { ... }`, `let Double = { ... }` | **conversion members** (rounds 47, 151–152): `T(x)` and `x.T()` both run them; a `String` member owns the value's text wherever it prints |
+| `let String = { ... }`, `let Int = { ... }`, `let Double = { ... }` | **conversion members** (rounds 47, 151–152): `T(x)` and `x.T()` both run them; a `String` member owns the value's text wherever it prints, and must return a String on every spelling (round 233) |
 | `Self` | the type itself, inside the body and its extensions: `Self(x: 1)`, `Self.origin`, `Self.circle(r: 1.0)` |
 | *the leading dot* | inside a body a leading dot names `self`'s member first, so a member spelled like a format word shadows it: with `var hex { 1 }` declared, `255.String(.hex)` inside a method is a type error (`.hex` is the member, `1`). Name members otherwise |
 

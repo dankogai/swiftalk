@@ -1957,6 +1957,39 @@ swiftalk> let Int.doubled = { self * 3 }
 type error: redeclaration of '@ext:Int:doubled'
 ```
 
+**The memberwise init's lock, and a String member's result** (round 233)
+— a property without an annotation is locked to its default's type at
+construction as it is on assignment, and a `String` member must return
+a String on every spelling, `x.String()` and `String(x)` included
+(round 152 had let a direct call through):
+
+```
+> struct P { var y = 0; var s = "a"; var xs = [] }
+P
+> P(y: 1, s: "b", xs: [1, 2])
+P(y: 1, s: "b", xs: [1, 2])
+> P(y: "s")
+type error: cannot assign String to P.y of type Int
+> P(1, 2)
+type error: cannot assign Int to P.s of type String
+> var p = P()
+P(y: 0, s: "a", xs: [])
+> p.y = "s"
+type error: cannot assign String to P.y of type Int
+> struct B { var n: Int = 0; let String = { 42 } }
+B
+> B().String()
+type error: B.String() must return a String
+> String(B())
+type error: B.String() must return a String
+> "\(B())"
+type error: B.String() must return a String
+> struct G { var n: Int = 0; let String = { "G\(.n)" } }
+G
+> G(n: 2).String()
+"G2"
+```
+
 **`**`** (round 142) — exponentiation, right-associative and above `*`;
 two Ints (trapping) or two Doubles (`pow`); `-2 ** 2` is `-(2 ** 2)`:
 
