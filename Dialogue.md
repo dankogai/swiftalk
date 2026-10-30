@@ -3226,3 +3226,39 @@ the history. (Moved out of Design.md in round 65.)
   Design.md §10" — the OPEN note is §3's `x.Type` paragraph, which
   §10 does not repeat. Fixed in place. No behaviour changes;
   Status.md and Design.md untouched.
+* **2026-10-30, round 232 — `struct.md` and `enum.md` audited** ("Check
+  documents/struct.md and enum.md for stale lines too"). Round 231's
+  reading on the two kind pages: every table row and every prose claim
+  probed against the binary — memberwise and declared inits and their
+  dispatch order, `let` properties and `let` receivers refusing, a
+  computed setter writing back, observers firing on writes and silent in
+  init, `$` in a conversion member, `.description` and `.canonical`
+  staying memberwise at depth and under `.pretty`, lazy statics (any
+  order, an init reading a static declared below it, self-reference an
+  error, a failed initializer retried), every operator spelling
+  (`a += b`, `(+)(a, b)`, `reduce(z, +)`), the derivations from `<` and
+  `==`, a comparison refusing a non-Bool; the enum's construction checks,
+  leading-dot construction under an annotation, the accessor's three
+  shapes, `if let` with labels and without `let`, `var` binding mutably
+  in a `switch`, a bare case matching any payload, a misfit pattern an
+  error, non-exhaustion a runtime error, the two `if case` hints, `where`,
+  `switch` as an expression, a Range pattern, `.pretty`, a static
+  refusing a case's name, both spellings of an enum computed property
+  refused. Every cited round's title matches. Four lines in struct.md had
+  aged or were wrong when written: the implementable operators stopped
+  before round 193 (`+& +| +^ +< +>` infix, `+^` prefix — the parser's
+  own list); `p.debugDescription` was called the plain memberwise text
+  when it is the debug form, `Point(x: +0x3, y: +0x4)`; `.json` on a
+  container was said to "stay builtin" when it refuses a user type at
+  any depth; and `Point(3, 4)` beside a block whose Point has a
+  defaulted `let tag` in slot two — a defaulted `let` keeps its
+  positional slot, so the row says so. enum.md's second block was never
+  self-contained: `Shape` came from the block above and `s` from nowhere;
+  it declares both now and `replay-docs.py` runs its 8 statements clean
+  (struct.md's 1). Two gaps in the implementation surfaced and are left
+  for a round of their own: the memberwise init checks a property's
+  annotation but not its initial type (`struct P { var y = 0 }; P(y:
+  "s")` is accepted, where `p.y = "s"` and a declared init refuse), and
+  a `String` member's result is checked only where the value prints
+  (`"\(x)"`, `print`) — `x.String()` and `String(x)` hand back whatever
+  it returned. No behaviour changes; Status.md and Design.md untouched.

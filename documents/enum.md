@@ -45,10 +45,13 @@ enum Shape {
 | `let Shape.m = { }`, `static let Shape.s = ...` | the same, one member at a time (round 228) — no computed property on an enum, as in an extension |
 
 ```swift
+enum Shape { case circle(r: Double); case rect(w: Double, h: Double); case point }
+let s = Shape.rect(w: 3.0, h: 4.0)
 Shape.circle(r: 3.0).circle     // 3.0
 Shape.circle(r: 3.0).rect       // nil
-Shape.rect(w: 3.0, h: 4.0).rect // (w: 3.0, h: 4.0)
-if let (w, h) = s.rect { print(w * h) }
+s.rect                          // (w: 3.0, h: 4.0)
+Shape.point.point               // Shape.point
+if let (w, h) = s.rect { print(w * h) }   // prints 12.0
 ```
 
 `Result` is a built-in enum riding all of this — see
