@@ -3,7 +3,10 @@
 User-defined sum types (§7) with associated values, **case accessors**
 (`s.circle` is the payload or `nil`), `switch` binding cases with
 `case let r = .circle:`, and **runtime-enforced exhaustiveness**. Cases are *boxing* enums — unlike the flat built-in
-unions `T?` and `SION`.
+unions `T?` and `SION`. What an enum shares with a struct — the type
+as a value, methods, statics, operators, conversion members,
+extensions, printing, equality — is in [type.md](type.md); this page
+is the enum's own.
 
 ```swift
 enum Shape {

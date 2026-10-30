@@ -3163,3 +3163,27 @@ the history. (Moved out of Design.md in round 65.)
   and documents/README.md's extension block gained a line each. Tests:
   `MemberDeclTests`, five tests, every program a literal so the JS
   corpus takes them.
+* **2026-10-30, round 229 — `documents/type.md`** ("add `type.md` to
+  describe common topics on enum and struct"). struct.md and enum.md
+  each carried the shared half of the story — statics, operators,
+  conversion members, extensions, `Self` — in rows that said "as a
+  struct's" and pointed across; now the shared half has its own page,
+  lowercase as a language topic (round 157's rule), and the two kind
+  pages open by pointing to it. Seven sections: a type as a value (the
+  constructor Function, `x.Type == T` as the only type test since
+  `is`/`as` were never built, aliases, identity hashing, annotations);
+  the body's members common to both kinds (method, static, operator,
+  conversion member, `Self`, and the leading-dot shadowing hazard, with
+  what only one kind takes and what neither has — nesting, generics,
+  inheritance, user protocols); extensions, both spellings, with the
+  not-overwritten, program-wide and nothing-to-export rules; printing
+  and re-entry (`.String()` as source, `.sion` the same text,
+  `.json`/`.propertyList` refused); equality, hashing and order (born
+  Equatable and Hashable, Comparable by `infix(<)`, never a Sequence);
+  types across modules (round 184's namespace types); the REPL's `:r`
+  and `:d`. Every claim was probed before it was written — the alias
+  extending the original (`let Q = Point; let Q.m = { }` lands on
+  Point), a type declared in a function scoped to it, `==` across
+  types a type error — and `replay-docs.py` runs the page's 31
+  statements clean. documents/README.md indexes it. No behaviour
+  changes; Status.md and Design.md untouched.

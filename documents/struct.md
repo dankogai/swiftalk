@@ -1,7 +1,10 @@
 # struct
 
 User-defined value types (§4): **COW values**, memberwise-constructed,
-with methods as closure properties. Declaration grammar:
+with methods as closure properties. What a struct shares with an enum
+— the type as a value, methods, statics, operators, conversion
+members, extensions, printing, equality — is in [type.md](type.md);
+this page is the struct's own. Declaration grammar:
 
 ```swift
 struct Point {

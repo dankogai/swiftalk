@@ -38,6 +38,7 @@ embedder's by `preimport()`; **Module** — imported on request
 | `POSIX` | Module | the environment and file I/O — a module to import (round 188) | [POSIX.md](POSIX.md) |
 | `struct` | Core | user value types | [struct.md](struct.md) |
 | `enum` | Core | user sum types | [enum.md](enum.md) |
+| `struct` and `enum` together | Core | what the two share (round 229): the type as a value, the body's members, extensions, printing, equality and order, modules, the REPL | [type.md](type.md) |
 
 The pages above are the types. The rest of the language has its own
 pages, in lowercase (round 157): [grammar.md](grammar.md) for the
@@ -45,7 +46,8 @@ syntax as parsed, [flowcontrol.md](flowcontrol.md) for `if`/`switch`/
 the loops/early exit, [toplevel.md](toplevel.md) for the top level — `eval`, the prelude
 (`IO` and `Net` in round 185, seven modules since 203), the types as
 values, and the names the language binds —, [module.md](module.md) for
-`import`/`export`. [Bool.md](Bool.md) has the logical operators — the
+`import`/`export`, and [type.md](type.md) for what `struct` and `enum`
+share (round 229). [Bool.md](Bool.md) has the logical operators — the
 symbols and, since round 155, the words `not and or xor`.
 
 ## Members every value has
