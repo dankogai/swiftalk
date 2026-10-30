@@ -3108,3 +3108,30 @@ the history. (Moved out of Design.md in round 65.)
   missing `readLine`, 182's lowercase `env`, 197's fixture count — is
   what it was when written, and the entry that changed it is on the
   page below it; those stay as written, as the rule says.
+* **2026-10-30, round 227 — the examples' comments audited** ("Check the
+  examples' comments for stale lines too"). The twelve `examples/*.swt`
+  and the two `modules/*.swt` carry some 320 `//` lines; every `// value`
+  beside a `print` was checked against the program's output (all of
+  them hold — `ExamplesTests` already keeps the outputs honest, and the
+  comments agree with them), and the prose comments were read as present
+  claims and probed where they say what the language does. Three had
+  aged, all fixed in place since an example is a reference page, not a
+  log: sion.swt's preamble still asked how far swiftalk goes "with no
+  RegExp and no String subscripts" and said SION "is to become a
+  built-in type" — the Regex literal came the round after it (86), String
+  subscripts never came (89), and SION has been built in since 97, so
+  the lines say so; its bitwise paragraph still said "no operator
+  symbols spent" and named C's `>> & |` — round 193's `+> +& +|` are
+  named now, the methods staying; and Rational.swt's `rounded` explained
+  itself by Swift's `Int(x.rounded())`, which swiftalk never had — it is
+  `Double.round(x)` here, round 108's. What was probed and holds:
+  array.swt's commented-out type error (`'primes'[6] of type Int` is the
+  message), formats.swt's four "each throws" (they do, with the messages
+  shown), import.swt's `Geometry.Type` as `Function` (types are
+  constructor Functions, round 184), lambda.swt's `.todo`, every line of
+  the Complex and Rational preambles (`(1.0+2.0.i)`, `(0x1p0+0x1p1.i)`
+  and `(0x3/0x4)` reading back, `Double.pi.i`, `1.over(3)`, a Double
+  beside a Rational giving a Double, a zero denominator as Int's
+  division by zero), and `Complex(abs: 2.0, arg: Double.pi)` as "-2 +
+  0i" — it is -2.0 + 2.4e-16i, which is what the comment means. No
+  language behaviour changes; Status.md and Design.md untouched.

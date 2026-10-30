@@ -6,11 +6,12 @@
 // [Key: Value] with ANY key, [:] empty; // and /* */ comments.
 //
 // The point of the exercise: how far does swiftalk go with no RegExp
-// and no String subscripts? The answer is "all the way": graphemes
+// (the literal came the round after, 86) and no String subscripts
+// (never — round 89's decision)? The answer is "all the way": graphemes
 // via .Array(), a pure recursive descent where every step takes a
 // position and returns a (value:, next:) tuple, and failures as
-// Results propagated with `?` (§8). Since SION is to become a
-// built-in type, this lives under its own name: MySION.
+// Results propagated with `?` (§8). SION itself became a built-in type
+// in round 97, so this lives under its own name: MySION.
 
 struct MySION {
     var chars: [String] = []                      // graphemes
@@ -136,8 +137,9 @@ struct MySION {
 
     // (named fromCodePoint, not utf8: inside a type body .utf8 would
     // be the implicit-self member, shadowing the .String(.utf8) tag)
-    // bitwise, as methods (round 105) — no operator symbols spent:
-    // .shifted(by: -6) is >> 6, .bitAnd(63) is & 63, .bitOr(0x80) is | 0x80
+    // bitwise, as methods (round 105; the operators came in round 193,
+    // and the methods stay): .shifted(by: -6) is +> 6 (C's >> 6),
+    // .bitAnd(63) is +& 63, .bitOr(0x80) is +| 0x80
     let fromCodePoint = { code in
         if code == nil { return nil }
         let tail = { c, n in 0x80.bitOr(c.shifted(by: -n).bitAnd(63)) }

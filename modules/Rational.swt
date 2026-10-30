@@ -130,7 +130,7 @@ export struct Rational {
     var floor { (.num - ((.num % .den) + .den) % .den) / .den }
     var ceil { -((-self).floor) }
     var truncated { .num / .den }
-    var rounded { (self + Self(.sign, 2)).truncated }          // half away from zero, as Int(x.rounded()) is
+    var rounded { (self + Self(.sign, 2)).truncated }          // half away from zero, as Double.round(x) is
     var fraction { .den == 1 ? "\(.num)" : "\(.num)/\(.den)" }
     var mixed {                                                  // (whole:, part:) — 7/4 is (1, 3/4)
         let whole = .truncated
