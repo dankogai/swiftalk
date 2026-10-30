@@ -32,7 +32,7 @@ switch Point().Type { case Point: "a Point" default: "other" }   // "a Point"
 | Form | Meaning |
 |---|---|
 | `T.Type` | `Function`, for every struct and enum (and every builtin: `Int.Type == Function`) |
-| `x.Type == T`, `x.Type.name` | the runtime type test, and its name — there is no `is` or `as` (never built, Design.md §10); `x.Type == T` asks, and `switch x.Type { case T: }` dispatches |
+| `x.Type == T`, `x.Type.name` | the runtime type test, and its name — there is no `is` or `as` (never built, Design.md §3); `x.Type == T` asks, and `switch x.Type { case T: }` dispatches |
 | `T == U`, `[T: v]`, `Set([T, U])` | types compare and hash by identity; a type is a Dictionary key |
 | `let T2 = T` | an alias — the same type, so `T2(x: 1) == T(x: 1)` and `extension T2 { }` extends `T` |
 | `let p: T = ...`, `[T]`, `T?`, `Any` | a user type is an annotation like any other (§3): the lock holds (`let z: Point = 1` is a type error), containers carry it (`[Point]`), `Point?` is a Point or nil |

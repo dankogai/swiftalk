@@ -3199,3 +3199,30 @@ the history. (Moved out of Design.md in round 65.)
   none meant. Now `git rm`'d and in `.gitignore`, so a replay may leave
   it without it showing. The lesson is procedural and kept: a round's
   commit names its files; nothing sweeps the tree.
+* **2026-10-30, round 231 — `documents/type.md` audited** ("Check
+  documents/type.md for stale lines too"). Round 227's reading, turned
+  on the page round 229 wrote: every prose claim probed against the
+  binary — the type as a value (`Int.Type == Function`, a type as a
+  Set element, the annotation lock, `.conforms(to: Int)` refused),
+  the body (`x.m` a Function over a copy, statics in any order and
+  kept, a static getter run on each read and taking no setter or
+  storage, `infix(==)` replacing structural equality, either operand
+  answering an infix, only the existing operators, a conversion
+  member running on both spellings, `Self.circle(r: 1.0)`, the
+  `.hex` shadow, no enum `init` or computed property, no nesting, a
+  type scoped to a function, no generics, `struct point`, keywords
+  and redeclaration refused), extensions (a stored property and a
+  case `already has a member`, `export let T.m` refused, an alias
+  extending the original), printing (`.pretty`, the three refused
+  formats, `.description` staying memberwise), order (`<` a type
+  error until `infix(<)`, then `>` `<=` `min` `max`), modules (a
+  module file written for the probe: `import M from`, `extension M`,
+  the importer's extension reaching the module's values,
+  `Double.pi.i`), and the REPL (`:r struct`, `:r extension`,
+  `:r let T.m`, `:d`, completion of properties, methods, cases and
+  statics in Completion.swift). Every cited round's title matches
+  its claim, and `replay-docs.py` runs the page's 31 statements
+  clean. One line was wrong when written: `is`/`as` "never built,
+  Design.md §10" — the OPEN note is §3's `x.Type` paragraph, which
+  §10 does not repeat. Fixed in place. No behaviour changes;
+  Status.md and Design.md untouched.
