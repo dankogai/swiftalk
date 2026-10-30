@@ -3319,3 +3319,37 @@ the history. (Moved out of Design.md in round 65.)
   failure writes a Result, the lock holding (`var r = eval("1 +"); r
   ??= 7` is a type error, `r ??= eval("7")` the fill). No behaviour
   changes; Status.md and Design.md untouched.
+* **2026-10-31, round 235 — `documents/module.md` audited** ("Check
+  documents/module.md for stale lines too"). The page read as rounds
+  227–234 read theirs, with module files written for the probe: a
+  module evaluated once for three imports, in a scope that sees `Int`
+  and `print` and not the importer's names, strict about an undeclared
+  assignment; `import from` skipping a name bound to the same value and
+  refusing one bound otherwise; `import M from` a type whose statics are
+  the exports — `M.f(args)`, `M.Point(x:)`, `M` printing as `M`, `M.Type`
+  `Function`, `M()` refused as a module without instances, `M` a `let`,
+  `extension M` reaching every importer, `import N from` the same file
+  aliasing it, the `import Complex from` trap; `import (a, b) from`
+  with the error that lists the exports and the refusal of braces;
+  paths resolved beside the importing module and from the REPL's cwd;
+  a URL refused through curl's words; a bare name's error naming the
+  dylib and both directories of the module path, `SWIFTALK_MODULE_PATH`
+  honoured; a library imported by its path; every `export` form; a
+  module's `let Int.m` reaching the importer; a module's own `eval` with
+  its unexported names visible, its declarations landing there and the
+  importer's names not; a `var` arriving as a snapshot in a `let` and a
+  closure's private state shared by every importer; the geometry block
+  as written (12.0, 1, 14.0); `import` inside a function refused, a
+  circular import and a module's error reported with the module's path,
+  `export` in the main program inert; re-export and `M.Point` as an
+  annotation still syntax errors. The native section and its API table
+  checked name by name against Core/Sources/Swiftalk (every one
+  present, `Swiftalk.Error`, `Module.static`, `offload`, `sequence(of:)`
+  included), the Regex module's six String members counted, Net's and
+  IO's uses found, the CLI's prelude loop read (IO and Net, then Regex,
+  Sequence, Task, BigInt, BigRat each saying so once when missing),
+  `--no-prelude` run, the Package.swift lines and `@_cdecl` symbol
+  found. Every cited round's title matches. Nothing stale: the page is
+  as it was written. `replay-docs.py`'s 12 flags on it are the tool's
+  known noise — the geometry block names a file beside the page, and
+  the Swift listing is Swift. No files changed but this log.
