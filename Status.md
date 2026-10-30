@@ -1963,30 +1963,30 @@ construction as it is on assignment, and a `String` member must return
 a String on every spelling, `x.String()` and `String(x)` included
 (round 152 had let a direct call through):
 
-```
-> struct P { var y = 0; var s = "a"; var xs = [] }
+```text
+swiftalk> struct P { var y = 0; var s = "a"; var xs = [] }
 P
-> P(y: 1, s: "b", xs: [1, 2])
+swiftalk> P(y: 1, s: "b", xs: [1, 2])
 P(y: 1, s: "b", xs: [1, 2])
-> P(y: "s")
+swiftalk> P(y: "s")
 type error: cannot assign String to P.y of type Int
-> P(1, 2)
+swiftalk> P(1, 2)
 type error: cannot assign Int to P.s of type String
-> var p = P()
+swiftalk> var p = P()
 P(y: 0, s: "a", xs: [])
-> p.y = "s"
+swiftalk> p.y = "s"
 type error: cannot assign String to P.y of type Int
-> struct B { var n: Int = 0; let String = { 42 } }
+swiftalk> struct B { var n: Int = 0; let String = { 42 } }
 B
-> B().String()
+swiftalk> B().String()
 type error: B.String() must return a String
-> String(B())
+swiftalk> String(B())
 type error: B.String() must return a String
-> "\(B())"
+swiftalk> "\(B())"
 type error: B.String() must return a String
-> struct G { var n: Int = 0; let String = { "G\(.n)" } }
+swiftalk> struct G { var n: Int = 0; let String = { "G\(.n)" } }
 G
-> G(n: 2).String()
+swiftalk> G(n: 2).String()
 "G2"
 ```
 
