@@ -72,7 +72,8 @@ enum declaring `let Double = { ... }` answers `Double(x)` as it
 answers `x.Double()`, format arguments passed to the member; a `let
 String` member owns the type's text wherever a value of it prints
 (round 152) — `.String(...)`, `String(x)`, `print`, `"\(x)"`, the
-REPL, inside a container. `.description` is the builtin memberwise
+REPL, inside a container — and must return a String on every one of
+those spellings (round 233). `.description` is the builtin memberwise
 text (what a member returns for the form it does not change), and
 the data formats `.sion`/`.json`/`.propertyList` on a container never
 ask the member.
@@ -134,7 +135,7 @@ as values and the names the language binds (`$`, `self`, `Self`, …).
 | `\| & ^`, `\|= &= ^=` | | | | Sets only (round 135): union, intersection, symmetric difference — `s.union(t) == s \| t` | | | |
 | `%` | ✓ remainder, the dividend's sign; `% 0` traps (round 93) | type error, as in Swift | | | | | |
 | `+= -= *= /= %=` | ✓ (round 102) — `x op= y` is `x = x op y`, the target evaluated once | ✓ | `+=` | `+=` | | | |
-| `??=` | `x ??= y` writes `y` only when `x` is nil (or a Result failure); `y` unevaluated otherwise (round 103) — any type; on a Dictionary, per key (round 130) | | | | | | |
+| `??=` | `x ??= y` writes `y` only when `x` is nil (or a Result failure — and then `y` is a Result too, the lock holding); `y` unevaluated otherwise (round 103) — any type; on a Dictionary, per key (round 130) | | | | | | |
 | `!!`, `!!=` | `a !! b` is `b ?? a` — the right side's value when it has one (round 130); `x !!= y` is `x = y ?? x`; on Dictionaries per key, so `d0 !! d1` overrides with `d1` and `d0 ?? d1` fills from it. Infix only after an operand with a space before it: `x!!` is two unwraps, `!!b` two nots | | | | | | |
 | `&&= ||=` | Bool targets and Bools only; short-circuit like the operators (round 104) — the `op=` family is now every binary operator that can spell one | | | | | | |
 | `^^`, `^^=` | logical xor, Bools only, both sides evaluated; between `&&` and `||` (round 106) | | | | | | |
