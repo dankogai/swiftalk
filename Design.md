@@ -1117,6 +1117,33 @@ wrong side of the cut; the module agrees with `cmath` on 304 points
 including the cuts. Doubles only, as `std::complex<double>`; no
 `<iostream>`, no order (`<` is not defined on Complex, as in C++).
 
+**Members one at a time: `let T.m = { }`, `var T.p { }`, `static let
+T.s` — DECIDED (round 228)** (the user: "Let's make `let T.foo` and
+`var T.bar` add property to `T` one by one without `extension { let foo
+{...}; var bar {...} }`. `static let T.prop ...` adds static property
+of T while `let T.prop` adds instance property."). An extension body
+is Swift's discipline — declared, greppable — but a one-member
+extension is three lines of ceremony around one line of meaning, and
+a dotted name says where the member goes as plainly as the braces did.
+So a declaration whose name carries a dot is an extension of one
+member: `let Int.doubled = { self * 2 }` adds a method, `var
+Int.squared { self * self }` a computed property (get/set, an
+annotation if wanted), `static let Int.answer = 42` a static (a
+Function, a static method), `static var Point.unit { Self(x: 1, y: 1)
+}` a static getter. The parser desugars each into the `extensionDecl`
+a one-member body would give, so nothing is new past the spelling and
+the rules are an extension's: `Self` and implicit `self` are the
+type's inside, an existing method or computed property is not
+overwritten (`:r` does), stored properties and cases never, an enum
+takes no computed property, a static has no setter, a builtin's
+member is program-wide. The type name is one word, as `extension`'s
+is — `let a.b.c = { }` is refused, not guessed at. There is nothing
+to export: like an extension, the member reaches wherever the type
+does, so `export let T.m` is refused with export's other
+non-declarations. `static` stays a contextual word — `let static = 1`
+declares as before — and `static let x = 1` with no type named, a
+syntax error all along, now says what it is missing. Both runtimes.
+
 **`import from` — DECIDED (round 148)** (the user, having typed `import
 Complex from "modules/Complex.swt"` and got "cannot call a Tuple":
 "WHY? … implement a simple `import from where` without `import

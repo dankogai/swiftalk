@@ -81,10 +81,14 @@ ask the member.
 extension Int { let doubled = { self * 2 } }      // a method
 extension Int { var squared { self * self } }      // a read-only computed property
 extension Int { static let answer = 42 }           // a static (round 143), beside Int.max
+let Int.tripled = { self * 3 }                     // the same, one member at a time (round 228):
+static var Int.three { 3 }                         // let T.m = { }, var T.p { }, static let T.s = v, static var T.g { }
 // an extension of a builtin is program-wide (round 147): declared in a module, it reaches the importer
 21.doubled()   // 42
 12.squared     // 144
 Int.answer     // 42
+7.tripled()    // 21
+Int.three      // 3
 ```
 
 ## `SION` and `Any` (round 59)

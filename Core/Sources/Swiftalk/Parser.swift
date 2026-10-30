@@ -310,6 +310,20 @@ struct Parser {
         switch peek {
         case .identifier("let"), .identifier("var"):
             return try parseDeclaration()
+        case .identifier("static") where isStaticDeclaration():
+            // `static let T.s = v`, `static var T.g { ... }` (round 228):
+            // a static added to T without an extension body.
+            pos += 1  // consume "static"
+            guard case .identifier(let keyword)? = advance() else { fatalError("unreachable") }
+            guard case .identifier(let typeName)? = advance(),
+                  !keywords.contains(typeName), !typeName.hasPrefix("$") else {
+                throw SwiftalkError.syntax("expected a name after 'static \(keyword)'")
+            }
+            guard case .punct(".")? = peek else {
+                throw SwiftalkError.syntax(
+                    "'static' belongs in a type body — or names the type: static \(keyword) Type.\(typeName) ...")
+            }
+            return try parseMemberDeclaration(keyword: keyword, typeName: typeName, isStatic: true)
         case .identifier("import"):
             pos += 1
             var namespace: String? = nil
@@ -682,13 +696,75 @@ struct Parser {
         guard !existing(methodName) else {
             throw SwiftalkError.syntax("duplicate member '\(methodName)'")
         }
+        return (methodName, try parseMethodBody(
+            orElse: "a type-body 'let' holds a method: let \(methodName) = { ... }"))
+    }
+
+    /// The `= { ... }` of a method, after its name: a closure literal,
+    /// or the syntax error `orElse`.
+    private mutating func parseMethodBody(orElse message: String) throws -> Expr {
         try expect("=")
         let fn = try parseExpr()
         guard case .function = fn else {
-            throw SwiftalkError.syntax(
-                "a type-body 'let' holds a method: let \(methodName) = { ... }")
+            throw SwiftalkError.syntax(message)
         }
-        return (methodName, fn)
+        return fn
+    }
+
+    /// `[: Type] { ... }` of a computed property, after its name
+    /// (round 57): the optional annotation, then the getter and setter.
+    private mutating func parseComputedMember() throws -> ComputedSpec {
+        var annotation: TypeAnnotation? = nil
+        if case .punct(":")? = peek {
+            pos += 1
+            annotation = try parseTypeAnnotation()
+        }
+        try expect("{")
+        let (getter, setter) = try parseComputedBody()
+        return (annotation: annotation, get: getter, set: setter)
+    }
+
+    /// `let T.m = { ... }`, `var T.p [: Type] { ... }`, `static let T.s =
+    /// value`, `static var T.g { ... }` (round 228) — one member added to
+    /// the type `T` without an `extension T { }` around it. The keyword
+    /// and the type name are consumed; `peek` is the dot. The result is
+    /// the same `extensionDecl` a one-member body would give, so the
+    /// rules are an extension's: existing methods and computed
+    /// properties are not overwritten (`:r` does), stored properties
+    /// and cases never, an enum takes no computed property, and a
+    /// builtin's member is program-wide.
+    private mutating func parseMemberDeclaration(keyword: String, typeName: String, isStatic: Bool) throws -> Stmt {
+        pos += 1  // consume "."
+        let spelled = (isStatic ? "static " : "") + keyword
+        guard case .identifier(let name)? = advance(),
+              !keywords.contains(name), !name.hasPrefix("$") else {
+            throw SwiftalkError.syntax("expected a member name after '\(spelled) \(typeName).'")
+        }
+        if case .punct(".")? = peek {
+            throw SwiftalkError.syntax(
+                "\(spelled) Type.name takes one dot — '\(typeName).\(name)' is not a type name")
+        }
+        var methods: [String: Expr] = [:]
+        var computed: [String: ComputedSpec] = [:]
+        var statics: StaticSpec = ([:], [:], [:])
+        if isStatic {
+            try parseStaticMember(keyword: keyword, name: name, into: &statics)
+        } else if keyword == "var" {
+            computed[name] = try parseComputedMember()
+        } else {
+            methods[name] = try parseMethodBody(
+                orElse: "let \(typeName).\(name) = { ... } adds a method — a closure; var \(typeName).\(name) { ... } a computed property")
+        }
+        return .extensionDecl(typeName: typeName, methods: methods, computed: computed, statics: statics)
+    }
+
+    /// `static let`/`static var` followed by a name: the statement form
+    /// of round 228, as against `static` the identifier (`let static = 1`).
+    private func isStaticDeclaration() -> Bool {
+        guard pos + 2 < tokens.count else { return false }
+        guard tokens[pos + 1] == .identifier("let") || tokens[pos + 1] == .identifier("var") else { return false }
+        if case .identifier = tokens[pos + 2] { return true }
+        return false
     }
 
     /// `struct Name { var x: Int = 0\nlet y = 1\nvar z: Double }`
@@ -913,6 +989,12 @@ struct Parser {
         guard !existing(name), statics.lets[name] == nil, statics.vars[name] == nil else {
             throw SwiftalkError.syntax("duplicate static member '\(name)'")
         }
+        try parseStaticMember(keyword: keyword, name: name, into: &statics)
+    }
+
+    /// The rest of a static after `static let name` / `static var name`:
+    /// `= value`, or `[: Type] { getter }` — no setter.
+    private mutating func parseStaticMember(keyword: String, name: String, into statics: inout StaticSpec) throws {
         if keyword == "let" {
             try expect("=")
             statics.lets[name] = try parseExpr()
@@ -1165,14 +1247,7 @@ struct Parser {
                 guard methods[propName] == nil, computed[propName] == nil else {
                     throw SwiftalkError.syntax("duplicate member '\(propName)'")
                 }
-                var annotation: TypeAnnotation? = nil
-                if case .punct(":")? = peek {
-                    pos += 1
-                    annotation = try parseTypeAnnotation()
-                }
-                try expect("{")
-                let (getter, setter) = try parseComputedBody()
-                computed[propName] = (annotation: annotation, get: getter, set: setter)
+                computed[propName] = try parseComputedMember()
             } else {
                 guard case .identifier("let")? = peek else {
                     throw SwiftalkError.syntax(
@@ -1397,6 +1472,11 @@ struct Parser {
         }
         if keywords.contains(name) || name.hasPrefix("$") {
             throw SwiftalkError.syntax("'\(name)' cannot be declared")
+        }
+        // `let T.m = { ... }` / `var T.p { ... }` (round 228): a member
+        // added to the type T, one at a time — an extension of one member.
+        if case .punct(".")? = peek {
+            return try parseMemberDeclaration(keyword: keyword, typeName: name, isStatic: false)
         }
         // `let a, b = t` — destructuring without the parentheses (round
         // 99): a comma after the first name makes the whole a tuple

@@ -3135,3 +3135,31 @@ the history. (Moved out of Design.md in round 65.)
   division by zero), and `Complex(abs: 2.0, arg: Double.pi)` as "-2 +
   0i" — it is -2.0 + 2.4e-16i, which is what the comment means. No
   language behaviour changes; Status.md and Design.md untouched.
+* **2026-10-30, round 228 — members one at a time** ("Let's make `let
+  T.foo` and `var T.bar` add property to `T` one by one without
+  `extension { let foo {...}; var bar {...} }`. `static let T.prop ...`
+  adds static property of T while `let T.prop` adds instance
+  property."). A declaration whose name carries a dot is now an
+  extension of one member: `let Int.doubled = { self * 2 }` adds a
+  method, `var Int.squared { self * self }` a computed property (get/set,
+  an annotation if wanted), `static let Int.answer = 42` a static,
+  `static var Point.unit { Self(x: 1, y: 1) }` a static getter. Both
+  parsers desugar the four into the `extensionDecl` a one-member body
+  would give — a hundred lines between them, the body parsers' tails
+  (`parseMethodBody`, `parseComputedMember`, `parseStaticMember`) split
+  off so the two spellings share one reading — and nothing past the
+  spelling is new: `Self` and implicit `self` inside, no overwriting
+  (`:r` does), stored properties and cases untouchable, no computed
+  property on an enum, no static setter, a builtin's member
+  program-wide. One dot: `let a.b.c = { }` is refused with its own
+  message, as `let Int.x = 1` (a method is a closure) and `static let x
+  = 1` (no type named) are; `export let T.m` falls to export's existing
+  refusal, since the member reaches wherever the type does. `static`
+  stays a word — `let static = 1; static + 1` is 2. The statement form
+  is dispatched only on `static` + `let`/`var` + a name, so no program
+  that parsed before parses differently. Design.md's paragraph sits
+  after round 147's (extensions program-wide), Status.md's block after
+  round 143's statics; struct.md, enum.md, grammar.md (`memberDecl`),
+  and documents/README.md's extension block gained a line each. Tests:
+  `MemberDeclTests`, five tests, every program a literal so the JS
+  corpus takes them.

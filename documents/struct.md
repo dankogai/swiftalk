@@ -39,6 +39,7 @@ struct Point {
 | `infix(+) = { lhs, rhs in ... }`, `prefix(-) = { x in ... }`, `postfix(!) = { x in ... }` | **operators** (round 146): existing operators only, at their existing precedence, always the type's (no `static`, no `func`). Either operand's type answers an infix — `2 * z` and `z * 2` both reach it. Every spelling arrives: `a + b`, `a += b`, `(+)(a, b)`, `reduce(z, +)`. Implementable: infix `+ - * / % ** == != < <= > >= \| & ^`, prefix `- + !`, postfix `! ?`; not `&&`/`\|\|`/`^^` (short-circuit), `??`/`!!` (a value is never absent), `===`/`!==` (identity) |
 | `infix(<)`, `infix(==)` | a comparison must return a Bool; `!=` is derived from `==`, and `>`, `<=`, `>=` from `<`, as Swift derives them — so one `<` makes the type Comparable: `sorted()`, `min()`, `max()`, `.conforms(to: Comparable)` follow |
 | `extension Point { let m = { } ; var c { } ; static let s = ... }` | adds methods, computed properties, and statics |
+| `let Point.m = { }`, `var Point.c { }`, `static let Point.s = ...`, `static var Point.g { }` | the same, one member at a time (round 228): an extension of one member, by its rules — nothing overwritten, `Self` inside, nothing to export |
 
 **No `mutating` keyword** (round 50a): a method may mutate whatever
 the properties' `var`/`let` allows; if it does, the change writes

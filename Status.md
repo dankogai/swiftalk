@@ -1927,6 +1927,36 @@ swiftalk> Point(1, 2).origin
 unknown member: Point.origin
 ```
 
+**Members one at a time** (round 228) — `let T.m = { }`, `var T.p { }`,
+`static let T.s = v`, `static var T.g { }` add one member to `T` without
+an `extension T { }` around it; the rules are an extension's:
+
+```text
+swiftalk> let Int.doubled = { self * 2 }
+swiftalk> 21.doubled()
+42
+swiftalk> var Int.squared { self * self }
+swiftalk> 12.squared
+144
+swiftalk> static let Int.answer = 42
+swiftalk> Int.answer
+42
+swiftalk> struct Point { var x: Int = 0; var y: Int = 0 }
+Point
+swiftalk> var Point.swapped { get { Self(x: .y, y: .x) } set { .x = newValue.y; .y = newValue.x } }
+swiftalk> static var Point.unit { Self(x: 1, y: 1) }
+swiftalk> Point(x: 1, y: 2).swapped
+Point(x: 2, y: 1)
+swiftalk> Point.unit
+Point(x: 1, y: 1)
+swiftalk> let Int.x = 1
+syntax error: let Int.x = { ... } adds a method — a closure; var Int.x { ... } a computed property
+swiftalk> static let x = 1
+syntax error: 'static' belongs in a type body — or names the type: static let Type.x ...
+swiftalk> let Int.doubled = { self * 3 }
+type error: redeclaration of '@ext:Int:doubled'
+```
+
 **`**`** (round 142) — exponentiation, right-associative and above `*`;
 two Ints (trapping) or two Doubles (`pow`); `-2 ** 2` is `-(2 ** 2)`:
 

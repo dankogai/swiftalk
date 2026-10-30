@@ -89,7 +89,7 @@ statement    = declaration | destructure | assignment | expression
                                                           may carry a label (round 156) *)
              | "break" [ IDENT ] | "continue" [ IDENT ] (* the label of an enclosing loop *)
              | "return" [ expression ] | "yield" [ expression ]
-             | enumDecl | structDecl | extensionDecl
+             | enumDecl | structDecl | extensionDecl | memberDecl
              | import | export ;                       (* a file's top level only *)
 
 import       = "import" [ IDENT | "(" IDENT { "," IDENT } ")" ] "from" STRING ;   (* round 100; bare `import from` = every export (round 148) *)
@@ -180,6 +180,9 @@ method       = "let" IDENT "=" closure ;               (* let + closure literal 
 init         = "init" closure ;                        (* several: multi-dispatch *)
 
 extensionDecl = "extension" IDENT "{" { method | computed | static | operatorDecl } "}" ;
+memberDecl   = [ "static" ] ( "let" IDENT "." IDENT "=" closure
+             | "var" IDENT "." IDENT [ ":" type ] "{" ... "}" ) ;   (* round 228: `let T.m`, `var T.p`, `static let T.s`, `static var T.g` —
+                                                                      one member added to T, an extension of one; the first IDENT is the type *)
 ```
 
 A brace whose first word is `willSet`/`didSet` is an observer block,

@@ -39,6 +39,7 @@ enum Shape {
 | `static let unitCircle = Self.circle(r: 1.0)`, `static var names { [...] }` | static members (round 143), as a struct's — `Shape.unitCircle`; a static may not share a case's name |
 | `prefix(-) = { s in ... }`, `infix(+) = { a, b in ... }` | operators (round 146), as a struct's — see [struct.md](struct.md) |
 | `extension Shape { let m = { } ; static let s = ... ; infix(+) = { } }` | adds methods, statics, and operators |
+| `let Shape.m = { }`, `static let Shape.s = ...` | the same, one member at a time (round 228) — no computed property on an enum, as in an extension |
 
 ```swift
 Shape.circle(r: 3.0).circle     // 3.0

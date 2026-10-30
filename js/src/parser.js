@@ -102,6 +102,15 @@ export class Parser {
     }
     const p = this.peek;
     if (isIdent(p, 'let') || isIdent(p, 'var')) return this.parseDeclaration();
+    if (isIdent(p, 'static') && this.isStaticDeclaration()) {
+      // `static let T.s = v`, `static var T.g { ... }` (round 228): a static added to T without an extension body.
+      this.pos++;
+      const keyword = this.advance().v;
+      const typeTok = this.advance();
+      if (!isIdent(typeTok) || !plainName(typeTok.v)) throw SwiftalkError.syntax(`expected a name after 'static ${keyword}'`);
+      if (!isPunct(this.peek, '.')) throw SwiftalkError.syntax(`'static' belongs in a type body — or names the type: static ${keyword} Type.${typeTok.v} ...`);
+      return this.parseMemberDeclaration(keyword, typeTok.v, true);
+    }
     if (isIdent(p, 'import')) {
       this.pos++;
       let namespace = null;
@@ -348,10 +357,51 @@ export class Parser {
     const nameTok = this.advance();
     if (!isIdent(nameTok) || !plainName(nameTok.v)) throw SwiftalkError.syntax("expected a method name after 'let'");
     if (existing(nameTok.v)) throw SwiftalkError.syntax(`duplicate member '${nameTok.v}'`);
+    return [nameTok.v, this.parseMethodBody(`a type-body 'let' holds a method: let ${nameTok.v} = { ... }`)];
+  }
+
+  /// The `= { ... }` of a method, after its name: a closure literal, or the syntax error `message`.
+  parseMethodBody(message) {
     this.expect('=');
     const fn = this.parseExpr();
-    if (fn.k !== 'function') throw SwiftalkError.syntax(`a type-body 'let' holds a method: let ${nameTok.v} = { ... }`);
-    return [nameTok.v, fn];
+    if (fn.k !== 'function') throw SwiftalkError.syntax(message);
+    return fn;
+  }
+
+  /// `[: Type] { ... }` of a computed property, after its name: the optional annotation, then getter and setter.
+  parseComputedMember() {
+    let annotation = null;
+    if (isPunct(this.peek, ':')) { this.pos++; annotation = this.parseTypeAnnotation(); }
+    this.expect('{');
+    const { get, set } = this.parseComputedBody();
+    return { annotation, get, set };
+  }
+
+  /// `let T.m = { ... }`, `var T.p [: Type] { ... }`, `static let T.s = value`, `static var T.g { ... }`
+  /// (round 228) — one member added to the type T without an `extension T { }` around it. The keyword
+  /// and the type name are consumed; the dot is next. The result is the extensionDecl a one-member
+  /// body would give, so the rules are an extension's.
+  parseMemberDeclaration(keyword, typeName, isStatic) {
+    this.pos++;  // the dot
+    const spelled = (isStatic ? 'static ' : '') + keyword;
+    const nameTok = this.advance();
+    if (!isIdent(nameTok) || !plainName(nameTok.v)) throw SwiftalkError.syntax(`expected a member name after '${spelled} ${typeName}.'`);
+    const name = nameTok.v;
+    if (isPunct(this.peek, '.')) throw SwiftalkError.syntax(`${spelled} Type.name takes one dot — '${typeName}.${name}' is not a type name`);
+    const methods = new Map();
+    const computed = new Map();
+    const statics = emptyStatics();
+    if (isStatic) this.parseStaticMember(keyword, name, statics);
+    else if (keyword === 'var') computed.set(name, this.parseComputedMember());
+    else methods.set(name, this.parseMethodBody(`let ${typeName}.${name} = { ... } adds a method — a closure; var ${typeName}.${name} { ... } a computed property`));
+    return { k: 'extensionDecl', typeName, methods, computed, statics };
+  }
+
+  /// `static let`/`static var` followed by a name: the statement form of round 228, as against `static` the identifier.
+  isStaticDeclaration() {
+    const kw = this.tokens[this.pos + 1];
+    const name = this.tokens[this.pos + 2];
+    return (isIdent(kw, 'let') || isIdent(kw, 'var')) && isIdent(name);
   }
 
   parseStruct(kind) {
@@ -465,7 +515,12 @@ export class Parser {
     if (!isIdent(nameTok) || !plainName(nameTok.v)) throw SwiftalkError.syntax(`expected a name after 'static ${kw.v}'`);
     const name = nameTok.v;
     if (existing(name) || statics.lets.has(name) || statics.vars.has(name)) throw SwiftalkError.syntax(`duplicate static member '${name}'`);
-    if (kw.v === 'let') {
+    this.parseStaticMember(kw.v, name, statics);
+  }
+
+  /// The rest of a static after `static let name` / `static var name`: `= value`, or `[: Type] { getter }` — no setter.
+  parseStaticMember(keyword, name, statics) {
+    if (keyword === 'let') {
       this.expect('=');
       statics.lets.set(name, this.parseExpr());
       return;
@@ -614,11 +669,7 @@ export class Parser {
         const p = this.advance();
         if (!isIdent(p) || !plainName(p.v)) throw SwiftalkError.syntax("expected a property name after 'var'");
         if (methods.has(p.v) || computed.has(p.v)) throw SwiftalkError.syntax(`duplicate member '${p.v}'`);
-        let annotation = null;
-        if (isPunct(this.peek, ':')) { this.pos++; annotation = this.parseTypeAnnotation(); }
-        this.expect('{');
-        const { get, set } = this.parseComputedBody();
-        computed.set(p.v, { annotation, get, set });
+        computed.set(p.v, this.parseComputedMember());
       } else {
         if (!isIdent(this.peek, 'let')) {
           throw SwiftalkError.syntax("an extension body holds 'let' methods, 'var' computed properties, 'static' members, and infix/prefix/postix operators");
@@ -763,6 +814,8 @@ export class Parser {
     if (!isIdent(nameTok)) throw SwiftalkError.syntax(`expected a name after '${keyword}'`);
     const name = nameTok.v;
     if (keywords.has(name) || name.startsWith('$')) throw SwiftalkError.syntax(`'${name}' cannot be declared`);
+    // `let T.m = { ... }` / `var T.p { ... }` (round 228): a member added to the type T, one at a time
+    if (isPunct(this.peek, '.')) return this.parseMemberDeclaration(keyword, name, false);
     if (isPunct(this.peek, ',')) {
       const elements = [{ label: null, pattern: { k: 'name', name } }];
       while (isPunct(this.peek, ',')) { this.pos++; elements.push({ label: null, pattern: this.parseBindPattern() }); }
