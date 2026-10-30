@@ -1,11 +1,14 @@
 # The top level
 
 What a program sees before it declares anything (round 157): one
-function (`eval`; four until round 185), the types and protocols as
+function (`eval`; six until round 185, when `print`, `debugPrint`,
+`zip`, `sleep` and `fetch` went to modules), the types and protocols as
 values, one built-in enum, and
 the names the language binds on its own. Everything here is an
 ordinary `let` in the outermost scope (§2.4) — not a keyword — so it
-can be passed, aliased, and shadowed by a declaration of your own.
+can be passed, aliased, and shadowed by a declaration of your own in an
+inner scope (the top level itself refuses a redeclaration, as of any
+`let`).
 
 ## Functions
 
@@ -102,8 +105,9 @@ type gives its parameters back under Swift's names (round 166):
 `[Int].Element`, `[Int: String].Key` and `.Value`, `Set([1]).Type
 .Element` are the types `Int`, `Int`, `String`, `Int`; called, they
 construct — `[Int].Element("42")` is `42`. The erased `Array` has no
-`Element` to give (a type error), and a parameter that is not a value
-(`Int?`, `Any`) is one too.
+`Element` to give (a type error); `[Int?].Element` is `Int?`, a value
+since round 167 (round 166 had refused it); `[Any]` is no expression at
+all, `Any` being no value.
 
 | Names | Kind |
 |---|---|

@@ -3353,3 +3353,36 @@ the history. (Moved out of Design.md in round 65.)
   as it was written. `replay-docs.py`'s 12 flags on it are the tool's
   known noise — the geometry block names a file beside the page, and
   the Swift listing is Swift. No files changed but this log.
+* **2026-10-31, round 236 — `documents/toplevel.md` audited** ("Check
+  documents/toplevel.md for stale lines too"). Read as the pages before
+  it: `eval`'s Result for a syntax error, an undefined name and a trap,
+  `?`, `??` and `!` on it, its run at the file's top level (declaring
+  there, blind to a caller's local), the one-String rule, `eval` as a
+  Function value and not a builtin; the code block's six lines; a
+  `Response` constructed, compared by type, `ok` at 200 and 299 and not
+  at 300, `text()` nil on bad bytes, `json()` parsed and its parser's
+  error; `.then` on a Task refused as a Result's, which is what the
+  precedence note warns of; `assert`, `args`, `exit`, `zip` and `sleep`
+  all undefined, `readLine` present; every container-type claim —
+  `[Int]`, `[Int: String]`, `Set<Int>`, `Dictionary<Int, String>`,
+  `Optional<Int>`, nested spellings, `[0].Type`, `[nil, 1].Type`,
+  `[Int]()` refusing a String, `[Int](1...3)` checking, the erased
+  `Array` equal to every `[T]`, each stamp-keeping operation of rounds
+  168–180, `[]`/`[:]`/`Set()` as SION containers refusing a Function,
+  `Int?("x")`, `{ $0 }.Type`, `.Element`/`.Key`/`.Value` and their
+  construction; the protocols as values and the Comparable roster
+  (Byte and Date in, Bool and Data out); `Optional(x)`, no `Optional`
+  annotation; `$(...)` recursing; every `_` form and both refusals;
+  the twelve contextual words bound as names, `init` and `self`
+  included; the REPL's `:h`, `:r`, `:d`, quoted echo and the String
+  member honored; `Double.sq` completing to the three names
+  Completion.swift holds. Every cited round's title matches. Three
+  lines wrong or aged: "four [functions] until round 185" — six
+  (`print`, `debugPrint`, `zip`, `sleep`, `fetch`, `eval`, as the page
+  itself listed them at round 184); "shadowed by a declaration of your
+  own" — in an inner scope, the top level refusing a redeclaration;
+  and "a parameter that is not a value (`Int?`, `Any`) is [a type
+  error] too" — `[Int?].Element` is `Int?`, a value since round 167,
+  and `[Any]` no expression at all. Fixed in place; the 14 statements
+  replay with the 4 network lines as the known noise. No behaviour
+  changes; Status.md and Design.md untouched.
