@@ -221,7 +221,7 @@ Further decisions:
   and `.Array()` all just work; `.Type` reports `Sequence`, nothing
   more. `yield` is out-only for now (the yield expression resumes
   with nothing); symmetric resume à la Lua can be layered on later.
-  *(Still so in round 224: `yield` is a statement, not an expression.)*
+  *(Still so in round 225: `yield` is a statement, not an expression.)*
   Calling a yielding function *without* the wrap is a plain call, and
   its `yield` errors — Lua's "attempt to yield from outside a
   coroutine". And `yield` is **dynamic, the Lua way** — it suspends
@@ -252,11 +252,11 @@ Further decisions:
   zero-filled array of equal length comes back. Corollary in the
   stdlib: **`array.fill(0)` must be identical to `array.map { 0 }`** —
   a constant and a constant function are interchangeable ways to say
-  the same thing. *(`fill` was never built, as of round 224 — `map { 0 }`
+  the same thing. *(`fill` was never built, as of round 225 — `map { 0 }`
   says it.)*
 * **Annotations, Swift-style**: `{ (x: Int, y: Int) -> Int in ... }`
   is allowed; bare names stay fine. Where written, types are enforced
-  at runtime per §3. *(Never built, as of round 224 — a syntax error;
+  at runtime per §3. *(Never built, as of round 225 — a syntax error;
   the locks are the bindings' (§3), and no round has asked.)*
 * **Params are labels**: declared parameter names double as the
   optional, reorderable call-site labels of §2.3 — `add(y: 3, x: 2)`
@@ -352,7 +352,7 @@ Details:
   compares identity against the very object the global `Int` binds,
   `Int("42")`-style construction calls, `.conforms(to:)` tests
   protocol conformance. (**OPEN**: whether `is` / `as?` / `as!` also
-  survive as sugar. *Never built, as of round 224; `x.Type == Int` and
+  survive as sugar. *Never built, as of round 225; `x.Type == Int` and
   `.conforms(to:)` serve.*) A container's `.Type` carries its element type —
   `[0].Type` is `[Int]` — since round 165 (below, §3c's end).
 

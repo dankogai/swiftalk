@@ -232,7 +232,8 @@ the history. (Moved out of Design.md in round 65.)
   Swift — an if-*expression* à la Swift 5.9 is a possible later
   refinement). `for`-`in` iterates §10's Sequence conformers:
   Array elements, String graphemes (as single-`Character` `String`s
-  until a `Character` type is decided), Dictionary `[key, value]`
+  until a `Character` type is decided *— none came: a grapheme is a
+  one-Character String, §11*), Dictionary `[key, value]`
   pair-arrays (until tuples are decided). **Ranges arrived
   provisionally**: `a...b` / `a..<b` on Ints evaluate to eager
   `[Int]` arrays (`a > b` traps as in Swift) — **OPEN**: a real lazy
@@ -367,7 +368,7 @@ the history. (Moved out of Design.md in round 65.)
   now executes: `Int(255.String(.hex)) == 255`, hex-float `Double`s
   included) and `.String(radix: n)` (bare digits, 2–36). Format
   members evaluate *provisionally* as `String`s until enums land —
-  flagged.
+  flagged. *(They stayed Strings; round 160 says `.hex` is still one.)*
 * **2026-08-30, round 43 — milestone added: self-hosting** (§13, not
   necessarily next): a swiftalk interpreter written in swiftalk —
   `eval.swt`. Distinct from milestone 0's Swift-implemented `eval()`;
@@ -402,7 +403,11 @@ the history. (Moved out of Design.md in round 65.)
   (still no `guard`), labeled patterns, `break` inside `switch`
   (currently loop-`break`, diverging from Swift), switch-as-
   expression, methods on enums (with user types), `Primitives` as a
-  real declared enum, `indirect` enums.
+  real declared enum, `indirect` enums. *(Of these: `guard` went in
+  round 60, enum methods came in 48, labeled patterns in 75, the
+  expression in 79; `Primitives` was retired in 181, never an enum;
+  `indirect` was never built; and `break` in a `switch` still leaves
+  the enclosing loop — round 226's probe.)*
 * **2026-08-30, round 46a — case accessors: `.casename` by default.**
   Every enum value answers every of its type's case names — the
   associated value when it *is* that case, **`nil`** otherwise —
@@ -704,7 +709,8 @@ the history. (Moved out of Design.md in round 65.)
   to ALSO add the spelling from their example: labels attached to the
   name, no `in` header. Pure sugar: it desugars to (and echoes as)
   `{ x, y in ... }`, keeping §2.4's "`{}` is the only function form"
-  true underneath. Empty labels give a variadic (round 17). The happy
+  true underneath. Empty labels give a variadic (round 17 *— round 14,
+  in fact*). The happy
   accident: the declared name is in scope when the body later runs,
   so this spelling does named recursion without `.todo` — `let
   fact(n:) { n < 2 ? 1 : n * fact(n: n - 1) }` just works. (Noted in
@@ -3057,7 +3063,7 @@ the history. (Moved out of Design.md in round 65.)
   when `head` leaves is the Unix convention, and ignoring the signal
   would have a printing loop spin on EPIPE instead. Status.md and
   Design.md have nothing to record.
-* **2026-10-30, round 224 — Design.md's prose audited** ("Check
+* **2026-10-30, round 225 — Design.md's prose audited** ("Check
   Design.md's prose for stale lines too"). Round 216 took the lines
   that said OPEN, LEANING, or presumably; this pass read the 3,068 lines
   of prose for the ones stated as settled that a later round overtook
@@ -3080,3 +3086,25 @@ the history. (Moved out of Design.md in round 65.)
   round 201 (203's `BigRat.js`). What was probed and holds stays:
   `let guard = 1`, `Int(s, radix:)` still absent, Set slices as Sets,
   the CLI's `curl -fsSL`, the `replacing` FIXME in JS.
+* **2026-10-30, round 226 — Dialogue.md's prose audited** ("Check
+  Dialogue.md's prose for stale lines too"). Round 217 checked what a
+  log can fail — headers, dates, paths, pointers; this pass read all
+  3,082 lines for the other two faults a log can have: a forward promise
+  no later entry kept, and a line wrong on the day it was written. And
+  one header fault had arrived since 217: two entries numbered 224. The
+  SIGPIPE round landed on main at 08:58 from its own session and the
+  Design.md audit two minutes after, each written as the next number,
+  so the log's order decides — SIGPIPE is 224, the Design.md audit 225,
+  and its four notes in Design.md that said "as of round 224" say 225.
+  Four pointers, in 217's italic manner: round 33's "until a `Character`
+  type is decided" (none came — a grapheme is a one-Character String);
+  round 42's format words "provisionally Strings until enums land"
+  (they stayed Strings, as round 160 notes); round 45's OPEN list, each
+  item named with its round or its fate (`indirect` never built, and
+  `break` in a `switch` still leaving the loop — probed); and round
+  58a's "(round 17)" for the variadic rule, which is round 14's. What
+  reads stale otherwise — round 31's one public name, 46a's Arrays, 73's
+  `(index, element)`, 100's tuple namespace, 109's `random` note, 157's
+  missing `readLine`, 182's lowercase `env`, 197's fixture count — is
+  what it was when written, and the entry that changed it is on the
+  page below it; those stay as written, as the rule says.
