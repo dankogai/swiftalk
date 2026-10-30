@@ -76,3 +76,4 @@ fastlane/screenshots
 js/test/fixtures.json
 js/node_modules/
 js/dist/
+notes.txt

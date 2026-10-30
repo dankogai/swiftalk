@@ -3187,3 +3187,15 @@ the history. (Moved out of Design.md in round 65.)
   types a type error — and `replay-docs.py` runs the page's 31
   statements clean. documents/README.md indexes it. No behaviour
   changes; Status.md and Design.md untouched.
+* **2026-10-30, round 230 — `notes.txt` untracked** ("Untrack notes.txt.
+  I deleted it myself before you do. Who the heck `git add` it?"). The
+  assistant did, and twice: IO.md's and POSIX.md's examples write and
+  remove a `notes.txt` in the working directory, so a run of
+  `replay-docs.py` leaves one behind whenever a block that writes it is
+  followed by none that removes it — and round 215's commit, the first
+  to run the tool, swept the two-line file in with the working tree;
+  round 222's replay removed it and that commit recorded the deletion;
+  round 223's wrote it again and the commit re-added it. Three toggles,
+  none meant. Now `git rm`'d and in `.gitignore`, so a replay may leave
+  it without it showing. The lesson is procedural and kept: a round's
+  commit names its files; nothing sweeps the tree.
