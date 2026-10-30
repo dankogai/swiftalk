@@ -1,5 +1,7 @@
 # Modules — `import` and `export`
 
+**Core** — built into the interpreter, there in every embedding.
+
 Round 100. A module is a `.swt` file. It is evaluated **once per
 program** (per Interpreter), in strict mode, in a scope of its own
 whose parent is the builtins — it sees `Int` and `print`, never the

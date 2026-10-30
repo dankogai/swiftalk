@@ -3284,3 +3284,38 @@ the history. (Moved out of Design.md in round 65.)
   takes a paragraph in §3 and one in §3d, Status.md a block after round
   228's, struct.md and type.md a clause each. Suite: 588 tests in 135
   suites passed, release, macOS.
+* **2026-10-31, round 234 — `documents/README.md` audited** ("Check
+  documents/README.md for stale lines too"). The index page read as
+  rounds 227–232 read theirs: every claim probed against the binary —
+  the members every value has (`description` bare for a String,
+  `debugDescription` the signed-hex debug form through a container,
+  `.String(.quoted)`, `==` refusing across types and answering `nil`,
+  `===` on nan, signed zeros, `1` and `1.0`, composed and decomposed
+  é, through containers, never an error, and identity for Tasks,
+  Sequences, IO handles and Functions), the conversion law (both
+  spellings one operation, `Type()` the default, nil where a value may
+  not convert, a type error where the type never does), `Any` not a
+  value and `SION` one, `[]` a `[SION]`, `Primitives` gone, aliases
+  constructing, comparing, annotating a property, a payload and an
+  element, converting by the real name's rules, `[String]` and `Int?`
+  as values, and the whole operator table — overflow and `/0`
+  trapping, `+` alone on Strings and Arrays, Sets' `- | & ^` and no
+  `+`, `**` right-associative and refusing a negative Int exponent,
+  `%` with the dividend's sign and refused on Doubles, the `op=`
+  family with its target evaluated once, `??=` leaving `y`
+  unevaluated and going per key, `!!` and `!!=` and the two-unwrap
+  and two-not readings, `&&=`/`||=` short-circuiting and Bool-only,
+  `^^` between `&&` and `||`, the Bool words and the Int bit methods,
+  round 193's `+&` family at its two levels, comparison by type, the
+  precedence list level by level (`-2 ** 2`, `2 ** 3 ** 2`,
+  `1 ... 2 + 1`, `nil ?? 2 == 2`, the words), operators as Functions.
+  Every cited round's title matches; every linked page exists; the 10
+  statements replay clean. Two lines fixed: the header's "each page
+  says the same under its title" was false for four pages the table
+  calls Core — struct.md, enum.md, type.md and module.md now carry
+  round 190's line as Int.md does — and the conversion-law paragraph
+  gains round 233's clause (a `String` member must return a String on
+  every spelling). One clause added for precision: `??=` on a Result
+  failure writes a Result, the lock holding (`var r = eval("1 +"); r
+  ??= 7` is a type error, `r ??= eval("7")` the fill). No behaviour
+  changes; Status.md and Design.md untouched.

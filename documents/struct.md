@@ -1,5 +1,7 @@
 # struct
 
+**Core** — built into the interpreter, there in every embedding.
+
 User-defined value types (§4): **COW values**, memberwise-constructed,
 with methods as closure properties. What a struct shares with an enum
 — the type as a value, methods, statics, operators, conversion

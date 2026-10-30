@@ -1,5 +1,7 @@
 # type
 
+**Core** — built into the interpreter, there in every embedding.
+
 What a `struct` and an `enum` share: the type as a value, the members
 a body takes, extensions, the printed form, equality and order,
 modules, the REPL. The two kinds have their own pages —
