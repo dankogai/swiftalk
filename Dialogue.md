@@ -3057,3 +3057,26 @@ the history. (Moved out of Design.md in round 65.)
   when `head` leaves is the Unix convention, and ignoring the signal
   would have a printing loop spin on EPIPE instead. Status.md and
   Design.md have nothing to record.
+* **2026-10-30, round 224 — Design.md's prose audited** ("Check
+  Design.md's prose for stale lines too"). Round 216 took the lines
+  that said OPEN, LEANING, or presumably; this pass read the 3,068 lines
+  of prose for the ones stated as settled that a later round overtook
+  without a note. Eighteen got one, in 216's manner — an italic note
+  naming the round, nothing rewritten: §0's pun (§1 answers it); `yield`
+  "out-only for now" (still a statement); `array.fill(0)` and the
+  Swift-style closure annotations `{ (x: Int) -> Int in }` (never built
+  — probed); `is`/`as?`/`as!` (never built; `.Type ==` and `conforms`
+  serve); Swift's `&+ &- &*` (not kept — `&` is Sets' since 135); Data's
+  "read-only byte subscripts" (writable since 92); §3b's literal
+  inference OPEN (`let x: Double = 1` is a type error, `Byte` the one
+  small type, Data's literal SION's); the UTF-8 default for `Data()`
+  (base64 since 97, `.utf8` spelled); Date's representation OPEN (round
+  50, SION's); `Interpreter.fetcher` (the hook since 189); round 132's
+  "a slice is an Array" on Sets (Sets, as 169 found); round 104's
+  "complete" `op=` family (five additions since, each by its rule);
+  round 105's hope for `|` as a union (gone to Sets); §3a's `guard let`
+  (went with `guard`, round 60); §5's one implementation (two since
+  197); §8's `Result<T, E>` (untyped, round 51); and §16 ending at
+  round 201 (203's `BigRat.js`). What was probed and holds stays:
+  `let guard = 1`, `Int(s, radix:)` still absent, Set slices as Sets,
+  the CLI's `curl -fsSL`, the `replacing` FIXME in JS.

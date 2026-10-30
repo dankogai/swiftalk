@@ -14,7 +14,7 @@ Sections are marked **DECIDED**, **LEANING** (tentative direction), or **OPEN**.
   a *scripting* language, not a systems language.
 * The name also echoes **Smalltalk** (swif-*talk*). Whether that is merely a
   pun or a semantic commitment (message passing, blocks-as-control-flow,
-  everything-is-an-object) is **OPEN** — see §1.
+  everything-is-an-object) is **OPEN** — see §1. *(§1 answers: a pun.)*
 
 ## 1. Semantic model — DECIDED
 
@@ -221,6 +221,7 @@ Further decisions:
   and `.Array()` all just work; `.Type` reports `Sequence`, nothing
   more. `yield` is out-only for now (the yield expression resumes
   with nothing); symmetric resume à la Lua can be layered on later.
+  *(Still so in round 224: `yield` is a statement, not an expression.)*
   Calling a yielding function *without* the wrap is a plain call, and
   its `yield` errors — Lua's "attempt to yield from outside a
   coroutine". And `yield` is **dynamic, the Lua way** — it suspends
@@ -251,10 +252,12 @@ Further decisions:
   zero-filled array of equal length comes back. Corollary in the
   stdlib: **`array.fill(0)` must be identical to `array.map { 0 }`** —
   a constant and a constant function are interchangeable ways to say
-  the same thing.
+  the same thing. *(`fill` was never built, as of round 224 — `map { 0 }`
+  says it.)*
 * **Annotations, Swift-style**: `{ (x: Int, y: Int) -> Int in ... }`
   is allowed; bare names stay fine. Where written, types are enforced
-  at runtime per §3.
+  at runtime per §3. *(Never built, as of round 224 — a syntax error;
+  the locks are the bindings' (§3), and no round has asked.)*
 * **Params are labels**: declared parameter names double as the
   optional, reorderable call-site labels of §2.3 — `add(y: 3, x: 2)`
   just works. No separate label syntax.
@@ -349,7 +352,8 @@ Details:
   compares identity against the very object the global `Int` binds,
   `Int("42")`-style construction calls, `.conforms(to:)` tests
   protocol conformance. (**OPEN**: whether `is` / `as?` / `as!` also
-  survive as sugar.) A container's `.Type` carries its element type —
+  survive as sugar. *Never built, as of round 224; `x.Type == Int` and
+  `.conforms(to:)` serve.*) A container's `.Type` carries its element type —
   `[0].Type` is `[Int]` — since round 165 (below, §3c's end).
 
 ### 3b. Basic types — DECIDED (core)
@@ -372,7 +376,8 @@ Primitives:
   dependent (unlike Swift, where `Int` is word-sized).
   **Overflow traps** at runtime, as in Swift — never silent wraparound.
   (**OPEN**: whether Swift's explicit wrapping family `&+ &- &*` is kept
-  for those who ask.)
+  for those who ask. *Not kept: `&` is a Set operator since round 135,
+  so `1 &+ 2` is its type error; nothing has asked.*)
 * **`BigInt`** — **in, but detachable.** Arbitrary precision, part of
   the language *as a whole*, yet packaged so an embedder can leave it
   out — the core implementation must stay as small as possible (§5).
@@ -395,7 +400,8 @@ Primitives:
   under debug); `Data(base64)` ≡ `base64.Data()` (failable); the text's
   bytes are `str.Data(.utf8)` (infallible);
   `data.String(.utf8)` decodes failably (`nil` on invalid bytes);
-  `.count` and read-only byte subscripts; `Hashable`.
+  `.count` and read-only byte subscripts *(writable since round 92,
+  Range subscripts with them)*; `Hashable`.
 * **`Byte`** — **round 116**: Data's element type, Swift's `UInt8`, and
   the user's decision on how it meets `Int`: *interoperate* — "a
   Byte is an Int that fits a byte": `Byte op Byte` a Byte (trapping),
@@ -440,7 +446,9 @@ Collections:
 
 **OPEN**: literal inference rules (`let x: Double = 1` OK as in Swift?);
 no Int8/UInt zoo, presumably — `Data` covers the bytes use case;
-`Data` literals.
+`Data` literals. *(Settled by §3b's strictness: `let x: Double = 1` is
+a type error, an Int literal being an Int; the one small type is `Byte`,
+round 116; Data's literal is SION's `.Data("…")`, round 97.)*
 
 ### 3d. Type conversion: `obj.TypeName()` — DECIDED (core)
 
@@ -480,7 +488,9 @@ string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bar
   `.hex` on a `Double` gives `0x1.fep7`-style output that
   `.Double()` parses back exactly.)
 * Presumably likewise: encodings for `Data.String()` / `String.Data()`
-  (defaulting to UTF-8), date formats for `Date.String()`, etc.
+  (defaulting to UTF-8), date formats for `Date.String()`, etc. *(Not
+  UTF-8 by default: a bare `s.Data()` decodes base64 since round 97 and
+  `.utf8` is spelled; `Date` writes `.iso8601` since round 209.)*
 * **`.String()` is mandatory** — every type must convert to `String`.
 * **Argless `.String()` is *description*** (round 42): a `String` is
   simply itself — `"foo".String()` is `"foo"` — and every other type
@@ -605,7 +615,8 @@ string.Data(.utf8)  // String → Data   (infallible: text always has bytes; bar
 * Consequence for §3b: **`Date` joins the basic-type roster** (SION
   has it natively; a serialization-complete `SION` needs it).
   Representation and literal syntax **OPEN** (SION spells it
-  `.Date(x)` with a Unix-epoch `Double`).
+  `.Date(x)` with a Unix-epoch `Double`). *(Round 50: SION's spelling,
+  exactly — §3b.)*
 * User-defined enums remain the idiom for richer unions.
 * The long-term hope is that reaching for `Any` is rare; unions are
   spelled as enums, and `element.Type` / pattern matching handle the
@@ -768,7 +779,8 @@ included (`ok` says 2xx, as JS's does), `.failure(message)` when no
 answer came. Rounds 159–162 made that the natural shape: `(await
 fetch(u)).then { $0.json() }.catch { … }`. Three decisions under it.
 **The network is the host's**: the core stays Foundation-free, so
-`fetch` asks `Interpreter.fetcher` — the CLI answers with curl
+`fetch` asks `Interpreter.fetcher` *(the `"fetch"` hook since round
+189)* — the CLI answers with curl
 (`-sSL -i`, redirects followed, the last header block parsed, curl's
 own message the failure text), an embedder answers however it likes,
 the tests with a stub. **It is truly asynchronous**: the scheduler
@@ -851,7 +863,9 @@ treat the element as an Array's. Members are Swift's names: `insert`
 `append`; `union`/`intersection`/`subtracting`/`symmetricDifference`
 and the five `is…` predicates take a Set or any Sequence; `filter`
 gives a Set and `map` an Array, as Swift's do; a slice or
-`enumerated()` is an Array, an order having been imposed; no
+`enumerated()` is an Array, an order having been imposed *(the slices
+were Sets in fact — round 169 found the page wrong; `enumerated()` is
+the Array)*; no
 subscript. **`d.keys` is a Set** — the user's own motivation — revising
 round 127's Array: `d0 == d1` now implies `d0.keys == d1.keys`;
 `values` stays an Array. A Set is not a SION value (no literal) and
@@ -1265,7 +1279,8 @@ evaluate `x`. The `op=` set is now every binary operator that can
 spell one: `+ - * / % ?? && ||`. The comparisons cannot (their
 spellings already end in `=`), the range operators make no assignable
 value, and `=` itself is assignment — so the family is complete, not
-open-ended.
+open-ended. *(The rule has since admitted each operator that arrived:
+`^^=` 106, `!!=` 130, `|= &= ^=` 135, `**=` 142, `+&=` and kin 193.)*
 
 **Bitwise operations are methods — DECIDED (round 105)**. The user:
 "They are rarer than ever especially in modern languages yet needed
@@ -1287,7 +1302,8 @@ untouched: nothing is truthy in a condition **(REVISED, round 204:
 removed — see below)**. A recorded divergence
 from Swift and JavaScript both; `& | ^ ~ << >>` stay free — `|` in
 particular for a type union, `Int | String`, should annotations ever
-want one. **Round 106**: the four bare names on a *Bool* are the
+want one. *(`& | ^` went to Sets in round 135; a union annotation would
+need another spelling.)* **Round 106**: the four bare names on a *Bool* are the
 logical operations — `b.not()`, `b.and(c)`, `b.or(c)`, `b.xor(c)` for
 `!`, `&&`, `||`, and the new **`^^`**. **Round 107** then gave the
 Int set the `bit` prefix — `bitNot`, `bitAnd`, `bitOr`, `bitXor` —
@@ -1812,7 +1828,8 @@ takes parameters) and prints as `[Int]`, the canonical form.
 
 **The full Optional suite survives — on a flat model.** `nil` is *not*
 a member of every type; `T?`, `if let`, `guard let`, `??`, and optional
-chaining `?.` all work. This is Swift's most recognizable feature and
+chaining `?.` all work *(`guard let` went with `guard`, round 60 — §9;
+`if let … else { return }` is the form)*. This is Swift's most recognizable feature and
 precisely the cure for the `undefined`/`null` chaos of the scripting
 tradition. But unlike Swift, **`T?` is not a wrapper**:
 
@@ -1990,7 +2007,8 @@ give identity; actors give safety; pick on purpose.
   (first confirmed case: `BigInt`, §3b). The swiftalk : Swift ::
   Lua : C analogy is now explicit: a small, embeddable scripting layer.
 * Reference implementation in **Swift** (the repo already carries a Swift CI
-  workflow). An interpreter first; compilation strategies later.
+  workflow). An interpreter first; compilation strategies later. *(And
+  a second interpreter, in JavaScript, since round 197 — §16.)*
 
 ## 6. Dispatch & overloading — DECIDED (core)
 
@@ -2097,7 +2115,8 @@ lint at parse/load time may come later; it is not a language guarantee.)
 ## 8. Error handling — DECIDED (core)
 
 **Result-first. No exceptions.** Fallible functions return
-`Result<T, E>` (or `Optional<T>` when the failure carries no
+`Result<T, E>` *(untyped in the event — one `Result`, round 51)* (or
+`Optional<T>` when the failure carries no
 information). There is no `throw`/`do-catch` control flow — errors are
 values, and the call stack never unwinds invisibly.
 
@@ -2688,6 +2707,7 @@ the notebook asks for once it is used.
 the same members and operators over the platform's `BigInt`, the
 lexer's `123n` token, and the host operator hook (`operate`,
 `hasOperator`) in `userOperator`, `hasUserOperator`, and `compare`.
+**Round 203** adds `BigRat.js` the same way (§15).
 
 ## 15. Modules — DECIDED (round 100)
 
