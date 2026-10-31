@@ -3476,3 +3476,33 @@ the history. (Moved out of Design.md in round 65.)
   the page cites; every cited round's title matches. The block's 7
   statements replay clean. Nothing stale. No files changed but this
   log.
+* **2026-10-31, round 240 — `documents/Task.md` audited** ("Check
+  documents/Task.md for stale lines too"). The round-53 page read
+  against the binary: the four spawn forms and `async { }` all giving
+  a Task whose `.Type == Task`; eagerness (a body's log line before
+  the spawner's, the line after its `Task.sleep` after); a body run
+  once under two `await`s; a body error rethrown at both awaits; `await
+  a + await b` and `await a * 2 + 1` at unary precedence; `Task.sleep`
+  with 0, 0.0 and 0.001, refusing a negative Int and Double, a String
+  and no argument with one message, the top-level `sleep` an undefined
+  variable, and `Task.sleep` an unknown member under `--no-prelude` —
+  the Task module's, as the row says; `fetch(...)` a Task whose value
+  is a Result holding the Response, `.then` on it refused as a
+  Result's; identity equality and `Task { ... }` as the printed form in
+  `String()`, interpolation and an Array; `Task { x in x }` and
+  `Task({ x in x })` refused; `.done`, `.cancel()`, `.value`, `.isDone`
+  unknown members, as OPEN says; a parked task awaited two REPL lines
+  later; and the deadlock detector on a task awaiting itself after a
+  sleep, two tasks awaiting each other, a chain parked forever, inside
+  `eval`, under `global` and at a REPL line — thrown every time, as the
+  page says. Nothing stale; the block's 5 statements replay clean. One
+  bug found past the page's claims, left for its own round: after a
+  deadlock is thrown, the **next suspension hangs** — `Task.sleep`,
+  `await` of a fresh task, a `fetch`. The context that throws stays in
+  the failed task's `awaiters`, so `complete` readies a context that is
+  dead or already running; a dead one at the head of `ready` is seated
+  and never hands the baton back. Removing `me` from `task.awaiters`
+  when `waitUntilRunning` throws fixes every case (verified on a
+  release build, reverted for this round). The JS runtime, run on the
+  same program, throws and carries on: Swift only. No files changed but
+  this log.
