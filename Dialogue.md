@@ -3589,3 +3589,40 @@ the history. (Moved out of Design.md in round 65.)
   start, the buffer dropped, a read to EOF) agree. The block's 10
   statements replay; the one flag is the `read(5)` loop's three
   printed lines against its comment, noise. IO.md and this log.
+* **2026-11-01, round 244 — `documents/POSIX.md` audited** ("Check
+  documents/POSIX.md for stale lines too"). The round-188 page read
+  against the binary, every function in the table called: `getenv` nil
+  when unset, `setenv`/`unsetenv` `.success(nil)` and the variable
+  coming and going, `environ()` a `[String: String]` agreeing with
+  `getenv`, `getpid` an Int, `getcwd`/`chdir` there and back and a
+  missing directory's failure, `uname()`'s five String keys, every
+  constant's value (`O_CREAT` 512, `O_APPEND` 8, the three seeks and
+  the three descriptors 0 1 2); `open` with an Array of flags and the
+  default mode 0o644 read back from `stat`, `write` with a String and a
+  Data and the bytes written, `read(fd, 3)` then `read(fd)` the rest
+  then an empty Data at EOF, `lseek` with the default `SEEK_SET`,
+  `SEEK_END` and `SEEK_CUR`, `close` twice (the second a failure), a
+  bad descriptor's failure from each of the four; `readFile`/`writeFile`
+  both ways and both failures; `stat`'s eleven keys with their types
+  (Dates for the three times, Bools for the three kinds) and a
+  directory's `isDirectory`; `readdir` without `.`, `mkdir` with the
+  default 0o755 and an explicit 0o700, `rename`, `unlink`, `rmdir` and
+  each one's failure; every wrong-argument message thrown as a type
+  error; `!` trapping, `??` defaulting, `.then`/`.catch` chaining;
+  `exit()` leaving status 0 and `exit(3)` 3 with nothing after either;
+  `import POSIX from "POSIX"` a Function type with the functions and
+  constants as statics, an `extension POSIX` static, `import (readFile,
+  STDERR_FILENO) from "POSIX"`; `open` undefined without the import;
+  the not-yets absent. The module's 22 functions are the table's 22,
+  `libPOSIX.dylib` is built, `SWIFTALK_MODULE_PATH` is the CLI's name
+  for the path; every cited round's title matches. Three lines fixed in
+  place: `mkdir`'s mode is one Int — the Array form is `open`'s flags'
+  alone, as round 188 decided and the module does; the flags sentence
+  now names round 193's bitwise `+|` as the other way to one Int; and
+  the block's last line, `readFile(path)?.String(.utf8)`, never worked
+  — unspaced `?.` is round 51's optional chaining, so the member went
+  to the Result itself and `.String(.utf8)` refused it on a success
+  too — it is now `(readFile(path)?).String(.utf8)`, which returns the
+  text and hands a failure up, with a comment saying why. The replay
+  had not caught it: the line declares a closure nobody calls. The
+  block's 11 statements replay clean. POSIX.md and this log.

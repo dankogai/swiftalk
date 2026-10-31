@@ -13,8 +13,10 @@ strerror's words — so `open(path)!` traps, `?` propagates, `??`
 defaults, `.then`/`.catch` chain, exactly as `fetch`'s answer does
 ([Net.md](Net.md), [Result.md](Result.md)). Wrong arguments to the
 call itself are the caller's type errors. Flags are Ints; since `|` is
-swiftalk's Set operator, `open` and `mkdir` take **an Int or an Array
-of Ints** ORed together: `open(path, [O_WRONLY, O_CREAT, O_TRUNC])`.
+swiftalk's Set operator, `open` takes **an Int or an Array of Ints**
+ORed together, `open(path, [O_WRONLY, O_CREAT, O_TRUNC])` — or one Int
+built with the bitwise `+|` (round 193). A mode — `open`'s third
+argument, `mkdir`'s second — is one Int (round 244).
 
 | Function | Result |
 |---|---|
@@ -51,7 +53,7 @@ stat("notes.txt")!["size"]                       // 12
 readdir(".")!.contains("notes.txt")              // true
 readFile("nowhere.txt")                          // Result.failure("readFile(nowhere.txt): No such file or directory")
 readFile("nowhere.txt") ?? Data()                // .Data("")
-let text = { path in readFile(path)?.String(.utf8) }   // ? hands the failure up
+let text = { path in (readFile(path)?).String(.utf8) }   // ? hands the failure up; unparenthesized, `?.` is optional chaining on the Result itself (round 244)
 ```
 
 The namespace is a type (round 184): `extension POSIX { static let
