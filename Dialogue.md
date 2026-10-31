@@ -4134,3 +4134,30 @@ the history. (Moved out of Design.md in round 65.)
   `bigintPrefixOfRadix`. `tsc` clean; 3,025 fixtures, 18/18; the bundle
   444 KB from 24 modules; the REPL answers a deadlock and recovers.
   Design §16's paragraph, a Status block, the JS README.
+
+* **2026-11-01, round 257 — js/README.md audited** ("Check js/README.md
+  for stale lines too"). Round 227's reading on the runtime's README:
+  every claim checked against the package, the files and the running
+  code — the scripts against `package.json` and their effects (the
+  three `dist/` files, `lib/repl.js`), the package fields (`main`,
+  `types`, `exports`, `bin`, `files`, `engines`), the example block run
+  as a Node script (14n, `print` through `output`, the half-second
+  `evalAsync`, the `readLine` hook), the notebook's four keystrokes,
+  nil-silent cells, autosave, JSON save and open against
+  `notebook.html`, the extractor dropping disabled Swift suites and
+  taking the `throws` expectations, every table row against its file,
+  the six pinned divergences, the FIXMEs in the source. Three lines
+  were behind: the fixture count read "2,925 as of round 220" (3,025
+  now); the corpus sentence named only the `== value` expectations, not
+  the `throws` ones the extractor also takes; and the types the README
+  called worth knowing — `Request`, `Answer`, `G`, `Hooks`,
+  `HookTable` — were not all on the public surface, so `index.ts` now
+  exports them (with `HostFile`, `HookName`, `RunResult` and the three
+  object guards) and its "every name the runtime exports" holds. Four
+  table rows grew to what rounds 255–256 added: value.ts's guards and
+  `must`, objects.ts's `HostValue`, `ContextObject`, `Request`/`Answer`
+  and `G`, interpreter.ts's `HookTable` and `HostFile`, the bundler's
+  fragment and its one-scope rule. The interpreter's header comment
+  still said `sleep` waits nothing (milestone B's FIXME); it now says
+  what the two drivers do. `tsc` clean, 18/18, the bundle 444 KB.
+  js/README.md, js/src/index.ts, js/src/interpreter.ts and Dialogue.md.

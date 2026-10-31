@@ -6,8 +6,8 @@ JavaScript (round 197 onward) and written in TypeScript since round 255
 modern JS engine does: Node 22+, and the browser — the core, the prelude (IO,
 Net, Regex, Sequence, Task, BigInt, BigRat) as JS modules, and a notebook page. What the Swift core does, this does, checked against the same
 corpus: `tools/extract-fixtures.mjs` turns every `eval(source) == value`
-expectation in `Tests/SwiftalkTests` into JSON, and the tests here run
-the JS runtime over it.
+expectation in `Tests/SwiftalkTests`, and every `#expect(throws:)` of an
+`eval`, into JSON, and the tests here run the JS runtime over it.
 
 ```sh
 cd js
@@ -62,8 +62,8 @@ stderr, files, and `.swt` modules from disk or URLs.
 | `src/lexer.ts` | the lexer, line for line: tokens as tagged objects |
 | `src/keywords.ts` | the keyword list, Parser.swift's, as one Set |
 | `src/parser.ts` | the parser, line for line: the AST as tagged objects, `TypeAnnotation` |
-| `src/value.ts` | the value model — JS primitives where they fit (`BigInt` for Int, `number` for Double, `string`, `boolean`, `null`), classes for the rest; `keyOf` for Dictionary and Set keys (canonical equivalence for Strings), `sourceString` with Swift's `Double` spelling and hex floats, graphemes through `Intl.Segmenter` |
-| `src/objects.ts` | `FunctionObject`, enum and struct types and values, `SequenceObject`, `TaskObject`, the control-flow signals |
+| `src/value.ts` | the value model — JS primitives where they fit (`BigInt` for Int, `number` for Double, `string`, `boolean`, `null`), classes for the rest; the `Value` union and a type guard per kind (`isArray`, `isString`, `isFunction`…, round 256) with `must` for a lookup that cannot miss; `keyOf` for Dictionary and Set keys (canonical equivalence for Strings), `sourceString` with Swift's `Double` spelling and hex floats, graphemes through `Intl.Segmenter` |
+| `src/objects.ts` | `FunctionObject`, enum and struct types and values, `SequenceObject`, `TaskObject`, `HostValue` and `HostObject` (a module's value), `ContextObject`, the control-flow signals; the scheduler's `Request` and `Answer` and the `G<T>` generator type every suspending function returns (round 256) |
 | `src/env.ts` | `Environment` and `Binding` — scopes, type-locked declaration and assignment |
 | `src/types.ts` | type locks, stamps, inference — `checkValue`, `inferLock`, `typeValue` |
 | `src/builtins.ts` | the type constructors (`Int(...)`, `Array(...)`, …), protocols and conformance, `Result`, the math library |
@@ -77,8 +77,8 @@ stderr, files, and `.swt` modules from disk or URLs.
 | `src/index.ts` | the public surface — every name the runtime exports, what the examples above import |
 | `src/host/node.ts` | what Node lends: stdin, stdout, stderr, files, module loading |
 | `notebook.html` | the notebook page (loads `lib/src/index.js`, so `npm run build` or `npx tsc` first; the build inlines it) |
-| `tools/bundle.mjs` | the bundler, no dependencies: `dist/swiftalk.js`, `dist/notebook.html` |
-| `src/interpreter.ts` | `Interpreter` — the persistent global scope, `eval` (synchronous) and `evalAsync` (timers and Promises awaited) driving the generator, `register`, `preimport`; `needsMoreInput` for a REPL |
+| `tools/bundle.mjs` | the bundler, no dependencies, one scope for all modules (so top-level names must not collide): `dist/swiftalk.js`, `dist/notebook.html`, `dist/notebook.fragment.html` |
+| `src/interpreter.ts` | `Interpreter` — the persistent global scope, `eval` (synchronous) and `evalAsync` (timers and Promises awaited) driving the generator, `register`, `preimport`, `hooks` (a `HookTable` typed by name: `readLine`, `openFile`, `fetch`; `HostFile` is what `openFile` answers); `needsMoreInput` for a REPL |
 | `repl.ts` | a REPL for Node over the runtime — `lib/repl.js`, the package's `swiftalk-js` |
 | `tsconfig.json`, `package.json` | the compiler's settings (`lib/` out of `src/`, `test/`, `repl.ts`) and the npm package's layout (round 255) |
 | `tools/extract-fixtures.mjs` | the Swift corpus → `test/fixtures.json` (generated, not committed; disabled Swift suites are dropped) |
@@ -113,7 +113,7 @@ Since D the port has kept pace with the Swift core round by round:
 `BigInt` (round 201, the `123n` literal over the platform's BigInt) and
 `BigRat` (round 203) joined the prelude as JS modules, and the fixtures
 are extracted afresh on every `npm test`, so the corpus is whatever the
-Swift tests hold — 2,925 fixtures as of round 220, the same six
+Swift tests hold — 3,025 fixtures as of round 257, the same six
 divergences and no others.
 
 FIXMEs are marked in the source where the port knowingly falls short.

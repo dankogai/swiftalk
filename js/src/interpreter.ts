@@ -1,9 +1,9 @@
 // The Interpreter — Eval.swift's Swiftalk.Interpreter: a persistent
 // global environment over the builtins scope, `eval` driving the
 // generator-based evaluator, and the cooperative scheduler that answers
-// its suspension requests (spawn, await, sleep). Synchronous in
-// milestone B: `eval` runs the program to completion; `sleep` waits
-// nothing yet (FIXME, milestone C makes the driver async over timers).
+// its suspension requests (spawn, await, sleep, offload): `evalAsync`
+// on timers and Promises (milestone C, round 199), `eval` on a virtual
+// clock, so a `sleep` lets the other ready tasks run and goes on.
 import { SwiftalkError } from './errors.js';
 import { Lexer, isPunct, isOp } from './lexer.js';
 import type { Token } from './lexer.js';
