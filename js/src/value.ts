@@ -14,7 +14,7 @@
 // done by hand).
 import { SwiftalkError } from './errors.js';
 import { TypeAnnotation } from './parser.js';
-import type { FunctionObject, SequenceObject, TaskObject, EnumCaseValue, StructValue, HostValue } from './objects.js';
+import { FunctionObject, SequenceObject, TaskObject, EnumCaseValue, StructValue, HostValue } from './objects.js';
 
 /// A swiftalk value — Value.swift's enum, as the JS representations above.
 export type Value =
@@ -91,6 +91,29 @@ export const V = {
   tuple: (values: Value[], labels?: (string | null)[] | null): TupleValue => new TupleValue(values, labels),
 };
 
+// ---- the guards (round 256): one per kind, so a check narrows and no cast follows ----
+export const isNil = (v: Value | undefined): v is null | undefined => v == null;
+export const isBool = (v: Value | undefined): v is boolean => typeof v === 'boolean';
+export const isInt = (v: Value | undefined): v is bigint => typeof v === 'bigint';
+export const isDouble = (v: Value | undefined): v is number => typeof v === 'number';
+export const isString = (v: Value | undefined): v is string => typeof v === 'string';
+export const isArray = (v: Value | undefined): v is SArray => v instanceof SArray;
+export const isDictionary = (v: Value | undefined): v is SDictionary => v instanceof SDictionary;
+export const isSet = (v: Value | undefined): v is SSet => v instanceof SSet;
+export const isByte = (v: Value | undefined): v is Byte => v instanceof Byte;
+export const isData = (v: Value | undefined): v is SData => v instanceof SData;
+export const isDate = (v: Value | undefined): v is SDate => v instanceof SDate;
+export const isRange = (v: Value | undefined): v is SRange => v instanceof SRange;
+export const isTuple = (v: Value | undefined): v is TupleValue => v instanceof TupleValue;
+export const isFunction = (v: Value | undefined): v is FunctionObject => v instanceof FunctionObject;
+export const isSequence = (v: Value | undefined): v is SequenceObject => v instanceof SequenceObject;
+export const isTask = (v: Value | undefined): v is TaskObject => v instanceof TaskObject;
+export const isEnumCase = (v: Value | undefined): v is EnumCaseValue => v instanceof EnumCaseValue;
+export const isStructValue = (v: Value | undefined): v is StructValue => v instanceof StructValue;
+export const isHost = (v: Value | undefined): v is HostValue => v instanceof HostValue;
+/// A container with a stamp: an Array, a Dictionary, or a Set.
+export const isContainer = (v: Value | undefined): v is SArray | SDictionary | SSet => isArray(v) || isDictionary(v) || isSet(v);
+
 /// The kind tag a value answers: the Swift enum case's name.
 export function kindOf(v: Value | undefined): Kind {
   if (v === null || v === undefined) return 'nil';
@@ -109,11 +132,13 @@ export function kindOf(v: Value | undefined): Kind {
   if (v instanceof SDate) return 'date';
   if (v instanceof SRange) return 'range';
   if (v instanceof TupleValue) return 'tuple';
-  return ((v as { kind?: Kind }).kind) ?? 'unknown';       // function, sequence, task, enumCase, structValue, host
+  if (v instanceof FunctionObject || v instanceof SequenceObject || v instanceof TaskObject || v instanceof EnumCaseValue || v instanceof StructValue || v instanceof HostValue) return v.kind;
+  return 'unknown';
 }
 
 export function typeName(v: Value): string {
-  const x = v as any;
+  if (isEnumCase(v) || isStructValue(v)) return v.type.name;
+  if (isHost(v)) return v.object.typeName;
   switch (kindOf(v)) {
     case 'nil': return 'Nil';
     case 'bool': return 'Bool';
@@ -131,9 +156,6 @@ export function typeName(v: Value): string {
     case 'function': return 'Function';
     case 'sequence': return 'Sequence';
     case 'task': return 'Task';
-    case 'enumCase': return x.type.name;
-    case 'structValue': return x.type.name;
-    case 'host': return x.object.typeName;
     default: return 'Unknown';
   }
 }
@@ -158,46 +180,38 @@ export const graphemeCount = (s: string): number => graphemes(s).length;
 /// compare by canonical equivalence (Swift's ==), so NFC; Byte and Int
 /// equal by value across the two (round 116).
 export function keyOf(v: Value): string {
-  const x = v as any;
-  switch (kindOf(v)) {
-    case 'nil': return 'n';
-    case 'bool': return x ? 'T' : 'F';
-    case 'int': return 'i' + x.toString();
-    case 'byte': return 'i' + String(x.v);
-    case 'double': return 'd' + String(x);                 // -0.0 hashes with 0.0, as Swift
-    case 'string': return 's' + x.normalize('NFC');
-    case 'array': return 'a[' + x.items.map(keyOf).join(',') + ']';
-    case 'dictionary': return 'D[' + x.entries().map(([k, x]) => keyOf(k) + ':' + keyOf(x)).sort().join(',') + ']';
-    case 'set': return 'S[' + x.values().map(keyOf).sort().join(',') + ']';
-    case 'data': return 'b' + Array.from(x.bytes).join(',');
-    case 'date': return 't' + String(x.epoch);
-    case 'range': return 'r' + x.from + (x.closed ? '...' : '..<') + (x.to === null ? '' : x.to);
-    case 'tuple': return 'T(' + x.values.map(keyOf).join(',') + ')';   // labels do not take part in == (round 70)
-    case 'function': return 'f' + (x.identityKey ? x.identityKey() : String(x.id));
-    case 'enumCase': return 'e' + x.type.name + '.' + x.caseName + '(' + x.associated.map(keyOf).join(',') + ')';
-    case 'structValue': return 'v' + x.type.name + '(' + x.type.propertyOrder.map((p) => p + '=' + keyOf(x.values.get(p) ?? null)).join(',') + ')';
-    case 'host': return 'h' + x.object.hashKey();
-    default: return 'o' + String(x.id ?? 0);
-  }
+  if (v === null) return 'n';
+  if (isBool(v)) return v ? 'T' : 'F';
+  if (isInt(v)) return 'i' + v.toString();
+  if (isByte(v)) return 'i' + String(v.v);
+  if (isDouble(v)) return 'd' + String(v);                 // -0.0 hashes with 0.0, as Swift
+  if (isString(v)) return 's' + v.normalize('NFC');
+  if (isArray(v)) return 'a[' + v.items.map(keyOf).join(',') + ']';
+  if (isDictionary(v)) return 'D[' + v.entries().map(([k, x]) => keyOf(k) + ':' + keyOf(x)).sort().join(',') + ']';
+  if (isSet(v)) return 'S[' + v.values().map(keyOf).sort().join(',') + ']';
+  if (isData(v)) return 'b' + Array.from(v.bytes).join(',');
+  if (isDate(v)) return 't' + String(v.epoch);
+  if (isRange(v)) return 'r' + v.from + (v.closed ? '...' : '..<') + (v.to === null ? '' : v.to);
+  if (isTuple(v)) return 'T(' + v.values.map(keyOf).join(',') + ')';   // labels do not take part in == (round 70)
+  if (isFunction(v)) return 'f' + v.identityKey();
+  if (isEnumCase(v)) return 'e' + v.type.name + '.' + v.caseName + '(' + v.associated.map(keyOf).join(',') + ')';
+  if (isStructValue(v)) return 'v' + v.type.name + '(' + v.type.propertyOrder.map((p) => p + '=' + keyOf(v.values.get(p) ?? null)).join(',') + ')';
+  if (isHost(v)) return 'h' + v.object.hashKey();
+  return 'o' + String(v.id);                               // a Sequence or a Task: identity
 }
 export function equals(a: Value, b: Value): boolean {
-  const ka = kindOf(a), kb = kindOf(b);
-  const x = a as any, y = b as any;
-  if (ka === 'byte' && kb === 'int') return BigInt(x.v) === b;
-  if (ka === 'int' && kb === 'byte') return a === BigInt(y.v);
-  if (ka !== kb) return false;
-  switch (ka) {
-    case 'nil': return true;
-    case 'bool': case 'int': return a === b;
-    case 'double': return a === b;                    // NaN != NaN, 0.0 == -0.0, as Swift
-    case 'string': return a === b || x.normalize('NFC') === y.normalize('NFC');
-    case 'byte': return x.v === y.v;
-    case 'date': return x.epoch === y.epoch;
-    case 'function': return a === b || (x.sameAs ? x.sameAs(b) : false);
-    case 'sequence': case 'task': return a === b;
-    case 'host': return x.object.isEqual(y.object);
-    default: return keyOf(a) === keyOf(b);
-  }
+  if (isByte(a) && isInt(b)) return BigInt(a.v) === b;
+  if (isInt(a) && isByte(b)) return a === BigInt(b.v);
+  if (kindOf(a) !== kindOf(b)) return false;
+  if (a === null || isBool(a) || isInt(a)) return a === b;
+  if (isDouble(a)) return a === b;                    // NaN != NaN, 0.0 == -0.0, as Swift
+  if (isString(a) && isString(b)) return a === b || a.normalize('NFC') === b.normalize('NFC');
+  if (isByte(a) && isByte(b)) return a.v === b.v;
+  if (isDate(a) && isDate(b)) return a.epoch === b.epoch;
+  if (isFunction(a)) return a === b || a.sameAs(b);
+  if (isSequence(a) || isTask(a)) return a === b;
+  if (isHost(a) && isHost(b)) return a.object.isEqual(b.object);
+  return keyOf(a) === keyOf(b);
 }
 
 // ---- printing ----
@@ -286,61 +300,58 @@ export const spreadsInSet = (x: Value): boolean => ['array', 'string', 'dictiona
 export type CustomText = ((v: Value) => string | null | undefined) | null;
 export function sourceString(v: Value, debug = false, custom: CustomText = null): string {
   if (custom) { const own = custom(v); if (own != null) return own; }
-  const rec = (x: Value) => sourceString(x, debug, custom);
-  const o = v as any;
-  switch (kindOf(v)) {
-    case 'nil': return 'nil';
-    case 'bool': return o ? 'true' : 'false';
-    case 'int': return debug ? (o < 0n ? '-0x' : '+0x') + (o < 0n ? -o : o).toString(16) : o.toString();
-    case 'double': return debug ? hexFloat(o, true) : formatDouble(o);
-    case 'string': return quote(o);
-    case 'array': return '[' + o.items.map(rec).join(', ') + ']';
-    case 'function': return o.sourceString ? o.sourceString() : '{ ... }';
-    case 'range': {
-      const lo = sourceString(o.from, debug, custom);
-      if (o.to === null) return lo + '...';
-      return lo + (o.closed ? '...' : '..<') + sourceString(o.to, debug, custom);
-    }
-    case 'sequence': return 'Sequence { ... }';
-    case 'task': return 'Task { ... }';
-    case 'tuple': {
-      const body = o.values.map((x: Value, i: number) => (o.labels[i] !== null ? `${o.labels[i]}: ` : '') + rec(x)).join(', ');
-      const lonely = o.count === 1 && o.labels[0] === null;
-      return '(' + body + (lonely ? ',)' : ')');
-    }
-    case 'byte': return 'Byte(' + (debug ? '0x' + o.v.toString(16) : String(o.v)) + ')';
-    case 'data':
-      if (debug) return 'Data([' + Array.from(o.bytes as Uint8Array, (b: number) => '0x' + b.toString(16)).join(', ') + '])';
-      return `.Data("${base64Encode(o.bytes)}")`;
-    case 'date': return `.Date(${debug ? hexFloat(o.epoch) : formatDouble(o.epoch)})`;
-    case 'host': return o.object.sourceString(debug);
-    case 'structValue':
-      return o.type.name + '(' + o.type.propertyOrder.map((p: string) => `${p}: ${rec(o.values.get(p) ?? null)}`).join(', ') + ')';
-    case 'enumCase': {
-      let out = `${o.type.name}.${o.caseName}`;
-      if (o.associated.length) {
-        const params = o.type.cases.get(o.caseName) ?? [];
-        out += '(' + o.associated.map((x: Value, i: number) => {
-          const s = rec(x);
-          const label = params[i]?.label;
-          return label ? `${label}: ${s}` : s;
-        }).join(', ') + ')';
-      }
-      return out;
-    }
-    case 'set': {
-      if (o.size === 0) return 'Set()';
-      const elements: string[] = o.values().map(rec).sort(compareStrings);
-      if (o.size === 1 && spreadsInSet(o.values()[0])) return 'Set([' + elements[0] + '])';
-      return 'Set(' + elements.join(', ') + ')';
-    }
-    case 'dictionary': {
-      if (o.size === 0) return '[:]';
-      return '[' + o.entries().map(([k, x]: [Value, Value]) => ({ key: rec(k), value: rec(x) }))
-        .sort((a: { key: string }, b: { key: string }) => compareStrings(a.key, b.key)).map((e: { key: string; value: string }) => `${e.key}: ${e.value}`).join(', ') + ']';
-    }
-    default: return '<unknown>';
+  const rec = (x: Value): string => sourceString(x, debug, custom);
+  if (v === null) return 'nil';
+  if (isBool(v)) return v ? 'true' : 'false';
+  if (isInt(v)) return debug ? (v < 0n ? '-0x' : '+0x') + (v < 0n ? -v : v).toString(16) : v.toString();
+  if (isDouble(v)) return debug ? hexFloat(v, true) : formatDouble(v);
+  if (isString(v)) return quote(v);
+  if (isArray(v)) return '[' + v.items.map(rec).join(', ') + ']';
+  if (isFunction(v)) return v.sourceString();
+  if (isRange(v)) {
+    const lo = rec(v.from);
+    if (v.to === null) return lo + '...';
+    return lo + (v.closed ? '...' : '..<') + rec(v.to);
   }
+  if (isSequence(v)) return 'Sequence { ... }';
+  if (isTask(v)) return 'Task { ... }';
+  if (isTuple(v)) {
+    const body = v.values.map((x, i) => (v.labels[i] !== null ? `${v.labels[i]}: ` : '') + rec(x)).join(', ');
+    const lonely = v.count === 1 && v.labels[0] === null;
+    return '(' + body + (lonely ? ',)' : ')');
+  }
+  if (isByte(v)) return 'Byte(' + (debug ? '0x' + v.v.toString(16) : String(v.v)) + ')';
+  if (isData(v)) {
+    if (debug) return 'Data([' + Array.from(v.bytes, (b) => '0x' + b.toString(16)).join(', ') + '])';
+    return `.Data("${base64Encode(v.bytes)}")`;
+  }
+  if (isDate(v)) return `.Date(${debug ? hexFloat(v.epoch) : formatDouble(v.epoch)})`;
+  if (isHost(v)) return v.object.sourceString(debug);
+  if (isStructValue(v)) return v.type.name + '(' + v.type.propertyOrder.map((p) => `${p}: ${rec(v.values.get(p) ?? null)}`).join(', ') + ')';
+  if (isEnumCase(v)) {
+    let out = `${v.type.name}.${v.caseName}`;
+    if (v.associated.length) {
+      const params = v.type.cases.get(v.caseName) ?? [];
+      out += '(' + v.associated.map((x, i) => {
+        const s = rec(x);
+        const label = params[i]?.label;
+        return label ? `${label}: ${s}` : s;
+      }).join(', ') + ')';
+    }
+    return out;
+  }
+  if (isSet(v)) {
+    if (v.size === 0) return 'Set()';
+    const elements = v.values().map(rec).sort(compareStrings);
+    if (v.size === 1 && spreadsInSet(v.values()[0])) return 'Set([' + elements[0] + '])';
+    return 'Set(' + elements.join(', ') + ')';
+  }
+  if (isDictionary(v)) {
+    if (v.size === 0) return '[:]';
+    return '[' + v.entries().map(([k, x]) => ({ key: rec(k), value: rec(x) }))
+      .sort((a, b) => compareStrings(a.key, b.key)).map((e) => `${e.key}: ${e.value}`).join(', ') + ']';
+  }
+  return '<unknown>';
 }
 /// Swift's String `<`: Unicode scalar order (not UTF-16 code units).
 export function compareStrings(a: string, b: string): number {
@@ -353,6 +364,12 @@ export function compareStrings(a: string, b: string): number {
     const cx = x.value.codePointAt(0)!, cy = y.value.codePointAt(0)!;
     if (cx !== cy) return cx < cy ? -1 : 1;
   }
+}
+
+/// A lookup that must succeed — a Map keyed by a name the caller already walked, say; the throw is a bug's.
+export function must<T>(x: T | undefined | null, what: string): T {
+  if (x === undefined || x === null) throw new Error(`${what} is missing`);
+  return x;
 }
 
 /// Int64 arithmetic: the result if it fits, else null — overflow is the

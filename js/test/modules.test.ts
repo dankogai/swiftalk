@@ -5,10 +5,11 @@ import assert from 'node:assert/strict';
 import { Interpreter } from '../src/interpreter.js';
 import { withPrelude, preludeModules } from '../src/prelude.js';
 import { SwiftalkError } from '../src/errors.js';
-import { SDictionary, SData, SArray, sourceString } from '../src/value.js';
+import { SDictionary, SData, sourceString, isArray, isDictionary, isData } from '../src/value.js';
 import type { Value } from '../src/value.js';
 
-const items = (v: Value): Value[] => (v as SArray).items;
+const items = (v: Value): Value[] => { if (!isArray(v)) throw new Error(`expected an Array, got ${sourceString(v)}`); return v.items; };
+const described = (e: unknown): string => (e instanceof SwiftalkError ? e.description : String(e));
 
 function make(): [Interpreter, { out: string; err: string }] {
   const i = withPrelude(new Interpreter(true));
@@ -25,8 +26,8 @@ test('print and debugPrint write to the host sinks', () => {
   assert.equal(log.err, '"x" +0xff\n');                       // the debug form is .String(.sign, .hex), round 125
   assert.equal(i.eval('IO.stdout.print("via the handle")'), null);
   assert.equal(log.out.endsWith('via the handle\n'), true);
-  assert.throws(() => i.eval('print(x: 1)'), (e: any) => e instanceof SwiftalkError);
-  assert.throws(() => i.eval('let print = 42'), (e: any) => /builtin/.test(e.description));
+  assert.throws(() => i.eval('print(x: 1)'), (e: unknown) => e instanceof SwiftalkError);
+  assert.throws(() => i.eval('let print = 42'), (e: unknown) => /builtin/.test(described(e)));
 });
 
 test('readLine comes from the host hook, nil at its end', async () => {
@@ -35,7 +36,7 @@ test('readLine comes from the host hook, nil at its end', async () => {
   i.hooks.set('readLine', () => Promise.resolve(lines.shift() ?? null));
   assert.deepEqual(items(await i.evalAsync('[readLine(), readLine(), readLine()]')), ['first', 'second', null]);
   const [bare] = [new Interpreter()];
-  assert.throws(() => bare.eval('readLine()'), (e: any) => /undefined variable/.test(e.description));
+  assert.throws(() => bare.eval('readLine()'), (e: unknown) => /undefined variable/.test(described(e)));
 });
 
 test('IO(path:) runs over the host file object', async () => {
@@ -56,16 +57,19 @@ test('IO(path:) runs over the host file object', async () => {
   assert.deepEqual(items(await i.evalAsync('IO(path: "notes.txt").lines.Array()')), ['one', 'two']);
   assert.equal(await i.evalAsync('var g = IO(path: "notes.txt", mode: .readWrite)\ng.data = "replaced"\ng.data.String(.utf8)'), 'replaced');
   assert.deepEqual(items(await i.evalAsync('IO(path: "notes.txt").read(3).map { $0.count }.Array()')), [3n, 3n, 2n], 'chunks');
-  await assert.rejects(i.evalAsync('IO(path: "missing.txt")'), (e: any) => /No such file/.test(e.description));
+  await assert.rejects(i.evalAsync('IO(path: "missing.txt")'), (e: unknown) => /No such file/.test(described(e)));
   assert.equal(await i.evalAsync('fh.close()\nfh.isClosed'), true);
 });
 
 test('fetch is a Task of a Result, over the host hook', async () => {
   const [i] = make();
   i.hooks.set('fetch', (args: Value[]) => {
-    const req = args[0] as SDictionary;
+    const req = args[0];
+    if (!isDictionary(req)) throw new Error('the request is a Dictionary');
     assert.equal(req.get('method'), 'POST');
-    assert.equal(new TextDecoder().decode((req.get('body') as SData).bytes), '{"q":1}');
+    const body = req.get('body');
+    if (!isData(body)) throw new Error('the body is a Data');
+    assert.equal(new TextDecoder().decode(body.bytes), '{"q":1}');
     return Promise.resolve(new SDictionary([['status', 200n], ['headers', new SDictionary([['Content-Type', 'application/json']])], ['body', '{"answer": 42}']]));
   });
   const r = await i.evalAsync('let r = await fetch("https://api.example/x", (method: "post", body: "{\\"q\\":1}"))\n[r!.status, r!.ok, r!.headers["content-type"], r!.json()["answer"]]');
@@ -82,16 +86,16 @@ test('Regex: literals, flags, matches, and the String members', () => {
   assert.equal(i.eval('"2026-09-28".firstMatch(/(?<y>\\d+)-(?<m>\\d+)-(?<d>\\d+)/).d'), '28');
   assert.deepEqual(items(i.eval('"a1b2".matches(/\\d/)')), ['1', '2']);
   assert.equal(i.eval('"e\\u{301}".contains(/^é$/)'), true, 'canonical equivalence: the subject is matched in NFC');
-  assert.throws(() => i.eval('/a/q'), (e: any) => e.kind === 'syntax');
-  assert.throws(() => i.eval('Regex("(")'), (e: any) => e.kind === 'syntax');
+  assert.throws(() => i.eval('/a/q'), (e: unknown) => e instanceof SwiftalkError && e.kind === 'syntax');
+  assert.throws(() => i.eval('Regex("(")'), (e: unknown) => e instanceof SwiftalkError && e.kind === 'syntax');
   assert.equal(i.eval('[/a/: 1, /a/i: 2][/a/]'), 1n);
   assert.equal(i.eval('"漢字かな".matches(/\\p{Han}+/)[0]'), '漢字');
 });
 
 test('a bare Interpreter has no prelude; import brings a module by name', () => {
   const bare = new Interpreter();
-  assert.throws(() => bare.eval('print(1)'), (e: any) => /undefined variable 'print'/.test(e.description));
-  assert.throws(() => bare.eval('/a/'), (e: any) => /Regex module/.test(e.description));
+  assert.throws(() => bare.eval('print(1)'), (e: unknown) => /undefined variable 'print'/.test(described(e)));
+  assert.throws(() => bare.eval('/a/'), (e: unknown) => /Regex module/.test(described(e)));
   let out = '';
   bare.output = (s) => { out += s; };
   for (const m of preludeModules()) bare.register(m);
@@ -115,6 +119,6 @@ test('import is idempotent (round 202): what is already bound to the same value 
   const j = make()[0];
   j.moduleLoader = () => 'export let other = 2';
   await j.evalAsync('let other = 1');
-  await assert.rejects(j.evalAsync('import (other) from "./o.swt"'), (e: any) => /redeclaration/.test(e.description));
-  assert.throws(() => i.eval('import IO from "IO"'), (e: any) => /redeclaration/.test(e.description));   // the Complex trap stays
+  await assert.rejects(j.evalAsync('import (other) from "./o.swt"'), (e: unknown) => /redeclaration/.test(described(e)));
+  assert.throws(() => i.eval('import IO from "IO"'), (e: unknown) => /redeclaration/.test(described(e)));   // the Complex trap stays
 });

@@ -2,34 +2,28 @@
 // readLine over fd 0, files through node:fs for `IO(path:)`, `.swt`
 // modules from disk (or fetched, for a URL), and the platform fetch.
 import { openSync, readSync, writeSync, closeSync, ftruncateSync, fstatSync, readFileSync } from 'node:fs';
-import type { Interpreter } from '../interpreter.js';
+import type { Interpreter, HostFile } from '../interpreter.js';
 
-/// What `IO(path:)` opens through the host's `openFile` hook: positioned reads and writes over a descriptor.
-export interface HostFile {
-  read(size: number): Uint8Array | null;
-  write(bytes: Uint8Array): number;
-  seekStart(): boolean;
-  seekEnd(): boolean;
-  truncate(): void;
-  close(): void;
-}
+/// Node's errors carry a `code`: ENOENT, EAGAIN…
+const isErrno = (e: unknown): e is NodeJS.ErrnoException => e instanceof Error;
 
 function readLineSync(): string | null {
   const bytes: number[] = [];
   const one = Buffer.alloc(1);
   for (;;) {
     let n: number;
-    try { n = readSync(0, one, 0, 1, null); } catch (e: any) { if (e.code === 'EAGAIN') continue; if (e.code === 'EOF') n = 0; else throw e; }
+    try { n = readSync(0, one, 0, 1, null); } catch (e) { if (!isErrno(e)) throw e; if (e.code === 'EAGAIN') continue; if (e.code === 'EOF') n = 0; else throw e; }
     if (n === 0) return bytes.length ? Buffer.from(bytes).toString('utf8') : null;
     if (one[0] === 10) { if (bytes.length && bytes[bytes.length - 1] === 13) bytes.pop(); return Buffer.from(bytes).toString('utf8'); }
     bytes.push(one[0]);
   }
 }
 function openFile(path: string, mode: string): HostFile {
-  const flags = ({ read: 'r', write: 'w+', append: 'a+', readWrite: mode === 'readWrite' ? 'r+' : 'r' } as Record<string, string>)[mode];
+  const flagsOfMode: Record<string, string> = { read: 'r', write: 'w+', append: 'a+', readWrite: 'r+' };
+  const flags = flagsOfMode[mode];
   let fd: number;
   try { fd = openSync(path, mode === 'readWrite' ? (existsOrCreate(path) ? 'r+' : 'w+') : flags); }
-  catch (e: any) { throw new Error(e.code === 'ENOENT' ? 'No such file or directory' : e.message); }
+  catch (e) { throw new Error(isErrno(e) && e.code === 'ENOENT' ? 'No such file or directory' : e instanceof Error ? e.message : String(e)); }
   let position = mode === 'append' ? fstatSync(fd).size : 0;
   return {
     read(size: number) { const buf = Buffer.alloc(size); const n = readSync(fd, buf, 0, size, position); position += n; return n ? new Uint8Array(buf.subarray(0, n)) : null; },

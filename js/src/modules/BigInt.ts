@@ -7,7 +7,7 @@
 // dividend's sign, as Int's do.
 import { SwiftalkError } from '../errors.js';
 import { Module } from '../modules.js';
-import { kindOf, typeName, sourceString, Byte, INT64_MAX, INT64_MIN } from '../value.js';
+import { typeName, sourceString, INT64_MAX, INT64_MIN, isHost, isInt, isByte, isDouble, isString } from '../value.js';
 import { HostValue } from '../objects.js';
 import type { HostObject } from '../objects.js';
 import type { Value } from '../value.js';
@@ -35,6 +35,7 @@ function parseRadix(text: string, radix: number): bigint | null {
   }
   return negative ? -v : v;
 }
+const bigintPrefixOfRadix: Record<number, string> = { 16: '0x', 8: '0o', 2: '0b' };
 const toRadix = (n: bigint, radix: number): string => (n < 0n ? '-' : '') + (n < 0n ? -n : n).toString(radix);
 const magnitude = (n: bigint): bigint => (n < 0n ? -n : n);
 /// Swift's smart shift: any count, arithmetic to the right.
@@ -51,11 +52,11 @@ export class BigIntValue implements HostObject {
   get bigInt(): bigint { return this.n; }                    // what the BigRat module sees (round 203)
   make(v: bigint): HostValue { return new HostValue(new BigIntValue(v, this.type), this.type); }
   other(v: Value, what: string): bigint {
-    if (v instanceof HostValue && v.object instanceof BigIntValue) return v.object.n;
+    if (isHost(v) && v.object instanceof BigIntValue) return v.object.n;
     throw SwiftalkError.type(`${what} takes a BigInt, not ${typeName(v)} — BigInt(x) converts`);
   }
   prefixed(radix: number): string {
-    const prefix = ({ 16: '0x', 8: '0o', 2: '0b' } as Record<number, string>)[radix];
+    const prefix = bigintPrefixOfRadix[radix];
     return (this.n < 0n ? '-' : '') + prefix + magnitude(this.n).toString(radix) + 'n';
   }
   member(name: string, args: Value[], called: boolean): Value | undefined {
@@ -74,7 +75,7 @@ export class BigIntValue implements HostObject {
         if (format === 'oct') return this.prefixed(8);
         if (format === 'bin') return this.prefixed(2);
         if (format === 'sign') return (n < 0n ? '' : '+') + n.toString(10);
-        if (typeof format === 'bigint' && format >= 2n && format <= 36n) return toRadix(n, Number(format));
+        if (isInt(format) && format >= 2n && format <= 36n) return toRadix(n, Number(format));
         throw SwiftalkError.type(`BigInt.String() takes .hex, .oct, .bin, .sign, or a radix 2...36, not ${sourceString(format)}`);
       }
       case 'magnitude': return this.make(magnitude(n));
@@ -86,8 +87,8 @@ export class BigIntValue implements HostObject {
         if (!(args.length === 1 || args.length === 2)) throw SwiftalkError.type('BigInt.power(exponent) or .power(exponent, modulus)');
         let e: bigint;
         const first = args[0];
-        if (typeof first === 'bigint') e = first;
-        else if (first instanceof HostValue && first.object instanceof BigIntValue) e = first.object.n;
+        if (isInt(first)) e = first;
+        else if (isHost(first) && first.object instanceof BigIntValue) e = first.object.n;
         else throw SwiftalkError.type(`BigInt.power takes an Int or BigInt exponent, not ${typeName(args[0])}`);
         if (e < 0n) throw SwiftalkError.type('BigInt.power: a negative exponent has no integer answer');
         if (args.length === 2) {
@@ -125,10 +126,9 @@ export class BigIntValue implements HostObject {
     if (fix === 'prefix') return this.make(op === '-' ? -this.n : op === '+' ? this.n : ~this.n);
     if (operands.length !== 2) return undefined;
     const sides = operands.map((v): bigint => {
-      if (v instanceof HostValue && v.object instanceof BigIntValue) return v.object.n;
-      const k = kindOf(v);
-      if (v instanceof HostValue && Array.isArray(v.object.bigRat)) throw SwiftalkError.type(`'${op}' between BigInt and BigRat: convert first — BigRat(b), or r.BigInt()`);
-      if (k === 'int' || k === 'double' || k === 'byte') throw SwiftalkError.type(`'${op}' between BigInt and ${typeName(v)}: convert first — BigInt(x), or Int(b)`);
+      if (isHost(v) && v.object instanceof BigIntValue) return v.object.n;
+      if (isHost(v) && v.object.bigRat !== undefined) throw SwiftalkError.type(`'${op}' between BigInt and BigRat: convert first — BigRat(b), or r.BigInt()`);
+      if (isInt(v) || isDouble(v) || isByte(v)) throw SwiftalkError.type(`'${op}' between BigInt and ${typeName(v)}: convert first — BigInt(x), or Int(b)`);
       throw SwiftalkError.type(`'${op}' is not defined between ${typeName(operands[0])} and ${typeName(operands[1])}`);
     });
     const [a, b] = sides;
@@ -153,7 +153,7 @@ export class BigIntValue implements HostObject {
   sourceString(debug: boolean): string { return debug ? (this.n < 0n ? '-0x' : '+0x') + magnitude(this.n).toString(16) + 'n' : this.n.toString(10) + 'n'; }
   /// `case 42n:` — equality; a non-BigInt subject is no match (and, binding, an error)
   patternMatch(subject: Value, binding: boolean): Value {
-    if (!(subject instanceof HostValue && subject.object instanceof BigIntValue)) {
+    if (!(isHost(subject) && subject.object instanceof BigIntValue)) {
       if (binding) throw SwiftalkError.type(`a BigInt case needs a BigInt subject, not ${typeName(subject)}`);
       return null;
     }
@@ -169,26 +169,25 @@ export function BigIntModule(): Module {
     switch (args.length) {
       case 0: return make(0n);
       case 1: {
-        const v: any = args[0];
-        switch (kindOf(v)) {
-          case 'int': return make(v);
-          case 'byte': return make(BigInt(v.v));
-          case 'double':
-            if (!Number.isFinite(v) || Math.trunc(v) !== v) throw SwiftalkError.type(`BigInt(${sourceString(v)}): not an integer — round it first`);
-            return make(BigInt(v));
-          case 'string': { const p = parseLiteral(v); if (p === null) throw SwiftalkError.type(`BigInt("${v}"): not an integer literal`); return make(p); }
-          case 'host':
-            if (v.object instanceof BigIntValue) return v;
-            if (Array.isArray(v.object.bigRat)) { const [n, d] = v.object.bigRat as [bigint, bigint]; return make(n / d); }   // truncation toward zero, as BigInt's / is (round 203)
-            break;
-          default: break;
+        const v = args[0];
+        if (isInt(v)) return make(v);
+        if (isByte(v)) return make(BigInt(v.v));
+        if (isDouble(v)) {
+          if (!Number.isFinite(v) || Math.trunc(v) !== v) throw SwiftalkError.type(`BigInt(${sourceString(v)}): not an integer — round it first`);
+          return make(BigInt(v));
+        }
+        if (isString(v)) { const p = parseLiteral(v); if (p === null) throw SwiftalkError.type(`BigInt("${v}"): not an integer literal`); return make(p); }
+        if (isHost(v)) {
+          if (v.object instanceof BigIntValue) return v;
+          if (v.object.bigRat !== undefined) { const [n, d] = v.object.bigRat; return make(n / d); }   // truncation toward zero, as BigInt's / is (round 203)
         }
         throw SwiftalkError.type(`cannot convert ${typeName(v)} to BigInt`);
       }
       case 2: {
-        if (typeof args[0] !== 'string' || typeof args[1] !== 'bigint' || args[1] < 2n || args[1] > 36n) throw SwiftalkError.type('BigInt(digits, radix) takes a String and a radix 2...36');
-        const p = parseRadix(args[0], Number(args[1]));
-        if (p === null) throw SwiftalkError.type(`BigInt("${args[0]}", ${args[1]}): not a radix-${args[1]} integer`);
+        const [digits, radix] = args;
+        if (!isString(digits) || !isInt(radix) || radix < 2n || radix > 36n) throw SwiftalkError.type('BigInt(digits, radix) takes a String and a radix 2...36');
+        const p = parseRadix(digits, Number(radix));
+        if (p === null) throw SwiftalkError.type(`BigInt("${digits}", ${radix}): not a radix-${radix} integer`);
         return make(p);
       }
       default: throw SwiftalkError.type('BigInt(x) or BigInt(digits, radix)');

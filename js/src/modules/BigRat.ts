@@ -4,12 +4,11 @@
 // Over the platform's BigInt here; swift-bignum's BigRat in Swift.
 import { SwiftalkError } from '../errors.js';
 import { Module } from '../modules.js';
-import { kindOf, typeName, sourceString, Byte, INT64_MAX, INT64_MIN } from '../value.js';
+import { typeName, sourceString, INT64_MAX, INT64_MIN, isHost, isInt, isByte, isDouble, isString, isFunction } from '../value.js';
 import { HostValue } from '../objects.js';
 import { callBuiltin } from '../types.js';
 import { scheduler } from '../eval.js';
-import type { G } from '../eval.js';
-import type { HostObject, FunctionObject } from '../objects.js';
+import type { G, HostObject } from '../objects.js';
 import type { Value } from '../value.js';
 
 const absRat = (n: bigint): bigint => (n < 0n ? -n : n);
@@ -85,15 +84,15 @@ export class BigRatValue implements HostObject {
     const shift = Math.max(0, bitLength(d) - bitLength(n) + 64);
     return Number((n << BigInt(shift)) / d) * 2 ** -shift;
   }
-  *bigInt(n: bigint, what: string): G<Value> {
+  *asBigInt(n: bigint, what: string): G<Value> {
     const i = scheduler.current;
-    const t = (i ? i.environment.tryLookup('BigInt') : undefined) as FunctionObject | undefined;
-    if (!t || kindOf(t) !== 'function' || !t.builtin) throw SwiftalkError.type(`${what} is a BigInt — import from "BigInt" (the CLI preimports it)`);
+    const t = i ? i.environment.tryLookup('BigInt') : undefined;
+    if (!isFunction(t) || !t.builtin) throw SwiftalkError.type(`${what} is a BigInt — import from "BigInt" (the CLI preimports it)`);
     return yield* callBuiltin(t.builtin, [n.toString()]);
   }
   exponent(v: Value, what: string): bigint {
-    if (typeof v === 'bigint') return v;
-    if (v instanceof HostValue && typeof v.object.bigInt === 'bigint') return v.object.bigInt;
+    if (isInt(v)) return v;
+    if (isHost(v) && v.object.bigInt !== undefined) return v.object.bigInt;
     throw SwiftalkError.type(`${what} takes an Int or BigInt exponent, not ${typeName(v)}`);
   }
   raised(e: bigint): HostValue {
@@ -105,7 +104,7 @@ export class BigRatValue implements HostObject {
     switch (`${name}${called ? '()' : ''}`) {
       case 'BigRat()': return new HostValue(this, this.type);
       case 'Double()': return this.toDouble();
-      case 'BigInt()': return yield* this.bigInt(roundRat(n, d, 'towardZero'), 'r.BigInt()');
+      case 'BigInt()': return yield* this.asBigInt(roundRat(n, d, 'towardZero'), 'r.BigInt()');
       case 'Int()': {
         const t = roundRat(n, d, 'towardZero');
         if (t > INT64_MAX || t < INT64_MIN) throw SwiftalkError.overflow(`${this.sourceString(false)} does not fit in an Int`);
@@ -113,18 +112,19 @@ export class BigRatValue implements HostObject {
       }
       case 'String()': {
         if (!args.length) return this.sourceString(false);
-        if (args.length !== 1 || typeof args[0] !== 'string') throw SwiftalkError.type('BigRat.String() takes at most one format: .fraction or .mixed');
-        if (args[0] === 'fraction') return `${n}/${d}`;
-        if (args[0] === 'mixed') {
+        const format = args[0];
+        if (args.length !== 1 || !isString(format)) throw SwiftalkError.type('BigRat.String() takes at most one format: .fraction or .mixed');
+        if (format === 'fraction') return `${n}/${d}`;
+        if (format === 'mixed') {
           const whole = roundRat(n, d, 'towardZero'), part = absRat(n - whole * d);
           if (part === 0n) return `${whole}`;
           const frac = `${part}/${d}`;
           return whole === 0n ? (n < 0n ? '-' : '') + frac : `${whole} ${frac}`;
         }
-        throw SwiftalkError.type(`BigRat.String() takes .fraction or .mixed, not .${args[0]}`);
+        throw SwiftalkError.type(`BigRat.String() takes .fraction or .mixed, not .${format}`);
       }
-      case 'numerator': return yield* this.bigInt(n, 'r.numerator');
-      case 'denominator': return yield* this.bigInt(d, 'r.denominator');
+      case 'numerator': return yield* this.asBigInt(n, 'r.numerator');
+      case 'denominator': return yield* this.asBigInt(d, 'r.denominator');
       case 'isInteger': return d === 1n;
       case 'isZero': return n === 0n;
       case 'magnitude': return this.make(absRat(n), d);
@@ -133,10 +133,11 @@ export class BigRatValue implements HostObject {
       case 'rounded()': {
         if (args.length > 1) throw SwiftalkError.type('BigRat.rounded() or .rounded(rule)');
         let rule = 'toNearestOrAwayFromZero';
+        const given = args[0];
         if (args.length) {
-          if (typeof args[0] !== 'string') throw SwiftalkError.type('BigRat.rounded takes a rule: .toNearestOrAwayFromZero, .toNearestOrEven, .up, .down, .towardZero, .awayFromZero');
-          if (!roundingRules.has(args[0])) throw SwiftalkError.type(`BigRat.rounded: unknown rule .${args[0]}`);
-          rule = args[0];
+          if (!isString(given)) throw SwiftalkError.type('BigRat.rounded takes a rule: .toNearestOrAwayFromZero, .toNearestOrEven, .up, .down, .towardZero, .awayFromZero');
+          if (!roundingRules.has(given)) throw SwiftalkError.type(`BigRat.rounded: unknown rule .${given}`);
+          rule = given;
         }
         return this.make(roundRat(n, d, rule), 1n);
       }
@@ -154,16 +155,15 @@ export class BigRatValue implements HostObject {
     if (operands.length !== 2) return undefined;
     if (op === '**') {
       const base = operands[0];
-      if (!(base instanceof HostValue && base.object instanceof BigRatValue)) throw SwiftalkError.type("'**' takes a BigRat base and an Int or BigInt exponent");
+      if (!(isHost(base) && base.object instanceof BigRatValue)) throw SwiftalkError.type("'**' takes a BigRat base and an Int or BigInt exponent");
       return base.object.raised(this.exponent(operands[1], "'**'"));
     }
     const sides = operands.map((v): BigRatValue => {
-      if (v instanceof HostValue) {
+      if (isHost(v)) {
         if (v.object instanceof BigRatValue) return v.object;
-        if (typeof v.object.bigInt === 'bigint') throw SwiftalkError.type(`'${op}' between BigRat and BigInt: convert first — BigRat(b), or r.BigInt()`);
+        if (v.object.bigInt !== undefined) throw SwiftalkError.type(`'${op}' between BigRat and BigInt: convert first — BigRat(b), or r.BigInt()`);
       }
-      const k = kindOf(v);
-      if (k === 'int' || k === 'double' || k === 'byte') throw SwiftalkError.type(`'${op}' between BigRat and ${typeName(v)}: convert first — BigRat(x)`);
+      if (isInt(v) || isDouble(v) || isByte(v)) throw SwiftalkError.type(`'${op}' between BigRat and ${typeName(v)}: convert first — BigRat(x)`);
       throw SwiftalkError.type(`'${op}' is not defined between ${typeName(operands[0])} and ${typeName(operands[1])}`);
     });
     const [a, b] = sides;
@@ -183,7 +183,7 @@ export class BigRatValue implements HostObject {
     return debug ? `BigRat(${hex(this.n)}, ${hex(this.d)})` : `BigRat(${this.n}, ${this.d})`;
   }
   patternMatch(subject: Value, binding: boolean): Value {
-    if (!(subject instanceof HostValue && subject.object instanceof BigRatValue)) {
+    if (!(isHost(subject) && subject.object instanceof BigRatValue)) {
       if (binding) throw SwiftalkError.type(`a BigRat case needs a BigRat subject, not ${typeName(subject)}`);
       return null;
     }
@@ -196,27 +196,25 @@ export function BigRatModule(): Module {
   let typeValue: Value = null;
   const make = (n: bigint, d: bigint): HostValue => new HostValue(new BigRatValue(n, d, typeValue), typeValue);
   const integer = (v: Value, what: string): bigint => {
-    if (typeof v === 'bigint') return v;
-    if (v instanceof Byte) return BigInt(v.v);
-    if (v instanceof HostValue && typeof v.object.bigInt === 'bigint') return v.object.bigInt;
+    if (isInt(v)) return v;
+    if (isByte(v)) return BigInt(v.v);
+    if (isHost(v) && v.object.bigInt !== undefined) return v.object.bigInt;
     throw SwiftalkError.type(`${what} takes Ints or BigInts, not ${typeName(v)}`);
   };
   typeValue = m.type('BigRat', (args: Value[]) => {
     switch (args.length) {
       case 0: return make(0n, 1n);
       case 1: {
-        const v: any = args[0];
-        switch (kindOf(v)) {
-          case 'int': case 'byte': return make(integer(v, 'BigRat'), 1n);
-          case 'double':
-            if (!Number.isFinite(v)) throw SwiftalkError.type(`BigRat(${sourceString(v)}): not a number a rational can hold`);
-            return make(...fromDouble(v));
-          case 'string': { const p = parseRational(v); if (!p) throw SwiftalkError.type(`BigRat("${v}"): not a rational — "n/d", an integer, or a decimal`); return make(p[0], p[1]); }
-          case 'host':
-            if (v.object instanceof BigRatValue) return v;
-            if (typeof v.object.bigInt === 'bigint') return make(v.object.bigInt, 1n);
-            break;
-          default: break;
+        const v = args[0];
+        if (isInt(v) || isByte(v)) return make(integer(v, 'BigRat'), 1n);
+        if (isDouble(v)) {
+          if (!Number.isFinite(v)) throw SwiftalkError.type(`BigRat(${sourceString(v)}): not a number a rational can hold`);
+          return make(...fromDouble(v));
+        }
+        if (isString(v)) { const p = parseRational(v); if (!p) throw SwiftalkError.type(`BigRat("${v}"): not a rational — "n/d", an integer, or a decimal`); return make(p[0], p[1]); }
+        if (isHost(v)) {
+          if (v.object instanceof BigRatValue) return v;
+          if (v.object.bigInt !== undefined) return make(v.object.bigInt, 1n);
         }
         throw SwiftalkError.type(`cannot convert ${typeName(v)} to BigRat`);
       }

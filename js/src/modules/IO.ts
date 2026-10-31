@@ -15,24 +15,13 @@
 // Results, as in the Swift module.
 import { SwiftalkError } from '../errors.js';
 import { Module } from '../modules.js';
-import { kindOf, typeName, sourceString, SData } from '../value.js';
-import { HostValue, SequenceObject } from '../objects.js';
+import { typeName, sourceString, SData, isString, isInt, isData } from '../value.js';
+import { HostValue, SequenceObject, isPromise } from '../objects.js';
 import { ann } from '../types.js';
 import { displayString, scheduler, offload } from '../eval.js';
-import type { G } from '../eval.js';
+import type { G, HostObject } from '../objects.js';
 import type { Value } from '../value.js';
-import type { HostObject } from '../objects.js';
-import type { Interpreter, Hook } from '../interpreter.js';
-
-/// The file object the host's `openFile` hook answers with; every method may return a Promise.
-export interface HostFile {
-  read?(size: number): Uint8Array | null | Promise<Uint8Array | null>;
-  write?(bytes: Uint8Array): number | Promise<number>;
-  seekStart?(): boolean | Promise<boolean>;
-  seekEnd?(): boolean | Promise<boolean>;
-  truncate?(): void | Promise<void>;
-  close?(): void | Promise<void>;
-}
+import type { Interpreter, HostFile, Hooks, HookName } from '../interpreter.js';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -41,9 +30,9 @@ const current = (): Interpreter => {
   if (!i) throw SwiftalkError.type('IO needs a running Interpreter');
   return i;
 };
-const hook = (name: string): Hook | null => current().hooks.get(name) ?? null;
-/// A host answer that may be a Promise: waited on through the scheduler.
-function* settled(v: any): G<any> { return v && typeof v.then === 'function' ? yield* offload(v) : v; }
+const hook = <K extends HookName>(name: K): Hooks[K] | null => current().hooks.get(name) ?? null;
+/// A host answer that may be a Promise: waited on through the scheduler. The answer is the host's — checked where used.
+function* settled<T>(v: T | Promise<T>): G<T | unknown> { return isPromise(v) ? yield* offload(v) : v; }
 
 class Handle implements HostObject {
   file: HostFile | null;
@@ -65,8 +54,8 @@ class Handle implements HostObject {
   get label(): string { return this.path !== null ? `IO(path: "${this.path}")` : `IO.${this.standardName}`; }
   live(): void { if (this.closed) throw SwiftalkError.type(`${this.label} is closed`); }
   bytesOf(v: Value, call: string): Uint8Array {
-    if (v instanceof SData) return v.bytes;
-    if (typeof v === 'string') return encoder.encode(v);
+    if (isData(v)) return v.bytes;
+    if (isString(v)) return encoder.encode(v);
     throw SwiftalkError.type(`${this.label}.${call} takes a Data or a String, not ${typeName(v)}`);
   }
   // ---- reading ----
@@ -74,7 +63,7 @@ class Handle implements HostObject {
     this.live();
     if (!this.file || !this.file.read) throw SwiftalkError.type(`${this.label} cannot be read`);
     const chunk = yield* settled(this.file.read(size));
-    if (!chunk || chunk.length === 0) return false;
+    if (!(chunk instanceof Uint8Array) || chunk.length === 0) return false;
     const joined = new Uint8Array(this.buffer.length + chunk.length);
     joined.set(this.buffer); joined.set(chunk, this.buffer.length);
     this.buffer = joined;
@@ -85,7 +74,7 @@ class Handle implements HostObject {
       const h = hook('readLine');
       if (!h) throw SwiftalkError.type('readLine: the host lends no input (no "readLine" hook)');
       const line = yield* settled(h());
-      return line === null || line === undefined ? null : String(line);
+      return typeof line === 'string' ? line : null;
     }
     for (;;) {
       const nl = this.buffer.indexOf(10);
@@ -151,8 +140,9 @@ class Handle implements HostObject {
       case 'read()': {
         let size = 65536;
         if (args.length) {
-          if (args.length !== 1 || typeof args[0] !== 'bigint' || args[0] <= 0n) throw SwiftalkError.type(`${this.label}.read(size) takes one positive Int`);
-          size = Number(args[0]);
+          const n = args[0];
+          if (args.length !== 1 || !isInt(n) || n <= 0n) throw SwiftalkError.type(`${this.label}.read(size) takes one positive Int`);
+          size = Number(n);
         }
         return new SequenceObject({ kind: 'native', element: ann('Data'), make: () => () => this.readChunk(size) });
       }
@@ -192,20 +182,22 @@ export function IOModule(): Module {
   const m = new Module('IO');
   let typeValue: Value = null;
   const host = (h: Handle): HostValue => new HostValue(h, typeValue);
-  typeValue = m.type('IO', function* (args: Value[]) {
-    if (!(args.length === 1 || args.length === 2) || typeof args[0] !== 'string') throw SwiftalkError.type('IO(path: String, mode: .read | .write | .append | .readWrite)');
+  typeValue = m.type('IO', function* (args: Value[]): G<Value> {
     const path = args[0];
+    if (!(args.length === 1 || args.length === 2) || !isString(path)) throw SwiftalkError.type('IO(path: String, mode: .read | .write | .append | .readWrite)');
     let mode = 'read';
     if (args.length === 2) {
-      if (typeof args[1] !== 'string') throw SwiftalkError.type(`IO(path:mode:) — mode is .read, .write, .append, or .readWrite, not ${typeName(args[1])}`);
-      mode = args[1];
+      const given = args[1];
+      if (!isString(given)) throw SwiftalkError.type(`IO(path:mode:) — mode is .read, .write, .append, or .readWrite, not ${typeName(given)}`);
+      mode = given;
     }
     if (!['read', 'write', 'append', 'readWrite'].includes(mode)) throw SwiftalkError.type(`IO(path:mode:) — mode is .read, .write, .append, or .readWrite, not .${mode}`);
     const open = hook('openFile');
     if (!open) throw SwiftalkError.type(`IO(path: "${path}"): this host has no files (no "openFile" hook)`);
-    let file: HostFile;
+    let file: unknown;
     try { file = yield* settled(open(path, mode)); }
-    catch (e: any) { throw e instanceof SwiftalkError ? e : SwiftalkError.type(`IO(path: "${path}", mode: .${mode}): ${e && e.message ? e.message : e}`); }
+    catch (e) { throw e instanceof SwiftalkError ? e : SwiftalkError.type(`IO(path: "${path}", mode: .${mode}): ${e instanceof Error ? e.message : String(e)}`); }
+    if (typeof file !== 'object' || file === null) throw SwiftalkError.type(`IO(path: "${path}"): the host's openFile answered no file object`);
     return host(new Handle(file, path, mode));
   }).value('IO')!;
   const stdin = new Handle(null, null, 'read', 'stdin');

@@ -2841,7 +2841,7 @@ annotation is still `any`, and the dynamic member switches
 `Value` to `any` or to the class a `kindOf` check established — TS
 cannot narrow through `kindOf`, and a type guard per kind would have
 rewritten every switch. Turning `noImplicitAny` on, and replacing the
-casts with guards, is the OPEN next step. **The package**: `package.json`
+casts with guards, is the OPEN next step *(done in round 256, below)*. **The package**: `package.json`
 names `lib/src/index.js` as `main`, its `.d.ts` as `types`, exports
 `swiftalk/node` for the host, `swiftalk-js` as `bin` (the REPL), ships
 `lib/src` and the REPL under `files`, and builds on `prepublishOnly`;
@@ -2849,6 +2849,46 @@ names `lib/src/index.js` as `main`, its `.d.ts` as `types`, exports
 `js/lib/` is ignored by git as `js/dist/` is; CI installs with `npm ci`
 before the tests. Not published. The corpus stands: 3,025 fixtures,
 18/18.
+
+**Guards, not casts — DECIDED (round 256)** ("Turn on noImplicitAny
+and replace the casts with guards"). `tsconfig` is plain `strict` now —
+`noImplicitAny` and `useUnknownInCatchVariables` on — and the sources
+hold no `as` cast, no `any`, no non-null `!`. **The guards**: `value.ts`
+exports one per kind — `isNil`, `isBool`, `isInt`, `isDouble`,
+`isString`, `isArray`, `isDictionary`, `isSet`, `isByte`, `isData`,
+`isDate`, `isRange`, `isTuple`, `isFunction`, `isSequence`, `isTask`,
+`isEnumCase`, `isStructValue`, `isHost`, and `isContainer` — each a
+type predicate over `Value`, so `if (isArray(v))` narrows `v` where
+`kindOf(v) === 'array'` never could; the `switch (kindOf(v))` ladders
+with an `any` alias beside them became `if` chains of guards, in
+`sourceString`, `keyOf`, `equals`, `inferLock`, `knownElementLock`, the
+constructors, `iteratorOf`, the subscripts, `binary`, `compare`,
+`identical`, the JSON and property-list writers, and the member switch.
+`objects.ts` adds `isGenerator` and `isPromise` (a builtin's or a host's
+answer may be either) and `isRunResult`; `value.ts` adds `must(x,
+what)`, a lookup that throws its own error where a Map is keyed by a
+name already walked, in place of `!`. **What became typed to make that
+possible**: the scheduler's protocol — `Request` (spawn, await, sleep,
+offload, yield) and `Answer` (`{task}`, `{value}`, `{offloaded}`,
+`{done}`, `{coroutine}`) in `objects.ts`, so `G<T>` is
+`Generator<Request, T, Answer>` and every `yield` and resumption is
+checked; `TaskObject.awaiters` as the scheduler's `Context[]`;
+`HostObject` with `patternMatch`, `setMember`, `operate`, `hasOperator`
+and the `bigInt`/`bigRat` views the two number modules read of each
+other (BigRat's generator method `bigInt` became `asBigInt` to free the
+name); `Extension.body` answering `Value | undefined | G<Value |
+undefined>`; `Builtin` as `(args) => Value | G<Value>` with
+`callBuiltin` and a new `callMember` running either; the host hooks as
+a `Hooks` interface (`readLine`, `openFile`, `fetch`, each with its
+signature) behind a `HookTable` whose `set` and `get` are typed by name,
+and `HostFile` beside it in `interpreter.ts`; `SwiftalkError.fromHost`
+a declared field; the `Builtins` and `DoubleMath` tables assembled as
+one literal each at the end of `builtins.ts` instead of asserted empty
+and filled in. Two tables moved to named module constants
+(`radixOfLetter`, `prefixOfRadix`, `digitsOfRadix`) — which the bundler,
+one scope for all modules, caught colliding across files; the DoubleMath
+maps are `mathUnary` and kin for the same reason. The corpus stands:
+3,025 fixtures, 18/18, the bundle 444 KB.
 
 ## 15. Modules — DECIDED (round 100)
 

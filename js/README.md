@@ -19,16 +19,20 @@ npm run build       # tsc, then dist/swiftalk.js (one file), dist/notebook.html 
 
 **TypeScript and the package** (round 255): the sources are `src/**/*.ts`,
 `test/*.ts`, and `repl.ts`; `tsc` (`tsconfig.json`: ES2022, Node's module
-resolution, `strict` with implicit `any` still allowed) emits `lib/` with
+resolution, plain `strict` — no `any`, no cast, no `!` in the sources since
+round 256) emits `lib/` with
 declarations beside every file, and nothing runs from `src/` directly —
 the tests, the REPL, the bundler and the notebook all read `lib/`.
 `package.json` is laid out for `npm publish` (not yet published): `main`
 and `types` point at `lib/src/index.js` and its `.d.ts`, `exports` adds
 `swiftalk/node` for the Node host, `bin` gives `swiftalk-js` (the REPL),
 `files` ships `lib/src` and the REPL only, and `prepublishOnly` builds.
-The types worth knowing: `Value` (the value model as a union), `Token`,
-`Expr`/`Stmt`/`Pattern` (the AST), `Role`, `HostObject` (what a module's
-value implements), `Builtin`, `Hook`, `Extension`.
+The types worth knowing: `Value` (the value model as a union) and its
+guards `isArray`, `isString`, `isFunction`… (one per kind, narrowing as
+`kindOf` cannot), `Token`, `Expr`/`Stmt`/`Pattern` (the AST), `Role`,
+`HostObject` (what a module's value implements), `Builtin`, `Request`
+and `Answer` (the scheduler's protocol behind `G<T>`), `Hooks` and
+`HookTable` (what a host lends, by name), `Extension`.
 
 **The notebook**: `notebook.html` is a page of swiftalk cells — Shift-Enter
 runs a cell and moves on, Cmd/Ctrl-Enter runs in place, Alt-Enter runs

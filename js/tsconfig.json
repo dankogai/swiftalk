@@ -7,8 +7,6 @@
     "outDir": "lib",
     "declaration": true,
     "strict": true,
-    "noImplicitAny": false,
-    "useUnknownInCatchVariables": false,
     "skipLibCheck": true,
     "types": ["node"],
     "lib": ["ES2022"],

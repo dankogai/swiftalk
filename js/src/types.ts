@@ -2,9 +2,9 @@
 // stamp, admits, knownElementLock, typeValue, annotationOfType.
 import { SwiftalkError } from './errors.js';
 import { TypeAnnotation } from './parser.js';
-import { kindOf, typeName, SArray, SDictionary, SSet, keyOf, sourceString } from './value.js';
-import { FunctionObject } from './objects.js';
-import type { Builtin, EnumType } from './objects.js';
+import { kindOf, typeName, SArray, SDictionary, SSet, keyOf, sourceString, must, isArray, isDictionary, isSet, isFunction, isRange, isString, isData, isSequence, isContainer } from './value.js';
+import { FunctionObject, isGenerator } from './objects.js';
+import type { Builtin, EnumType, G } from './objects.js';
 import { hooks } from './env.js';
 import type { Environment } from './env.js';
 import { Builtins } from './builtins.js';
@@ -15,18 +15,18 @@ export const knownTypeNames = new Set(['Context', 'Nil', 'Bool', 'Int', 'Double'
 export const ann = (name: string, optional = false, parameters: TypeAnnotation[] = []): TypeAnnotation => new TypeAnnotation(name, optional, parameters);
 
 export function isSION(v: Value): boolean {
+  if (isArray(v)) return v.items.every(isSION);
+  if (isDictionary(v)) return v.entries().every(([k, x]) => isSION(k) && isSION(x));
   switch (kindOf(v)) {
     case 'nil': case 'bool': case 'int': case 'double': case 'string': case 'data': case 'date': return true;
-    case 'array': return (v as SArray).items.every(isSION);
-    case 'dictionary': return (v as SDictionary).entries().every(([k, x]) => isSION(k) && isSION(x));
     default: return false;
   }
 }
 export function typeMatches(value: Value, lockName: string): boolean { return typeName(value) === lockName; }
 
 export function isUserType(name: string, env: Environment): boolean {
-  const v = env.tryLookup(name) as FunctionObject | undefined;
-  if (!v || kindOf(v) !== 'function') return false;
+  const v = env.tryLookup(name);
+  if (!isFunction(v)) return false;
   switch (v.role.k) {
     case 'enumType': case 'structType': return true;
     case 'type': return v.builtin !== null && !Builtins.types.has(v.role.name);
@@ -36,8 +36,8 @@ export function isUserType(name: string, env: Environment): boolean {
 export function resolveTypeNames(annotation: TypeAnnotation, env: Environment): TypeAnnotation {
   let name = annotation.name;
   if (!knownTypeNames.has(name)) {
-    const f = env.tryLookup(name) as FunctionObject | undefined;
-    if (f && kindOf(f) === 'function') {
+    const f = env.tryLookup(name);
+    if (isFunction(f)) {
       if (f.annotation) return new TypeAnnotation(f.annotation.name, annotation.optional || f.annotation.optional, f.annotation.parameters);
       switch (f.role.k) {
         case 'type': name = f.role.name; break;
@@ -54,14 +54,13 @@ export function annotationIsKnown(annotation: TypeAnnotation, env: Environment):
 }
 export function resolveEnumAnnotation(annotation: TypeAnnotation, env: Environment): EnumType | null {
   if (knownTypeNames.has(annotation.name)) return null;
-  const v = env.tryLookup(annotation.name) as FunctionObject | undefined;
-  if (v && kindOf(v) === 'function' && v.role.k === 'enumType') return v.role.type;
+  const v = env.tryLookup(annotation.name);
+  if (isFunction(v) && v.role.k === 'enumType') return v.role.type;
   return null;
 }
 
 export function containerStamp(v: Value): Lock {
-  const k = kindOf(v);
-  return k === 'array' || k === 'dictionary' || k === 'set' ? (v as SArray | SDictionary | SSet).lock : null;
+  return isContainer(v) ? v.lock : null;
 }
 export function isSIONType(t: TypeAnnotation): boolean {
   switch (t.name) {
@@ -82,18 +81,17 @@ export function admits(lock: TypeAnnotation, other: TypeAnnotation): boolean {
 export function stamp(value: Value, lock: Lock): Value {
   if (!lock || lock.parameters.length === 0) return value;
   const own = new TypeAnnotation(lock.name, false, lock.parameters);
-  const k = kindOf(value);
-  if (k === 'array' && lock.name === 'Array') {
-    const e = lock.parameters[0], a = value as SArray;
-    return new SArray(e.parameters.length ? a.items.map((x) => stamp(x, e)) : a.items, own);
+  if (isArray(value) && lock.name === 'Array') {
+    const e = lock.parameters[0];
+    return new SArray(e.parameters.length ? value.items.map((x) => stamp(x, e)) : value.items, own);
   }
-  if (k === 'set' && lock.name === 'Set') {
-    const e = lock.parameters[0], st = value as SSet;
-    return new SSet(e.parameters.length ? st.values().map((x) => stamp(x, e)) : st.values(), own);
+  if (isSet(value) && lock.name === 'Set') {
+    const e = lock.parameters[0];
+    return new SSet(e.parameters.length ? value.values().map((x) => stamp(x, e)) : value.values(), own);
   }
-  if (k === 'dictionary' && lock.name === 'Dictionary' && lock.parameters.length === 2) {
-    const v = lock.parameters[1], d = value as SDictionary;
-    return new SDictionary(d.entries().map(([key, x]): [Value, Value] => [key, v.parameters.length ? stamp(x, v) : x]), own);
+  if (isDictionary(value) && lock.name === 'Dictionary' && lock.parameters.length === 2) {
+    const v = lock.parameters[1];
+    return new SDictionary(value.entries().map(([key, x]): [Value, Value] => [key, v.parameters.length ? stamp(x, v) : x]), own);
   }
   return value;
 }
@@ -112,15 +110,14 @@ export function checkValue(value: Value, lock: TypeAnnotation, context: string):
     const s = containerStamp(value);
     if (s && !admits(lock, s)) throw SwiftalkError.type(`cannot assign ${s.display} to ${context} of type ${lock.display}`);
   }
-  const k = kindOf(value);
-  if (lock.name === 'Array' && lock.parameters.length === 1 && k === 'array') {
-    (value as SArray).items.forEach((e, i) => checkValue(e, lock.parameters[0], `${context}[${i}]`));
+  if (lock.name === 'Array' && lock.parameters.length === 1 && isArray(value)) {
+    value.items.forEach((e, i) => checkValue(e, lock.parameters[0], `${context}[${i}]`));
   }
-  if (lock.name === 'Set' && lock.parameters.length === 1 && k === 'set') {
-    for (const e of (value as SSet).values()) checkValue(e, lock.parameters[0], `an element of ${context}`);
+  if (lock.name === 'Set' && lock.parameters.length === 1 && isSet(value)) {
+    for (const e of value.values()) checkValue(e, lock.parameters[0], `an element of ${context}`);
   }
-  if (lock.name === 'Dictionary' && lock.parameters.length === 2 && k === 'dictionary') {
-    for (const [key, val] of (value as SDictionary).entries()) {
+  if (lock.name === 'Dictionary' && lock.parameters.length === 2 && isDictionary(value)) {
+    for (const [key, val] of value.entries()) {
       checkValue(key, lock.parameters[0], `a key of ${context}`);
       if (val !== null) checkValue(val, lock.parameters[1], `${context}[${sourceString(key)}]`);
     }
@@ -130,25 +127,22 @@ hooks.stamp = stamp;
 hooks.checkValue = (v, lock, what) => { if (lock) checkValue(v, lock, what); };
 
 export function knownElementLock(v: Value): Lock {
-  const x = v as any;
-  switch (kindOf(v)) {
-    case 'range': return ann('Int');
-    case 'string': return ann('String');
-    case 'data': return ann('Byte');
-    case 'array': case 'set': return x.lock ? (x.lock.parameters[0] ?? null) : null;
-    case 'dictionary': return ann('Tuple');
-    case 'sequence': {
-      const s = x.k;
-      switch (s.kind) {
-        case 'counting': return ann('Int');
-        case 'filtered': case 'takenWhile': case 'droppedWhile': case 'dropped': return knownElementLock(s.base);
-        case 'enumerated': return ann('Tuple');
-        case 'native': return s.element ?? null;
-        default: return null;
-      }
+  if (isRange(v)) return ann('Int');
+  if (isString(v)) return ann('String');
+  if (isData(v)) return ann('Byte');
+  if (isArray(v) || isSet(v)) return v.lock ? (v.lock.parameters[0] ?? null) : null;
+  if (isDictionary(v)) return ann('Tuple');
+  if (isSequence(v)) {
+    const s = v.k;
+    switch (s.kind) {
+      case 'counting': return ann('Int');
+      case 'filtered': case 'takenWhile': case 'droppedWhile': case 'dropped': return knownElementLock(s.base);
+      case 'enumerated': return ann('Tuple');
+      case 'native': return s.element ?? null;
+      default: return null;
     }
-    default: return null;
   }
+  return null;
 }
 export function stampedArray(elements: Value[], receiver: Value): SArray {
   const inferred = tryInfer(new SArray(elements), 'Array', false);
@@ -162,13 +156,12 @@ export function tryInfer(value: Value, name: string, defaulting: boolean): TypeA
 }
 
 export function annotationOfType(value: Value): TypeAnnotation | null {
-  if (kindOf(value) !== 'function') return null;
-  const f = value as FunctionObject;
-  if (f.annotation) return f.annotation;
-  switch (f.role.k) {
-    case 'type': return ann(f.role.name);
-    case 'protocol': return f.role.name === 'Sequence' ? ann('Sequence') : null;
-    case 'enumType': case 'structType': return ann(f.role.type.name);
+  if (!isFunction(value)) return null;
+  if (value.annotation) return value.annotation;
+  switch (value.role.k) {
+    case 'type': return ann(value.role.name);
+    case 'protocol': return value.role.name === 'Sequence' ? ann('Sequence') : null;
+    case 'enumType': case 'structType': return ann(value.role.type.name);
     default: return null;
   }
 }
@@ -179,16 +172,15 @@ export function typeValue(annotation: TypeAnnotation): FunctionObject | null {
   if (annotation.parameters.length === 0 && !annotation.optional) return base;
   const own = annotation;
   return new FunctionObject([], [], base.closure, function* (args: Value[]) {
-    const built = yield* callBuiltin(base.builtin!, args);
+    const built = yield* callBuiltin(must(base.builtin, `${annotation.name}'s constructor`), args);
     checkValue(built, own, `${own.display}()`);
     return stamp(built, own);
   }, { k: 'type', name: annotation.name }, own);
 }
 /// A builtin body may be plain or a generator; this runs either.
-export function* callBuiltin(builtin: Builtin, args: Value[], ...rest: any[]): Generator<any, Value, any> {
-  const r: any = (builtin as any)(args, ...rest);
-  if (r && typeof r.next === 'function' && typeof r[Symbol.iterator] === 'function') return yield* r;
-  return r as Value;
+export function* callBuiltin(builtin: Builtin, args: Value[]): G<Value> {
+  const r = builtin(args);
+  return isGenerator(r) ? yield* r : r;
 }
 export function optionalType(f: FunctionObject, env: Environment): FunctionObject | null {
   const base = annotationOfType(f);
@@ -204,8 +196,8 @@ export function typeValueForParameter(annotation: TypeAnnotation, env: Environme
   let plain: FunctionObject | undefined = Builtins.protocols.get(annotation.name);
   if (!plain) {
     const t = env.tryLookup(annotation.name);
-    if (!t || kindOf(t) !== 'function' || !annotationOfType(t)) throw SwiftalkError.type(`no type named ${annotation.display} is in scope`);
-    plain = t as FunctionObject;
+    if (!isFunction(t) || !annotationOfType(t)) throw SwiftalkError.type(`no type named ${annotation.display} is in scope`);
+    plain = t;
   }
   return annotation.optional ? optionalType(plain, env) : plain;
 }
@@ -232,14 +224,12 @@ function defaulted(t: TypeAnnotation): TypeAnnotation {
 }
 export function inferLock(value: Value, name: string, defaulting = true): TypeAnnotation {
   const sion = ann('SION');
-  const x = value as any;
-  switch (kindOf(value)) {
-    case 'nil': return ann('Any', true);
-    case 'array': {
-      if (x.lock) return x.lock;
-      if (x.items.length === 0) return ann('Array', false, defaulting ? [sion] : []);
+  if (value === null) return ann('Any', true);
+  if (isArray(value)) {
+      if (value.lock) return value.lock;
+      if (value.items.length === 0) return ann('Array', false, defaulting ? [sion] : []);
       let element: TypeAnnotation | null = null, sawNil = false;
-      for (const v of x.items as Value[]) {
+      for (const v of value.items) {
         if (v === null) { sawNil = true; continue; }
         const t = inferLock(v, name, false);
         if (element) {
@@ -252,18 +242,18 @@ export function inferLock(value: Value, name: string, defaulting = true): TypeAn
       if (defaulting) element = defaulted(element);
       const elementLock = sawNil ? new TypeAnnotation(element.name, true, element.parameters) : element;
       return ann('Array', false, [elementLock]);
-    }
-    case 'set': {
-      if (x.lock) return x.lock;
-      if (x.size === 0) return ann('Set', false, defaulting ? [sion] : []);
-      const elements = inferLock(new SArray(x.values()), name, defaulting);
+  }
+  if (isSet(value)) {
+      if (value.lock) return value.lock;
+      if (value.size === 0) return ann('Set', false, defaulting ? [sion] : []);
+      const elements = inferLock(new SArray(value.values()), name, defaulting);
       return ann('Set', false, elements.parameters);
-    }
-    case 'dictionary': {
-      if (x.lock) return x.lock;
-      if (x.size === 0) return ann('Dictionary', false, defaulting ? [sion, sion] : []);
+  }
+  if (isDictionary(value)) {
+      if (value.lock) return value.lock;
+      if (value.size === 0) return ann('Dictionary', false, defaulting ? [sion, sion] : []);
       let key: TypeAnnotation | null = null, val: TypeAnnotation | null = null, sawNilKey = false;
-      for (const [k, v] of x.entries() as [Value, Value][]) {
+      for (const [k, v] of value.entries()) {
         if (k === null) sawNilKey = true;
         else {
           const kt = inferLock(k, name, false);
@@ -286,8 +276,7 @@ export function inferLock(value: Value, name: string, defaulting = true): TypeAn
       if (sawNilKey && key) keyLock = new TypeAnnotation(key.name, true, key.parameters);
       const valLock = val ?? ann('Any', true);
       return ann('Dictionary', false, [keyLock, valLock]);
-    }
-    default: return ann(typeName(value));
   }
+  return ann(typeName(value));
 }
 export { keyOf };

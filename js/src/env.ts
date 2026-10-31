@@ -1,5 +1,6 @@
 // Bindings and lexical scopes — Eval.swift's Binding and Environment.
 import { SwiftalkError } from './errors.js';
+import { isFunction } from './value.js';
 import type { Value, Lock } from './value.js';
 
 export class Binding {
@@ -60,7 +61,7 @@ export class Environment {
     }
     if (!binding.mutable) {
       const v = binding.value;
-      if (!(v && (v as any).kind === 'function' && (v as any).role.k === 'todo')) throw SwiftalkError.type(`cannot assign to let constant '${name}'`);
+      if (!(isFunction(v) && v.role.k === 'todo')) throw SwiftalkError.type(`cannot assign to let constant '${name}'`);
     }
     hooks.checkValue(value, binding.lock, `'${name}'`);
     binding.value = hooks.stamp(value, binding.lock);

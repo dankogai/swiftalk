@@ -8,14 +8,16 @@ import { readFileSync } from 'node:fs';
 import { Interpreter } from '../src/interpreter.js';
 import { withPrelude } from '../src/prelude.js';
 import { SwiftalkError } from '../src/errors.js';
-import { equals, sourceString, SArray } from '../src/value.js';
+import { equals, sourceString, isArray, isInt } from '../src/value.js';
 import type { Value } from '../src/value.js';
+import { offload } from '../src/eval.js';
+import type { G } from '../src/objects.js';
 import { valueOf } from './fixture-values.js';
 import type { Fixture } from './fixture-values.js';
 
 // the extractor writes beside the test sources; this file runs compiled, from lib/test/
 const fixtures: Fixture[] = JSON.parse(readFileSync(new URL('../../test/fixtures.json', import.meta.url), 'utf8'));
-const items = (v: Value): Value[] => (v as SArray).items;
+const items = (v: Value): Value[] => { if (!isArray(v)) throw new Error(`expected an Array, got ${sourceString(v)}`); return v.items; };
 
 const same = (a: Value, b: Value): boolean => {
   if (typeof a === 'number' && typeof b === 'number' && Number.isNaN(a) && Number.isNaN(b)) return true;
@@ -58,12 +60,13 @@ test('the fixtures evaluate as the Swift core does', async () => {
       const got = await interp.evalAsync(f.source);
       if (f.throws) outcome = `expected an error, got ${sourceString(got)}`;
       else {
+        if (!f.expect) throw new Error(`${f.file}: a value fixture without a value`);
         const want = valueOf(f.expect);
         if (!same(got, want)) outcome = `expected ${sourceString(want)}, got ${sourceString(got)}`;
       }
-    } catch (e: any) {
+    } catch (e) {
       if (f.throws && e instanceof SwiftalkError) { /* as expected */ }
-      else outcome = e instanceof SwiftalkError ? `threw ${e.description}` : `crashed: ${e && e.stack ? e.stack.split('\n').slice(0, 3).join(' | ') : e}`;
+      else outcome = e instanceof SwiftalkError ? `threw ${e.description}` : `crashed: ${e instanceof Error && e.stack ? e.stack.split('\n').slice(0, 3).join(' | ') : String(e)}`;
     }
     if (known) {
       if (outcome) { diverged++; unhealed.add(f.source); }
@@ -87,7 +90,7 @@ test('the synchronous driver runs the same programs, time not passing', () => {
   // sleepers wake in deadline order, at once
   assert.deepEqual(items(i.eval('var log = []\nlet t1 = async { log.append(1); Task.sleep(0.03); log.append(3) }\nlet t2 = async { log.append(2); Task.sleep(0.01); log.append(4) }\nTask.sleep(0.05)\nlog')), [1n, 2n, 4n, 3n]);
   assert.equal(i.eval('let t = async { Task.sleep(60.0); 1 }\n42'), 42n);
-  assert.throws(() => i.eval('var u = async { Task.sleep(0.01); await u }\nawait u'), (e: any) => /deadlock/.test(e.description));
+  assert.throws(() => i.eval('var u = async { Task.sleep(0.01); await u }\nawait u'), (e: unknown) => e instanceof SwiftalkError && /deadlock/.test(e.description));
 });
 
 test('the asynchronous driver waits on real timers', async () => {
@@ -99,7 +102,11 @@ test('the asynchronous driver waits on real timers', async () => {
   await i.evalAsync('let t = async { Task.sleep(0.01); 42 }');
   assert.equal(await i.evalAsync('await t'), 42n);
   // a host Promise through offload
-  i.declareBuiltin('later', (() => new Promise((r) => setTimeout(() => r(7n), 5))) as any);
+  i.declareBuiltin('later', function* (): G<Value> {
+    const v = yield* offload(new Promise((r) => setTimeout(() => r(7n), 5)));
+    if (typeof v !== 'bigint') throw new Error('the host promised an Int');
+    return v;
+  });
   assert.equal(await i.evalAsync('later()'), 7n);
 });
 
@@ -111,14 +118,14 @@ test('a source module loads through the host loader, once, and binds a namespace
   assert.equal(await i.evalAsync('import (twice) from "./lib/m.swt"\ntwice(21)'), 42n);
   assert.equal(await i.evalAsync('import M from "./lib/m.swt"\nM.name + M.twice(1).String()'), 'm2');
   assert.equal(reads, 1);
-  await assert.rejects(i.evalAsync('import from "./lib/none.swt"'), (e: any) => e instanceof SwiftalkError);
+  await assert.rejects(i.evalAsync('import from "./lib/none.swt"'), (e: unknown) => e instanceof SwiftalkError);
 });
 
 test('an Interpreter keeps its globals between evals', () => {
   const i = new Interpreter();
   i.eval('let x = 40');
   assert.equal(i.eval('x + 2'), 42n);
-  assert.throws(() => i.eval('let x = 1'), (e: any) => e instanceof SwiftalkError);
+  assert.throws(() => i.eval('let x = 1'), (e: unknown) => e instanceof SwiftalkError);
 });
 
 test('output goes where the host says', () => {

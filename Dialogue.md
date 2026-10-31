@@ -4104,3 +4104,33 @@ the history. (Moved out of Design.md in round 65.)
   check: 3,025 fixtures, 18/18, the bundle 445 KB from 24 modules.
   Design §16's paragraph, a Status block, the JS README's table in `.ts`,
   the root README's REPL line, BigInt.md and BigRat.md's module paths.
+
+* **2026-11-01, round 256 — guards, not casts** ("Turn on noImplicitAny
+  and replace the casts with guards"). `noImplicitAny` flagged four
+  parameters; the casts were the work. `value.ts` gained a type guard
+  per kind — `isArray`, `isDictionary`, `isSet`, `isByte`, `isData`,
+  `isDate`, `isRange`, `isTuple`, `isFunction`, `isSequence`, `isTask`,
+  `isEnumCase`, `isStructValue`, `isHost` and the primitives' — and
+  `must(x, what)` for a lookup that cannot miss; `objects.ts` gained
+  `isGenerator`, `isPromise`, `isRunResult`. Every `switch (kindOf(v))`
+  that cast beside it became an `if` chain of guards, in the value
+  model, the type machinery, the constructors, the iterators and
+  subscripts, the operators, the formats and the member switch; the
+  scheduler's `Request` and `Answer` are typed so `G<T>` checks every
+  `yield`; `TaskObject.awaiters`, `HostObject`'s optional members and
+  the number modules' `bigInt`/`bigRat` views, `Extension.body`,
+  `Builtin` and a new `callMember` are typed; the host hooks are a
+  `Hooks` interface behind a `HookTable` typed by name, with `HostFile`
+  beside it; `fromHost` is a declared field of `SwiftalkError`; the
+  `Builtins` and `DoubleMath` tables are assembled once, not asserted
+  empty and filled. The last non-null `!`s went too: the scheduler
+  reads `current.task` into a local whose null means the main context,
+  and the deadlock branch names the awaited task. The tests lost their
+  casts as well (the fixture JSON is a typed union, errors are checked
+  with `instanceof`, the host-Promise test runs through a real
+  `offload`), and `useUnknownInCatchVariables` is on. The bundler, one
+  scope for all modules, caught two name collisions the renames
+  introduced — `binary` and `prefixOfRadix` — now `mathBinary` and
+  `bigintPrefixOfRadix`. `tsc` clean; 3,025 fixtures, 18/18; the bundle
+  444 KB from 24 modules; the REPL answers a deadlock and recovers.
+  Design §16's paragraph, a Status block, the JS README.

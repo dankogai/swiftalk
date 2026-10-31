@@ -3,9 +3,10 @@
 import { SwiftalkError } from './errors.js';
 import { TypeAnnotation } from './parser.js';
 import { kindOf, typeName, V, SArray, SDictionary, SSet, Byte, SData, SDate, SRange, TupleValue,
-  base64Decode, INT64_MAX, INT64_MIN, fits64, sourceString, hexFloat, formatDouble } from './value.js';
+  base64Decode, INT64_MAX, INT64_MIN, fits64, sourceString, hexFloat, formatDouble,
+  isBool, isInt, isDouble, isString, isByte, isArray, isDictionary, isSet, isData, isDate, isRange, isFunction, isTuple } from './value.js';
 import { FunctionObject, EnumType, EnumCaseValue, SequenceObject } from './objects.js';
-import type { Builtin } from './objects.js';
+import type { Builtin, G } from './objects.js';
 import { Environment } from './env.js';
 import { inferLock, knownElementLock, tryInfer, ann, isSION } from './types.js';
 import { collect, isSequenceValue, displayString, spawnTask, userOperator } from './eval.js';
@@ -23,25 +24,24 @@ export interface BuiltinsTable {
   protocols: Map<string, FunctionObject>;
   conformance: Map<string, Set<string>>;
 }
-export const Builtins = {} as BuiltinsTable;
-Builtins.emptyEnvironment = new Environment();
+/// The scope builtin Functions close over: empty, below every program's.
+const builtinScope = new Environment();
 
 const resultType = new EnumType('Result', ['success', 'failure'],
   new Map([['success', [{ label: null, typeName: null }]], ['failure', [{ label: null, typeName: null }]]]));
-resultType.constructor_ = new FunctionObject([], [], Builtins.emptyEnvironment,
+resultType.constructor_ = new FunctionObject([], [], builtinScope,
   () => { throw SwiftalkError.type('construct a Result via Result.success(v) or Result.failure(e)'); }, { k: 'enumType', type: resultType });
-Builtins.resultType = resultType;
-Builtins.todo = new FunctionObject([], [], Builtins.emptyEnvironment,
+const todoFunction = new FunctionObject([], [], builtinScope,
   () => { throw SwiftalkError.type('this Function is .todo — assign an implementation before calling it'); }, { k: 'todo' });
 export const success = (v: Value): EnumCaseValue => new EnumCaseValue(resultType, 'success', [v]);
 export const failure = (m: Value): EnumCaseValue => new EnumCaseValue(resultType, 'failure', [m]);
 export const isResult = (v: Value): v is EnumCaseValue => v instanceof EnumCaseValue && v.type === resultType;
 
-const type = (name: string, construct: Builtin): FunctionObject => new FunctionObject([], [], Builtins.emptyEnvironment, construct, { k: 'type', name });
-const protocolObject = (name: string): FunctionObject => new FunctionObject([], [], Builtins.emptyEnvironment,
+const type = (name: string, construct: Builtin): FunctionObject => new FunctionObject([], [], builtinScope, construct, { k: 'type', name });
+const protocolObject = (name: string): FunctionObject => new FunctionObject([], [], builtinScope,
   () => { throw SwiftalkError.type(`${name} is a protocol, not a constructor`); }, { k: 'protocol', name });
 
-Builtins.stampedSet = (elements, source) => {
+const stampedSetOf = (elements: SSet | Value[], source: Value | null): SSet => {
   const set = elements instanceof SSet ? elements : new SSet(elements);
   const inferred = tryInfer(set, 'Set', false);
   if (inferred && inferred.parameters.length) return new SSet(set.values(), inferred);
@@ -52,6 +52,7 @@ Builtins.stampedSet = (elements, source) => {
   return set;
 };
 
+const radixPrefixes: Record<number, string> = { 10: '', 16: '0x', 8: '0o', 2: '0b' };
 /// Int-from-String, accepting everything the lexer does.
 export function parseIntText(input: string): bigint | null {
   let s = input.replace(/_/g, '');
@@ -62,7 +63,7 @@ export function parseIntText(input: string): bigint | null {
   else if (s.startsWith('0o')) { radix = 8; s = s.slice(2); digits = /^[0-7]+$/; }
   else if (s.startsWith('0b')) { radix = 2; s = s.slice(2); digits = /^[01]+$/; }
   if (!s.length || !digits.test(s)) return null;
-  const prefix = ({ 10: '', 16: '0x', 8: '0o', 2: '0b' } as Record<number, string>)[radix];
+  const prefix = radixPrefixes[radix];
   const magnitude = BigInt(prefix + s);
   if (negative) {
     if (magnitude > (1n << 63n)) return null;
@@ -71,7 +72,6 @@ export function parseIntText(input: string): bigint | null {
   if (magnitude > INT64_MAX) return null;
   return magnitude;
 }
-Builtins.parseInt = parseIntText;
 
 /// Swift's Double(String): decimal, hex floats, inf/nan spellings; nil otherwise.
 export function parseDoubleText(s: string): number | null {
@@ -98,7 +98,7 @@ export function parseDoubleText(s: string): number | null {
 
 const toByte = (n: bigint): Byte | null => (n >= 0n && n <= 255n ? new Byte(Number(n)) : null);
 
-Builtins.types = new Map<string, FunctionObject>([
+const builtinTypes = new Map<string, FunctionObject>([
   // Round 237: a Context is made where it is called — the evaluator builds it from the call's scope
   ['Context', type('Context', (): Value => { throw SwiftalkError.type('Context() is made where it is called, with no arguments — it copies the top level there'); })],
   ['Nil', type('Nil', (args: Value[]) => {
@@ -106,82 +106,69 @@ Builtins.types = new Map<string, FunctionObject>([
     throw SwiftalkError.type(`cannot convert ${typeName(args[0])} to Nil`);
   })],
   ['Bool', type('Bool', (args: Value[]) => {
-    const v = args[0] as any;
     if (args.length === 0) return false;
-    switch (kindOf(v)) {
-      case 'bool': return v;
-      case 'string': return v === 'true' ? true : v === 'false' ? false : null;
-      // Bool(i) as `i != 0` was round 105's; removed in round 204 — `i != 0` says it
-      default: throw SwiftalkError.type(`cannot convert ${typeName(v)} to Bool` + (kindOf(v) === 'int' ? ' — write i != 0' : ''));
-    }
+    const v = args[0];
+    if (isBool(v)) return v;
+    if (isString(v)) return v === 'true' ? true : v === 'false' ? false : null;
+    // Bool(i) as `i != 0` was round 105's; removed in round 204 — `i != 0` says it
+    throw SwiftalkError.type(`cannot convert ${typeName(v)} to Bool` + (isInt(v) ? ' — write i != 0' : ''));
   })],
   ['Byte', type('Byte', (args: Value[]) => {
-    const v = args[0] as any;
     if (args.length === 0) return new Byte(0);
-    switch (kindOf(v)) {
-      case 'byte': return v;
-      case 'int': return toByte(v);
-      case 'double': { const t = Math.trunc(v); return Number.isFinite(t) && t >= 0 && t <= 255 && t === v ? new Byte(t) : (Number.isFinite(t) && t >= 0 && t <= 255 ? new Byte(t) : null); }
-      case 'string': { const i = parseIntText(v); return i === null ? null : toByte(i); }
-      default: throw SwiftalkError.type(`cannot convert ${typeName(v)} to Byte`);
-    }
+    const v = args[0];
+    if (isByte(v)) return v;
+    if (isInt(v)) return toByte(v);
+    if (isDouble(v)) { const t = Math.trunc(v); return Number.isFinite(t) && t >= 0 && t <= 255 ? new Byte(t) : null; }
+    if (isString(v)) { const i = parseIntText(v); return i === null ? null : toByte(i); }
+    throw SwiftalkError.type(`cannot convert ${typeName(v)} to Byte`);
   })],
   ['Int', type('Int', (args: Value[]) => {
-    const v = args[0] as any;
     if (args.length === 0) return 0n;
-    switch (kindOf(v)) {
-      case 'int': return v;
-      case 'byte': return BigInt(v.v);
-      case 'double': {
-        if (!Number.isFinite(v)) return null;
-        const t = Math.trunc(v);
-        const b = BigInt(t);
-        return fits64(b) ? b : null;
-      }
-      case 'string': return parseIntText(v);
-      default: throw SwiftalkError.type(`cannot convert ${typeName(v)} to Int`);
+    const v = args[0];
+    if (isInt(v)) return v;
+    if (isByte(v)) return BigInt(v.v);
+    if (isDouble(v)) {
+      if (!Number.isFinite(v)) return null;
+      const b = BigInt(Math.trunc(v));
+      return fits64(b) ? b : null;
     }
+    if (isString(v)) return parseIntText(v);
+    throw SwiftalkError.type(`cannot convert ${typeName(v)} to Int`);
   })],
   ['Double', type('Double', (args: Value[]) => {
-    const v = args[0] as any;
     if (args.length === 0) return 0;
-    switch (kindOf(v)) {
-      case 'double': return v;
-      case 'int': return Number(v);
-      case 'byte': return v.v;
-      case 'string': return parseDoubleText(v);
-      case 'date': return v.epoch;
-      default: throw SwiftalkError.type(`cannot convert ${typeName(v)} to Double`);
-    }
+    const v = args[0];
+    if (isDouble(v)) return v;
+    if (isInt(v)) return Number(v);
+    if (isByte(v)) return v.v;
+    if (isString(v)) return parseDoubleText(v);
+    if (isDate(v)) return v.epoch;
+    throw SwiftalkError.type(`cannot convert ${typeName(v)} to Double`);
   })],
   ['String', type('String', function* (args: Value[]) {
     if (args.length === 0) return '';
     return yield* displayString(args[0]);
   })],
   ['Optional', type('Optional', (args: Value[]) => (args.length ? args[0] : null))],
-  ['Array', type('Array', function* (args: Value[]) {
-    const v = args[0] as any;
+  ['Array', type('Array', function* (args: Value[]): G<Value> {
     if (args.length === 0) return new SArray([]);
-    switch (kindOf(v)) {
-      case 'array': return new SArray(v.items, v.lock);
-      case 'set': return new SArray(v.values(), v.lock ? ann('Array', false, v.lock.parameters) : null);
-      default: {
-        const out = yield* collect(v);
-        const inferred = tryInfer(new SArray(out), 'Array', false);
-        if (inferred && inferred.parameters.length) return new SArray(out, inferred);
-        if (out.length === 0) { const known = knownElementLock(v); if (known) return new SArray(out, ann('Array', false, [known])); }
-        return new SArray(out);
-      }
-    }
+    const v = args[0];
+    if (isArray(v)) return new SArray(v.items, v.lock);
+    if (isSet(v)) return new SArray(v.values(), v.lock ? ann('Array', false, v.lock.parameters) : null);
+    const out = yield* collect(v);
+    const inferred = tryInfer(new SArray(out), 'Array', false);
+    if (inferred && inferred.parameters.length) return new SArray(out, inferred);
+    if (out.length === 0) { const known = knownElementLock(v); if (known) return new SArray(out, ann('Array', false, [known])); }
+    return new SArray(out);
   })],
-  ['Dictionary', type('Dictionary', function* (args: Value[]) {
-    const v = args[0] as any;
+  ['Dictionary', type('Dictionary', function* (args: Value[]): G<Value> {
     if (args.length === 0) return new SDictionary([]);
-    if (kindOf(v) === 'dictionary') return new SDictionary(v.entries(), v.lock);
+    const v = args[0];
+    if (isDictionary(v)) return new SDictionary(v.entries(), v.lock);
     if (isSequenceValue(v)) {
       const d = new SDictionary([]);
-      for (const pair of (yield* collect(v)) as Value[]) {
-        if (!(pair instanceof TupleValue) || pair.count !== 2) throw SwiftalkError.type(`Dictionary(pairs) takes a Sequence of (key, value) tuples, not a ${typeName(pair)}`);
+      for (const pair of yield* collect(v)) {
+        if (!isTuple(pair) || pair.count !== 2) throw SwiftalkError.type(`Dictionary(pairs) takes a Sequence of (key, value) tuples, not a ${typeName(pair)}`);
         if (d.has(pair.values[0])) throw SwiftalkError.type(`Dictionary(pairs): duplicate key ${sourceString(pair.values[0])}`);
         d.set(pair.values[0], pair.values[1]);
       }
@@ -191,88 +178,85 @@ Builtins.types = new Map<string, FunctionObject>([
     }
     throw SwiftalkError.type(`cannot convert ${typeName(v)} to Dictionary`);
   })],
-  ['Set', type('Set', function* (args: Value[]) {
-    const v = args[0] as any;
+  ['Set', type('Set', function* (args: Value[]): G<Value> {
     if (args.length === 0) return new SSet([]);
-    if (kindOf(v) === 'set') return new SSet(v.values(), v.lock);
-    if (isSequenceValue(v)) return Builtins.stampedSet(new SSet(yield* collect(v)), v);
-    return Builtins.stampedSet(new SSet([v]), null);
+    const v = args[0];
+    if (isSet(v)) return new SSet(v.values(), v.lock);
+    if (isSequenceValue(v)) return stampedSetOf(new SSet(yield* collect(v)), v);
+    return stampedSetOf(new SSet([v]), null);
   })],
   ['Range', type('Range', (args: Value[]) => {
-    const v = args[0] as any;
     if (args.length === 0) throw SwiftalkError.type('construct a Range with its literal: a...b or a..<b');
-    if (kindOf(v) === 'range') return new SRange(v.from, v.to, v.closed);
+    const v = args[0];
+    if (isRange(v)) return new SRange(v.from, v.to, v.closed);
     throw SwiftalkError.type(`cannot convert ${typeName(v)} to Range`);
   })],
   ['Function', type('Function', (args: Value[]) => {
-    const v = args[0] as any;
     if (args.length === 0) throw SwiftalkError.type('there is no default Function');
-    if (kindOf(v) === 'function') return v;
+    const v = args[0];
+    if (isFunction(v)) return v;
     throw SwiftalkError.type(`cannot convert ${typeName(v)} to Function`);
   })],
   ['Data', type('Data', (args: Value[]) => {
-    const v = args[0] as any;
     if (args.length === 0) return new SData([]);
-    switch (kindOf(v)) {
-      case 'data': return v;
-      case 'string': { const b = base64Decode(v); return b === null || (v.replace(/\s/g, '').length % 4) !== 0 ? null : new SData(b); }
-      case 'array': {
-        const bytes: number[] = [];
-        for (const x of v.items as Value[]) {
-          if (x instanceof Byte) bytes.push(x.v);
-          else if (typeof x === 'bigint' && x >= 0n && x <= 255n) bytes.push(Number(x));
-          else return null;
-        }
-        return new SData(bytes);
+    const v = args[0];
+    if (isData(v)) return v;
+    if (isString(v)) { const b = base64Decode(v); return b === null || (v.replace(/\s/g, '').length % 4) !== 0 ? null : new SData(b); }
+    if (isArray(v)) {
+      const bytes: number[] = [];
+      for (const x of v.items) {
+        if (isByte(x)) bytes.push(x.v);
+        else if (isInt(x) && x >= 0n && x <= 255n) bytes.push(Number(x));
+        else return null;
       }
-      default: throw SwiftalkError.type(`cannot convert ${typeName(v)} to Data`);
+      return new SData(bytes);
     }
+    throw SwiftalkError.type(`cannot convert ${typeName(v)} to Data`);
   })],
-  ['Task', type('Task', function* (args: Value[]) {
-    if (args.length !== 1 || kindOf(args[0]) !== 'function') throw SwiftalkError.type('Task { ... } spawns a Function as a concurrent task');
-    const f = args[0] as FunctionObject;
+  ['Task', type('Task', function* (args: Value[]): G<Value> {
+    const f = args[0];
+    if (args.length !== 1 || !isFunction(f)) throw SwiftalkError.type('Task { ... } spawns a Function as a concurrent task');
     if (f.builtin) throw SwiftalkError.type('Task(f): cannot spawn a builtin Function');
     if (f.parameters.length) throw SwiftalkError.type('Task(f): a task body declares no parameters — nothing is passed in');
     return yield* spawnTask(f);
   })],
-  ['Tuple', type('Tuple', function* (args: Value[]) {
-    const v = args[0] as any;
+  ['Tuple', type('Tuple', function* (args: Value[]): G<Value> {
     if (args.length === 0) return new TupleValue([]);
-    if (v instanceof TupleValue) return v;
+    const v = args[0];
+    if (isTuple(v)) return v;
     return new TupleValue(yield* collect(v));
   })],
   ['SION', type('SION', (args: Value[]) => {
-    const v = args[0] as any;
     if (args.length === 0) throw SwiftalkError.type('SION(text) reads a SION document; SION(json:) and SION(propertyList:) the other formats');
-    if (kindOf(v) === 'string') return SIONFormat.parse(v);
+    const v = args[0];
+    if (isString(v)) return SIONFormat.parse(v);
     if (!isSION(v)) throw SwiftalkError.type(`a ${typeName(v)} is not SION`);
     return v;
   })],
   ['Date', type('Date', (args: Value[]) => {
-    const v = args[0] as any;
     if (args.length === 0) return new SDate(Date.now() / 1000);
-    switch (kindOf(v)) {
-      case 'date': return v;
-      case 'double': return new SDate(v);
-      case 'int': return new SDate(Number(v));
-      case 'string': { const e = CivilDate.epochFromISO8601(v); return e === null ? null : new SDate(e); }   // the parse (round 209)
-      default: throw SwiftalkError.type(`cannot convert ${typeName(v)} to Date`);
-    }
+    const v = args[0];
+    if (isDate(v)) return v;
+    if (isDouble(v)) return new SDate(v);
+    if (isInt(v)) return new SDate(Number(v));
+    if (isString(v)) { const e = CivilDate.epochFromISO8601(v); return e === null ? null : new SDate(e); }   // the parse (round 209)
+    throw SwiftalkError.type(`cannot convert ${typeName(v)} to Date`);
   })],
 ]);
 
-Builtins.protocols = new Map<string, FunctionObject>([
-  ['Sequence', new FunctionObject([], [], Builtins.emptyEnvironment, (args: Value[]) => {
-    if (args.length === 1 && kindOf(args[0]) === 'function') {
-      const f = args[0] as FunctionObject;
+const builtinProtocols = new Map<string, FunctionObject>([
+  ['Sequence', new FunctionObject([], [], builtinScope, (args: Value[]) => {
+    const f = args[0];
+    if (args.length === 1 && isFunction(f)) {
       if (f.builtin) throw SwiftalkError.type('Sequence(f): cannot wrap a builtin Function as a coroutine');
       if (f.parameters.length) throw SwiftalkError.type('Sequence(f): a coroutine body declares no parameters — nothing is passed in on resume');
       return new SequenceObject({ kind: 'coroutine', body: f });
     }
-    if (args.length !== 2 || kindOf(args[0]) !== 'array' || kindOf(args[1]) !== 'function') {
+    const [initial, next] = args;
+    if (args.length !== 2 || !isArray(initial) || !isFunction(next)) {
       throw SwiftalkError.type('Sequence(f) wraps a yielding Function; Sequence(initialState) { next } generates');
     }
-    return new SequenceObject({ kind: 'generator', initial: (args[0] as SArray).items, next: args[1] as FunctionObject });
+    return new SequenceObject({ kind: 'generator', initial: initial.items, next });
   }, { k: 'protocol', name: 'Sequence' })],
   ['Equatable', protocolObject('Equatable')],
   ['Hashable', protocolObject('Hashable')],
@@ -280,12 +264,14 @@ Builtins.protocols = new Map<string, FunctionObject>([
 ]);
 
 const allTypeNames = new Set(['Nil', 'Bool', 'Int', 'Double', 'String', 'Array', 'Dictionary', 'Set', 'Range', 'Function', 'Sequence', 'Data', 'Date', 'Task', 'Tuple', 'Byte']);
-Builtins.conformance = new Map<string, Set<string>>([
+const builtinConformance = new Map<string, Set<string>>([
   ['Sequence', new Set(['String', 'Array', 'Dictionary', 'Set', 'Range', 'Sequence', 'Tuple', 'Data'])],
   ['Equatable', allTypeNames],
   ['Hashable', allTypeNames],
   ['Comparable', new Set(['Int', 'Double', 'String', 'Date', 'Byte'])],
 ]);
+
+export const Builtins: BuiltinsTable = { emptyEnvironment: builtinScope, resultType, todo: todoFunction, stampedSet: stampedSetOf, parseInt: parseIntText, types: builtinTypes, protocols: builtinProtocols, conformance: builtinConformance };
 
 // ---- math ----
 const M = Math;
@@ -426,14 +412,13 @@ export interface DoubleMathTable {
   functions: Set<string>;
   member: (name: string, args: LabeledArg[], called: boolean) => Value | undefined;
 }
-export const DoubleMath = {
-  constants: new Map<string, number>(Object.entries({
+const mathConstants = new Map<string, number>(Object.entries({
     pi: Math.PI, tau: 2 * Math.PI, e: Math.E, ln2: Math.LN2, ln10: Math.LN10, log2e: Math.LOG2E, log10e: Math.LOG10E,
     sqrt2: Math.SQRT2, sqrtHalf: Math.SQRT1_2, infinity: Infinity, nan: NaN,
     greatestFiniteMagnitude: Number.MAX_VALUE, leastNormalMagnitude: 2.2250738585072014e-308, leastNonzeroMagnitude: Number.MIN_VALUE,
     ulpOfOne: Number.EPSILON, zero: 0, radix: 2, exponentBitCount: 11, significandBitCount: 52,
-  })),
-  unary: new Map<string, Unary>(Object.entries({
+}));
+const mathUnary = new Map<string, Unary>(Object.entries({
     abs: Math.abs, sqrt: Math.sqrt, cbrt: Math.cbrt, exp: Math.exp, exp2: (x: number) => Math.pow(2, x), expm1: Math.expm1,
     log: Math.log, log2: Math.log2, log10: Math.log10, log1p: Math.log1p, logb,
     sin: Math.sin, cos: Math.cos, tan: Math.tan, asin: Math.asin, acos: Math.acos, atan: Math.atan,
@@ -441,37 +426,34 @@ export const DoubleMath = {
     floor: Math.floor, ceil: Math.ceil, trunc: Math.trunc, round: cRound, rint: roundEven, nearbyint: roundEven,
     sign: (x: number) => (Number.isNaN(x) ? NaN : x > 0 ? 1 : x < 0 ? -1 : x),
     erf, erfc, tgamma, gamma: tgamma, lgamma, j0, j1, y0, y1, fround: Math.fround,
-  })),
-  binary: new Map<string, Binary>(Object.entries({
+}));
+const mathBinary = new Map<string, Binary>(Object.entries({
     pow: Math.pow, atan2: Math.atan2, fmod: (a: number, b: number) => a % b, remainder,
     fdim: (a: number, b: number) => (a > b ? a - b : 0), fmax: (a: number, b: number) => (Number.isNaN(a) ? b : Number.isNaN(b) ? a : Math.max(a, b)),
     fmin: (a: number, b: number) => (Number.isNaN(a) ? b : Number.isNaN(b) ? a : Math.min(a, b)),
     copysign: (a: number, b: number) => (Math.sign(b) < 0 || Object.is(b, -0) || (b !== b && Object.is(b, -0)) ? -Math.abs(a) : Math.abs(a)), nextafter,
-  })),
-  predicates: new Map<string, Predicate>(Object.entries({
+}));
+const mathPredicates = new Map<string, Predicate>(Object.entries({
     isNaN: Number.isNaN, isFinite: Number.isFinite, isInfinite: (x: number) => x === Infinity || x === -Infinity,
     isZero: (x: number) => x === 0, isNormal: (x: number) => Number.isFinite(x) && x !== 0 && Math.abs(x) >= 2.2250738585072014e-308,
     isSubnormal: (x: number) => x !== 0 && Math.abs(x) < 2.2250738585072014e-308,
-  })),
-} as DoubleMathTable;
-DoubleMath.functions = new Set<string>([...DoubleMath.unary.keys(), ...DoubleMath.binary.keys(), ...DoubleMath.predicates.keys(),
+}));
+const mathFunctions = new Set<string>([...mathUnary.keys(), ...mathBinary.keys(), ...mathPredicates.keys(),
   'max', 'min', 'hypot', 'random', 'fma', 'ldexp', 'scalbn', 'ilogb', 'jn', 'yn', 'modf', 'frexp', 'remquo']);
 function number(v: Value, name: string): number {
-  switch (kindOf(v)) {
-    case 'double': return v as number;
-    case 'int': return Number(v);
-    case 'byte': return (v as Byte).v;
-    default: throw SwiftalkError.type(`Double.${name} takes numbers, not a ${typeName(v)}`);
-  }
+  if (isDouble(v)) return v;
+  if (isInt(v)) return Number(v);
+  if (isByte(v)) return v.v;
+  throw SwiftalkError.type(`Double.${name} takes numbers, not a ${typeName(v)}`);
 }
 function mathApply(name: string, args: Value[]): Value {
   const arity = (n: number): number[] => {
     if (args.length !== n) throw SwiftalkError.type(`Double.${name} takes ${n} argument${n === 1 ? '' : 's'}, got ${args.length}`);
     return args.map((a) => number(a, name));
   };
-  if (DoubleMath.unary.has(name)) return DoubleMath.unary.get(name)!(arity(1)[0]);
-  if (DoubleMath.binary.has(name)) { const a = arity(2); return DoubleMath.binary.get(name)!(a[0], a[1]); }
-  if (DoubleMath.predicates.has(name)) return DoubleMath.predicates.get(name)!(arity(1)[0]);
+  const u = mathUnary.get(name); if (u) return u(arity(1)[0]);
+  const b = mathBinary.get(name); if (b) { const a = arity(2); return b(a[0], a[1]); }
+  const p = mathPredicates.get(name); if (p) return p(arity(1)[0]);
   switch (name) {
     case 'max': case 'min': {
       if (!args.length) throw SwiftalkError.type(`Double.${name} takes at least one number`);
@@ -482,14 +464,16 @@ function mathApply(name: string, args: Value[]): Value {
     case 'random': return mathRandom(args.map((v): LabeledArg => ({ label: null, value: v })));
     case 'fma': { const a = arity(3); return a[0] * a[1] + a[2]; }   // FIXME: not a fused multiply-add
     case 'ldexp': case 'scalbn': {
-      if (args.length !== 2 || kindOf(args[1]) !== 'int') throw SwiftalkError.type(`Double.${name}(x, n) takes a number and an Int`);
-      return scalbn(number(args[0], name), Number(args[1]));
+      const [x, n] = args;
+      if (args.length !== 2 || !isInt(n)) throw SwiftalkError.type(`Double.${name}(x, n) takes a number and an Int`);
+      return scalbn(number(x, name), Number(n));
     }
     case 'ilogb': return BigInt(ilogb(arity(1)[0]));
     case 'jn': case 'yn': {
-      if (args.length !== 2 || kindOf(args[0]) !== 'int') throw SwiftalkError.type(`Double.${name}(n, x) takes an Int order and a number`);
-      const x = number(args[1], name);
-      return name === 'jn' ? jn(Number(args[0]), x) : yn(Number(args[0]), x);
+      const [order, arg] = args;
+      if (args.length !== 2 || !isInt(order)) throw SwiftalkError.type(`Double.${name}(n, x) takes an Int order and a number`);
+      const x = number(arg, name);
+      return name === 'jn' ? jn(Number(order), x) : yn(Number(order), x);
     }
     case 'modf': { const x = arity(1)[0]; const whole = Math.trunc(x); return new TupleValue([whole, x - whole], ['integer', 'fraction']); }
     case 'frexp': {
@@ -525,28 +509,29 @@ function mathRandom(args: LabeledArg[]): number {
   if (!Number.isFinite(lo) || !Number.isFinite(hi) || !(lo < hi)) throw SwiftalkError.type(`Double.random needs finite bounds with from < to, got ${formatDouble(lo)} and ${formatDouble(hi)}`);
   return lo + Math.random() * (hi - lo);
 }
-/// `Double.name` — nil when not a math member.
-DoubleMath.member = (name: string, args: LabeledArg[], called: boolean): Value | undefined => {
-  if (DoubleMath.constants.has(name)) {
+/// `Double.name` — undefined when not a math member.
+function mathMember(name: string, args: LabeledArg[], called: boolean): Value | undefined {
+  const constant = mathConstants.get(name);
+  if (constant !== undefined) {
     if (called) throw SwiftalkError.type(`Double.${name} is a constant, not a function`);
-    return DoubleMath.constants.get(name);
+    return constant;
   }
-  if (!DoubleMath.functions.has(name)) return undefined;
+  if (!mathFunctions.has(name)) return undefined;
   if (name === 'random' && called) return mathRandom(args);
   const label = args.map((a) => a.label).find((l) => l !== null);
   if (label !== undefined) throw SwiftalkError.type(`Double.${name} takes no argument label '${label}'`);
   const values = args.map((a) => a.value);
-  if (!called) return new FunctionObject([], [], Builtins.emptyEnvironment, (xs: Value[]) => mathApply(name, xs));
+  if (!called) return new FunctionObject([], [], builtinScope, (xs: Value[]) => mathApply(name, xs));
   return mathApply(name, values);
-};
+}
+export const DoubleMath: DoubleMathTable = { constants: mathConstants, unary: mathUnary, binary: mathBinary, predicates: mathPredicates, functions: mathFunctions, member: mathMember };
 
 /// `base ** exponent` (round 142).
-export function* power(base: Value, exponent: Value): Generator<any, Value, any> {
+export function* power(base: Value, exponent: Value): G<Value> {
   const r = yield* userOperator('infix:**', [base, exponent]);
   if (r !== undefined) return r;
-  const kb = kindOf(base), ke = kindOf(exponent);
-  if (kb === 'int' && ke === 'int') {
-    const b = base as bigint, e = exponent as bigint;
+  if (isInt(base) && isInt(exponent)) {
+    const b = base, e = exponent;
     if (e < 0n) throw SwiftalkError.type(`'**' with a negative Int exponent has no Int answer — Double(${base}) ** Double(${exponent})`);
     let result = 1n, x = b, n = e;
     while (n > 0n) {
@@ -556,7 +541,7 @@ export function* power(base: Value, exponent: Value): Generator<any, Value, any>
     }
     return result;
   }
-  if (kb === 'double' && ke === 'double') return Math.pow(base as number, exponent as number);
+  if (isDouble(base) && isDouble(exponent)) return Math.pow(base, exponent);
   throw SwiftalkError.type(`'**' is not defined between ${typeName(base)} and ${typeName(exponent)} — two Ints or two Doubles`);
 }
 
@@ -565,8 +550,9 @@ export const IntStatics = new Map<string, Map<string, Value>>([
   ['Byte', new Map<string, Value>([['min', new Byte(0)], ['max', new Byte(255)], ['bitWidth', 8n], ['zero', new Byte(0)], ['isSigned', false]])],
 ]);
 export function dataRandom(args: Value[]): SData {
-  if (args.length !== 1 || kindOf(args[0]) !== 'int' || (args[0] as bigint) < 0n) throw SwiftalkError.type('Data.random(count) takes one non-negative Int');
-  const n = Number(args[0]);
+  const count = args[0];
+  if (args.length !== 1 || !isInt(count) || count < 0n) throw SwiftalkError.type('Data.random(count) takes one non-negative Int');
+  const n = Number(count);
   const bytes = new Uint8Array(n);
   for (let i = 0; i < n; i++) bytes[i] = Math.floor(Math.random() * 256);
   return new SData(bytes);
@@ -575,7 +561,7 @@ export function stringFromCodePoint(args: Value[]): string {
   let out = '';
   for (const v of args) {
     let i: bigint;
-    if (kindOf(v) === 'int') i = v as bigint; else if (v instanceof Byte) i = BigInt(v.v);
+    if (isInt(v)) i = v; else if (isByte(v)) i = BigInt(v.v);
     else throw SwiftalkError.type(`String.fromCodePoint takes Ints, not a ${typeName(v)}`);
     if (i < 0n || i > 0x10FFFFn || (i >= 0xD800n && i <= 0xDFFFn)) throw SwiftalkError.type(`${i} is not a Unicode scalar value`);
     out += String.fromCodePoint(Number(i));
@@ -593,10 +579,10 @@ function randomBigInt(lo: bigint, hi: bigint): bigint {           // inclusive
   }
 }
 export function intRandom(args: LabeledArg[]): bigint {
-  if (args.length !== 1 || !(args[0].label === null || args[0].label === 'in') || kindOf(args[0].value) !== 'range') {
+  const r = args[0]?.value;
+  if (args.length !== 1 || !(args[0].label === null || args[0].label === 'in') || !isRange(r)) {
     throw SwiftalkError.type('Int.random(in:) takes one Range: Int.random(in: 1...6)');
   }
-  const r = args[0].value as SRange;
   if (r.to === null) throw SwiftalkError.type(`Int.random(in:) needs a bounded Range — ${r.from}... has no upper bound`);
   if (r.closed) return randomBigInt(r.from, r.to);
   if (!(r.from < r.to)) throw SwiftalkError.type(`Int.random(in:) needs a non-empty Range — ${r.from}..<${r.to} is empty`);

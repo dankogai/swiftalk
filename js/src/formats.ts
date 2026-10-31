@@ -2,7 +2,8 @@
 import { SwiftalkError } from './errors.js';
 import { parse } from './parser.js';
 import { kindOf, typeName, sourceString, compareStrings, formatDouble, base64Encode, base64Decode,
-  SArray, SDictionary, SSet, Byte, SData, SDate, TupleValue } from './value.js';
+  SArray, SDictionary, SSet, Byte, SData, SDate, TupleValue,
+  isBool, isInt, isDouble, isString, isByte, isArray, isDictionary, isSet, isData, isDate } from './value.js';
 import { isSION } from './types.js';
 import type { Value } from './value.js';
 import type { Expr } from './parser.js';
@@ -54,12 +55,10 @@ function valueOf(expr: Expr): Value {
 
 /// A Set has no form in JSON or property lists: an array, sorted by source form.
 export function setsAsArrays(v: Value): Value {
-  switch (kindOf(v)) {
-    case 'set': return new SArray((v as SSet).values().map((x) => ({ key: sourceString(x), value: setsAsArrays(x) })).sort((a, b) => compareStrings(a.key, b.key)).map((e) => e.value));
-    case 'array': return new SArray((v as SArray).items.map(setsAsArrays));
-    case 'dictionary': return new SDictionary((v as SDictionary).entries().map(([k, x]): [Value, Value] => [k, setsAsArrays(x)]));
-    default: return v;
-  }
+  if (isSet(v)) return new SArray(v.values().map((x) => ({ key: sourceString(x), value: setsAsArrays(x) })).sort((a, b) => compareStrings(a.key, b.key)).map((e) => e.value));
+  if (isArray(v)) return new SArray(v.items.map(setsAsArrays));
+  if (isDictionary(v)) return new SDictionary(v.entries().map(([k, x]): [Value, Value] => [k, setsAsArrays(x)]));
+  return v;
 }
 
 export const JSONFormat = {
@@ -79,38 +78,36 @@ export const JSONFormat = {
 };
 const newline = (depth: number | null, out: string[]) => { if (depth !== null) out.push('\n' + '  '.repeat(depth)); };
 function write(value: Value, depth: number | null, out: string[]): void {
-  const x: any = value;
-  switch (kindOf(value)) {
-    case 'nil': out.push('null'); break;
-    case 'bool': out.push(x ? 'true' : 'false'); break;
-    case 'int': out.push(x.toString()); break;
-    case 'byte': out.push(String(x.v)); break;
-    case 'double':
-      if (!Number.isFinite(x)) throw SwiftalkError.type(`JSON has no ${formatDouble(x)}`);
-      out.push(formatDouble(x)); break;
-    case 'string': out.push(jsonString(x)); break;
-    case 'data': out.push(jsonString(base64Encode(x.bytes))); break;
-    case 'date': out.push(formatDouble(x.epoch)); break;
-    case 'array': {
-      if (x.items.length === 0) { out.push('[]'); return; }
-      out.push('[');
-      (x.items as Value[]).forEach((e, i) => { if (i > 0) out.push(','); newline(depth === null ? null : depth + 1, out); write(e, depth === null ? null : depth + 1, out); });
-      newline(depth, out); out.push(']'); break;
-    }
-    case 'dictionary': {
-      if (x.size === 0) { out.push('{}'); return; }
-      const pairs = (x as SDictionary).entries().map(([k, v]) => ({ key: plainString(k), value: v })).sort((a, b) => compareStrings(a.key, b.key));
-      out.push('{');
-      pairs.forEach((p, i) => {
-        if (i > 0) out.push(',');
-        newline(depth === null ? null : depth + 1, out);
-        out.push(jsonString(p.key), depth === null ? ':' : ': ');
-        write(p.value, depth === null ? null : depth + 1, out);
-      });
-      newline(depth, out); out.push('}'); break;
-    }
-    default: throw SwiftalkError.type(`a ${typeName(value)} has no JSON form`);
+  if (value === null) { out.push('null'); return; }
+  if (isBool(value)) { out.push(value ? 'true' : 'false'); return; }
+  if (isInt(value)) { out.push(value.toString()); return; }
+  if (isByte(value)) { out.push(String(value.v)); return; }
+  if (isDouble(value)) {
+    if (!Number.isFinite(value)) throw SwiftalkError.type(`JSON has no ${formatDouble(value)}`);
+    out.push(formatDouble(value)); return;
   }
+  if (isString(value)) { out.push(jsonString(value)); return; }
+  if (isData(value)) { out.push(jsonString(base64Encode(value.bytes))); return; }
+  if (isDate(value)) { out.push(formatDouble(value.epoch)); return; }
+  if (isArray(value)) {
+    if (value.items.length === 0) { out.push('[]'); return; }
+    out.push('[');
+    value.items.forEach((e, i) => { if (i > 0) out.push(','); newline(depth === null ? null : depth + 1, out); write(e, depth === null ? null : depth + 1, out); });
+    newline(depth, out); out.push(']'); return;
+  }
+  if (isDictionary(value)) {
+    if (value.size === 0) { out.push('{}'); return; }
+    const pairs = value.entries().map(([k, v]) => ({ key: plainString(k), value: v })).sort((a, b) => compareStrings(a.key, b.key));
+    out.push('{');
+    pairs.forEach((p, i) => {
+      if (i > 0) out.push(',');
+      newline(depth === null ? null : depth + 1, out);
+      out.push(jsonString(p.key), depth === null ? ':' : ': ');
+      write(p.value, depth === null ? null : depth + 1, out);
+    });
+    newline(depth, out); out.push('}'); return;
+  }
+  throw SwiftalkError.type(`a ${typeName(value)} has no JSON form`);
 }
 function jsonString(s: string): string {
   let out = '"';
@@ -307,35 +304,34 @@ export const PlistXML = {
 const xmlEscape = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 function writePlist(value: Value, depth: number, out: string[]): void {
   const tab = '\t'.repeat(depth);
-  const x: any = value;
-  switch (kindOf(value)) {
-    case 'nil': throw SwiftalkError.type('property lists have no nil');
-    case 'bool': out.push(tab + (x ? '<true/>\n' : '<false/>\n')); break;
-    case 'int': out.push(`${tab}<integer>${x}</integer>\n`); break;
-    case 'byte': out.push(`${tab}<integer>${x.v}</integer>\n`); break;
-    case 'double':
-      if (!Number.isFinite(x)) throw SwiftalkError.type(`property lists have no ${formatDouble(x)}`);
-      out.push(`${tab}<real>${formatDouble(x)}</real>\n`); break;
-    case 'string': out.push(`${tab}<string>${xmlEscape(x)}</string>\n`); break;
-    case 'data': out.push(`${tab}<data>${base64Encode(x.bytes)}</data>\n`); break;
-    case 'date': out.push(`${tab}<date>${CivilDate.iso8601(x.epoch)}</date>\n`); break;
-    case 'array':
-      if (x.items.length === 0) { out.push(tab + '<array/>\n'); return; }
-      out.push(tab + '<array>\n');
-      for (const e of x.items as Value[]) writePlist(e, depth + 1, out);
-      out.push(tab + '</array>\n'); break;
-    case 'dictionary': {
-      if (x.size === 0) { out.push(tab + '<dict/>\n'); return; }
-      const pairs = (x as SDictionary).entries().map(([k, v]): [string, Value] => {
-        if (typeof k !== 'string') throw SwiftalkError.type(`property-list keys are Strings, not ${typeName(k)}`);
-        return [k, v];
-      }).sort((a, b) => compareStrings(a[0], b[0]));
-      out.push(tab + '<dict>\n');
-      for (const [k, v] of pairs) { out.push(`${tab}\t<key>${xmlEscape(k)}</key>\n`); writePlist(v, depth + 1, out); }
-      out.push(tab + '</dict>\n'); break;
-    }
-    default: throw SwiftalkError.type(`a ${typeName(value)} has no property-list form`);
+  if (value === null) throw SwiftalkError.type('property lists have no nil');
+  if (isBool(value)) { out.push(tab + (value ? '<true/>\n' : '<false/>\n')); return; }
+  if (isInt(value)) { out.push(`${tab}<integer>${value}</integer>\n`); return; }
+  if (isByte(value)) { out.push(`${tab}<integer>${value.v}</integer>\n`); return; }
+  if (isDouble(value)) {
+    if (!Number.isFinite(value)) throw SwiftalkError.type(`property lists have no ${formatDouble(value)}`);
+    out.push(`${tab}<real>${formatDouble(value)}</real>\n`); return;
   }
+  if (isString(value)) { out.push(`${tab}<string>${xmlEscape(value)}</string>\n`); return; }
+  if (isData(value)) { out.push(`${tab}<data>${base64Encode(value.bytes)}</data>\n`); return; }
+  if (isDate(value)) { out.push(`${tab}<date>${CivilDate.iso8601(value.epoch)}</date>\n`); return; }
+  if (isArray(value)) {
+    if (value.items.length === 0) { out.push(tab + '<array/>\n'); return; }
+    out.push(tab + '<array>\n');
+    for (const e of value.items) writePlist(e, depth + 1, out);
+    out.push(tab + '</array>\n'); return;
+  }
+  if (isDictionary(value)) {
+    if (value.size === 0) { out.push(tab + '<dict/>\n'); return; }
+    const pairs = value.entries().map(([k, v]): [string, Value] => {
+      if (!isString(k)) throw SwiftalkError.type(`property-list keys are Strings, not ${typeName(k)}`);
+      return [k, v];
+    }).sort((a, b) => compareStrings(a[0], b[0]));
+    out.push(tab + '<dict>\n');
+    for (const [k, v] of pairs) { out.push(`${tab}\t<key>${xmlEscape(k)}</key>\n`); writePlist(v, depth + 1, out); }
+    out.push(tab + '</dict>\n'); return;
+  }
+  throw SwiftalkError.type(`a ${typeName(value)} has no property-list form`);
 }
 class XMLParser {
   s: string[];
@@ -441,69 +437,59 @@ class XMLParser {
 export const PlistBinary = {
   emit(rawValue: Value): SData {
     const value = setsAsArrays(rawValue);
-    const objects: any[] = [];
+    const objects: Value[] = [];
     const sortedEntries = (d: SDictionary) => d.entries().sort((a, b) => compareStrings(plainString(a[0]), plainString(b[0])));
-    const flatten = (v: any): void => {
+    const flatten = (v: Value): void => {
       objects.push(v);
-      switch (kindOf(v)) {
-        case 'nil': throw SwiftalkError.type('property lists have no nil');
-        case 'bool': case 'int': case 'double': case 'string': case 'data': case 'date': break;
-        case 'array': for (const e of v.items) flatten(e); break;
-        case 'dictionary':
-          for (const [k] of v.entries()) if (typeof k !== 'string') throw SwiftalkError.type(`property-list keys are Strings, not ${typeName(k)}`);
-          for (const [k, x] of sortedEntries(v)) { flatten(k); flatten(x); }
-          break;
-        default: throw SwiftalkError.type(`a ${typeName(v)} has no property-list form`);
+      if (v === null) throw SwiftalkError.type('property lists have no nil');
+      if (isArray(v)) { for (const e of v.items) flatten(e); return; }
+      if (isDictionary(v)) {
+        for (const [k] of v.entries()) if (!isString(k)) throw SwiftalkError.type(`property-list keys are Strings, not ${typeName(k)}`);
+        for (const [k, x] of sortedEntries(v)) { flatten(k); flatten(x); }
+        return;
       }
+      if (isBool(v) || isInt(v) || isDouble(v) || isString(v) || isData(v) || isDate(v)) return;
+      throw SwiftalkError.type(`a ${typeName(v)} has no property-list form`);
     };
     flatten(value);
     const refSize = byteSize(objects.length);
     const out: number[] = [...new TextEncoder().encode('bplist00')];
     const offsets: number[] = [];
-    const size = (v: any): number => {
-      switch (kindOf(v)) {
-        case 'array': return 1 + v.items.reduce((s: number, e: Value) => s + size(e), 0);
-        case 'dictionary': return 1 + v.entries().reduce((s: number, [, x]: [Value, Value]) => s + 1 + size(x), 0);
-        default: return 1;
-      }
+    const size = (v: Value): number => {
+      if (isArray(v)) return 1 + v.items.reduce<number>((s, e) => s + size(e), 0);
+      if (isDictionary(v)) return 1 + v.entries().reduce<number>((s, [, x]) => s + 1 + size(x), 0);
+      return 1;
     };
-    const childIndices = (v: any, index: number): number[] => {
+    const childIndices = (v: Value, index: number): number[] => {
       const result: number[] = [];
       let next = index + 1;
-      if (kindOf(v) === 'array') for (const e of v.items) { result.push(next); next += size(e); }
-      else if (kindOf(v) === 'dictionary') {
+      if (isArray(v)) for (const e of v.items) { result.push(next); next += size(e); }
+      else if (isDictionary(v)) {
         const keys: number[] = [], values: number[] = [];
         for (const [, x] of sortedEntries(v)) { keys.push(next); next += 1; values.push(next); next += size(x); }
         result.push(...keys, ...values);
       }
       return result;
     };
-    objects.forEach((v: any, index: number) => {
+    objects.forEach((v, index) => {
       offsets.push(out.length);
-      switch (kindOf(v)) {
-        case 'bool': out.push(v ? 0x09 : 0x08); break;
-        case 'int':
-          if (v >= 0n && v <= 255n) out.push(0x10, Number(v));
-          else if (v >= 0n && v <= 65535n) out.push(0x11, ...bigEndian(v, 2));
-          else if (v >= 0n && v <= 4294967295n) out.push(0x12, ...bigEndian(v, 4));
-          else out.push(0x13, ...bigEndian(BigInt.asUintN(64, v), 8));
-          break;
-        case 'double': {
-          if (!Number.isFinite(v)) throw SwiftalkError.type(`property lists have no ${formatDouble(v)}`);
-          out.push(0x23, ...doubleBytes(v)); break;
-        }
-        case 'date': out.push(0x33, ...doubleBytes(v.epoch - 978307200)); break;
-        case 'data': out.push(...marker(0x40, v.bytes.length), ...v.bytes); break;
-        case 'string': {
-          const utf8 = new TextEncoder().encode(v);
-          if (utf8.every((b) => b < 0x80)) out.push(...marker(0x50, utf8.length), ...utf8);
-          else { const units: number[] = []; for (let i = 0; i < v.length; i++) units.push(v.charCodeAt(i)); out.push(...marker(0x60, units.length)); for (const u of units) out.push(...bigEndian(BigInt(u), 2)); }
-          break;
-        }
-        case 'array': out.push(...marker(0xA0, v.items.length)); for (const c of childIndices(v, index)) out.push(...bigEndian(BigInt(c), refSize)); break;
-        case 'dictionary': out.push(...marker(0xD0, v.size)); for (const c of childIndices(v, index)) out.push(...bigEndian(BigInt(c), refSize)); break;
-        default: break;
-      }
+      if (isBool(v)) out.push(v ? 0x09 : 0x08);
+      else if (isInt(v)) {
+        if (v >= 0n && v <= 255n) out.push(0x10, Number(v));
+        else if (v >= 0n && v <= 65535n) out.push(0x11, ...bigEndian(v, 2));
+        else if (v >= 0n && v <= 4294967295n) out.push(0x12, ...bigEndian(v, 4));
+        else out.push(0x13, ...bigEndian(BigInt.asUintN(64, v), 8));
+      } else if (isDouble(v)) {
+        if (!Number.isFinite(v)) throw SwiftalkError.type(`property lists have no ${formatDouble(v)}`);
+        out.push(0x23, ...doubleBytes(v));
+      } else if (isDate(v)) out.push(0x33, ...doubleBytes(v.epoch - 978307200));
+      else if (isData(v)) out.push(...marker(0x40, v.bytes.length), ...v.bytes);
+      else if (isString(v)) {
+        const utf8 = new TextEncoder().encode(v);
+        if (utf8.every((b) => b < 0x80)) out.push(...marker(0x50, utf8.length), ...utf8);
+        else { const units: number[] = []; for (let i = 0; i < v.length; i++) units.push(v.charCodeAt(i)); out.push(...marker(0x60, units.length)); for (const u of units) out.push(...bigEndian(BigInt(u), 2)); }
+      } else if (isArray(v)) { out.push(...marker(0xA0, v.items.length)); for (const c of childIndices(v, index)) out.push(...bigEndian(BigInt(c), refSize)); }
+      else if (isDictionary(v)) { out.push(...marker(0xD0, v.size)); for (const c of childIndices(v, index)) out.push(...bigEndian(BigInt(c), refSize)); }
     });
     const offsetTableOffset = out.length;
     const offsetSize = byteSize(offsetTableOffset);

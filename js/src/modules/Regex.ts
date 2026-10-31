@@ -14,12 +14,12 @@
 // matches code points: "👨‍👩‍👧".matches(/./).count is 1 in Swift and 5 here.
 import { SwiftalkError } from '../errors.js';
 import { Module } from '../modules.js';
-import { kindOf, typeName, SArray, TupleValue } from '../value.js';
+import { typeName, SArray, TupleValue, isHost, isString, isFunction } from '../value.js';
 import { HostValue } from '../objects.js';
 import { ann } from '../types.js';
 import { apply } from '../eval.js';
 import type { Value } from '../value.js';
-import type { HostObject, FunctionObject } from '../objects.js';
+import type { HostObject, G } from '../objects.js';
 
 /// `x`: free-spacing — whitespace and `#` comments outside classes are not pattern.
 function stripExtended(pattern: string): string {
@@ -78,9 +78,9 @@ export class RegexValue implements HostObject {
     const jsFlags = 'u' + this.flags.replace(/x/g, '');
     let re: RegExp;
     try { re = new RegExp(source, jsFlags); }
-    catch (e1: any) {
+    catch (e1) {
       try { re = new RegExp(looseProperties(source), jsFlags); }
-      catch (e2) { throw SwiftalkError.syntax(`invalid regex /${pattern}/: ${e1.message.replace(/^Invalid regular expression: /, '')}`); }
+      catch (e2) { throw SwiftalkError.syntax(`invalid regex /${pattern}/: ${(e1 instanceof Error ? e1.message : String(e1)).replace(/^Invalid regular expression: /, '')}`); }
     }
     this.source = re.source;
     this.jsFlags = jsFlags;
@@ -119,42 +119,42 @@ export class RegexValue implements HostObject {
   sourceString(): string { return '/' + this.pattern.replace(/\//g, '\\/') + '/' + this.flags; }
   /// `case /re/:` matches a String whole; a non-String subject is no match — and, as a binding's source, an error.
   patternMatch(subject: Value, binding: boolean): Value {
-    if (typeof subject !== 'string') {
+    if (!isString(subject)) {
       if (binding) throw SwiftalkError.type(`a Regex case needs a String subject, not ${typeName(subject)}`);
       return null;
     }
     return this.wholeMatch(subject.normalize('NFC'));
   }
 }
-const regexOf = (v: Value): RegexValue | null => (kindOf(v) === 'host' && (v as HostValue).object instanceof RegexValue ? (v as HostValue).object as RegexValue : null);
+const regexOf = (v: Value | undefined): RegexValue | null => (isHost(v) && v.object instanceof RegexValue ? v.object : null);
 
 export function RegexModule(): Module {
   const m = new Module('Regex');
   let typeValue: Value = null;
   const host = (r: RegexValue): HostValue => new HostValue(r, typeValue);
   typeValue = m.type('Regex', (args: Value[]) => {
+    const [pattern, flags] = args;
     switch (args.length) {
       case 1: {
-        const r = regexOf(args[0]);
-        if (r) return args[0];
-        if (typeof args[0] !== 'string') throw SwiftalkError.type(`cannot convert ${typeName(args[0])} to Regex`);
-        return host(new RegexValue(args[0], ''));
+        if (regexOf(pattern)) return pattern;
+        if (!isString(pattern)) throw SwiftalkError.type(`cannot convert ${typeName(pattern)} to Regex`);
+        return host(new RegexValue(pattern, ''));
       }
       case 2:
-        if (typeof args[0] !== 'string' || typeof args[1] !== 'string') throw SwiftalkError.type('Regex(pattern, flags) takes two Strings');
-        return host(new RegexValue(args[0], args[1]));
+        if (!isString(pattern) || !isString(flags)) throw SwiftalkError.type('Regex(pattern, flags) takes two Strings');
+        return host(new RegexValue(pattern, flags));
       default: throw SwiftalkError.type('Regex(pattern) — or write the literal /pattern/');
     }
   }).value('Regex')!;
   const nfc = (s: string): string => s.normalize('NFC');
   m.extend('String', 'contains', (receiver: Value, args: Value[], called: boolean) => {
-    if (!called || args.length !== 1 || typeof receiver !== 'string') return undefined;
+    if (!called || args.length !== 1 || !isString(receiver)) return undefined;
     const r = regexOf(args[0]);
     return r ? r.re().test(nfc(receiver)) : undefined;
   });
   for (const name of ['firstMatch', 'wholeMatch', 'matches']) {
     m.extend('String', name, (receiver: Value, args: Value[], called: boolean) => {
-      if (!called || typeof receiver !== 'string') return undefined;
+      if (!called || !isString(receiver)) return undefined;
       const r = args.length === 1 ? regexOf(args[0]) : null;
       if (!r) throw SwiftalkError.type(`.${name} takes a Regex: s.${name}(/re/)`);
       const s = nfc(receiver);
@@ -163,17 +163,18 @@ export function RegexModule(): Module {
       return new SArray([...r.allMatches(s)].map((x) => r.matchValue(x)));
     });
   }
-  m.extend('String', 'replacing', function* (receiver: Value, args: Value[], called: boolean) {
-    if (!called || typeof receiver !== 'string' || args.length !== 2) return undefined;
+  m.extend('String', 'replacing', function* (receiver: Value, args: Value[], called: boolean): G<Value | undefined> {
+    if (!called || !isString(receiver) || args.length !== 2) return undefined;
     const r = regexOf(args[0]);
     if (!r) return undefined;
     const s = nfc(receiver);
-    if (typeof args[1] === 'string') { const with_ = args[1]; return s.replace(r.re('g'), () => with_); }
-    if (kindOf(args[1]) === 'function') {
+    const replacement = args[1];
+    if (isString(replacement)) return s.replace(r.re('g'), () => replacement);
+    if (isFunction(replacement)) {
       let out = '', cursor = 0;
       for (const found of r.allMatches(s)) {
         out += s.slice(cursor, found.index);
-        const piece = yield* apply(args[1] as FunctionObject, [{ label: null, value: r.matchValue(found) }]);
+        const piece = yield* apply(replacement, [{ label: null, value: r.matchValue(found) }]);
         if (typeof piece !== 'string') throw SwiftalkError.type('the .replacing Function must return a String');
         out += piece;
         cursor = found.index + found[0].length;
@@ -183,7 +184,7 @@ export function RegexModule(): Module {
     throw SwiftalkError.type('.replacing takes what to find (a Regex or a String) and the replacement (a String, or a Function of the match)');
   });
   m.extend('String', 'split', (receiver: Value, args: Value[], called: boolean) => {
-    if (!called || typeof receiver !== 'string' || args.length !== 1) return undefined;
+    if (!called || !isString(receiver) || args.length !== 1) return undefined;
     const r = regexOf(args[0]);
     if (!r) return undefined;
     const s = nfc(receiver);

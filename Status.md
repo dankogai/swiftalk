@@ -454,6 +454,22 @@ swiftalk> 1n
 type error: 1n: a BigInt literal needs the BigInt module — import from "BigInt" (the CLI preimports it)
 ```
 
+**The runtime's types hold all the way down** (round 256) — `strict`
+with `noImplicitAny`, no `as`, no `any`, no `!` in `js/src`: a type
+guard per kind (`isArray`, `isString`, `isFunction`…) narrows where
+`kindOf` checks used to be followed by casts, the scheduler's requests
+and answers are typed, and the host hooks are a table typed by name:
+
+```text
+$ cd js && npm test
+3025 fixtures (2259 values, 766 throws) from 112 files; 528 expectations skipped
+ℹ tests 18
+ℹ pass 18
+ℹ fail 0
+$ npm run build
+dist/swiftalk.js: 444 KB from 24 modules; dist/notebook.html: 457 KB
+```
+
 **The JavaScript runtime is TypeScript** (round 255) — `js/src/**/*.ts`,
 `test/*.ts` and `repl.ts`, compiled by `tsc` to `js/lib/`; the value
 model, the tokens, the AST, the scopes, the scheduler's requests and the

@@ -8,22 +8,50 @@ import { SwiftalkError } from './errors.js';
 import { Lexer, isPunct, isOp } from './lexer.js';
 import type { Token } from './lexer.js';
 import { parse } from './parser.js';
-import { typeName } from './value.js';
 import { FunctionObject, TaskObject, ControlFlow, ReturnSignal, HostValue, ContextObject } from './objects.js';
 import { Environment, Binding } from './env.js';
 import { Builtins } from './builtins.js';
 import { ann } from './types.js';
-import { execute, constructEnumCase, valueSourceText, scheduler, makeContext } from './eval.js';
+import { execute, constructEnumCase, valueSourceText, scheduler, makeContextObject } from './eval.js';
 import { AsyncScheduler, SyncScheduler } from './scheduler.js';
 import { Module, ModuleSystem } from './modules.js';
 import './members.js';
+import { typeName, isHost, isString, must } from './value.js';
 import type { Value } from './value.js';
-import type { Builtin } from './objects.js';
+import { isRunResult } from './objects.js';
+import type { Builtin, G, RunResult } from './objects.js';
 import type { Pattern } from './parser.js';
-import type { G } from './eval.js';
 
-/// A function the host lends the modules (round 189): `readLine`, `openFile`, `fetch`… — may return a Promise.
-export type Hook = (...args: any[]) => any;
+/// The file object the host's `openFile` hook answers with (round 191); every method may return a Promise.
+export interface HostFile {
+  read?(size: number): Uint8Array | null | Promise<Uint8Array | null>;
+  write?(bytes: Uint8Array): number | void | Promise<number | void>;
+  seekStart?(): boolean | Promise<boolean>;
+  seekEnd?(): boolean | Promise<boolean>;
+  truncate?(): void | Promise<void>;
+  close?(): void | Promise<void>;
+}
+/// What a host lends the modules (round 189), by name: each may answer a Promise, awaited through an offload.
+export interface Hooks {
+  readLine: () => string | null | Promise<string | null>;
+  openFile: (path: string, mode: string) => HostFile | Promise<HostFile>;
+  fetch: (args: Value[]) => Value | Promise<Value>;
+}
+export type HookName = keyof Hooks;
+export type Hook = Hooks[HookName];
+/// The hooks, typed by name: `set('readLine', fn)` takes readLine's signature, `get('readLine')` answers it.
+export class HookTable {
+  private table: Partial<Hooks> = {};
+  set<K extends HookName>(name: K, fn: Hooks[K]): this { this.table[name] = fn; return this; }
+  get<K extends HookName>(name: K): Hooks[K] | undefined { return this.table[name]; }
+  has(name: HookName): boolean { return this.table[name] !== undefined; }
+  delete(name: HookName): void { delete this.table[name]; }
+}
+/// The main context answers a Value; a task body's RunResult never reaches here.
+const asValue = (r: Value | RunResult): Value => {
+  if (isRunResult(r)) throw new Error('the program answered a function result');
+  return r;
+};
 
 export class Interpreter {
   relaxed: boolean;
@@ -32,7 +60,7 @@ export class Interpreter {
   modules: ModuleSystem;
   moduleLoader: ((spec: string) => string | Promise<string>) | null;
   scriptPath: string | null;
-  hooks: Map<string, Hook>;
+  hooks: HookTable;
   sync: SyncScheduler;
   async: AsyncScheduler;
   queue: Promise<unknown>;
@@ -49,7 +77,7 @@ export class Interpreter {
     this.moduleLoader = null;
     this.scriptPath = null;
     /// named functions over Values the host lends the modules (round 189): Net's "fetch"
-    this.hooks = new Map();
+    this.hooks = new HookTable();
     this.sync = new SyncScheduler();
     this.async = new AsyncScheduler();
     this.queue = Promise.resolve();
@@ -64,22 +92,24 @@ export class Interpreter {
     const fn = ann('Function');
     for (const [name, object] of Builtins.types) this.builtins.declare(name, new Binding(false, fn, object));
     for (const [name, object] of Builtins.protocols) if (!this.builtins.bindings.has(name)) this.builtins.declare(name, new Binding(false, fn, object));
-    this.builtins.declare('Result', new Binding(false, fn, Builtins.resultType.constructor_!));
+    this.builtins.declare('Result', new Binding(false, fn, must(Builtins.resultType.constructor_, "Result's constructor")));
   }
   /// The language's own `eval` (rounds 122–123, 159): a Result, never thrown.
   installEval(scope: Environment): void {
     const self = this;
     scope.evalInstaller = (copy: Environment) => self.installEval(copy);
     const fn = new FunctionObject([], [], scope, function* (args: Value[]) {
-      if (args.length < 1 || args.length > 2 || typeof args[0] !== 'string') throw SwiftalkError.type('eval takes a String of swiftalk source and, optionally, a Context');
+      const source = args[0];
+      if (args.length < 1 || args.length > 2 || !isString(source)) throw SwiftalkError.type('eval takes a String of swiftalk source and, optionally, a Context');
       // Round 237: the second argument is the Context to run in; without it, a fresh copy of this file's top level
       let target: Environment;
       if (args.length === 2) {
-        if (!(args[1] instanceof HostValue && args[1].object instanceof ContextObject)) throw SwiftalkError.type(`eval's second argument is a Context — global, or one made by Context() — not a ${typeName(args[1])}`);
-        target = args[1].object.env;
-      } else target = makeContext(scope).object.env;
+        const ctx = args[1];
+        if (!(isHost(ctx) && ctx.object instanceof ContextObject)) throw SwiftalkError.type(`eval's second argument is a Context — global, or one made by Context() — not a ${typeName(ctx)}`);
+        target = ctx.object.env;
+      } else target = makeContextObject(scope).env;
       try {
-        const value = yield* self.program(args[0], target);
+        const value = yield* self.program(source, target);
         return constructEnumCase(Builtins.resultType, 'success', [{ label: null, value }], true);
       } catch (e) {
         if (!(e instanceof SwiftalkError)) throw e;
@@ -135,13 +165,13 @@ export class Interpreter {
   /// goes on without waiting, a host Promise is refused. The one-liner's
   /// and the corpus's driver; `evalAsync` is the faithful one.
   eval(source: string): Value {
-    return this.withContext(() => { this.prepare(); return this.sync.run(this.program(source, this.environment)); });
+    return this.withContext(() => { this.prepare(); return asValue(this.sync.run(this.program(source, this.environment))); });
   }
   /// Evaluates a program with the real scheduler: `Task.sleep` waits on
   /// a timer, an offloaded Promise parks only its context. Calls on one
   /// Interpreter are serialized; tasks left parked persist to the next.
   evalAsync(source: string): Promise<Value> {
-    const job = () => this.withContextAsync(() => { this.prepare(); return this.async.run(this.program(source, this.environment)); });
+    const job = () => this.withContextAsync(async () => { this.prepare(); return asValue(await this.async.run(this.program(source, this.environment))); });
     const result = this.queue.then(job, job);
     this.queue = result.catch(() => {});
     return result;
@@ -164,7 +194,11 @@ export class Interpreter {
   }
   /// A value's source form for the REPL's echo (round 152): a String
   /// quoted, a user type's own `String` member honored.
-  sourceText(value: Value): string { return this.withContext(() => this.sync.run(valueSourceText(value))); }
+  sourceText(value: Value): string {
+    const text = this.withContext(() => this.sync.run(valueSourceText(value)));
+    if (typeof text !== 'string') throw new Error('the source text is a String');
+    return text;
+  }
   /// The REPL's `:d name` (round 131).
   undefine(name: string): void {
     if (this.environment.removeBinding(name) === null) throw SwiftalkError.type(`':d' — no top-level binding named '${name}'`);
@@ -174,13 +208,10 @@ export class Interpreter {
     const program = parse(source);
     let names: string[];
     const only = program.length === 1 ? program[0] : null;
-    switch (only?.k) {
-      case 'declaration': names = [only.name]; break;
-      case 'destructure': names = namesIn(only.pattern); break;
-      case 'structDecl': case 'enumDecl': names = [only.name]; break;
-      case 'extensionDecl': names = []; break;
-      default: throw SwiftalkError.syntax("':r' takes one declaration: let, var, struct, enum, or extension");
-    }
+    if (only?.k === 'declaration' || only?.k === 'structDecl' || only?.k === 'enumDecl') names = [only.name];
+    else if (only?.k === 'destructure') names = namesIn(only.pattern);
+    else if (only?.k === 'extensionDecl') names = [];
+    else throw SwiftalkError.syntax("':r' takes one declaration: let, var, struct, enum, or extension");
     const saved = names.map((n): [string, Binding | null] => [n, this.environment.removeBinding(n)]);
     this.environment.redefining = true;
     try { return this.eval(source); }

@@ -15,13 +15,13 @@ test('the value fixtures all parse', () => {
   for (const f of fixtures) {
     if (f.throws) continue;
     try { parse(f.source); parsed++; }
-    catch (e: any) { failures.push(`${f.file}: ${e instanceof SwiftalkError ? e.description : e}\n    ${JSON.stringify(f.source)}`); }
+    catch (e) { failures.push(`${f.file}: ${e instanceof SwiftalkError ? e.description : e}\n    ${JSON.stringify(f.source)}`); }
   }
   assert.equal(failures.length, 0, `${failures.length} of ${parsed + failures.length} did not parse:\n  ${failures.slice(0, 40).join('\n  ')}`);
 });
 
 test('a syntax error is a SwiftalkError with the core\'s wording', () => {
-  assert.throws(() => parse('let x = '), (e: any) => e instanceof SwiftalkError && e.kind === 'syntax');
-  assert.throws(() => parse(''), (e: any) => e.description === 'syntax error: empty program');
-  assert.throws(() => parse("'..' is"), (e: any) => e.description.startsWith('syntax error'));
+  assert.throws(() => parse('let x = '), (e: unknown) => e instanceof SwiftalkError && e.kind === 'syntax');
+  assert.throws(() => parse(''), (e: unknown) => e instanceof SwiftalkError && e.description === 'syntax error: empty program');
+  assert.throws(() => parse("'..' is"), (e: unknown) => e instanceof SwiftalkError && e.description.startsWith('syntax error'));
 });

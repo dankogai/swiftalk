@@ -19,12 +19,13 @@ import { Environment, Binding } from './env.js';
 import { Builtins } from './builtins.js';
 import { ann } from './types.js';
 import { execute, offload } from './eval.js';
-import type { G } from './eval.js';
+import { isPromise } from './objects.js';
+import type { G, Builtin } from './objects.js';
 import type { Value } from './value.js';
-import type { Builtin } from './objects.js';
 
-/// A member a module adds to a core type: answers for the receiver, or undefined/null to decline.
-export type Extension = { type: string; member: string; body: (receiver: Value, args: Value[], called: boolean, ...rest: any[]) => any };
+/// A member a module adds to a core type (round 186): answers for the receiver — a Value, or a generator of
+/// one when it runs swiftalk code — or undefined to decline (null is nil).
+export type Extension = { type: string; member: string; body: (receiver: Value, args: Value[], called: boolean) => Value | undefined | G<Value | undefined> };
 export type Static = { type: string; name: string; value: Value };
 
 export class Module {
@@ -137,8 +138,8 @@ export class ModuleSystem {
     if (cached) return cached;
     if (this.loading.has(resolved)) throw SwiftalkError.type(`circular import of '${resolved}'`);
     if (!this.loader) throw SwiftalkError.type(`cannot read '${resolved}' — the JavaScript runtime reads modules through Interpreter.moduleLoader, and none is set`);
-    let source: any = this.loader(resolved);
-    if (source && typeof source.then === 'function') source = yield* offload(source);
+    const loaded = this.loader(resolved);
+    const source = isPromise(loaded) ? yield* offload(loaded) : loaded;
     if (typeof source !== 'string') throw SwiftalkError.type(`the module loader gave no source for '${resolved}'`);
     this.loading.add(resolved);
     this.baseStack.push(ModuleSystem.directory(resolved));

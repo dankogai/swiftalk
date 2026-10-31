@@ -49,15 +49,18 @@ export function isIdent(k: MaybeToken): k is IdentToken;
 export function isIdent(k: MaybeToken, n: string): boolean;
 export function isIdent(k: MaybeToken, n?: string): boolean { return k != null && k.t === 'identifier' && (n === undefined || k.v === n); }
 export const isNewline = (k: MaybeToken): boolean => k != null && k.t === 'newline';
+/// A token's identity as text: two tokens are equal when these agree.
+function tokKey(k: Token): string {
+  switch (k.t) {
+    case 'newline': return 'newline';
+    case 'regex': return `regex:/${k.pattern}/${k.flags}`;
+    case 'interpolated': return 'interpolated:' + JSON.stringify(k.segments);
+    default: return `${k.t}:${String(k.v)}`;
+  }
+}
 export function tokEq(a: MaybeToken, b: MaybeToken): boolean {
   if (a == null || b == null) return a == b;
-  if (a.t !== b.t) return false;
-  switch (a.t) {
-    case 'newline': return true;
-    case 'regex': { const r = b as typeof a; return a.pattern === r.pattern && a.flags === r.flags; }
-    case 'interpolated': return JSON.stringify(a) === JSON.stringify(b);
-    default: return (a as any).v === (b as any).v;
-  }
+  return tokKey(a) === tokKey(b);
 }
 export function tokDescribe(k: MaybeToken): string {
   if (k == null) return 'end of input';
@@ -75,6 +78,9 @@ export function tokDescribe(k: MaybeToken): string {
 }
 
 const INT_MAX_LITERAL = (1n << 63n) - 1n;   // Int.max: what a literal may not exceed
+const radixOfLetter: Record<string, number> = { x: 16, o: 8, b: 2 };
+const prefixOfRadix: Record<number, string> = { 16: '0x', 8: '0o', 2: '0b' };
+const digitsOfRadix: Record<number, RegExp> = { 16: /^[0-9a-fA-F]+$/, 8: /^[0-7]+$/, 2: /^[01]+$/ };
 const isDigit = (c: string | undefined): boolean => c !== undefined && c >= '0' && c <= '9';
 const isHexDigit = (c: string | undefined): boolean => c !== undefined && (isDigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'));
 const alphabetic = /^\p{Alphabetic}$/u;
@@ -479,12 +485,12 @@ export class Lexer {
 
   lexNumber(memberIndex: boolean): Token {
     if (this.peek() === '0' && this.pos + 1 < this.s.length) {
-      const radix: number | undefined = ({ x: 16, o: 8, b: 2 } as Record<string, number>)[this.at(this.pos + 1) ?? ''];
+      const radix: number | undefined = radixOfLetter[this.at(this.pos + 1) ?? ''];
       if (radix) {
         this.pos += 2;
         if (radix === 16) { const d = this.lexHexFloat(); if (d !== null) return tok.double(d); }
         const text = this.lexIntegerText(radix);
-        if (this.peek() === 'n') { this.pos++; return tok.bigint(({ 16: '0x', 8: '0o', 2: '0b' } as Record<number, string>)[radix] + text); }   // 0xffn: a BigInt literal
+        if (this.peek() === 'n') { this.pos++; return tok.bigint(prefixOfRadix[radix] + text); }   // 0xffn: a BigInt literal
         return tok.int(this.integer(text, radix));
       }
     }
@@ -554,9 +560,9 @@ export class Lexer {
     return text;
   }
   integer(text: string, radix: number): bigint {
-    const digitsFor = ({ 16: /^[0-9a-fA-F]+$/, 8: /^[0-7]+$/, 2: /^[01]+$/ } as Record<number, RegExp>)[radix];
+    const digitsFor = digitsOfRadix[radix];
     if (!digitsFor.test(text)) throw SwiftalkError.syntax(`invalid integer literal for radix ${radix}: '${text}'`);
-    const prefix = ({ 16: '0x', 8: '0o', 2: '0b' } as Record<number, string>)[radix];
+    const prefix = prefixOfRadix[radix];
     const i = BigInt(prefix + text);
     if (i > INT_MAX_LITERAL) throw SwiftalkError.syntax(`invalid integer literal for radix ${radix}: '${text}'`);
     return i;

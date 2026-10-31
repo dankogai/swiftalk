@@ -5,6 +5,8 @@ export type ErrorKind = 'syntax' | 'type' | 'overflow' | 'zeroDivision' | 'unkno
 export class SwiftalkError extends Error {
   kind: ErrorKind;
   detail: string;
+  /// set when the message is a host's (a rejected Promise), so `fetch` reports it bare
+  fromHost = false;
   constructor(kind: ErrorKind, message: string) {
     super(message);
     this.kind = kind;

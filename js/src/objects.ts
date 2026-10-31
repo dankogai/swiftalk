@@ -5,6 +5,31 @@ import { TypeAnnotation } from './parser.js';
 import type { Stmt, FunctionExpr, Computed, Property, Expr } from './parser.js';
 import type { Value } from './value.js';
 import type { Environment } from './env.js';
+import type { Context } from './scheduler.js';
+
+/// What a running context yields up to the scheduler (round 199): a suspension request.
+export type Request =
+  | { suspend: 'spawn'; body: FunctionObject }
+  | { suspend: 'await'; task: TaskObject }
+  | { suspend: 'sleep'; seconds: number }
+  | { suspend: 'offload'; promise: Promise<unknown> }
+  | { suspend: 'yield'; value: Value };
+/// What the scheduler resumes a context with: the request's answer.
+export type Answer =
+  | { task: TaskObject }          // spawn
+  | { value: Value }              // await: the task's value
+  | { offloaded: unknown }        // offload: whatever the Promise gave
+  | { done: boolean }             // sleep
+  | { coroutine: boolean }        // yield: true from a coroutine iterator, false from the scheduler
+  | undefined;
+/// A generator that may suspend and answers T — every function that runs swiftalk code.
+export type G<T> = Generator<Request, T, Answer>;
+/// What `run` answers: a function body's value and the scope it ran in (the generator's `$`).
+export type RunResult = { result: Value; local: Environment };
+export const isRunResult = (x: unknown): x is RunResult => typeof x === 'object' && x !== null && 'local' in x && 'result' in x;
+/// A host answer or a builtin's: a generator, or a plain value.
+export const isPromise = (x: unknown): x is Promise<unknown> => typeof x === 'object' && x !== null && typeof (x as { then?: unknown }).then === 'function';
+export const isGenerator = (x: unknown): x is G<unknown> => typeof x === 'object' && x !== null && typeof (x as { next?: unknown }).next === 'function' && typeof (x as { [Symbol.iterator]?: unknown })[Symbol.iterator] === 'function';
 
 let nextId = 1;
 
@@ -18,7 +43,7 @@ export type Role =
   | { k: 'enumType'; type: EnumType }
   | { k: 'structType'; type: StructType };
 /// A builtin's body: Values in, a Value out — or a generator of one, when it runs swiftalk code.
-export type Builtin = (args: Value[], labels?: (string | null)[], ...rest: any[]) => Value | Generator<any, Value, any>;
+export type Builtin = (args: Value[]) => Value | G<Value>;
 
 export class FunctionObject {
   readonly kind = 'function' as const;
@@ -30,8 +55,6 @@ export class FunctionObject {
   role: Role;
   /// a type value's parameters (round 165): `[Int]`, `Set<Int>`, `Int?`
   annotation: TypeAnnotation | null;
-  /// set by the evaluator for a closure's `self` (a method bound at call), its sourcing extension, and the like
-  [extra: string]: any;
   constructor(parameters: string[], body: Stmt[], closure: Environment, builtin: Builtin | null = null, role: Role = { k: 'plain' }, annotation: TypeAnnotation | null = null) {
     this.id = nextId++;
     this.parameters = parameters;
@@ -97,7 +120,6 @@ export class EnumType {
   staticGetters: Map<string, FunctionObject>;
   staticThunks: Map<string, StaticThunk>;
   operators: Map<string, FunctionObject>;
-  [extra: string]: any;
   constructor(name: string, caseOrder: string[], cases: Map<string, { label: string | null; typeName: string | null }[]>) {
     this.id = nextId++;
     this.name = name;
@@ -139,7 +161,6 @@ export class StructType {
   staticThunks: Map<string, StaticThunk>;
   operators: Map<string, FunctionObject>;
   isModule: boolean;
-  [extra: string]: any;
   constructor(name: string, propertyOrder: string[], properties: Map<string, Property>, declEnv: Environment, isModule = false) {
     this.id = nextId++;
     this.name = name;
@@ -170,7 +191,7 @@ export class StructValue {
 }
 
 /// A puller: the next element, or undefined at the end — a generator, since pulling may run swiftalk code.
-export type Puller = () => Generator<any, Value | undefined, any>;
+export type Puller = () => G<Value | undefined>;
 export type SequenceKind =
   | { kind: 'generator'; initial: Value[]; next: FunctionObject }
   | { kind: 'coroutine'; body: FunctionObject }
@@ -181,7 +202,7 @@ export type SequenceKind =
   | { kind: 'takenWhile'; base: SequenceObject; fn: FunctionObject }
   | { kind: 'droppedWhile'; base: SequenceObject; fn: FunctionObject }
   | { kind: 'dropped'; base: SequenceObject; n: bigint }
-  | { kind: 'native'; make: (() => Puller) | (() => Generator<any, Puller, any>); element: TypeAnnotation | null };
+  | { kind: 'native'; make: (() => Puller) | (() => G<Puller>); element: TypeAnnotation | null };
 export class SequenceObject {
   /// k: {kind:'generator', initial, next} {kind:'coroutine', body} {kind:'mapped', base, fn}
   ///    {kind:'filtered', base, fn} {kind:'enumerated', base} {kind:'counting', from}
@@ -197,11 +218,12 @@ export class TaskObject {
   readonly kind = 'task' as const;
   id: number;
   body: FunctionObject | null;
-  state: 'ready' | 'running' | 'done' | 'failed' | string;
+  state: 'ready' | 'running' | 'done' | 'failed';
   result: Value | undefined;
   error: Error | null;
-  [extra: string]: any;
-  constructor(body: FunctionObject | null) { this.id = nextId++; this.body = body; this.state = 'ready'; this.result = undefined; this.error = null; }
+  /// the contexts parked on this task, readied when it completes (Task.swift's awaiters)
+  awaiters: Context[];
+  constructor(body: FunctionObject | null) { this.id = nextId++; this.body = body; this.state = 'ready'; this.result = undefined; this.error = null; this.awaiters = []; }
 }
 
 /// A value a module owns (round 186): `object` answers for its type name,
@@ -212,14 +234,20 @@ export class TaskObject {
 export interface HostObject {
   typeName: string;
   /// a member read or call; undefined when the object has no such member
-  member(name: string, args: Value[], called: boolean, ...rest: any[]): Generator<any, Value | undefined, any> | Value | undefined;
+  member(name: string, args: Value[], called: boolean): G<Value | undefined> | Value | undefined;
   isEqual(other: HostObject): boolean;
   hashKey(): string;
   sourceString(debug: boolean): string;
-  patternMatch?(subject: Value, binding: boolean): any;
-  setMember?(name: string, value: Value): any;
-  operate?(key: string, operands: Value[]): any;
-  [extra: string]: any;
+  /// `case x:` with this value as the pattern: the match (the subject, or what it binds) or null
+  patternMatch?(subject: Value, binding: boolean): Value;
+  /// `v.name = x`: true when taken, false when the object has no such member; a generator when it runs code
+  setMember?(name: string, value: Value): boolean | G<boolean>;
+  /// an operator with this value as an operand (round 201): the answer, or undefined to decline
+  operate?(key: string, operands: Value[]): Value | undefined | G<Value | undefined>;
+  hasOperator?(key: string): boolean;
+  /// what the BigInt and BigRat modules read of each other's values (round 203)
+  readonly bigInt?: bigint;
+  readonly bigRat?: [bigint, bigint];
 }
 export class HostValue {
   readonly kind = 'host' as const;
@@ -237,7 +265,7 @@ export class ContextObject implements HostObject {
   id: number;
   typeName: string;
   constructor(env: Environment, isGlobal: boolean) { this.env = env; this.isGlobal = isGlobal; this.id = nextContextId++; this.typeName = 'Context'; }
-  *member(): Generator<any, Value | undefined, any> { return undefined; }
+  *member(): G<Value | undefined> { return undefined; }
   isEqual(other: HostObject): boolean { return other === this; }
   hashKey(): string { return `Context:${this.id}`; }
   sourceString(): string { return this.isGlobal ? 'global' : 'Context()'; }

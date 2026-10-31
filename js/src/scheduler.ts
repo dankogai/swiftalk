@@ -15,36 +15,31 @@
 // ready contexts and returns, an offloaded Promise is refused — for
 // `Swiftalk.eval` the one-liner and the fixture corpus.
 import { SwiftalkError } from './errors.js';
-import { TaskObject } from './objects.js';
-import type { FunctionObject } from './objects.js';
+import { TaskObject, isRunResult } from './objects.js';
+import type { Request, Answer, RunResult } from './objects.js';
 import type { Value } from './value.js';
 import { run } from './eval.js';
 
-/// What a context yields up to the scheduler: a suspension request.
-export type Request =
-  | { suspend: 'spawn'; body: FunctionObject }
-  | { suspend: 'await'; task: TaskObject }
-  | { suspend: 'sleep'; seconds: number }
-  | { suspend: 'offload'; promise: Promise<unknown> }
-  | { suspend: 'yield'; value?: Value };
 /// The answer a context resumes with: a value, or an error to throw into it.
-type Pending = { value: any; throw?: undefined } | { throw: Error; value?: undefined } | undefined;
+type Pending = { value: Answer; throw?: undefined } | { throw: Error; value?: undefined } | undefined;
 type Sleeper = { deadline: number; seq: number; ctx: Context };
+/// The main program's generator answers its last value; a task body's answers `run`'s result.
+type ContextGenerator = Generator<Request, Value | RunResult, Answer>;
 
 /// A generator with the baton, or parked: the main program's, or a task's.
-class Context {
-  gen: Generator<any, any, any>;
+export class Context {
+  gen: ContextGenerator;
   task: TaskObject | null;
   pending: Pending;
   parkedOn: TaskObject | null;
-  constructor(gen: Generator<any, any, any>, task: TaskObject | null = null) {
+  constructor(gen: ContextGenerator, task: TaskObject | null = null) {
     this.gen = gen;
     this.task = task;                 // null for the main context
     this.pending = undefined;         // the answer to resume with: {value} or {throw}
     this.parkedOn = null;             // the Task this context awaits, while parked
   }
   /// One step: resumes with the pending answer.
-  resume(): IteratorResult<any, any> {
+  resume(): IteratorResult<Request, Value | RunResult> {
     const p = this.pending;
     this.pending = undefined;
     if (p && p.throw !== undefined) return this.gen.throw(p.throw);
@@ -68,9 +63,9 @@ abstract class SchedulerBase {
     this.wake = null;                 // resolves when an offload finishes
   }
   /// Publishes a task's outcome and readies its awaiters (Task.swift's complete).
-  complete(task: TaskObject, result: Value | undefined, error: Error | null): void {
+  complete(task: TaskObject, result: Value, error: Error | null): void {
     if (error) { task.state = 'failed'; task.error = error; } else { task.state = 'done'; task.result = result; }
-    for (const ctx of task.awaiters as Context[]) { ctx.pending = error ? { throw: error } : { value: { value: result } }; ctx.parkedOn = null; this.ready.push(ctx); }
+    for (const ctx of task.awaiters) { ctx.pending = error ? { throw: error } : { value: { value: result } }; ctx.parkedOn = null; this.ready.push(ctx); }
     task.awaiters = [];
   }
   wakeDueSleepers(): void {
@@ -89,7 +84,6 @@ abstract class SchedulerBase {
     switch (request.suspend) {
       case 'spawn': {
         const task = new TaskObject(request.body);
-        task.awaiters = [];
         task.state = 'running';
         const ctx = new Context(run(request.body, []), task);
         current.pending = { value: { task } };
@@ -98,10 +92,9 @@ abstract class SchedulerBase {
       }
       case 'await': {
         const t = request.task;
-        if (t.state === 'done') { current.pending = { value: { value: t.result } }; return current; }
+        if (t.state === 'done') { current.pending = { value: { value: t.result ?? null } }; return current; }
         if (t.state === 'failed') { current.pending = { throw: t.error! }; return current; }
-        if (!t.awaiters) t.awaiters = [];
-        (t.awaiters as Context[]).push(current);
+        t.awaiters.push(current);
         current.parkedOn = t;
         return null;
       }
@@ -124,10 +117,11 @@ export class AsyncScheduler extends SchedulerBase {
   offload(current: Context, promise: Promise<unknown>): Context | null {
     this.offloaded++;
     Promise.resolve(promise).then(
-      (v) => { current.pending = { value: { value: v } }; },
-      (e: any) => {
-        let error: SwiftalkError = e;
-        if (!(e instanceof SwiftalkError)) { error = SwiftalkError.type(String(e && e.message ? e.message : e)); (error as any).fromHost = true; }
+      (v) => { current.pending = { value: { offloaded: v } }; },
+      (e: unknown) => {
+        let error: SwiftalkError;
+        if (e instanceof SwiftalkError) error = e;
+        else { error = SwiftalkError.type(e instanceof Error ? e.message : String(e)); error.fromHost = true; }
         current.pending = { throw: error };
       },
     ).then(() => { this.offloaded--; this.ready.push(current); if (this.wake) { const w = this.wake; this.wake = null; w(); } });
@@ -135,7 +129,7 @@ export class AsyncScheduler extends SchedulerBase {
   }
   /// Runs the main generator to completion, its value the result; tasks
   /// it leaves parked stay parked for the next run (the REPL's world).
-  async run(gen: Generator<any, any, any>): Promise<any> {
+  async run(gen: ContextGenerator): Promise<Value | RunResult> {
     const main = new Context(gen);
     let current: Context | null = main;
     for (;;) {
@@ -161,18 +155,19 @@ export class AsyncScheduler extends SchedulerBase {
           current = victim;
         }
       }
-      let step: IteratorResult<any, any>;
+      // the main context has no task; a task body's context has its own
+      const task = current.task;
+      let step: IteratorResult<Request, Value | RunResult>;
       try { step = current.resume(); }
       catch (e) {
-        if (current === main) throw e;
-        if (!(e instanceof SwiftalkError)) throw e;
-        this.complete(current.task!, undefined, e);
+        if (task === null || !(e instanceof SwiftalkError)) throw e;
+        this.complete(task, null, e);
         current = null;
         continue;
       }
       if (step.done) {
-        if (current === main) return step.value;
-        this.complete(current.task!, step.value.result, null);
+        if (task === null) return step.value;
+        this.complete(task, isRunResult(step.value) ? step.value.result : null, null);
         current = null;
         continue;
       }
@@ -194,7 +189,7 @@ export class AsyncScheduler extends SchedulerBase {
   }
   unpark(ctx: Context): void {
     const t = ctx.parkedOn;
-    if (t) { t.awaiters = (t.awaiters as Context[]).filter((a) => a !== ctx); ctx.parkedOn = null; }
+    if (t) { t.awaiters = t.awaiters.filter((a) => a !== ctx); ctx.parkedOn = null; }
   }
 }
 
@@ -220,7 +215,7 @@ export class SyncScheduler extends SchedulerBase {
     this.sleepers = this.sleepers.filter((s) => s.deadline > this.clock);
     for (const s of due) this.ready.push(s.ctx);
   }
-  run(gen: Generator<any, any, any>): any {
+  run(gen: ContextGenerator): Value | RunResult {
     const main = new Context(gen);
     let current: Context | null = main;
     for (;;) {
@@ -228,26 +223,27 @@ export class SyncScheduler extends SchedulerBase {
         if (!this.ready.length) this.wakeDueSleepers();
         if (this.ready.length) current = this.ready.shift()!;
         else {
-          if (!main.parkedOn) return undefined;     // unreachable: main finished or is running
-          const victim = main;
-          victim.parkedOn!.awaiters = (victim.parkedOn!.awaiters as Context[]).filter((a) => a !== victim);
-          victim.parkedOn = null;
-          victim.pending = { throw: SwiftalkError.type("deadlock: 'await' on a Task that can never complete") };
-          current = victim;
+          const awaited = main.parkedOn;
+          if (!awaited) throw new Error('the scheduler has nothing to run and the program is not waiting');     // unreachable: main finished or is running
+          awaited.awaiters = awaited.awaiters.filter((a) => a !== main);
+          main.parkedOn = null;
+          main.pending = { throw: SwiftalkError.type("deadlock: 'await' on a Task that can never complete") };
+          current = main;
         }
       }
-      let step: IteratorResult<any, any>;
+      // the main context has no task; a task body's context has its own
+      const task = current.task;
+      let step: IteratorResult<Request, Value | RunResult>;
       try { step = current.resume(); }
       catch (e) {
-        if (current === main) throw e;
-        if (!(e instanceof SwiftalkError)) throw e;
-        this.complete(current.task!, undefined, e);
+        if (task === null || !(e instanceof SwiftalkError)) throw e;
+        this.complete(task, null, e);
         current = null;
         continue;
       }
       if (step.done) {
-        if (current === main) return step.value;
-        this.complete(current.task!, step.value.result, null);
+        if (task === null) return step.value;
+        this.complete(task, isRunResult(step.value) ? step.value.result : null, null);
         current = null;
         continue;
       }
