@@ -3626,3 +3626,38 @@ the history. (Moved out of Design.md in round 65.)
   text and hands a failure up, with a comment saying why. The replay
   had not caught it: the line declares a closure nobody calls. The
   block's 11 statements replay clean. POSIX.md and this log.
+* **2026-11-01, round 245 — `documents/Regex.md` audited** ("Check
+  documents/Regex.md for stale lines too"). The round-86 page, a
+  module's since 186, read against the binary: the literal with `\/`
+  as `/` and every other backslash kept, the four flags and their
+  sorted `.flags`, the constructor's three spellings, a bad pattern and
+  an unknown flag and a non-String each refused with its message,
+  `.String()` re-entering, equality by pattern and flags (`/a+/` and
+  `/a+/i` unequal) and a Regex as a Dictionary key, `Regex("")` and its
+  four empty matches in `"abc"`; `/` dividing after a value, a
+  parenthesis and a subscript, and starting a regex at a statement's
+  start, after `[`, `(`, `:`, `?`, `+`, `=` and `return`; `contains`,
+  `firstMatch` and `wholeMatch` with and without `of:`, `matches` a
+  `[String]`, `replacing` with a String, `with:`, a plain String and a
+  Function, `split` with a Regex and a String, `separator:`, empty
+  pieces omitted; a match a String without groups and a labeled Tuple
+  with them, `nil` for a group that did not take part, the block's two
+  `if let` destructurings and the arity error for a wrong count, the
+  `for` over `matches`, the splatting closure and `$1`; the `switch`
+  block on six Strings — the whole String matching, a Regex pattern on
+  an Int, nil, an Array and a Double no match, a Regex binding on an Int
+  the type error; every grapheme bullet — `.` and `\X` three matches
+  for five scalars, `.` honoring `s`, the canonical `é`, `[a-z]` not,
+  the Hiragana range taking `ひらがな` and not `か゚`, a flag not matching
+  the regional-indicator range, the four `\p{}` classes and the literal
+  and class spellings of `か゚`, `(?u)` and `(?X)` refused with the
+  stdlib's "not currently supported"; the not-yets — `=~` a syntax
+  error, `$1` left literal, a Regex not iterable, no `.range`, no
+  `Data.firstMatch`. Under `--no-prelude` the literal names the module
+  in its error, `Regex` is undefined, `split(/,/)` points at the import,
+  and `import from "Regex"` makes the literal work. The module wraps
+  `Regex<AnyRegexOutput>` and `libRegex.dylib` is built; RegexTests
+  pins the grapheme bullets; every cited round's title matches. The
+  block's 10 statements replay; the three flags are lines using the
+  page's `s` from another block, noise. Nothing stale. No files changed
+  but this log.
