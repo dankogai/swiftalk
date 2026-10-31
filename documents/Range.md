@@ -14,7 +14,7 @@ materializes unless asked; `(1...1000000000000).count` is O(1).
 | `r[i]` | the i-th element (offset), bounds-checked; no writes |
 | `for i in r` | iteration, element by element |
 | `r.map` / `.filter` / `.reduce` | eager, yielding Arrays / a value |
-| `r.prefix(n)`, `r.suffix(n)`, `r.dropFirst(n)`, `r.dropLast(n)`, `r.split(x)` | as Arrays (round 89); on `a...` only `dropFirst` (lazy) — the rest refuse an infinite range |
+| `r.prefix(n)`, `r.suffix(n)`, `r.dropFirst(n)`, `r.dropLast(n)`, `r.split(x)` | as Arrays (round 89); on `a...`, `prefix(n)` still answers (an Array) and `dropFirst(n)` is lazy — `suffix`, `dropLast` and `split` refuse an infinite range (round 250 — this row had said only `dropFirst` survives) |
 | `r.sorted { $0 > $1 }`, `r.contains(7)` | an Array / membership (round 83) |
 | `r.reversed()` | an Array, descending (round 84) |
 | `a[1..<3]`, `a[1...]` | a Range as an Array subscript (round 90) — see [Array.md](Array.md) |

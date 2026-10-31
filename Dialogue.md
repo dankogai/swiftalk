@@ -3856,3 +3856,54 @@ the history. (Moved out of Design.md in round 65.)
   the Nil page's "Not for expressions: `if x = Int(s) { }`" read as a
   refusal where the binary binds `x` — round 78's optional `let` — so
   it now says so. Nil.md and Dialogue.md.
+
+* **2026-11-01, round 250 — documents/Range.md, Tuple.md, Date.md and
+  Function.md audited** (round 246's "other documents yet to be
+  checked", continued). Round 227's reading on the four pages; their
+  blocks replay (3, 8, 4 and 5 statements; Tuple.md's two flags are a
+  `{ ... }` pseudo-body and an undeclared `xs`, noise) and every row was
+  probed against the binary. Range: the O(1) count, `a > b` refused,
+  `Range(r)` with the other constructors pointed at the literal, the
+  overflowing count of the whole line, indexing with both bounds errors
+  and no writes, `map`/`filter`/`reduce` eager and typed, the slicing
+  family as Arrays, `sorted`/`contains`/`reversed`, the Array subscript,
+  the unbounded range in a `for` with `break`, under `prefix(5)`, by
+  index and as a `case 40...:`, its five deferring members answering
+  Sequence, its six refusing members, the overflow past `Int.max`,
+  `a..<`'s syntax error, the lazy pair on a bounded range as Arrays,
+  `Array()`, equality by bounds and kind, and the Range pattern on an
+  Int and on a String. Tuple: the literal forms including `(x,)`,
+  `(x: 1)`, `()` and `(x)` grouping, labels with unknown and duplicate
+  refused, nested `.0.1`, out-of-range refused, writes through `var`
+  only, `count`, equality ignoring labels, the key use, both printed
+  forms with `(7,)` keeping its comma and the source form re-entering,
+  every Sequence member, `Tuple()` from an Array, a Range and a String,
+  the expression pattern, destructuring in `let`/`var`, without
+  parentheses, with `_`, nested, with the arity error and each name's
+  own lock, by label in any order and mixed with position with a
+  missing label refused, the swap and paths as targets, the three loop
+  spellings including labeled, `if let` on a tuple, nil and a mismatch,
+  `if let a, b =` as two conditions, `case let w, h =`, and the tuple
+  splat with the whole-tuple wrap and `print` taking it raw. Date: the
+  constructors from a Date, a Double, an Int and the ISO text with and
+  without a fraction, a bare date and `"x"` nil, `1.5.Date()`, a Bool
+  and an Array refused, `.iso8601`, `Double(t)` with `t.Double()`
+  refused, comparison and equality with a Double refused, the two
+  printed forms both re-entering, and `+` absent. Function: labeled,
+  reordered and positional calls with the arity and label errors, `$`
+  and `$0` in a variadic, `_` positional-only with the label refused
+  both ways, the trailing closure, the tuple splat and its wrap, `$`
+  recursion, `.todo` taking exactly one assignment, `.Type`, `.name` on
+  a type, a protocol, an operator and nil for a closure, the bare
+  operator before `,` and `)` with `(/)` spelled out, every listed
+  operator Function including `(+^)` prefix and `(+)(1, 2.0)`'s type
+  error, the one-argument prefix forms, `(+) == (+)`, `(&&)` not
+  short-circuiting, the `"(+)"` form re-entering, identity equality,
+  `conforms(to:)` three ways, `f.Sequence()`, `f.Task()`, the two
+  placeholder forms and `func` refused. Two rows made precise in place:
+  Range's slicing row had said only `dropFirst` survives on `a...`,
+  where `prefix(n)` answers too — the row below it had always said so;
+  and Date's round-trip law `Date(t.String(.iso8601)) == t` holds for a
+  whole-second `t` only, the text carrying no fraction while the parse
+  accepts one. Every cited round's title matches. Range.md, Date.md and
+  Dialogue.md.
