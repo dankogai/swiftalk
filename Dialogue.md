@@ -3521,3 +3521,33 @@ the history. (Moved out of Design.md in round 65.)
   53's and a note on its closing line; Task.md's deadlock sentence
   stands as written. Suite: 595 tests in 136 suites passed, release,
   macOS.
+* **2026-10-31, round 242 — `documents/Net.md` audited** ("Check
+  documents/Net.md for stale lines too"). The page read against the
+  binary, on the wire: `fetch(url)` a Task whose value is a Result,
+  `.success(Response)` for example.com with status 200, `ok`,
+  `[String: String]` headers lowercased (`content-type` found,
+  `Content-Type` nil), a Data body, `text()` containing "Example
+  Domain"; a 404 a success with `ok == false`; a `.invalid` host a
+  `.failure` carrying a String, `?? nil` and `.catch` on it; options as
+  a Dictionary and as a labeled tuple against httpbin.org — `method:`
+  in any case arriving uppercased, a header arriving, a String body and
+  a Data body arriving as sent; `json()` the parsed value (a Dictionary
+  of a JSON object, as `SION(json:)` gives); every bad argument to the
+  call itself thrown with its message (no url, a non-String url,
+  options neither Dictionary nor tuple, a non-String method, non-String
+  headers, a non-String non-Data body, an unknown option); `Response`
+  constructible with `status: 204` and with nothing, `ok` false at 199
+  and 300, true at 299, `json()` of an empty body a thrown JSON error;
+  `import Net from "Net"` giving a namespace that is a Function type
+  with `Net.Response == Response` and a working `Net.fetch`, an
+  `extension Net` static beside it, `Net.nope` unknown; under
+  `--no-prelude` `fetch` undefined, `import from "Net"` binding both
+  names, `import Net from "Net"` binding only the namespace. The
+  module's source confirms `curl -sS -L -i` through `posix_spawnp` and
+  the hook read as `Interpreter.hooks["fetch"]`; FetchTests confirms
+  the hook's request Dictionary in, response Dictionary out, a thrown
+  error a `.failure`; `modules/Net` is the directory's spelling in git
+  and `libNet.dylib` the product; `Interpreter.preimport` and
+  `Swiftalk.spawn`/`offload` are the API's names; every cited round's
+  title matches. The block's 5 statements replay clean (network).
+  Nothing stale. No files changed but this log.
