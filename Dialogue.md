@@ -4007,3 +4007,35 @@ the history. (Moved out of Design.md in round 65.)
   keyword, so the line fails as a stray identifier. Both fixed in
   place; every cited round's title matches. flowcontrol.md and
   Dialogue.md.
+
+* **2026-11-01, round 253 — documents/grammar.md audited** (round 246's
+  "other documents yet to be checked", the last of them). Round 227's
+  reading on the grammar page, whose blocks are EBNF rather than
+  ```swift and so replay nothing: every lexical rule was run against
+  the binary in a file and at the REPL, and the keyword roster against
+  `Parser.swift`. Nesting comments; newlines suppressed inside `[ ]`
+  and `( )` and after a trailing `+`, `**`, `=`, `<`, `&&`, `??`,
+  `!!`, `|`, `+&` and `and`; a trailing `0...` left unbounded and a
+  trailing `!` or `?` ending the statement; a leading `+ 2`, `&& false`,
+  `?? 4`, `= 7`, `* 3`, `? "yes"` / `: "no"` continuing the line and
+  `-x`, `!flag` with no space starting a statement; a leading `...`
+  refused and a leading `.count` not continuing; a spaced `>` at a
+  line's end continuing and `Set<Int>` closing the line; a Unicode
+  identifier, `_x`, and `1x` refused; all twenty-eight keywords
+  refusing `let`, the fourteen contextual words and `guard`, `func`,
+  `mutating`, `class`, `actor`, `super` all declarable, `Regex` and
+  `SION` refused as builtins; the Int bases, `1.` and `.5` refused,
+  `1.e3` and `0x1.fe` read as member access against `0x1.fep7`; the
+  seven escapes; the multi-line string with its closing indentation
+  stripped, a less-indented line refused, a blank line excepted and `\`
+  joining; the raw string with `\#n`, `\#()` and `##"a "# b"##`;
+  `//` a comment before an argument; every compound assignment in the
+  operator list run in sequence to the expected values; the four
+  spacing rules — `o!!` unwrapping twice, `!!true`, `1 !! 2`, `?`'s
+  three readings, `t.0.1`; `a < b < c` refused; `f(_: 1)` refused;
+  `{ in }` refused; `.x = .x + 1` as implicit self in a struct method;
+  `async { }` a Task; `(x: 1)` a 1-tuple; `for … where` taking the word
+  operators; `import` and `export` refused inside a closure with the
+  top-level message; and a loop refused as an expression. The parser's
+  `keywords` set lists exactly the page's twenty-eight. Nothing stale.
+  No files changed but this log.
