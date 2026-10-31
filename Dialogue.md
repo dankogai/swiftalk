@@ -4039,3 +4039,33 @@ the history. (Moved out of Design.md in round 65.)
   top-level message; and a loop refused as an expression. The parser's
   `keywords` set lists exactly the page's twenty-eight. Nothing stale.
   No files changed but this log.
+
+* **2026-11-01, round 254 — Status.md audited** ("Check Status.md for
+  stale lines too"). Round 214's replay and round 222's reading, both
+  again, thirty-odd rounds on: `tools/replay-status.py` fed the 160
+  blocks' 1,394 prompts to the current build and came back with 29
+  mismatches, 26 of them the header's own noise — the clock, random
+  numbers, example.com's headers (its `content-type` has grown a
+  charset since the transcript), the module path, `./m.swt` absent, the
+  Node REPL's echoes of nil in the two JS milestones' blocks, the
+  `--no-prelude` blocks, the trailing-operator and `"""` continuations
+  the piped REPL cannot replay, `Shape` and `s` carried from an earlier
+  block, FizzBuzz's elided middle, a Dictionary's iteration order that
+  Swift seeds per process, and the tool's own second error after `/(/`
+  (the REPL prints one). Three were stale. Round 127's `keys`/`values`
+  block still showed `d.keys.enumerated().map { i, k in d[k] ==
+  d.values[i] }` answering `[true, true, true]` — alignment by index,
+  which round 132's Set took away; the replay had passed it by the luck
+  of the hash seed. The prompt is now `d.keys.map { d[$0] }.sorted()`
+  with `[1, 2, 3]`, and the italic note says why. Round 87's grapheme
+  block echoed `"e\u{301}🇯🇵a"` with a precomposed `é` in two lines
+  where the REPL writes the two scalars as typed — a normalization
+  slipped in when the transcript was pasted; the bytes now match. The
+  910 lines of prose were read against rounds 223–253: the one-name
+  embedding claim still counts two public top-level names (`Swiftalk`,
+  `TypeAnnotation`); the shelved tests are `.disabled("shelved — round
+  62 …")`; `ExamplesTests`, `~/.swiftalk_history`, `modules/Complex.swt`
+  and `modules/Rational.swt`, the examples named, `prefix(while:)` and
+  the Context, deadlock and member-declaration blocks of rounds 237,
+  241 and 228 all hold. The replay now reports 26 mismatches, every one
+  noise. Status.md and Dialogue.md.

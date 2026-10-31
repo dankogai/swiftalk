@@ -2322,7 +2322,9 @@ unknown member: Tuple.offset
 
 **`d.keys` and `d.values`** (round 127) — Swift's properties, as Arrays,
 aligned with each other *(`keys` a Set since round 132, a `Set<K>` since
-180, above)*:
+180, above — so the index alignment is gone, a Set having no order to
+share; the fourth prompt below is round 254's, the original having
+walked `keys` and `values` in step)*:
 
 ```text
 swiftalk> let d = ["b": 2, "a": 1, "c": 3]
@@ -2331,8 +2333,8 @@ swiftalk> d.keys.sorted()
 ["a", "b", "c"]
 swiftalk> d.values.reduce(0) { $0 + $1 }
 6
-swiftalk> d.keys.enumerated().map { i, k in d[k] == d.values[i] }
-[true, true, true]
+swiftalk> d.keys.map { d[$0] }.sorted()
+[1, 2, 3]
 swiftalk> d.keys()
 type error: .keys is a property, as in Swift — d.keys, not d.keys()
 ```
@@ -3295,11 +3297,11 @@ handle text with combining marks:
 
 ```text
 swiftalk> let s = "e\u{301}🇯🇵a"
-"é🇯🇵a"
+"é🇯🇵a"
 swiftalk> s.count
 3
 swiftalk> s.matches(/./)
-["é", "🇯🇵", "a"]
+["é", "🇯🇵", "a"]
 swiftalk> "か\u{309A}き".matches(/[\u{3040}-\u{309F}]/)
 ["き"]
 swiftalk> "か\u{309A}き".matches(/\p{Hiragana}+/)
