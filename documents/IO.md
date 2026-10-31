@@ -20,7 +20,7 @@ goes to `Interpreter.errorOutput`, **stderr** by default.
 |---|---|
 | `IO(path: p)`, `IO(path: p, mode: .read)` | a handle on the file at `p`, open to read. Modes: `.read` (the default), `.write` (create or truncate), `.append` (create, write at the end), `.readWrite` (create, both ways). The writing modes open read-write underneath, so `.data` reads back; a missing file, a bad mode, is an **error** — a handle is an object you hold, not a Result (POSIX has the descriptor-level answers, [POSIX.md](POSIX.md)) |
 | `IO.stdin`, `IO.stdout`, `IO.stderr` | the three standard handles, statics; never closed |
-| `fh.data` | the **whole content**, a Data, from the start (`fh.data.String(.utf8)` for its text); an error when the descriptor is not seekable — read a pipe or stdin with `.lines` or `.read(size)` |
+| `fh.data` | the **whole content**, a Data, from the start wherever the handle was (`fh.data.String(.utf8)` for its text) — and the handle is left at the end, so `.lines` or `.readLine()` after it read nothing (round 243); an error when the descriptor is not seekable — read a pipe or stdin with `.lines` or `.read(size)` |
 | `fh.data = x` | **replaces** the content: truncate, then write `x` (a Data or a String); an error when not seekable or not writable |
 | `fh.lines` | a lazy Sequence of the lines without their newlines, **from where the handle is** — `for line in fh.lines { }`, `.Array()`, `.map`, `.prefix`; iterating it twice reads on, not again |
 | `fh.read(size)`, `fh.read()` | a lazy Sequence of Data chunks of `size` bytes (the last shorter; 65536 by default), from where the handle is |

@@ -3551,3 +3551,41 @@ the history. (Moved out of Design.md in round 65.)
   `Swiftalk.spawn`/`offload` are the API's names; every cited round's
   title matches. The block's 5 statements replay clean (network).
   Nothing stale. No files changed but this log.
+* **2026-10-31, round 243 — `documents/IO.md` audited** ("Check
+  documents/IO.md for stale lines too"). The round-191 page read
+  against the binary with a scratch file and a piped stdin: `print`'s
+  spacing, newline and nil, a String bare and a struct's own `String`
+  member speaking, `print()` an empty line; `debugPrint` on stderr with
+  quoted Strings, `+0xff` and `-0x1`, `+0x1.4p1`, a struct's memberwise
+  form, nil and a Range; `readLine` stripping `\n` and `\r\n`, the
+  last unterminated line whole, `nil` at EOF, refusing an argument; the
+  four modes with `.read` the default, `.write` truncating, `.append`
+  and `.readWrite` reading back through `.data`, a missing file and
+  `.bogus` and a String mode and a bare `IO()` each refused with its
+  message, a write through a `.read` handle refused; `.data` whole from
+  the start after a `readLine`, `.lines` from where the handle is and
+  reading on the second time, `.prefix`, `.map`, `.Array()`; `read(5)`
+  as `[5, 5, 5, 4]`, a second `read` empty, `read()` one chunk, zero
+  and negative and String sizes refused; `lines`, `readLine` and
+  `read` mixed on one handle; `write` at the position and `append` at
+  the end with a String and a Data, the bytes written, an Int refused;
+  `data =` replacing with a String and a Data, an Int refused, through
+  a `var`; `fh.print` and an empty `fh.print()`; `close()` marking a
+  handle and every member refusing after it, `fd`/`path`/`mode` still
+  readable, a second `close()` quiet; the three statics' descriptors,
+  nil paths and mode names, `IO.stdout.close()` marking only — the
+  program's `print` went on; `IO.stderr.print` on stderr; the type,
+  identity (two handles on one file unequal, a copy equal), the printed
+  forms; a dropped handle's descriptor reused by the next open and a
+  kept one's not; `IO.stdin.data` on a pipe refused with the pointer to
+  `.lines`/`.read(size)`. Under `--no-prelude` `print` and `IO`
+  undefined, `import from "IO"` binding the three functions and the
+  type, `import IO from "IO"` a namespace whose `IO.IO` is the type.
+  The module is 253 lines using `setMember`, `Swiftalk.sequence`,
+  `Module.static`, `Swiftalk.output` and `errorOutput`, with a `deinit`
+  closing an owned descriptor; every cited round's title matches. One
+  row made precise: `.data` leaves the handle at the end, so `.lines`
+  after it reads nothing — the binary and `wholeData` (a seek to the
+  start, the buffer dropped, a read to EOF) agree. The block's 10
+  statements replay; the one flag is the `read(5)` loop's three
+  printed lines against its comment, noise. IO.md and this log.
