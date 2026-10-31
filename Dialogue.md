@@ -3807,3 +3807,52 @@ the history. (Moved out of Design.md in round 65.)
   The tables are generated from Unicode 17.0.0 as the page says; every
   cited round's title matches. Nothing stale. No files changed but this
   log.
+
+* **2026-11-01, round 249 — documents/Int.md, Double.md, Bool.md and
+  Nil.md audited** (round 246's "other documents yet to be checked",
+  continued). Round 227's reading on the four scalar pages; their
+  blocks replay (5, 4, 14 and 4 statements; Bool.md's six flags are
+  lines over `a`, `b`, `c`, `d`, `x`, `y` the precedence blocks never
+  declare and one value-ish comment, noise) and every row was probed
+  against the binary. Int: the four literal bases with `_`, the
+  conversions with their nils and the three type errors, the three
+  traps, `/` and `%` by zero, `%`'s sign, `**` trapping, refusing a
+  negative exponent and binding right and above `*`, the six bitwise
+  operators with smart shifts at -1, 64 and 70, their precedence beside
+  `*` and `+`, the compound form and `(+&)`, the five methods with
+  `.and()` pointing at `.bitAnd()`, `bit` with its bound, `bits`
+  `[Bool]`, `Int(bits:)` round-tripping and overflowing at 65, the
+  three bit counts, the five statics, `random` on both Range spellings
+  with the empty, unbounded and `to:` refusals, `===` across Double and
+  Byte and never a type error, prefix `+`/`-`, every `String()` format
+  with `.sign` beside each and `radix: 37` refused, `Double(i)` with
+  `i.Double()` refused, `debugDescription`. Double: the three literal
+  forms, the conversions from an Int, a String, a Date and a Bool
+  refused, IEEE division, `**` with the nan case and the mixed refusal,
+  `%` refused, all nine constants and ten Swift statics, every function
+  in the eight rows (Bessel included) with `ilogb` an Int and the three
+  labeled tuples, `round` half away from zero against `rint`, `sign` on
+  -0.0 and nan, the three `random` forms with and without labels and
+  their two refusals and a Range refused, `Double.sqrt` uncalled,
+  `clz32`/`imul` absent, IEEE `==` against bitwise `===`, every
+  `String()` format with the signed zeros and `.oct` and `radix:`
+  refused, `Int(d)` with `d.Int()` refused. Bool: `if`, `while`, `? :`
+  and `filter` each refusing an Int with its own message, the bare
+  variable reading on an Int and a String with writes reaching it, the
+  constructors with `"True"` nil and `true.Bool()`, `1.Bool()` and
+  `Bool(1)` each refused as the page says, `&&=`/`||=` not evaluating,
+  `^^` between `&&` and `||`, the four methods eager, the symbolic
+  operators refusing Ints, the words with their four keyword refusals,
+  `not 1 == 2`, one-level `or`/`xor`, the ternary under `or`, a
+  trailing `&&` and a leading `and`/`or` continuing a file's line and a
+  leading `not` starting a statement, `and=` a syntax error, and `&`,
+  `|`, `^` the Set errors naming the Bool spellings. Nil: `nil.Type`,
+  the one cross-type equality with `1 == "a"` still refused, the `Any`
+  lock of `let v = nil`, `[1, nil]` as `[Int?]`, `??=` evaluating once
+  on nil and on a Result failure under an `Any` lock, `??`/`!!` and
+  `!!=` on nil, `nil?` returning early, `nil!` refused, `nil?.m` not
+  evaluating the argument, `Int?` as a value with its conversion, Array,
+  annotation through a binding and flat `Int??`. One line made precise:
+  the Nil page's "Not for expressions: `if x = Int(s) { }`" read as a
+  refusal where the binary binds `x` — round 78's optional `let` — so
+  it now says so. Nil.md and Dialogue.md.
