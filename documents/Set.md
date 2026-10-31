@@ -8,7 +8,8 @@ anything, Sets included. A **COW value** (§4), like Array and
 Dictionary. There is no literal (Swift has none either): `Set(...)`
 is the spelling, and the source form — `Set(1, 2, 3)`, the elements
 as arguments, sorted by their source form, so two equal Sets print
-the same and `eval(s.String()) == s` (round 134; round 132 wrote
+the same and `eval(s.String())! == s` (round 134; `eval` answers a
+Result since round 159, hence the `!`; round 132 wrote
 `Set([1, 2, 3])`). One exception keeps that law: a one-element Set
 whose element is a Sequence prints `Set([x])`, since `Set(x)` would
 spread it. A homogeneous Set infers `Set<T>`; the
@@ -18,7 +19,7 @@ annotation is Swift's generic spelling, `Set<Int>`, `Set<String>?`,
 | Member / constructor | Result |
 |---|---|
 | `Set()` | the empty Set — a `Set<SION>` when bound without an annotation (round 181) |
-| `Set([1]).Type` | `Set<Int>` — the type with its element type (round 165); calling it builds a Set that remembers, so `var s = Set([1]).Type()` … `s.insert("x")` is a type error. `s.Type == Set` holds for every Set. `s.Type.Element` is the element type, `Int` (round 166) |
+| `Set([1]).Type` | `Set<Int>` — the type with its element type (round 165); calling it builds a Set that remembers — `let T = Set([1]).Type` then `var s = T()` … `s.insert("x")` is a type error (`Set([1]).Type()` in one breath is an unknown member, round 247). `s.Type == Set` holds for every Set. `s.Type.Element` is the element type, `Int` (round 166) |
 | `Set<Int>`, `Set<Int>()`, `Set<Int>(1, 2)` | the type as an expression (round 167) and its constructions — a Set that remembers, so `Set<Int>("abc")` is a type error; `Set<Set<Int>>` nests |
 | `Set(seq)` — `Set<T>` by stamp when the elements are homogeneous or the source is known to yield `T` (round 172), so `Set([Int]())` is a `Set<Int>` | the distinct elements of any finite Sequence — an Array, a Range, a String's graphemes, a Data's bytes, a Dictionary's `(key:, value:)` pairs; `Set(0...)` is an error |
 | `Set(a, b, ...)`, `Set(x)` | two or more arguments are the elements (round 133): `Set("one", "two")`; one argument that is not a Sequence is the one-element Set, `Set(3)`. Mind the one Sequence: `Set("one")` is a String's graphemes, `Set(["one"])` the one-element Set |
@@ -50,9 +51,10 @@ annotation is Swift's generic spelling, `Set<Int>`, `Set<String>?`,
 | `[s: v]` | a Set is Hashable, so it is a Dictionary key |
 
 Precedence is Swift's: `&` binds with `* / %`, `|` and `^` with `+ -`,
-so `a | b & c` is `a | (b & c)`. Off Sets the three are type errors —
-bitwise operations stay methods (`bitAnd`, `bitOr`, `bitXor`), and
-`&&`, `||`, `^^` are the Bool operators.
+so `a | b & c` is `a | (b & c)`. Off Sets the three are type errors
+that name the alternatives — `&&`, `||`, `^^` are the Bool operators,
+`+&`, `+|`, `+^` the bitwise ones (round 193; the `bitAnd`, `bitOr`,
+`bitXor` methods remain).
 
 No subscript: a Set has no positions. **No `??` or `!!` of their own**
 (round 133): a Set is keys only, so "keep mine" and "take theirs"

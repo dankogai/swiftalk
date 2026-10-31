@@ -4,7 +4,8 @@
 
 `[Key: Value]` — the spelling that started the language. A **COW
 value** (§4). Any Hashable value is a key (`1`, `"1"`, and `1.0` are
-three keys), as SION allows. A homogeneous literal infers `[K: V]`
+three keys — under a `[SION: SION]` annotation, since the inference
+below refuses the mixed literal bare), as SION allows. A homogeneous literal infers `[K: V]`
 (round 59); `[:]` bound without an annotation is `[SION: SION]` (round
 181), `[Int: String]()` an `[Int: String]` (round 165) —
 a Dictionary remembers the key and value types it was built or bound

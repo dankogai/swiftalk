@@ -3697,3 +3697,62 @@ the history. (Moved out of Design.md in round 65.)
   tuples, Arrays or Bools is their own "needs Comparable elements"
   message, `<`'s error only for mixed Comparables, where the row had
   said `<`'s for both. Sequence.md and Dialogue.md.
+
+* **2026-11-01, round 247 — documents/Array.md, Dictionary.md and
+  Set.md audited** (the "other documents yet to be checked" of round
+  246's request). Round 227's reading on the three collection pages;
+  their blocks replay (7, 9 and 5 statements; Set.md's two flags are
+  lines using `text`, `a` and `b` the block never declares, pseudo-code
+  noise) and every row was probed against the binary. Array: the
+  inference lock and the three annotations for a mixed literal, `[]`
+  as `[SION]`, `[Int]()` and `[Int](seq)` refusing a String, `.Type`
+  and its equalities, `.Element` on `[Int]`, `[[Int]]`, `[Int?]`
+  (called, it converts) and refused on the erased `Array` and on
+  `[Any]`, negative indexing and its bounds errors, writes through
+  nested and negative paths, multi-`append`, `map`'s stamp rules,
+  `forEach` nil, `filter`'s stamp, Range reads with every error, Range
+  assignment growing, shrinking and vanishing with both refusals, the
+  slicing family's stamps, `split` in four spellings, `sorted` on every
+  Comparable type and `<`'s error on a mix, `first`/`min`/`max`,
+  `contains` on tuples and Arrays, `reversed`, the lazy-predicate
+  pair, `joined` with an empty `[[Int]]` answering `[]`, `enumerated`
+  `[Tuple]`, the three `String()` forms, `.Array()` keeping the stamp,
+  `where`, and `insert`/`removeLast` still absent. Dictionary: three
+  keys that are `1`, `"1"` and `1.0`, `[:]` as `[SION: SION]`, the
+  typed empty refusing a String key and an Int value, `Dictionary(pairs)`
+  from labeled and unlabeled tuples, a zip and a coroutine with the
+  duplicate-key error and the three stamps, `.Key`/`.Value` and the
+  erased refusal, stored nil with `has`, `??=` creating, `!!=` never
+  creating and keeping the old value on a nil right side, `remove`,
+  `subtract` by Array, Set and Dictionary, `??`/`!!` and their
+  in-place forms with a stored nil filled and not overriding,
+  `merging`/`merge` with and without a function and the lock holding,
+  `count` with nils, `keys` a `Set<K>` and the `keys()` message,
+  `values` a `[V]`, both loop spellings, `map` with `$`, `filter`,
+  `reduce`, `sorted` with and without a Function, `contains`,
+  `reversed` and the slices with their stamps, `String()` sorted and
+  pretty. Set: the source form sorted with the lone-Sequence exception,
+  `Set()` as `Set<SION>`, `.Type` and `.Element`, `Set<Int>` in three
+  spellings with its refusals and nesting, `Set(seq)` from an Array, a
+  Range, a String, a Data and a Dictionary, `Set(0...)` refused,
+  the argument rules, `.Set()`, membership, `insert`/`remove`'s
+  answers, the four operators and their in-place forms, `|` against an
+  Array refused, `merge` and `subtract` with Sets, Arrays and Ranges,
+  the four named operations with Sequence arguments and an infinite one
+  refused, the five predicates with and without labels, `map` an
+  Array, `filter` a Set, `sorted`, `first`/`min`/`max`, `enumerated`
+  `[Tuple]`, slices Sets, the four `String()` formats, `keys`
+  equality, a Set as a key, `|` over `&` precedence, the three operators
+  off Sets refused, no subscript, `??`/`!!` the general rule, and
+  `popFirst` and SION still absent. Six lines made precise in place:
+  Array's `sorted` row names Byte and round 146's declared `<` among the
+  Comparables; Array's `a.Sequence()` row spelled a conversion that
+  never existed — an Array conforms, it does not convert — and now
+  says so under `Array.conforms(to: Sequence)`; Dictionary's three-key
+  sentence notes the `[SION: SION]` annotation the mixed literal needs;
+  Set's law reads `eval(s.String())! == s`, `eval` having answered a
+  Result since round 159; Set's `Set([1]).Type()` is an unknown member
+  — the type goes through a binding, `let T = Set([1]).Type` then
+  `T()`; and the off-Set sentence names round 193's `+&`, `+|`, `+^`
+  where it had said bitwise operations stay methods. Array.md,
+  Dictionary.md, Set.md and Dialogue.md.

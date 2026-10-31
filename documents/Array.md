@@ -34,7 +34,7 @@ Arrays are dense — a sparse array is a Dictionary.
 | `a.prefix(n)`, `a.suffix(n)` | the first / last n; n clamps to the count; of `a`'s element type (round 169) |
 | `a.dropFirst(n)`, `a.dropLast(n)` | all but the first / last n; `n` defaults to 1 (round 89). both keep `a`'s element type (rounds 168–169) |
 | `a.split(x)`, `a.split { }`, `a.split(separator:)`, `a.split(whereSeparator:)` | pieces between separators, as Arrays; empty pieces omitted, as Swift's (round 89); `[[T]]` of `a`'s `T`, each piece a `[T]`, even when empty (round 177) |
-| `a.sorted()`, `a.sorted { a, b in }`, `a.sorted(by:)` | a new Array; bare needs Comparable elements (Int, Double, String, Date) — mixed is `<`'s type error (round 83); of `a`'s element type (round 176) |
+| `a.sorted()`, `a.sorted { a, b in }`, `a.sorted(by:)` | a new Array; bare needs Comparable elements (Int, Double, String, Date, Byte, and a type declaring `<` — round 146) — mixed is `<`'s type error (round 83); of `a`'s element type (round 176) |
 | `a.first` | the first element or `nil` (round 139) |
 | `a.min()`, `a.max()`, `a.min(by:)` | the least / greatest or `nil`; bare needs Comparable elements, else a type error (round 139) |
 | `a.contains(x)`, `a.contains { }`, `a.contains(where:)` | equality (everything is Equatable) / predicate (round 83) |
@@ -46,7 +46,7 @@ Arrays are dense — a sparse array is a Dictionary.
 | `a.Array()` | `a`, stamp and all (round 171); `Set<Int>().Array()` is a `[Int]` |
 | `for x in a` | iteration |
 | `for x in a where c` | iteration over `a.filter({ })`, the loop's names in `c` (round 82) |
-| `a.Sequence()` | see [Sequence.md](Sequence.md) — an Array is *not* a lazy Sequence, but conforms |
+| `Array.conforms(to: Sequence)` | `true` — an Array is *not* a lazy Sequence (its `map` and `filter` are eager Arrays) but conforms (§10), which is why the Sequence members above are its too. There is no `a.Sequence()`: a Sequence is made from a state or a yielding Function, see [Sequence.md](Sequence.md) (round 247 — this row had spelled the conversion) |
 
 ```swift
 var primes = [2, 3, 5]
