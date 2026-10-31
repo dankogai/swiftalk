@@ -9,7 +9,7 @@ Dictionary, Set, Range, Tuple, and Data conform to (§10).
 
 | Constructor | Meaning |
 |---|---|
-| `Sequence(state) { next }` | a generator: `state`'s elements arrive as arguments (`$0`, `$1`, …); the return value is the element; `nil` ends it; the closure's final `$` is the next state |
+| `Sequence(state) { next }` | a generator: `state` is an Array whose elements arrive as arguments (`$0`, `$1`, …); the return value is the element; `nil` ends it; the closure's final `$` is the next state |
 | `Sequence(f)`, `f.Sequence()`, `Sequence { ... }` | a coroutine (round 52): each pull resumes `f`, each `yield v` emits `v`, returning ends it |
 
 | Member | Result |
@@ -19,13 +19,13 @@ Dictionary, Set, Range, Tuple, and Data conform to (§10).
 | `s.prefix(n)` | the first n, materialized as an Array |
 | `s.dropFirst(n)` | **lazy** — another Sequence (round 89) |
 | `s.suffix(n)`, `s.dropLast(n)`, `s.split(sep)` | drained — finite only; `split` takes a value or a predicate, pieces are Arrays (round 89); `split`'s pieces and their Array carry the element type the source is known to yield (round 177) |
-| `s.enumerated()` | `(key:, value:)` tuples — the index as `key` (round 128; Swift says `offset:`/`element:`) — lazy on a Sequence, an Array of tuples on Array/String/Range/Tuple (rounds 73/74); `e.key`/`e.value`, `for i, x in xs.enumerated()`, `.map { i, x in }`. **A Dictionary's `enumerated()` is itself** (round 129): its pairs are `(key:, value:)` already; stamped `[Tuple]` even when empty (round 175) |
+| `s.enumerated()` | `(key:, value:)` tuples — the index as `key` (round 128; Swift says `offset:`/`element:`) — lazy on a Sequence, an Array of tuples on every other conformer — Array, String, Set, Data, Range, Tuple (rounds 73/74) — stamped `[Tuple]` even when empty (round 175); `e.key`/`e.value`, `for i, x in xs.enumerated()`, `.map { i, x in }`. **A Dictionary's `enumerated()` is itself** (round 129), stamp and all: its pairs are `(key:, value:)` already |
 | `Sequence.zip(s, t)` | a lazy Sequence of `(x, y)` pairs until the shorter side ends (round 174; a static of Sequence since round 185, `zip` at the top level until then; the **Sequence module's** since round 192, preimported by the CLI — [module.md](module.md)) — see [toplevel.md](toplevel.md); `Array(Sequence.zip(1..., "ab"))` is `[(1, "a"), (2, "b")]` |
 | `s.Array()` | everything (do not ask an infinite one) — a `[T]` by stamp when the elements are homogeneous, or when the source is known to yield `T` — a Range's Ints through `filter`, `prefix`, `dropFirst`, lazy or eager — so `(1...3).filter { false }` and `Array((1...).prefix(0))` are empty `[Int]`s (round 171); after `map`, or from a generator or coroutine, an empty result reads as `[SION]` (round 181) |
 | `s.reduce(init) { }` | fold (consumes the whole sequence) |
 | `s.sorted()`, `s.sorted { a, b in }` | an Array, drained — finite only; bare needs Comparable elements (round 83) |
 | `s.first` | the first element, or `nil` — one pull, so an infinite Sequence answers (round 139); a property, as Swift's |
-| `s.min()`, `s.max()`, `s.min { a, b in }`, `s.max(by:)` | the least / greatest, or `nil` when empty — drained, finite only (round 139). Bare, the elements must be Comparable (Int, Double, String, Date, Byte): tuples, pairs, Arrays, Bools are `<`'s type error; with a Function, Swift's areInIncreasingOrder — `min` keeps the first of equals, `max` the last |
+| `s.min()`, `s.max()`, `s.min { a, b in }`, `s.max(by:)` | the least / greatest, or `nil` when empty — drained, finite only (round 139). Bare, the elements must be Comparable (Int, Double, String, Date, Byte): tuples, pairs, Arrays, Bools are a type error naming the odd element's type — ".min() needs Comparable elements — a Tuple is not" — and mixed Comparables `<`'s own (round 246); with a Function, Swift's areInIncreasingOrder — `min` keeps the first of equals, `max` the last |
 | `s.contains(x)`, `s.contains { }` | equality / predicate; short-circuits — an infinite Sequence answers on the first hit (round 83) |
 | `s.reversed()` | an Array, drained — finite only (round 84); of the element type the source is known to yield (round 176) |
 | `s.prefix { }`, `s.dropFirst { }` | **lazy** — another Sequence; the predicate is asked until its first miss and never again (round 88). `(0...)` is a lazy base too |

@@ -3661,3 +3661,39 @@ the history. (Moved out of Design.md in round 65.)
   block's 10 statements replay; the three flags are lines using the
   page's `s` from another block, noise. Nothing stale. No files changed
   but this log.
+
+* **2026-11-01, round 246 — documents/Sequence.md audited** ("Check
+  documents/Sequence.md for stale lines too, as well as other documents
+  yet to be checked"). Round 227's reading on the Sequence page: the
+  block's 4 statements replay clean, and every row and claim was probed
+  against the binary — the generator with `$` and `$0`/`$1`, the three
+  coroutine spellings, `map`/`filter` deferring (a counter in the
+  closure stays at zero through `_ = s.map { }` and climbs under
+  `forEach`, which answers nil), `prefix(n)` an Array, `dropFirst(n)` a
+  Sequence, `suffix`/`dropLast`/`split` by value and predicate with
+  `[[Int]]` pieces, `enumerated()` lazy on a Sequence and `[Tuple]` on
+  the rest, `e.key`/`e.value`, both loop spellings, a Dictionary's
+  itself with its own stamp, `Sequence.zip` lazy and eager with its two
+  refusals and absent under `--no-prelude` until the import, `.Array()`
+  `[Int]` for homogeneous elements and for a Range's through `filter`
+  and `prefix` and `[SION]` after `map` or from an empty generator or
+  coroutine, `reduce`, `sorted` bare and with a Function and its `<`
+  error on tuples and mixed elements, `first` on an infinite Sequence,
+  `min`/`max` bare on every Comparable type and with a Function keeping
+  the first and the last of equals, `contains` short-circuiting on the
+  infinite, `reversed` typed, `prefix { }`/`dropFirst { }` asking the
+  predicate until its first miss and never again (counted), `joined` on
+  Strings and Arrays with `separator:` and its refusal of Ints, `for`
+  with `break` leaving a coroutine mid-body, `where` on a lazy base,
+  `.count`'s error, re-iteration restarting the generator and rerunning
+  the coroutine body, a helper yielding on the body's behalf, `yield`
+  outside a coroutine refused, and all seven conformers answering
+  `.conforms(to: Sequence)` with Int, Bool and Result not. Three rows
+  made precise in place: the generator's state is an Array (the binary
+  refuses an Int or a String); the `[Tuple]` stamp of round 175 belongs
+  to the eager enumeration — Array, String, Set, Data, Range, Tuple —
+  not to the Dictionary's, which keeps its own `[K: V]`, and the eager
+  list had named only the four of round 74; and bare `min()`/`max()` on
+  tuples, Arrays or Bools is their own "needs Comparable elements"
+  message, `<`'s error only for mixed Comparables, where the row had
+  said `<`'s for both. Sequence.md and Dialogue.md.
