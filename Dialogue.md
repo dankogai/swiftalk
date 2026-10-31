@@ -3907,3 +3907,61 @@ the history. (Moved out of Design.md in round 65.)
   whole-second `t` only, the text carrying no fraction while the parse
   accepts one. Every cited round's title matches. Range.md, Date.md and
   Dialogue.md.
+
+* **2026-11-01, round 251 — documents/BigInt.md, BigRat.md and SION.md
+  audited** (round 246's "other documents yet to be checked",
+  continued). Round 227's reading on the two number modules' pages and
+  the data format's; their blocks replay (4, 4 and the SION block's
+  `"""` document, which the tool groups as one statement; BigInt.md's
+  one flag is an elided error comment, noise) and every row was probed
+  against the binary. BigInt: the literal in three bases with `_` and
+  prefix `-`, `1.5n` and `1e3n` the syntax error the row promises,
+  twenty digits overflowing without the `n`, the three strict refusals
+  naming the conversion, the constructors from an Int, a Byte, an
+  integral and a fractional Double, the literal's spelling with sign,
+  prefix, `_` and `n`, radix 36 with 37 refused, `BigInt(b)` both
+  ways, `Int(b)` narrowing and overflowing with `b.Int()` refused,
+  `Double(b)`, the three decimal forms, both descriptions, the three
+  prefixed formats, two radix forms, `.sign` both ways, `2n ** 256n`,
+  truncating `/` and `%` with the dividend's sign and both by zero, the
+  negative exponent, prefix signs, comparison, `sorted`/`min`/`max`,
+  the key and the Set, the six bitwise operators at width with the
+  arithmetic shift, the `case` on a BigInt, an Int and as a binding,
+  and every member — `magnitude`, `signum` an Int, `isZero`,
+  `bitWidth` 9 and 2, `trailingZeroBitCount`, `power` with an Int and a
+  BigInt and refusing a negative, the modular form, `squareRoot` and
+  its negative, `gcd` non-negative. BigRat: reduction and the sign in
+  the numerator, the exact third, the three strict refusals, the
+  constructors from Ints, BigInts, a Byte, `0.1` exactly, inf and nan
+  refused, a zero denominator, the four text forms with radix prefixes,
+  `_`, `n` and an exponent and `"x"` refused, `BigRat()`, both
+  identity spellings, `numerator`/`denominator` BigInts, `Double(r)`
+  with `r.Double()` refused, the three truncations with `Int`
+  overflowing, the three decimal forms, both descriptions, `.fraction`
+  and the four `.mixed` shapes, `/` by zero, `**` with Int, BigInt and
+  negative exponents and `0 ** -1` and a BigRat exponent refused,
+  prefix signs, equality by value, comparison, `sorted`/`min`/`max`,
+  the key and the Set, the `case` on a BigRat and on an Int, all seven
+  rounding rules and an unknown one refused, and every member. SION:
+  a document with comments, radix and `_` numbers, a hex float, an
+  escape and `"""`, three non-literal documents refused, the String
+  method, `SION(v)` on every carried type and five refused types,
+  `[1].SION()` refused, the two text spellings, JSON's `null`, Int and
+  Double rules and nested objects, a JSON error with its position, the
+  lossy JSON of Data, a Date and an Int key, inf and nan refused,
+  `.pretty` both ways round-tripping, an XML property list with every
+  element, an entity and a comment, the written plist with its tabs,
+  nil and an Int key refused, the bplist both ways with `.Data(.propertyList)`
+  refused, the mixed-key annotation, `[]` as `[SION]` refusing a
+  Function, `[].Type.Element`, `Primitives` gone, and the page's own
+  document and plist round trips. The modules are built as
+  `libBigInt.dylib`, `libBigRat.dylib` and the shared `libBigNum.dylib`
+  from the vendored package, the JS runtime has `BigInt.js` and
+  `BigRat.js`, `operate` is the module's hook, `preimport` exists, and
+  under `--no-prelude` the literal names the module until the import.
+  Two lines made precise in place: BigInt's modular `power` takes a
+  BigInt modulus (an Int is refused with the conversion named; zero is
+  the division error), where the row left the type open; and SION's
+  "type error with a position" holds for JSON and property lists only
+  — SION text fails as the lexer does, a syntax error naming the token.
+  Every cited round's title matches. BigInt.md, SION.md and Dialogue.md.

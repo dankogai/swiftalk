@@ -30,9 +30,12 @@ Date, was retired then; `SION` covers it.)
 | `Data(v, .propertyList)` | write it (`v.Data(.propertyList)` is no member since round 208 — `.Data()` is a String's) |
 | `let x: SION = ...` | the annotation (round 59) still names the union — a mixed-key Dictionary, say, needs it under strict inference |
 
-A document that does not parse is a **type error with a position**,
-not `nil`: `nil` is itself a legal SION value, so it cannot mean
-"failed". Each format refuses what it cannot carry rather than
+A document that does not parse is an **error**, not `nil`: `nil` is
+itself a legal SION value, so it cannot mean "failed". SION text
+fails as swiftalk's own lexer fails — a syntax error naming the
+token; JSON and property lists as type errors with a position,
+`JSON: unexpected ']' at 4` (round 251 — this paragraph had promised
+a position for all three). Each format refuses what it cannot carry rather than
 dropping it silently — `[nil].String(.propertyList)` is an error, not
 an empty list.
 

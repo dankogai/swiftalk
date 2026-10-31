@@ -61,7 +61,7 @@ past 64 bits), `Double(b)` approximates.
 | `b.bitWidth` | two's-complement bits, sign included: `255n.bitWidth` is 9 |
 | `b.trailingZeroBitCount` | as Int's |
 | `b.power(e)` | `b` to the `e` — an Int or BigInt, non-negative |
-| `b.power(e, m)` | modular exponentiation, Python's three-argument `pow` |
+| `b.power(e, m)` | modular exponentiation, Python's three-argument `pow`; `m` a BigInt (an Int modulus is refused with the conversion named, round 251), `m` of zero the division-by-zero error |
 | `b.squareRoot()` | ⌊√b⌋; negative, an error |
 | `b.gcd(c)` | the greatest common divisor, non-negative |
 
