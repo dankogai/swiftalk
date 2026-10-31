@@ -3756,3 +3756,54 @@ the history. (Moved out of Design.md in round 65.)
   `T()`; and the off-Set sentence names round 193's `+&`, `+|`, `+^`
   where it had said bitwise operations stay methods. Array.md,
   Dictionary.md, Set.md and Dialogue.md.
+
+* **2026-11-01, round 248 — documents/String.md, Data.md and Byte.md
+  audited** (round 246's "other documents yet to be checked",
+  continued). Round 227's reading on the three text-and-bytes pages;
+  their blocks replay (5, 4 and 6 statements, no flags) and every row
+  was probed against the binary. String: the seven escapes by scalar
+  value, `String(x)` on a String, a Double, a mixed Array and nil,
+  canonical `==` against scalar `===`/`!==` with `.normalized` first,
+  `.String(.quoted)` re-entering through `eval(...)!`, the seven parses
+  on a String with their nils and `SION`'s thrown syntax error, each
+  method spelling refused off a String with its round 205–210 message,
+  `.Data(.utf8)`, the four normalization forms with and without `with:`
+  and `isNormalized` both ways, `uppercased` on `straße`, `ucfirst` on
+  `élan`, `trimmed` taking `\u{3000}` and a given String, `escaped`
+  doubling a backslash, `unescaped` reading the eight escapes and
+  refusing `\q`, `unicodeScalars`/`utf32`/`utf8` as `[Int]` and
+  `utf16` absent, `fromCodePoint` with a surrogate and an out-of-range
+  Int refused and a Function uncalled, the three parses and the five
+  `String()` formats on containers, a struct's own `String` member
+  printing plain, pretty and as a key, `.sion` never asking and `.json`
+  refusing the struct, `.canonical` alone and with `.pretty` and refused
+  with `.json`, the grapheme members (`for`, `map` an Array, `forEach`
+  nil, `filter` a String, `reduce`, `Array`, `prefix`/`suffix`/
+  `dropFirst`/`dropLast` Strings, `split` by predicate, String and Regex
+  with `[String]` when empty, `sorted`, `contains` with `""` found,
+  `reversed` a `[String]` and joined back, the lazy pair as Strings,
+  `joined("-")`), the four Regex members and the three `replacing`
+  forms, the subscript's error, and the literals — `"""` with the
+  closing indentation stripped and a `\` joining lines, raw with
+  `\#()` and a doubled `#`. Data: base64 with whitespace ignored and
+  `"YQ"` and `"hello"` nil, `Data([...])` with a Byte, 256, a String and
+  a Double, indexing with Bytes and negative indices and both bounds
+  errors, Range reads and the error past the end, byte writes with a
+  Byte, an Int, 256 and a String, Range assignment from a Data with an
+  Array and a String refused, `.String(.utf8)` nil on bad bytes, the
+  source form, the hex `debugDescription`, JSON's base64, the bplist
+  from `Data(v, .propertyList)`, `[1, 2].Data()` refused, equality and
+  the key use, `Data.random`, and every Sequence member's shape — Datas
+  from `filter`, `prefix`, `suffix`, `dropFirst`, `dropLast`, `split`,
+  Arrays from `map`, `sorted` (`[Byte]`), `reversed`. Byte: the
+  constructors on a Byte, Ints at both edges, Doubles truncated, Strings
+  parsed as `Int(s)` with hex and `"300"` nil, `7.Byte()` refused, the
+  five statics, the five arithmetic operators trapping on overflow and
+  `/ 0`, a Byte meeting an Int as an Int, comparisons and equality
+  across the two, `.Type` telling them apart and both locks refusing,
+  the key equivalence, `Int(b)`/`Double(b)` with `b.Int()` refused,
+  both printed forms, the six bitwise operators masked to 8 bits and
+  widening with an Int, the five methods, and the mixed `Data` literal.
+  The tables are generated from Unicode 17.0.0 as the page says; every
+  cited round's title matches. Nothing stale. No files changed but this
+  log.
