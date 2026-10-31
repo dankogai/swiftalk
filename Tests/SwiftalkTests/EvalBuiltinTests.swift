@@ -1,7 +1,7 @@
 import Testing
 @testable import Swiftalk
 
-@Suite("eval() in the language — source in, a Result out, at the top level (rounds 122, 159)")
+@Suite("eval() in the language — source in, a Result out, in a Context (rounds 122, 159, 237)")
 struct EvalBuiltinTests {
     @Test("the last statement's value; the round-trip law, in the language")
     func basics() throws {
@@ -19,12 +19,14 @@ struct EvalBuiltinTests {
         #expect(try eval("eval((x: 1, [2]).String())! == (x: 1, [2])") == .bool(true))
     }
 
-    @Test("it runs at the program's top level: sees it, declares into it, not a caller's locals")
+    @Test("it runs in a copy of the program's top level (round 237): sees it, keeps nothing, not a caller's locals; global keeps")
     func scope() throws {
         #expect(try eval("let n = 5\neval(\"n * 2\")!") == .int(10))
-        #expect(try eval("var n = 5\neval(\"n = 6\")\nn") == .int(6))
-        #expect(try eval("eval(\"let y = 1\")\ny") == .int(1))
-        #expect(try eval("eval(\"struct Q { var a: Int = 1 }\")\nQ().a") == .int(1))
+        #expect(try eval("var n = 5\neval(\"n = 6\")\nn") == .int(5))
+        #expect(try eval("var n = 5\neval(\"n = 6\", global)\nn") == .int(6))
+        #expect(throws: SwiftalkError.self) { try eval("eval(\"let y = 1\")\ny") }
+        #expect(try eval("eval(\"let y = 1\", global)\ny") == .int(1))
+        #expect(try eval("eval(\"struct Q { var a: Int = 1 }\", global)\nQ().a") == .int(1))
         #expect(try eval("let f = { a in eval(\"a\") }\nf(1).failure") == .string("type error: undefined variable 'a'"))
         #expect(try eval("let z = 1\neval(\"let z = 2\").failure != nil") == .bool(true))       // redeclaration, as at the top
         #expect(try eval("let e = eval\ne(\"2\")!") == .int(2))
@@ -33,13 +35,14 @@ struct EvalBuiltinTests {
         #expect(try eval("[\"1\", \"x\"].map(eval).map { $0.success }") == .array([.int(1), .nil]))
     }
 
-    @Test("in a module, eval runs at the module's own top level (round 123) — while it loads, and from its functions after")
+    @Test("in a module, eval runs in a copy of the module's own top level (rounds 123, 237) — while it loads, and from its functions after")
     func moduleScope() throws {
         let files = ["m.swt": """
             let secret = 7
+            let scope = Context()
             export let peek = { eval("secret") }
-            export let define = { eval("let minted = 1") }
-            export let made = { eval("minted") }
+            export let define = { eval("let minted = 1", scope) }
+            export let made = { eval("minted", scope) }
             export let outside = { eval("mainName") }
             export let loaded = eval("secret + 1")
             let f = { a in eval("a") }
@@ -54,7 +57,7 @@ struct EvalBuiltinTests {
         #expect(throws: SwiftalkError.self) { try i.eval("secret") }
         #expect(try i.eval("let mainName = 1\nmainName") == .int(1))
         #expect(try i.eval("M.outside().failure != nil") == .bool(true))                    // the module's top, not the program's
-        #expect(try i.eval("M.define()\nM.made()!") == .int(1))                                // declared into the module's top
+        #expect(try i.eval("M.define()\nM.made()!") == .int(1))                                // kept in the module's own context
         #expect(throws: SwiftalkError.self) { try i.eval("minted") }
         #expect(try i.eval("eval(\"mainName\")!") == .int(1))                                 // back in the program, its own top
     }
@@ -64,7 +67,7 @@ struct EvalBuiltinTests {
         #expect(try eval("eval(\"1 +\").failure") == .string("syntax error: unexpected token end of input"))
         #expect(throws: SwiftalkError.self) { try eval("eval(1)") }
         #expect(throws: SwiftalkError.self) { try eval("eval()") }
-        #expect(throws: SwiftalkError.self) { try eval("eval(\"a\", \"b\")") }
+        #expect(throws: SwiftalkError.self) { try eval("eval(\"a\", \"b\")") }                 // the second argument is a Context (round 237)
         #expect(try eval("eval(\"break\").failure") == .string("syntax error: 'break'/'continue' outside a loop"))
         #expect(try eval("eval(\"return 1\").failure") == .string("syntax error: 'return' outside a function"))
         #expect(try eval("eval(\"nope\").failure") == .string("type error: undefined variable 'nope'"))

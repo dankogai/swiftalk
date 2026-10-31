@@ -78,6 +78,12 @@ enum Builtins {
     /// *type* never converts (§3d: the same operation as `x.Type()`,
     /// spelled from the other end).
     nonisolated(unsafe) static let types: [String: FunctionObject] = [
+        // Round 237: a Context is made where it is called — the evaluator
+        // builds it from the call's scope; the constructor itself, reached
+        // any other way (passed as a Function, given an argument), refuses.
+        "Context": type("Context") { _ in
+            throw SwiftalkError.type("Context() is made where it is called, with no arguments — it copies the top level there")
+        },
         "Nil": type("Nil") { args in
             switch args.first {
             case nil, .nil: return .nil

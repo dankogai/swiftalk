@@ -59,6 +59,11 @@ extension Swiftalk {
             modules.interpreter = self
             installBuiltins()
             installEval(in: environment)                                   // round 122/123
+            // Round 237: `global` is the program's top level as a Context —
+            // in the builtins scope, so a module sees it too.
+            try! builtins.declare("global", Binding(
+                mutable: false, lock: TypeAnnotation(name: "Context", optional: false),
+                value: .host(ContextObject(env: environment, isGlobal: true))))
             modules.fileScopeSetup = { [unowned self] scope in installEval(in: scope) }
         }
 
@@ -169,9 +174,23 @@ extension Swiftalk {
         /// file-scope rule against shadowing builtins does not apply; the
         /// binding is a `let`, and redeclaring it is the usual error.
         func installEval(in scope: Environment) {
+            scope.evalInstaller = { [weak self] copy in self?.installEval(in: copy) }
             let fn = FunctionObject(parameters: [], body: [], closure: scope) { [unowned self] args in
-                guard args.count == 1, case .string(let source) = args[0] else {
-                    throw SwiftalkError.type("eval takes one String of swiftalk source")
+                guard (1...2).contains(args.count), case .string(let source) = args[0] else {
+                    throw SwiftalkError.type("eval takes a String of swiftalk source and, optionally, a Context")
+                }
+                // Round 237: the second argument is the Context to run in —
+                // `global`, or one made by Context(); without it, a fresh
+                // copy of this file's top level, gone when eval returns.
+                let target: Environment
+                if args.count == 2 {
+                    guard case .host(let h) = args[1], let ctx = h as? ContextObject else {
+                        throw SwiftalkError.type("eval's second argument is a Context — global, or one made by Context() — not a \(args[1].typeName)")
+                    }
+                    target = ctx.env
+                } else {
+                    guard case .host(let h) = makeContext(copying: scope), let ctx = h as? ContextObject else { fatalError("unreachable") }
+                    target = ctx.env
                 }
                 // Round 159: a Result — the program's value as .success, any
                 // error the program raises (syntax, type, a trap) as
@@ -180,7 +199,7 @@ extension Swiftalk {
                 // Misusing eval itself (no String) is still the caller's
                 // type error, as with any builtin.
                 do {
-                    let value = try run(source, in: scope)
+                    let value = try run(source, in: target)
                     return try constructEnumCase(Builtins.resultType, "success", args: [(nil, value)], called: true)
                 } catch let error as SwiftalkError {
                     return try constructEnumCase(Builtins.resultType, "failure", args: [(nil, .string(error.description))], called: true)
@@ -372,6 +391,33 @@ struct Binding {
     var value: Value
 }
 
+/// A `Context` (round 237): an execution state — a top level of its own.
+/// `global` is the program's; `Context()` is a copy of the top level it is
+/// made in; `eval(source, ctx)` runs at the context's top level, where its
+/// declarations land and its assignments stay. Identity is equality; the
+/// value prints as `global` or `Context()`; it has no members of its own.
+final class ContextObject: Swiftalk.HostValue {
+    let env: Environment
+    let isGlobal: Bool
+    init(env: Environment, isGlobal: Bool) { self.env = env; self.isGlobal = isGlobal }
+    var typeName: String { "Context" }
+    var type: Value { .function(Builtins.types["Context"]!) }
+    func member(_ name: String, args: [Value], called: Bool) throws -> Value? { nil }
+    func isEqual(to other: any Swiftalk.HostValue) -> Bool { (other as? ContextObject) === self }
+    func hash(into hasher: inout Hasher) { hasher.combine(ObjectIdentifier(self)) }
+    func sourceString(debug: Bool) -> String { isGlobal ? "global" : "Context()" }
+}
+
+/// `Context()` (round 237): a copy of the file scope the call sits in,
+/// with an `eval` of its own — so an `eval` inside it defaults to a copy
+/// of it, as the program's defaults to a copy of the program's.
+func makeContext(copying env: Environment) -> Value {
+    let scope = env.fileScope().copy()
+    scope.removeBinding("eval")
+    scope.evalInstaller?(scope)
+    return .host(ContextObject(env: scope, isGlobal: false))
+}
+
 /// A lexical scope. Function calls make a child of the function's
 /// captured environment; lookups and assignments walk the parent chain.
 final class Environment {
@@ -386,9 +432,33 @@ final class Environment {
     var redefining = false
     /// The names this file exports, in order.
     var exports: [String] = []
+    /// How a file scope gets its `eval` (round 237): set by the
+    /// Interpreter on every file scope, carried into a Context's copy so
+    /// the copy can have an `eval` of its own.
+    var evalInstaller: ((Environment) -> Void)? = nil
 
     init(parent: Environment? = nil) {
         self.parent = parent
+    }
+
+    /// The enclosing file scope — a program's or a module's top level
+    /// (round 237): what `Context()` copies.
+    func fileScope() -> Environment {
+        var scope = self
+        while !scope.isFileScope, let parent = scope.parent { scope = parent }
+        return scope
+    }
+
+    /// A Context's state (round 237): a file scope of its own under the
+    /// same parent, with this scope's bindings as they are now — value,
+    /// lock and mutability — so a declaration or assignment in the copy
+    /// moves nothing here. Functions keep the scope they were made in.
+    func copy() -> Environment {
+        let twin = Environment(parent: parent)
+        twin.bindings = bindings
+        twin.isFileScope = true
+        twin.evalInstaller = evalInstaller
+        return twin
     }
 
     /// The outermost scope — the builtins' (round 147): where an
@@ -494,7 +564,7 @@ func typeMatches(_ value: Value, _ lockName: String) -> Bool {
 }
 
 private let knownTypeNames: Set<String> =
-    ["Nil", "Bool", "Int", "Double", "String", "Array", "Dictionary", "Set", "Function",
+    ["Context", "Nil", "Bool", "Int", "Double", "String", "Array", "Dictionary", "Set", "Function",    // Context: round 237
      "Range", "Sequence", "Data", "Date", "Task", "Tuple", "Byte",
      // Round 59: annotation vocabulary — Any admits everything, SION
      // its roster. Any is not a value; SION is a type (round 97).
@@ -1669,6 +1739,12 @@ func evaluate(_ expr: Expr, in env: Environment) throws -> Value {
             let v = try evaluate(callee, in: env)
             throw SwiftalkError.type("cannot call a \(v.typeName)")
         }
+        if fn === Builtins.types["Context"]! {                                   // round 237, as below
+            guard args.isEmpty else {
+                throw SwiftalkError.type("Context() takes no arguments — it copies the top level it is made in")
+            }
+            return makeContext(copying: env)
+        }
         return try apply(fn, args: try evaluateArgs(args, in: env))
     case .selfCall(let args):
         guard case .function(let fn) = try? env.lookup(calleeKey) else {
@@ -1785,6 +1861,14 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
         guard case .function(let fn) = try evaluate(callee, in: env) else {
             let v = try evaluate(callee, in: env)
             throw SwiftalkError.type("cannot call a \(v.typeName)")
+        }
+        // Round 237: Context() copies the top level it is made in, so it
+        // is built here, where the call's scope is known.
+        if fn === Builtins.types["Context"]! {
+            guard args.isEmpty else {
+                throw SwiftalkError.type("Context() takes no arguments — it copies the top level it is made in")
+            }
+            return makeContext(copying: env)
         }
         return try apply(fn, args: try evaluateArgs(args, in: env))
     case .selfCall(let args):

@@ -15,8 +15,20 @@ export class Environment {
     this.isFileScope = false;
     this.redefining = false;
     this.exports = [];
+    /// how a file scope gets its `eval` (round 237) — carried into a Context's copy
+    this.evalInstaller = null;
   }
   get root() { return this.parent ? this.parent.root : this; }
+  /// the enclosing file scope (round 237): what Context() copies
+  fileScope() { let scope = this; while (!scope.isFileScope && scope.parent) scope = scope.parent; return scope; }
+  /// a Context's state (round 237): a file scope of its own with these bindings as they are now
+  copy() {
+    const twin = new Environment(this.parent);
+    twin.bindings = new Map([...this.bindings].map(([name, b]) => [name, new Binding(b.mutable, b.lock, b.value)]));   // bindings by value, as Swift's structs are
+    twin.isFileScope = true;
+    twin.evalInstaller = this.evalInstaller;
+    return twin;
+  }
   removeBinding(name) { const b = this.bindings.get(name); this.bindings.delete(name); return b ?? null; }
   putBinding(name, binding) { this.bindings.set(name, binding); }
   declare(name, binding) {

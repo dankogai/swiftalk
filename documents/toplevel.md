@@ -14,7 +14,7 @@ inner scope (the top level itself refuses a redeclaration, as of any
 
 | Form | Meaning |
 |---|---|
-| `eval(source)` | **the language's own `eval`** (round 122; Swift has none): the String is a swiftalk program, and a **`Result`** comes back (round 159) — `.success(v)` with its last statement's value, or `.failure(message)` for any error the program raises (a syntax error, an undefined name, a trap), never thrown: `eval(s)?` propagates, `eval(s) ?? d` defaults, `eval(s)!` unwraps or traps. Runs **at the file's top level** — sees what the top level sees, declares into it as a line at the REPL would, and cannot see a caller's locals. The round-trip law in the language: `eval(x.String())! == x`. Calling it with anything but one String is the caller's type error, as with any builtin |
+| `eval(source)`, `eval(source, ctx)` | **the language's own `eval`** (round 122; Swift has none): the String is a swiftalk program, and a **`Result`** comes back (round 159) — `.success(v)` with its last statement's value, or `.failure(message)` for any error the program raises (a syntax error, an undefined name, a trap), never thrown: `eval(s)?` propagates, `eval(s) ?? d` defaults, `eval(s)!` unwraps or traps. Runs **in a `Context`** (round 237): the second argument's — `global` is the program's top level itself, where a declaration lands as a line at the REPL would — or, without one, a fresh copy of the file's top level, which sees what the top level sees and is gone when `eval` returns; a caller's locals are never visible. The round-trip law in the language: `eval(x.String())! == x`. Anything but a String and, optionally, a Context is the caller's type error, as with any builtin — [Context.md](Context.md) |
 
 `eval` is the top level's one function since round 185 — `print`,
 `debugPrint`, `readLine`, and the `IO` type (round 191), `fetch` and
@@ -26,10 +26,11 @@ embedder calls `Interpreter.preimport()` for the same, or imports them
 `Task.sleep`, statics of the core types that the **`Sequence`** and
 **`Task`** modules add (round 192; preimported too —
 [Sequence.md](Sequence.md), [Task.md](Task.md)). `eval` is a Function value — `["1", "[2]"].map(eval)`
-— that is **not a builtin: each file has its own** (round 123). The program's `eval` runs at the program's top level; a module's
-runs at the module's, whoever calls it — `eval` resolves lexically, so
+— that is **not a builtin: each file has its own** (round 123). The program's `eval` runs in a copy of the program's top level; a module's
+in a copy of the module's, whoever calls it — `eval` resolves lexically, so
 a function a module exports evaluates in the module it came from and
-sees that module's unexported names, never the importer's.
+sees that module's unexported names, never the importer's. `global`
+names the program's top level itself, from any file (round 237).
 
 ```swift
 print(1, "two", [3])          // 1 two [3]
@@ -37,6 +38,7 @@ debugPrint(1, "two", [3])     // +0x1 "two" [+0x3]
 let r = print("x")            // r is nil
 Task.sleep(0.5)               // the Task module's (round 192); the top-level sleep went in round 185
 eval("1 + 1")                 // Result.success(2); eval("1 + 1")! is 2
+eval("let kept = 1", global)  // Result.success(1) — declared at the top level; without global, in a copy that is gone
 eval("1 +") ?? 0              // 0 — .failure("syntax error: unexpected token end of input")
 ```
 
@@ -111,7 +113,7 @@ all, `Any` being no value.
 
 | Names | Kind |
 |---|---|
-| `Nil` `Bool` `Byte` `Int` `Double` `String` `Array` `Dictionary` `Set` `Range` `Function` `Data` `Date` `Task` `Tuple` `SION` | the built-in types — one page each in [README.md](README.md) |
+| `Nil` `Bool` `Byte` `Int` `Double` `String` `Array` `Dictionary` `Set` `Range` `Function` `Data` `Date` `Task` `Tuple` `SION` `Context` | the built-in types — one page each in [README.md](README.md) |
 | `Sequence` | a type (a lazy generator or coroutine) and the protocol every iterable conforms to — [Sequence.md](Sequence.md) |
 | `Equatable` `Hashable` `Comparable` | protocols: `T.conforms(to: Comparable)`; every value is Equatable and Hashable, Comparable is Int/Double/String/Date/Byte and any struct or enum with `infix(<)` (round 146) |
 | `Result` | the built-in enum, `.success(v)` / `.failure(e)` — [Result.md](Result.md) |
@@ -133,6 +135,7 @@ program (round 147).
 | `self`, `.x` | inside a method, init, computed property | the receiver; a leading dot is `self.` |
 | `Self` | inside a `struct`/`enum` body and its extensions | the type itself (round 143) |
 | `newValue`, `oldValue` | inside `set`, `willSet`, `didSet` | the incoming / previous value |
+| `global` | everywhere — a `let` in the builtins scope | the program's top level as a `Context` (round 237): `eval(s, global)` declares into it — [Context.md](Context.md) |
 | `_` | as a pattern or an assignment/declaration target | **discard** (round 158): `_ = f()`, `let _ = f()`, `(_, n) = pair`, `for _ in 0..<3`, `case _:`, `{ _ in }` — evaluated, never bound, never type-locked; reading `_` is undefined, `_ += 1` an error |
 
 `self`, `init`, `get`, `set`, `willSet`, `didSet`, `newValue`,

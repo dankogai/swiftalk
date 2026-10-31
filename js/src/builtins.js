@@ -86,6 +86,8 @@ export function parseDoubleText(s) {
 const toByte = (n) => (n >= 0n && n <= 255n ? new Byte(Number(n)) : null);
 
 Builtins.types = new Map([
+  // Round 237: a Context is made where it is called — the evaluator builds it from the call's scope
+  ['Context', type('Context', () => { throw SwiftalkError.type('Context() is made where it is called, with no arguments — it copies the top level there'); })],
   ['Nil', type('Nil', (args) => {
     if (args.length === 0 || args[0] === null) return null;
     throw SwiftalkError.type(`cannot convert ${typeName(args[0])} to Nil`);

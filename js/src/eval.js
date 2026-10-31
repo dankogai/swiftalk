@@ -8,7 +8,15 @@ import { SwiftalkError } from './errors.js';
 import { TypeAnnotation } from './parser.js';
 import { kindOf, typeName, equals, keyOf, sourceString, graphemes, SArray, SDictionary, SSet, Byte, SData, SDate, SRange, TupleValue,
   INT64_MAX, INT64_MIN, fits64, compareStrings } from './value.js';
-import { FunctionObject, EnumType, EnumCaseValue, StructType, StructValue, SequenceObject, TaskObject, ControlFlow, ReturnSignal } from './objects.js';
+import { FunctionObject, EnumType, EnumCaseValue, StructType, StructValue, SequenceObject, TaskObject, ControlFlow, ReturnSignal, ContextObject, HostValue } from './objects.js';
+
+/// `Context()` (round 237): a copy of the file scope the call sits in, with an `eval` of its own
+export function makeContext(env) {
+  const scope = env.fileScope().copy();
+  scope.removeBinding('eval');
+  if (scope.evalInstaller) scope.evalInstaller(scope);
+  return new HostValue(new ContextObject(scope, false), Builtins.types.get('Context'));
+}
 import { Environment, Binding } from './env.js';
 import { Builtins, power, isResult, success, failure } from './builtins.js';
 import { ann, checkValue, inferLock, stamp, admits, containerStamp, knownElementLock, stampedArray, tryInfer, annotationOfType,
@@ -722,6 +730,11 @@ export function* evaluate(expr, env) {
       }
       const fn = yield* evaluate(callee, env);
       if (kindOf(fn) !== 'function') throw SwiftalkError.type(`cannot call a ${typeName(fn)}`);
+      // Round 237: Context() copies the top level it is made in, so it is built here, where the scope is known
+      if (fn === Builtins.types.get('Context')) {
+        if (expr.args.length) throw SwiftalkError.type('Context() takes no arguments — it copies the top level it is made in');
+        return makeContext(env);
+      }
       return yield* apply(fn, yield* evaluateArgs(expr.args, env));
     }
     case 'selfCall': {

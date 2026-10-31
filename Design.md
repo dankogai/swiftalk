@@ -728,7 +728,9 @@ one decision: **at the program's top level**, the file's scope — it
 sees every top-level name and type, its declarations land there as a
 line typed at the REPL would, and a caller's locals are invisible to
 it (JavaScript's indirect eval, not its direct one — a closure's
-environment is not something a string should reach into). Errors are
+environment is not something a string should reach into). *(Round
+237: the default `eval` runs in a disposable copy of that scope;
+`eval(s, global)` is what lands a declaration there.)* Errors are
 the ordinary ones, thrown; `break`/`return` in evaluated source are
 the syntax errors they are at the top. A Function value, so `map(eval)`
 works. **Round 123** ("Also add `eval` to the module's own top
@@ -784,6 +786,41 @@ chains) — while a failure passes through untouched. A chain `.then {
 }.then { }.catch { }` therefore stops at the first failure and
 `catch` settles it: JavaScript's Promise shape on a value, with `?`
 still the short form when the enclosing function is the handler.
+
+**`Context` and `eval(source, context)` — DECIDED (round 237)** ("Add
+`Context` type where swiftalk is evaluated therein. `global` is the
+root context and let eval take the 2nd argument `eval(str, ctx)`.
+When omitted, `Context()` is used, meaning the context is disposable.
+Each context contains distinct execution state which does not change
+other context"). An execution state is a value: a **`Context`** is a
+top level of its own — bindings with their values, locks and
+mutability — and `eval` runs in one. **`global`** is the program's
+top level itself, a `let` in the builtins scope so every file sees
+it; **`Context()`** copies the top level it is made in — the
+program's, or a module's from inside the module — and the evaluator
+builds it at the call, where the scope is known, so `Context` passed
+as a Function (`xs.map(Context)`) refuses; **`eval(source, ctx)`**
+runs at `ctx`'s top level, and **without a context `eval` runs in a
+fresh copy**, gone when it returns — Node's `vm.runInNewContext`
+beside `runInThisContext`, with a copy of the top level where Node
+starts from an empty object, so the default still sees every name.
+Round 122's "its declarations land there" is `global`'s now; the
+default keeps nothing, which is what "disposable" asks. **What a copy
+is**: the bindings as they stand at that moment — a later declaration
+is not in it, a container in it is its own (COW does the work), a
+lock holds in it as at the top — and an `eval` of its own, so an
+eval inside a context defaults to a copy of that context. **What it
+is not**: a sandbox. A Function keeps the scope it was made in
+(lexical scope is the law, round 123's), so a top-level closure
+called from a context reads and writes the top level; the builtins
+and the prelude are under every context. A module's `eval` keeps
+round 123's lexical rule in a copy of the module's top level; a
+module wanting state across calls keeps a Context of its own as it
+loads (`let scope = Context()`), and `global` from a module runs in
+the program — explicit, so allowed. Identity is equality; a context
+prints as `global` or `Context()`; it has no members beyond the
+universal ones. Both runtimes; the JS copy clones each binding, since
+its bindings are objects where Swift's are structs.
 
 **`fetch` — DECIDED (round 163; the `Net` module's since round 185,
 its transport the module's own since 189 — §15)** ("add toplevel `async fetch()` a la

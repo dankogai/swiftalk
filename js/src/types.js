@@ -7,7 +7,7 @@ import { FunctionObject } from './objects.js';
 import { hooks } from './env.js';
 import { Builtins } from './builtins.js';
 
-export const knownTypeNames = new Set(['Nil', 'Bool', 'Int', 'Double', 'String', 'Array', 'Dictionary', 'Set', 'Function',
+export const knownTypeNames = new Set(['Context', 'Nil', 'Bool', 'Int', 'Double', 'String', 'Array', 'Dictionary', 'Set', 'Function',
   'Range', 'Sequence', 'Data', 'Date', 'Task', 'Tuple', 'Byte', 'SION', 'Any']);
 export const ann = (name, optional = false, parameters = []) => new TypeAnnotation(name, optional, parameters);
 

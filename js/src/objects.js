@@ -130,6 +130,17 @@ export class HostValue {
   constructor(object, type) { this.kind = 'host'; this.object = object; this.type = type; }
 }
 
+/// A `Context` (round 237): an execution state — a top level of its own. `global` is the
+/// program's; `Context()` copies the top level it is made in; `eval(source, ctx)` runs there.
+let nextContextId = 1;
+export class ContextObject {
+  constructor(env, isGlobal) { this.env = env; this.isGlobal = isGlobal; this.id = nextContextId++; this.typeName = 'Context'; }
+  *member() { return undefined; }
+  isEqual(other) { return other === this; }
+  hashKey() { return `Context:${this.id}`; }
+  sourceString() { return this.isGlobal ? 'global' : 'Context()'; }
+}
+
 /// `break`/`continue` travel as thrown signals; loops catch them.
 export class ControlFlow extends Error {
   constructor(kind, label) { super(kind); this.kind = kind; this.label = label ?? null; }

@@ -8,11 +8,11 @@ import { SwiftalkError } from './errors.js';
 import { Lexer, isPunct, isOp } from './lexer.js';
 import { parse } from './parser.js';
 import { typeName } from './value.js';
-import { FunctionObject, TaskObject, ControlFlow, ReturnSignal } from './objects.js';
+import { FunctionObject, TaskObject, ControlFlow, ReturnSignal, HostValue, ContextObject } from './objects.js';
 import { Environment, Binding } from './env.js';
 import { Builtins } from './builtins.js';
 import { ann } from './types.js';
-import { execute, constructEnumCase, valueSourceText, scheduler } from './eval.js';
+import { execute, constructEnumCase, valueSourceText, scheduler, makeContext } from './eval.js';
 import { AsyncScheduler, SyncScheduler } from './scheduler.js';
 import { Module, ModuleSystem } from './modules.js';
 import './members.js';
@@ -37,6 +37,8 @@ export class Interpreter {
     this.errorOutput = (s) => { if (typeof process !== 'undefined' && process.stderr) process.stderr.write(s); else console.error(s); };
     this.installBuiltins();
     this.installEval(this.environment);
+    // Round 237: `global` is the program's top level as a Context — in the builtins scope, so a module sees it too
+    this.builtins.declare('global', new Binding(false, ann('Context'), new HostValue(new ContextObject(this.environment, true), Builtins.types.get('Context'))));
   }
   installBuiltins() {
     const fn = ann('Function');
@@ -47,10 +49,17 @@ export class Interpreter {
   /// The language's own `eval` (rounds 122–123, 159): a Result, never thrown.
   installEval(scope) {
     const self = this;
+    scope.evalInstaller = (copy) => self.installEval(copy);
     const fn = new FunctionObject([], [], scope, function* (args) {
-      if (args.length !== 1 || typeof args[0] !== 'string') throw SwiftalkError.type('eval takes one String of swiftalk source');
+      if (args.length < 1 || args.length > 2 || typeof args[0] !== 'string') throw SwiftalkError.type('eval takes a String of swiftalk source and, optionally, a Context');
+      // Round 237: the second argument is the Context to run in; without it, a fresh copy of this file's top level
+      let target;
+      if (args.length === 2) {
+        if (!(args[1] instanceof HostValue && args[1].object instanceof ContextObject)) throw SwiftalkError.type(`eval's second argument is a Context — global, or one made by Context() — not a ${typeName(args[1])}`);
+        target = args[1].object.env;
+      } else target = makeContext(scope).object.env;
       try {
-        const value = yield* self.program(args[0], scope);
+        const value = yield* self.program(args[0], target);
         return constructEnumCase(Builtins.resultType, 'success', [{ label: null, value }], true);
       } catch (e) {
         if (!(e instanceof SwiftalkError)) throw e;

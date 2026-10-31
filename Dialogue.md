@@ -3386,3 +3386,42 @@ the history. (Moved out of Design.md in round 65.)
   and `[Any]` no expression at all. Fixed in place; the 14 statements
   replay with the 4 network lines as the known noise. No behaviour
   changes; Status.md and Design.md untouched.
+* **2026-10-31, round 237 — `Context`: `global`, `Context()`,
+  `eval(source, ctx)`** ("Add `Context` type where swiftalk is evaluated
+  therein. `global` is the root context and let eval take the 2nd
+  argument `eval(str, ctx)`. When omitted, `Context()` is used, meaning
+  the context is disposable. Each context contains distinct execution
+  state which does not change other context"). An execution state is a
+  value now. A `Context` is a top level of its own — bindings with their
+  values, locks and mutability; `global` is the program's top level
+  itself, a `let` in the builtins scope that every file sees; `Context()`
+  copies the top level it is made in, the program's or a module's, built
+  by the evaluator at the call where the scope is known (so `Context`
+  passed as a Function refuses, and `Context(x)` is a type error);
+  `eval(source, ctx)` runs at `ctx`'s top level, where its declarations
+  land and its assignments stay; and `eval(source)` runs in a fresh copy,
+  gone when it returns — the example as given, with Doubles so the lock
+  lets `42.0` in: `var v = 0.0; eval("v = 1.0")` leaves `v` at 0.0,
+  `eval("v += 1.0", global)` makes it 1.0, `eval("v = 42.0", ctx)` leaves
+  it there, `eval("v += 0.195", ctx)!` is 42.195. The copy is of the
+  bindings as they stand — a later declaration is not in it, a container
+  in it is its own, a lock holds in it — and it has an `eval` of its own,
+  defaulting to a copy of it. Not a sandbox: a Function keeps the scope
+  it was made in (round 123's lexical law), so a top-level closure called
+  from a context writes the top level; the builtins and prelude are under
+  every context. Round 122's "declarations land there" is `global`'s now;
+  a module's `eval` keeps round 123's rule in a copy of the module's top
+  level, a module wanting state keeps `let scope = Context()` as it
+  loads, and `global` from a module runs in the program. Identity is
+  equality; `global` and `Context()` are the printed forms; `Context` is
+  an annotation. Both runtimes — the JS copy clones each binding, Swift's
+  being structs; a copy's `eval` is reinstalled through a hook the
+  Interpreter leaves on every file scope. Tests: ContextTests, six tests,
+  and EvalBuiltinTests revised (the module keeps a context; `global`
+  where a declaration must stay) — the JS corpus is 3,023 fixtures (46
+  new), 18/18. Design.md: a paragraph after round 161's and an italic
+  note on round 122's; Status.md: a block before round 159's, and the
+  122 and 123 transcripts regenerated with `global` and a kept context;
+  documents/Context.md new, README.md indexes it, toplevel.md's `eval`
+  row and names table, module.md's `eval` row. Suite: 594 tests in 136
+  suites passed, release, macOS.

@@ -1477,6 +1477,48 @@ swiftalk> .nope(1)
 type error: cannot call a String
 ```
 
+**`Context` — `global`, `Context()`, `eval(source, ctx)`** (round 237) —
+an execution state as a value: `eval` runs in a disposable copy of the
+top level unless given a context; `global` is the program's own, and a
+kept `Context()` holds what is evaluated in it:
+
+```text
+swiftalk> var v = 0.0
+0.0
+swiftalk> eval("v = 1.0")
+Result.success(1.0)
+swiftalk> v
+0.0
+swiftalk> eval("v += 1.0", global)
+Result.success(1.0)
+swiftalk> v
+1.0
+swiftalk> var ctx = Context()
+Context()
+swiftalk> eval("v = 42.0", ctx)
+Result.success(42.0)
+swiftalk> v
+1.0
+swiftalk> eval("v += 0.195", ctx)!
+42.195
+swiftalk> eval("let kept = 2", global)
+Result.success(2)
+swiftalk> kept
+2
+swiftalk> eval("let gone = 3")
+Result.success(3)
+swiftalk> gone
+type error: undefined variable 'gone'
+swiftalk> ctx.Type
+Context
+swiftalk> global
+global
+swiftalk> Context() == Context()
+false
+swiftalk> eval("1", 2)
+type error: eval's second argument is a Context — global, or one made by Context() — not a Int
+```
+
 **`eval()` returns `Result`** (round 159) — `.success(value)` or
 `.failure(message)`, never thrown; `?`, `??`, `!`, and `switch` apply:
 
@@ -1502,7 +1544,7 @@ true
 swiftalk> eval("boom")!
 type error: force-unwrapped a failure: "type error: undefined variable 'boom'"
 swiftalk> eval(1)
-type error: eval takes one String of swiftalk source
+type error: eval takes a String of swiftalk source and, optionally, a Context
 ```
 
 **`_` discards** (round 158) — `_ = expr` and `let _ = expr` evaluate
@@ -2355,25 +2397,28 @@ type error: .sign is a number's modifier, not a String's
 
 **A module's own `eval`** (round 123) — each file scope has its own
 `eval`, closing over that scope, so a module's runs at the module's top
-level whoever calls it. With `m.swt` beside the REPL:
+level whoever calls it *(in a copy of it since round 237, so the module
+keeps a Context of its own for `minted`; the Results are round 159's)*.
+With `m.swt` beside the REPL:
 
 ```swift
 let secret = 7
+let scope = Context()
 export let peek = { eval("secret") }
-export let define = { eval("let minted = 1") }
-export let read = { eval("minted") }
+export let define = { eval("let minted = 1", scope) }
+export let read = { eval("minted", scope) }
 ```
 
 ```text
 swiftalk> import M from "./m.swt"
 swiftalk> M.peek()
-7
+Result.success(7)
 swiftalk> secret
 type error: undefined variable 'secret'
 swiftalk> M.define()
-1
+Result.success(1)
 swiftalk> M.read()
-1
+Result.success(1)
 swiftalk> minted
 type error: undefined variable 'minted'
 swiftalk> let secret = "mine"
@@ -2385,7 +2430,9 @@ Result.success("mine")
 **`eval()`** (round 122) — the language's own, a divergence from Swift:
 a String of source in, its last statement's value out *(wrapped in a
 Result since round 159, above)*, run at the
-program's top level; the round-trip law, said in the language:
+program's top level *(in a Context since round 237: `global` below,
+where a declaration lands; the default is a disposable copy)*; the
+round-trip law, said in the language:
 
 ```text
 swiftalk> eval("1 + 2")
@@ -2398,7 +2445,7 @@ swiftalk> struct P { var x: Int = 0 }
 P
 swiftalk> eval(P(x: 3).String())! == P(x: 3)
 true
-swiftalk> eval("let y = 40")
+swiftalk> eval("let y = 40", global)
 Result.success(40)
 swiftalk> y + 2
 42
