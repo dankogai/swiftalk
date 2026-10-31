@@ -3965,3 +3965,45 @@ the history. (Moved out of Design.md in round 65.)
   "type error with a position" holds for JSON and property lists only
   — SION text fails as the lexer does, a syntax error naming the token.
   Every cited round's title matches. BigInt.md, SION.md and Dialogue.md.
+
+* **2026-11-01, round 252 — documents/flowcontrol.md audited** (round
+  246's "other documents yet to be checked", continued). Round 227's
+  reading on the flow-control page: the blocks' 23 statements replay
+  with 18 flags, every one an undeclared `x`, `shape`, `dict`, `xs`,
+  `i`, `next`, `node`, `grid`, `done` or `ready` of the page's pseudo
+  programs, so each claim was re-run with the names declared. `if` as
+  an expression with the taken branch's last value and nil when none,
+  parentheses optional and braces required, a trailing closure in the
+  header refused and accepted parenthesized, an Int condition refused,
+  the comma list holding in order with a binding visible to the next
+  item, the bare variable on an Int with writes reaching it and
+  `if Int(s)` refused, `if let` with nil taking the else, `if v =`
+  binding, `if var`, the shorthand, positional and labeled
+  destructuring, the case accessor nil for another case, `if case`'s
+  naming error, a Regex match; the spaced ternary, `??` not evaluating
+  its right side on a value, `&&` and `and` not running the call, the
+  ternary right-associative under `||` and above `or`; the page's
+  `switch` on an enum with the guard seeing its bindings, on Ints with
+  alternatives and a Range, on Strings with a Regex and a bound match,
+  the no-match error, `_`, the first case winning, `fallthrough`
+  refused, `case let w, h =`, a word-operator guard; every loop form
+  including `while let` over a closure answering nil, the bare-variable
+  `while` down a struct chain, `repeat` running first, `where` with
+  `or`, `break`/`continue`, a loop not an expression and nil as a
+  function's last statement; every label rule — `continue outer`,
+  `break outer`, `break retry` out of a `repeat`, an unknown label, a
+  closed loop's, a reused one, `break` inside `forEach` bare and
+  labeled, the label beside a variable of the same name, and a label on
+  `if` refused; `forEach` nil on an Array, a Dictionary and a coroutine
+  with `_ = s.map { }` running nothing; `return` bare and with a value,
+  `?` on nil, a failure and a success, `nil!`, the `quarter` example,
+  and `guard`, `do`/`catch`, `defer`, `throw`, `try`, `if case` and
+  `guard let` all refused. Two lines were stale: the early-exit row
+  said a top-level `return` ends the script, where it has been the
+  syntax error `'return' outside a function` since the earliest history
+  the message has (round 41) and a file carrying one does not run; and
+  the closing line promised that `guard let` fails with an error naming
+  the swiftalk spelling, as `if case` does — `guard` is deliberately no
+  keyword, so the line fails as a stray identifier. Both fixed in
+  place; every cited round's title matches. flowcontrol.md and
+  Dialogue.md.

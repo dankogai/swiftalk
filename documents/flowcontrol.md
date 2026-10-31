@@ -132,7 +132,7 @@ that line would run nothing. Use `for` when the body needs `break`,
 
 | Form | Effect |
 |---|---|
-| `return`, `return v` | leave the enclosing function with `nil` / `v`; at a file's top level, end the script |
+| `return`, `return v` | leave the enclosing function with `nil` / `v`; at a file's top level or the REPL it is a syntax error, `'return' outside a function` — a file with one does not run (round 252; this row had said it ends the script) |
 | `x?` (unspaced, postfix) | **propagate**: the value when `x` is not nil and not a `.failure`; otherwise return that nil/failure from the enclosing function at once (§3a/§8) — one rule for absence and error |
 | `x!` | the value, or trap (a runtime error stops the program) |
 | `yield v` | in a coroutine (`Sequence { }`): emit `v` and pause until the next pull — see [Sequence.md](Sequence.md) |
@@ -146,5 +146,7 @@ let quarter = { n in Result.success(halve(halve(n)?)?) }     // a failure in eit
 
 No `guard` (write `if not c { return }`), no `fallthrough`, no
 `do`/`catch`, no `defer`, no labels on `if`/`switch` (loops only). `async`/`await` and
-`Task` are on [Task.md](Task.md). Swift's `if case` and `guard let`
-are syntax errors that name the swiftalk spelling.
+`Task` are on [Task.md](Task.md). Swift's `if case` is a syntax error
+that names the swiftalk spelling; `guard` is no keyword at all, so a
+`guard let` line fails as any stray identifier does (round 252 — this
+line had promised a naming error for both).
