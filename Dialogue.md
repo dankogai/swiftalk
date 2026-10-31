@@ -3449,3 +3449,30 @@ the history. (Moved out of Design.md in round 65.)
   across calls, `global` from the module declaring into the program.
   The block's 11 statements replay clean. Nothing stale. No files
   changed but this log.
+* **2026-10-31, round 239 — `documents/Result.md` audited** ("Check
+  documents/Result.md for stale lines too"). The round-51 page with its
+  159–162 rows, read against the binary: construction with payloads of
+  every type, `Result.success(1).Type == Result`; the bare forms in a
+  ternary, an Array and `r == .success(2)`; an uncalled `.success`
+  staying a format word and an uncalled `Result.success` refused
+  ("has associated values — call it"), so the payload is required; a
+  struct's own `success` member winning over the case inside its body;
+  `Result(1)` and `Result()` refused with the pointer to the cases;
+  the two accessors on both sides; `?` propagating a failure and a nil
+  out of the enclosing function and refusing at the top level; `!`
+  trapping on a failure with the payload named; `??` not evaluating
+  its right side on a success; `then` wrapping a plain value, taking a
+  Result as is, passing a failure through, a chain stopping at the
+  first failure with no later handler run, and refused on an Int and
+  an Optional ("`.then` is a Result's"); `catch` skipping its handler
+  on a success and returning the bare payload, taking the handler's
+  value or Result on a failure, refused on nil and an Int with the
+  `??` pointer; `switch` with `case let v = .success` on both sides
+  (Swift's `case .success(let v)` a syntax error naming the swiftalk
+  form), `if let e = r.failure`; equality, hashing (a Set of two equal
+  successes has one member, a Result as a Dictionary key), the printed
+  form; `eval`'s `.failure` carrying a String and its `.success` the
+  value; the spaced `?` still the ternary. Design §8 and §3a say what
+  the page cites; every cited round's title matches. The block's 7
+  statements replay clean. Nothing stale. No files changed but this
+  log.
