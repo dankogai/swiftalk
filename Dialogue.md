@@ -3425,3 +3425,27 @@ the history. (Moved out of Design.md in round 65.)
   documents/Context.md new, README.md indexes it, toplevel.md's `eval`
   row and names table, module.md's `eval` row. Suite: 594 tests in 136
   suites passed, release, macOS.
+* **2026-10-31, round 238 — `documents/Context.md` audited** ("Check
+  documents/Context.md for stale lines too"). The page round 237 wrote,
+  read a day later as the pages before it: `Context(1)`, `Context(x: 1)`
+  and `[1].map(Context)` refused with the two messages; `global`
+  unassignable and unredeclarable at the top, shadowable in an inner
+  scope; the second argument of `eval` refused as a String and as nil;
+  `Context.Type == Function`, identity equality and hashing (a Set of
+  two `global`s has one member), `global` and `Context()` as the printed
+  forms in `String()`, `description`, `debugDescription`, interpolation
+  and an Array; the annotation in a `let`, refused for an Int, and
+  `[Context]`; a context's own `eval` seeing the context's names and
+  keeping nothing, `global` from inside a context reaching the top; a
+  later declaration absent from an earlier copy; a container in a copy
+  its own; a lock and a `let` holding in a copy, a redeclaration the
+  same error; a top-level closure called from two contexts writing the
+  top level twice; a struct, an enum and an `import` evaluated in a
+  context staying there; no members (`.foo`, `.names`, `.foo()` all
+  unknown); `print` and `fetch` and `eval` under a fresh context; and,
+  with a module file written for the probe, `Context()` from a module's
+  function copying the module's top level (its unexported `secret`
+  visible, its kept `scope`'s names not), the kept context holding
+  across calls, `global` from the module declaring into the program.
+  The block's 11 statements replay clean. Nothing stale. No files
+  changed but this log.
