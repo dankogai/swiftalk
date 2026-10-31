@@ -2539,6 +2539,23 @@ runtime; the JS runtime has no such limit, §16's milestone C); structured
 concurrency (task groups, cancellation as API); whether `Task` gets
 members like `.done`.)
 
+**A deadlock error leaves the scheduler usable — FIXED (round 241)**
+("Fix the deadlock bug"). Round 240's audit found that after the
+detector threw, the next suspension point hung forever — a
+`Task.sleep`, an `await` of a fresh task, a `fetch`, in a file or at a
+REPL line. `awaitTask` appends the awaiting context to the task's
+`awaiters` and parks; when `waitUntilRunning` threw the deadlock
+error, the context left with its entry still in the list. The task
+that then failed — itself, in the self-await case — readied every
+awaiter, so a context that was dead (the task's own, awaiting itself)
+or already running went into `ready`; a dead one at the head was
+seated as `running` and nobody ever freed the baton again. The fix is
+local: on a throw out of `waitUntilRunning`, `awaitTask` removes `me`
+from `task.awaiters` before rethrowing. The detector's rule is
+unchanged; what it reports is now the end of the matter, as the round
+53 bullet above always said. The JS scheduler clears `awaiters` as it
+settles a task and never had the hang.
+
 ### Actors — DECIDED (round 54), SHELVED (round 62)
 
 > **SHELVED (round 62)** with `class`: "When we implemented actor,

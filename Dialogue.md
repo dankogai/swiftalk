@@ -3506,3 +3506,18 @@ the history. (Moved out of Design.md in round 65.)
   release build, reverted for this round). The JS runtime, run on the
   same program, throws and carries on: Swift only. No files changed but
   this log.
+* **2026-10-31, round 241 — the scheduler after a deadlock** ("Fix the
+  deadlock bug"). Round 240's find: once the deadlock detector threw,
+  the next suspension hung — the thrower stayed in the failed task's
+  `awaiters`, the task's completion readied a dead or running context,
+  and a dead one seated at the head of `ready` never gave the baton
+  back. `awaitTask` now removes its context from the awaiters when
+  `waitUntilRunning` throws; Swift only, the JS scheduler clears the
+  list as it settles a task. Test: TaskTests gains one — a self-await
+  then `Task.sleep` and two fresh awaits, two tasks awaiting each other
+  then a fresh await, and a persistent interpreter's second eval after
+  a deadlocked first; JS corpus 3,025 fixtures, 18/18. Design §12
+  paragraph before the Actors subsection; Status.md block before round
+  53's and a note on its closing line; Task.md's deadlock sentence
+  stands as written. Suite: 595 tests in 136 suites passed, release,
+  macOS.

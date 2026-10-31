@@ -97,6 +97,41 @@ struct TaskTests {
         }
     }
 
+    @Test("after a deadlock error the scheduler carries on: sleep, a fresh task, a REPL-style second eval (round 241)")
+    func afterDeadlock() throws {
+        // the thrower used to stay in the failed task's awaiters, so the dead
+        // task was readied again and the next suspension hung forever
+        #expect(try eval("""
+            var box = [Task]()
+            let d = Task { Task.sleep(0.01); await box[0] }
+            box.append(d)
+            let first = eval("await d")
+            Task.sleep(0.01)
+            let second = await Task { Task.sleep(0.01); 1 }
+            [first.failure != nil, second == 1, (await Task { 2 }) == 2]
+            """) == .array([.bool(true), .bool(true), .bool(true)]))
+        // two tasks awaiting each other, then life goes on
+        #expect(try eval("""
+            var bx = [Task]()
+            let p = Task { Task.sleep(0.01); await bx[1] }
+            let q = Task { Task.sleep(0.01); await bx[0] }
+            bx.append(p)
+            bx.append(q)
+            let r = eval("await p")
+            Task.sleep(0.01)
+            r.failure != nil ? await Task { 3 } : 0
+            """) == .int(3))
+        // across a persistent interpreter's evals, as the REPL does it
+        let interp = try interpreter()
+        #expect(throws: SwiftalkError.self) {
+            try interp.eval("""
+                var t = async { Task.sleep(0.01); await t }
+                await t
+                """)
+        }
+        #expect(try interp.eval("Task.sleep(0.01)\nawait Task { 5 }") == .int(5))
+    }
+
     @Test("what Task refuses: builtins, parameters, and non-Functions")
     func spawnGuards() throws {
         #expect(throws: SwiftalkError.self) { try eval("Task(print)") }

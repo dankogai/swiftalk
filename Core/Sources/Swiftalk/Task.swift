@@ -146,7 +146,10 @@ final class Scheduler {
             }
             task.awaiters.append(me)
             running = nil
-            try waitUntilRunning(me)
+            do { try waitUntilRunning(me) } catch {
+                task.awaiters.removeAll { $0 === me }
+                throw error
+            }
         }
     }
 

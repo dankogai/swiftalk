@@ -4057,6 +4057,29 @@ type error: 'yield' outside a coroutine — wrap the function: Sequence(f)
 `yield` is dynamic, the Lua way: a helper function called from the
 body yields on its behalf.
 
+**A deadlock error leaves the scheduler usable** (round 241) — after
+an `await` that can never complete is thrown, the next suspension
+point used to hang forever: a `Task.sleep`, an `await` of a fresh task,
+a `fetch`, in a file or at the REPL. The context that threw stayed in
+the failed task's awaiter list, so the task's completion readied a
+context that was dead or already running, and a dead one at the head
+of the ready queue was seated and never handed the baton back. The
+thrower now leaves the list on its way out; the JS runtime never had
+the hang:
+
+```text
+swiftalk> var box = [Task]()
+[]
+swiftalk> let d = Task { Task.sleep(0.01); await box[0] }
+Task { ... }
+swiftalk> box.append(d)
+swiftalk> await d
+type error: deadlock: 'await' on a Task that can never complete
+swiftalk> Task.sleep(0.01)
+swiftalk> await Task { Task.sleep(0.01); "still scheduling" }
+"still scheduling"
+```
+
 **`async`/`await`** are in — and swiftalk is **colorless**: no
 function is marked `async` (the keyword survives only as spawn-site
 sugar for `Task { ... }`, the way `mutating` and `func` fell before
@@ -4084,7 +4107,9 @@ true
 
 Tasks are cooperative green threads on round 52's coroutine
 substrate — deterministic, no preemption, and an `await` that can
-never complete throws a deadlock error instead of hanging.
+never complete throws a deadlock error instead of hanging *(and,
+since round 241, the scheduler carries on afterwards — the next
+`sleep` or `await` used to hang)*.
 
 **Actors, `class`, and `super`** were built (rounds 54–56) and are
 now **shelved** (round 62) — the reference types made swiftalk feel
