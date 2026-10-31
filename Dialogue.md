@@ -4069,3 +4069,38 @@ the history. (Moved out of Design.md in round 65.)
   the Context, deadlock and member-declaration blocks of rounds 237,
   241 and 228 all hold. The replay now reports 26 mismatches, every one
   noise. Status.md and Dialogue.md.
+
+* **2026-11-01, round 255 — the JavaScript runtime is TypeScript**
+  ("migrate JS implementation to typescript. `js/` is fine since they
+  are all compiled to `.js`. Make it publishable to `npm` (but I am not
+  publishing it just yet). you can access `tsc` via `npx tsc`"). Every
+  source under `js/src`, the tests and `repl.mjs` renamed to `.ts` (with
+  `git mv`, so the history follows) and typed: a `Value` union for the
+  value model, `Token` and `Segment` with the three token predicates as
+  overloaded type guards (narrowing without a second argument, a plain
+  Bool with one — "not this punct" is not "not a punct"), the AST as a
+  discriminated union of `Expr`, `Stmt`, `Pattern`, `Condition`,
+  `CasePattern` and `LValue` whose literals may hold any Value since the
+  evaluator rewrites nodes, `Role` and `Builtin` and `HostObject` and
+  `SequenceKind` for the object model, the scheduler's `Request`, the
+  module API's `Extension` and `Hook`, declared fields on every class and
+  a signature on every exported function; a `G<T>` alias for the
+  suspending generators. Two getters became methods — the lexer's and
+  the two format parsers' `peek` — because TypeScript narrows a property
+  path across the `pos++` that invalidates it. The compiler runs `strict`
+  with `noImplicitAny` off: a bare parameter is still `any`, and the
+  member switches cast a `Value` to `any` or to the class a `kindOf`
+  check established, since `kindOf` is no type guard; tightening that is
+  the OPEN step, recorded in Design §16. `tsc` emits `js/lib/` with
+  declarations, and everything runs from there — `npm test` extracts,
+  compiles, then tests `lib/test`; `npm run build` compiles, then
+  bundles `lib/src`; the notebook loads `lib/src/index.js`; the REPL is
+  `lib/repl.js`. `package.json` is laid out to publish — `main`, `types`,
+  `exports` with `swiftalk/node`, `bin` `swiftalk-js`, `files`,
+  `prepublishOnly`, `typescript` and `@types/node` as the only (dev)
+  dependencies, a `package-lock.json` committed — and `npm pack
+  --dry-run` lists 54 files; not published. CI gains `npm ci` before
+  the fixture step. The corpus and the tests are unchanged in what they
+  check: 3,025 fixtures, 18/18, the bundle 445 KB from 24 modules.
+  Design §16's paragraph, a Status block, the JS README's table in `.ts`,
+  the root README's REPL line, BigInt.md and BigRat.md's module paths.

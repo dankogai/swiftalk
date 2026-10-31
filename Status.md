@@ -454,6 +454,26 @@ swiftalk> 1n
 type error: 1n: a BigInt literal needs the BigInt module — import from "BigInt" (the CLI preimports it)
 ```
 
+**The JavaScript runtime is TypeScript** (round 255) — `js/src/**/*.ts`,
+`test/*.ts` and `repl.ts`, compiled by `tsc` to `js/lib/`; the value
+model, the tokens, the AST, the scopes, the scheduler's requests and the
+module API carry types, and `package.json` is laid out for `npm publish`
+(`main`, `types`, `exports`, `bin`, `files`, `prepublishOnly` — not
+published yet). The corpus and the tests run as before, from the
+compiled output:
+
+```text
+$ cd js && npm test
+3025 fixtures (2259 values, 766 throws) from 112 files; 528 expectations skipped
+ℹ tests 18
+ℹ pass 18
+ℹ fail 0
+$ npm run build
+dist/swiftalk.js: 445 KB from 24 modules; dist/notebook.html: 458 KB
+$ npm pack --dry-run
+npm notice total files: 54
+```
+
 **The JavaScript runtime, milestone D** (round 200) — the prelude
 complete in JS (IO, Net, Regex join Task and Sequence), a bundler, and
 the notebook: `cd js && npm run build`, then open `dist/notebook.html`
@@ -534,7 +554,8 @@ swiftalk> Sequence.zip(1..., ["a", "b", "c"]).Array()
 `js/`, generator-based so `yield` and `await` suspend the whole
 interpreter stack; 2,553 of the 2,671 Swift fixtures evaluate as the
 Swift core does, the 118 that need a prelude module wait for milestone
-D. A REPL over it, `node js/repl.mjs` (the bare core; `print` is the
+D. A REPL over it, `node js/repl.mjs` *(`node js/lib/repl.js` since round 255,
+compiled from `repl.ts`)* (the bare core; `print` is the
 host's until IO is ported — milestone D, round 200, above):
 
 ```text

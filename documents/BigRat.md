@@ -5,7 +5,7 @@
 An exact rational — a BigInt over a BigInt, reduced on construction, the
 sign in the numerator — as a module beside [BigInt](BigInt.md) (round
 203): `modules/BigRat`, built as `libBigRat.dylib`; in the JavaScript
-runtime, `js/src/modules/BigRat.js`. There is no literal: `BigRat(1, 3)`
+runtime, `js/src/modules/BigRat.ts` (TypeScript since round 255). There is no literal: `BigRat(1, 3)`
 is the constructor and the source form, and it re-enters (§3d). The Swift
 engine is [swift-bignum](https://github.com/dankogai/swift-bignum)'s
 `BigRat`, in the vendored library `modules/BigNum` the two modules share;

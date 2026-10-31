@@ -8,10 +8,11 @@ import { typeName, SArray, TupleValue } from '../value.js';
 import { SequenceObject } from '../objects.js';
 import { ann } from '../types.js';
 import { iteratorOf, isSequenceValue, lazyBase } from '../eval.js';
+import type { Value } from '../value.js';
 
-export function SequenceModule() {
+export function SequenceModule(): Module {
   const m = new Module('Sequence');
-  m.static('Sequence', 'zip', Module.builtin(function* (args) {
+  m.static('Sequence', 'zip', Module.builtin(function* (args: Value[]) {
     if (args.length !== 2) throw SwiftalkError.type('Sequence.zip(a, b) takes exactly two Sequences');
     for (const side of args) if (!isSequenceValue(side)) throw SwiftalkError.type(`Sequence.zip(a, b): ${typeName(side)} is not a Sequence`);
     const [lhs, rhs] = args;
@@ -30,7 +31,7 @@ export function SequenceModule() {
       });
     }
     const a = yield* iteratorOf(lhs), b = yield* iteratorOf(rhs);
-    const pairs = [];
+    const pairs: Value[] = [];
     for (;;) {
       const x = yield* a.next(); if (x === undefined) break;
       const y = yield* b.next(); if (y === undefined) break;

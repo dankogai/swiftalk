@@ -1,7 +1,11 @@
 // swiftalk's errors (Core/Sources/Swiftalk/Lexer.swift): one class, five
 // kinds, the same descriptions the Swift core prints.
+export type ErrorKind = 'syntax' | 'type' | 'overflow' | 'zeroDivision' | 'unknownMember';
+
 export class SwiftalkError extends Error {
-  constructor(kind, message) {
+  kind: ErrorKind;
+  detail: string;
+  constructor(kind: ErrorKind, message: string) {
     super(message);
     this.kind = kind;
     this.detail = message;
@@ -17,9 +21,9 @@ export class SwiftalkError extends Error {
     }
   }
   toString() { return this.description; }
-  static syntax(m) { return new SwiftalkError('syntax', m); }
-  static type(m) { return new SwiftalkError('type', m); }
-  static overflow(m) { return new SwiftalkError('overflow', m); }
+  static syntax(m: string) { return new SwiftalkError('syntax', m); }
+  static type(m: string) { return new SwiftalkError('type', m); }
+  static overflow(m: string) { return new SwiftalkError('overflow', m); }
   static zeroDivision() { return new SwiftalkError('zeroDivision', ''); }
-  static unknownMember(m) { return new SwiftalkError('unknownMember', m); }
+  static unknownMember(m: string) { return new SwiftalkError('unknownMember', m); }
 }

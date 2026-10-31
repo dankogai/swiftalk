@@ -10,11 +10,14 @@ import { TaskModule } from './modules/Task.js';
 import { BigIntModule } from './modules/BigInt.js';
 import { BigRatModule } from './modules/BigRat.js';
 
-export const preludeModules = () => [IOModule(), NetModule(), RegexModule(), SequenceModule(), TaskModule(), BigIntModule(), BigRatModule()];
+import type { Interpreter } from './interpreter.js';
+import type { Module } from './modules.js';
+
+export const preludeModules = (): Module[] => [IOModule(), NetModule(), RegexModule(), SequenceModule(), TaskModule(), BigIntModule(), BigRatModule()];
 export const preludeNames = ['IO', 'Net', 'Regex', 'Sequence', 'Task', 'BigInt', 'BigRat'];
 
 /// Registers the seven and preimports them; returns the interpreter.
-export function withPrelude(interp) {
+export function withPrelude(interp: Interpreter): Interpreter {
   for (const m of preludeModules()) interp.register(m);
   interp.preimport(preludeNames);
   return interp;

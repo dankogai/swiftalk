@@ -9,13 +9,22 @@ import { TypeAnnotation } from './parser.js';
 import { kindOf, typeName, equals, keyOf, sourceString, graphemes, SArray, SDictionary, SSet, Byte, SData, SDate, SRange, TupleValue,
   INT64_MAX, INT64_MIN, fits64, compareStrings } from './value.js';
 import { FunctionObject, EnumType, EnumCaseValue, StructType, StructValue, SequenceObject, TaskObject, ControlFlow, ReturnSignal, ContextObject, HostValue } from './objects.js';
+import type { ComputedMember, StaticThunk } from './objects.js';
+import type { Value, LabeledArg } from './value.js';
+import type { Expr, Stmt, LValue, Pattern, Condition, CasePattern, Clause, FunctionExpr, Computed, Property, Statics, Arg } from './parser.js';
+import type { ModuleSystem } from './modules.js';
+import type { Interpreter } from './interpreter.js';
+
+/// A generator that may suspend (yielding a scheduler request) and answers T.
+export type G<T> = Generator<any, T, any>;
+type MethodExpr = Extract<Expr, { k: 'method' }>;
 
 /// `Context()` (round 237): a copy of the file scope the call sits in, with an `eval` of its own
-export function makeContext(env) {
+export function makeContext(env: Environment): HostValue {
   const scope = env.fileScope().copy();
   scope.removeBinding('eval');
   if (scope.evalInstaller) scope.evalInstaller(scope);
-  return new HostValue(new ContextObject(scope, false), Builtins.types.get('Context'));
+  return new HostValue(new ContextObject(scope, false), Builtins.types.get('Context')!);
 }
 import { Environment, Binding } from './env.js';
 import { Builtins, power, isResult, success, failure } from './builtins.js';
@@ -24,12 +33,12 @@ import { ann, checkValue, inferLock, stamp, admits, containerStamp, knownElement
 import { method, convert, asksCanonical, userConversion, plainValues } from './members.js';
 
 export const calleeKey = '@callee';
-export const scheduler = { current: null, modules: null };   // installed by interpreter.js while an eval runs
+export const scheduler: { current: Interpreter | null; modules: ModuleSystem | null } = { current: null, modules: null };   // installed by interpreter.js while an eval runs
 
 // ---- printing that may run swiftalk (a type's own String member) ----
-export function* valueSourceText(value) {
-  const owned = new Map();
-  const walk = function* (v) {
+export function* valueSourceText(value: Value): G<string> {
+  const owned = new Map<Value, string>();
+  const walk = function* (v: Value): G<void> {
     const m = userConversion(v, 'String');
     if (m) {
       const [bound] = boundMethod(m, v);
@@ -38,27 +47,28 @@ export function* valueSourceText(value) {
       owned.set(v, s);
       return;                                  // the member speaks for the whole subtree
     }
+    const o = v as any;
     switch (kindOf(v)) {
-      case 'array': for (const x of v.items) yield* walk(x); break;
-      case 'set': for (const x of v.values()) yield* walk(x); break;
-      case 'dictionary': for (const [k, x] of v.entries()) { yield* walk(k); yield* walk(x); } break;
-      case 'tuple': for (const x of v.values) yield* walk(x); break;
-      case 'structValue': for (const x of v.values.values()) yield* walk(x); break;
-      case 'enumCase': for (const x of v.associated) yield* walk(x); break;
+      case 'array': for (const x of o.items as Value[]) yield* walk(x); break;
+      case 'set': for (const x of o.values() as Value[]) yield* walk(x); break;
+      case 'dictionary': for (const [k, x] of o.entries() as [Value, Value][]) { yield* walk(k); yield* walk(x); } break;
+      case 'tuple': for (const x of o.values as Value[]) yield* walk(x); break;
+      case 'structValue': for (const x of o.values.values() as Iterable<Value>) yield* walk(x); break;
+      case 'enumCase': for (const x of o.associated as Value[]) yield* walk(x); break;
       default: break;
     }
   };
   yield* walk(value);
   if (owned.size === 0) return sourceString(value);
-  return sourceString(value, false, (v) => (owned.has(v) ? owned.get(v) : null));
+  return sourceString(value, false, (v) => (owned.has(v) ? owned.get(v)! : null));
 }
-export function* displayString(value) {
+export function* displayString(value: Value): G<string> {
   if (typeof value === 'string') return value;
   return yield* valueSourceText(value);
 }
 
-export function* regexLiteral(pattern, flags, env) {
-  const t = env.tryLookup('Regex');
+export function* regexLiteral(pattern: string, flags: string, env: Environment): G<Value> {
+  const t = env.tryLookup('Regex') as FunctionObject | undefined;
   if (!t || kindOf(t) !== 'function' || t.role.k !== 'type' || t.role.name !== 'Regex' || !t.builtin) {
     throw SwiftalkError.type(`/${pattern}/${flags}: a regex literal needs the Regex module — import from "Regex" (the CLI preimports it)`);
   }
@@ -67,8 +77,8 @@ export function* regexLiteral(pattern, flags, env) {
 
 /// `123n` (round 201): the BigInt module's — the `BigInt` type in scope is
 /// called with the digits; without it, an error naming the module.
-export function* bigintLiteral(text, env) {
-  const t = env.tryLookup('BigInt');
+export function* bigintLiteral(text: string, env: Environment): G<Value> {
+  const t = env.tryLookup('BigInt') as FunctionObject | undefined;
   if (!t || kindOf(t) !== 'function' || t.role.k !== 'type' || t.role.name !== 'BigInt' || !t.builtin) {
     throw SwiftalkError.type(`${text}n: a BigInt literal needs the BigInt module — import from "BigInt" (the CLI preimports it)`);
   }
@@ -76,7 +86,7 @@ export function* bigintLiteral(text, env) {
 }
 
 // ---- statements ----
-export function* execute(statement, env, relaxed = false) {
+export function* execute(statement: Stmt, env: Environment, relaxed = false): G<Value> {
   switch (statement.k) {
     case 'expression': return yield* evaluate(statement.expr, env);
     case 'return': throw new ReturnSignal(statement.expr ? yield* evaluate(statement.expr, env) : null);
@@ -86,12 +96,12 @@ export function* execute(statement, env, relaxed = false) {
   }
 }
 
-function* executeSlow(s, env, relaxed) {
+function* executeSlow(s: Stmt, env: Environment, relaxed: boolean): G<Value> {
   switch (s.k) {
     case 'declaration': {
       const annotation = s.annotation ? resolveTypeNames(s.annotation, env) : null;
       const annotatedEnum = annotation ? resolveEnumAnnotation(annotation, env) : null;
-      let value;
+      let value: Value;
       const init = s.initializer;
       if (init.k === 'memberLiteral' && init.name === 'todo' && (annotation === null || annotation.name === 'Function')) {
         value = Builtins.todo;
@@ -106,7 +116,7 @@ function* executeSlow(s, env, relaxed) {
         if (annotation) env.check(value, annotation, s.name);
         return value;
       }
-      let lock;
+      let lock: TypeAnnotation;
       if (annotation) {
         if (!(annotationIsKnown(annotation, env) || annotatedEnum)) throw SwiftalkError.type(`unknown type '${annotation.display}'`);
         lock = annotation;
@@ -125,36 +135,36 @@ function* executeSlow(s, env, relaxed) {
     case 'compoundAssignment': {
       const { target, op, expr } = s;
       if (op === '??') {
-        return yield* assign(target, null, env, function* (old) {
-          if (kindOf(old) === 'dictionary') return coalesceDictionaries(old, yield* evaluate(expr, env), '??=');
+        return yield* assign(target, null, env, function* (old: Value) {
+          if (kindOf(old) === 'dictionary') return coalesceDictionaries(old as SDictionary, yield* evaluate(expr, env), '??=');
           return isAbsent(old) ? yield* evaluate(expr, env) : old;
         });
       }
       if (op === '!!') {
         const rhs = yield* evaluate(expr, env);
         // d[k] !!= v (round 211): an existing entry is overridden, a missing key is not created — the key evaluated once
-        let where = target;
+        let where: LValue = target;
         if (target.k === 'index') {
           const key = yield* evaluate(target.index, env);
           where = { k: 'index', base: target.base, index: { k: 'literal', v: key } };
           const container = yield* readPath(target.base, env);
-          if (kindOf(container) === 'dictionary' && !container.has(key)) return null;
+          if (kindOf(container) === 'dictionary' && !(container as SDictionary).has(key)) return null;
         }
-        return yield* assign(where, null, env, function* (old) {
-          if (kindOf(rhs) === 'dictionary') return coalesceDictionaries(rhs, old, '!!=');
+        return yield* assign(where, null, env, function* (old: Value) {
+          if (kindOf(rhs) === 'dictionary') return coalesceDictionaries(rhs as SDictionary, old, '!!=');
           return isAbsent(rhs) ? old : rhs;
         });
       }
       if (op === '^^') {
         const rhs = yield* evaluate(expr, env);
-        return yield* assign(target, null, env, function* (old) {
+        return yield* assign(target, null, env, function* (old: Value) {
           if (typeof old !== 'boolean' || typeof rhs !== 'boolean') throw SwiftalkError.type("'^^=' takes Bools — nothing is truthy (§3b)");
           return old !== rhs;
         });
       }
       if (op === '&&' || op === '||') {
         const name = op + '=';
-        return yield* assign(target, null, env, function* (old) {
+        return yield* assign(target, null, env, function* (old: Value) {
           if (typeof old !== 'boolean') throw SwiftalkError.type(`'${name}' takes a Bool target, not ${typeName(old)} — nothing is truthy (§3b)`);
           if ((op === '&&') !== old) return old;
           const rhs = yield* evaluate(expr, env);
@@ -163,9 +173,9 @@ function* executeSlow(s, env, relaxed) {
         });
       }
       const rhs = yield* evaluate(expr, env);
-      if (op === '**') return yield* assign(target, rhs, env, function* (old) { return yield* power(old, rhs); });
-      if (op.startsWith('+') && op.length === 2) return yield* assign(target, rhs, env, function* (old) { return yield* bitwise(op, old, rhs); });
-      return yield* assign(target, rhs, env, function* (old) { return yield* binary(op, old, rhs); });
+      if (op === '**') return yield* assign(target, rhs, env, function* (old: Value) { return yield* power(old, rhs); });
+      if (op.startsWith('+') && op.length === 2) return yield* assign(target, rhs, env, function* (old: Value) { return yield* bitwise(op, old, rhs); });
+      return yield* assign(target, rhs, env, function* (old: Value) { return yield* binary(op, old, rhs); });
     }
     case 'assignment': {
       const value = yield* evaluate(s.expr, env);
@@ -206,14 +216,14 @@ function* executeSlow(s, env, relaxed) {
       const module = yield* modules.load(s.spec);
       const names = s.namespace === null && s.names.length === 0 ? module.names : s.names;
       // idempotent (round 202): a name already bound to this very value is skipped; to anything else, the usual error
-      const bind = (name, value, lock) => {
+      const bind = (name: string, value: Value, lock: TypeAnnotation) => {
         const existing = env.tryLookup(name);
         if (existing !== undefined && equals(existing, value)) return;
         env.declare(name, new Binding(false, lock, value));
       };
       if (s.namespace !== null) {
         const type = modules.namespaceType(module, s.namespace);
-        bind(s.namespace, type.constructor_, ann('Function'));
+        bind(s.namespace, type.constructor_!, ann('Function'));
       }
       for (const name of names) {
         const index = module.names.indexOf(name);
@@ -259,7 +269,7 @@ function* executeSlow(s, env, relaxed) {
       return null;
     }
     case 'enumDecl': {
-      const cases = new Map();
+      const cases = new Map<string, { label: string | null; typeName: string | null }[]>();
       for (const [caseName, payloads] of s.cases) {
         cases.set(caseName, payloads.map((p) => (p.typeName === null ? p : { label: p.label, typeName: resolveTypeNames(ann(p.typeName), env).name })));
       }
@@ -274,7 +284,7 @@ function* executeSlow(s, env, relaxed) {
       return constructor;
     }
     case 'structDecl': {
-      const properties = new Map();
+      const properties = new Map<string, Property>();
       for (const [key, prop] of s.properties) {
         properties.set(key, { ...prop, annotation: prop.annotation ? resolveTypeNames(prop.annotation, env) : null });
       }
@@ -293,7 +303,7 @@ function* executeSlow(s, env, relaxed) {
     case 'extensionDecl': {
       const value = env.tryLookup(s.typeName);
       if (!value || kindOf(value) !== 'function') throw SwiftalkError.type(`unknown type '${s.typeName}'`);
-      const f = value;
+      const f = value as FunctionObject;
       const typeEnv = typeScope(env, value);
       const fns = makeMethods(s.methods, typeEnv);
       const overwrite = env.redefining;
@@ -357,7 +367,7 @@ function* executeSlow(s, env, relaxed) {
 }
 
 // ---- switch ----
-function* evaluateSwitch(subjectExpr, clauses, defaultBody, env) {
+function* evaluateSwitch(subjectExpr: Expr, clauses: Clause[], defaultBody: Stmt[] | null, env: Environment): G<Value> {
   const subject = yield* evaluate(subjectExpr, env);
   for (const clause of clauses) {
     for (const { pattern, condition } of clause.patterns) {
@@ -374,21 +384,22 @@ function* evaluateSwitch(subjectExpr, clauses, defaultBody, env) {
   if (defaultBody) return yield* runBlock(defaultBody, env);
   throw SwiftalkError.type(`switch is not exhaustive — nothing matches ${sourceString(subject)}`);
 }
-function* match(pattern, subject, scope) {
+function* match(pattern: CasePattern, subject: Value, scope: Environment): G<boolean> {
   switch (pattern.k) {
     case 'wildcard': return true;
     case 'expr': {
       const v = yield* evaluate(pattern.e, scope);
       if (equals(v, subject)) return true;
       if (kindOf(v) === 'range' && typeof subject === 'bigint') {
-        if (v.from <= subject && (v.to === null || (v.closed ? subject <= v.to : subject < v.to))) return true;
+        const r = v as SRange;
+        if (r.from <= subject && (r.to === null || (r.closed ? subject <= r.to : subject < r.to))) return true;
       }
-      if (kindOf(v) === 'host') return (yield* hostPattern(v, subject, false)) !== null;
+      if (kindOf(v) === 'host') return (yield* hostPattern(v as HostValue, subject, false)) !== null;
       return false;
     }
     case 'enumCase': return subject instanceof EnumCaseValue && subject.caseName === pattern.name;
     case 'binding': {
-      let value;
+      let value: Value | null;
       if (pattern.source.k === 'member') {
         const caseName = pattern.source.name;
         if (!(subject instanceof EnumCaseValue) || !subject.type.cases.has(caseName)) throw SwiftalkError.type(`case .${caseName}: ${typeName(subject)} has no such case`);
@@ -396,7 +407,7 @@ function* match(pattern, subject, scope) {
       } else {
         const h = yield* evaluate(pattern.source.e, scope);
         if (kindOf(h) !== 'host') throw SwiftalkError.type('a case binds from a case of the subject (case r = .circle) or a Regex (case m = /re/)');
-        value = (yield* hostPattern(h, subject, true)) ?? null;
+        value = (yield* hostPattern(h as HostValue, subject, true)) ?? null;
       }
       if (value === null) return false;
       bind(pattern.pattern, value, pattern.mutable, scope, false);
@@ -405,11 +416,11 @@ function* match(pattern, subject, scope) {
     default: return false;
   }
 }
-function* hostPattern(h, subject, binding) {
+function* hostPattern(h: HostValue, subject: Value, binding: boolean): G<Value | null> {
   const r = h.object.patternMatch ? h.object.patternMatch(subject, binding) : null;
   return r === undefined ? null : r;
 }
-export function caseAccessor(ev, name, receiver) {
+export function caseAccessor(ev: EnumCaseValue, name: string, receiver: Value): Value | null {
   if (ev.caseName !== name) return null;
   switch (ev.associated.length) {
     case 0: return receiver;
@@ -417,7 +428,7 @@ export function caseAccessor(ev, name, receiver) {
     default: return new TupleValue(ev.associated, (ev.type.cases.get(ev.caseName) ?? []).map((p) => p.label));
   }
 }
-export function constructEnumCase(et, caseName, args, called) {
+export function constructEnumCase(et: EnumType, caseName: string, args: LabeledArg[], called: boolean): EnumCaseValue {
   const params = et.cases.get(caseName);
   if (!params) throw SwiftalkError.unknownMember(`${et.name}.${caseName}`);
   if (!called || params.length === 0) {
@@ -426,7 +437,7 @@ export function constructEnumCase(et, caseName, args, called) {
     return new EnumCaseValue(et, caseName, []);
   }
   if (args.length !== params.length) throw SwiftalkError.type(`${et.name}.${caseName} takes ${params.length} associated value(s), got ${args.length}`);
-  const slots = new Array(params.length).fill(undefined);
+  const slots: (Value | undefined)[] = new Array(params.length).fill(undefined);
   for (const a of args) if (a.label !== null) {
     const index = params.findIndex((p) => p.label === a.label);
     if (index < 0) throw SwiftalkError.type(`unknown label '${a.label}' for ${et.name}.${caseName}`);
@@ -435,9 +446,9 @@ export function constructEnumCase(et, caseName, args, called) {
   }
   const positionals = args.filter((a) => a.label === null).map((a) => a.value);
   const associated = slots.map((slot, index) => {
-    let value;
+    let value: Value;
     if (slot !== undefined) value = slot;
-    else if (positionals.length) value = positionals.shift();
+    else if (positionals.length) value = positionals.shift()!;
     else throw SwiftalkError.type('missing associated value');
     const expected = params[index].typeName;
     if (expected !== null && typeName(value) !== expected) throw SwiftalkError.type(`${et.name}.${caseName} expects ${expected}, got ${typeName(value)}`);
@@ -446,7 +457,7 @@ export function constructEnumCase(et, caseName, args, called) {
   return new EnumCaseValue(et, caseName, associated);
 }
 
-export function containsSubstring(haystack, needle) {
+export function containsSubstring(haystack: string, needle: string): boolean {
   if (needle === '') return true;
   const h = graphemes(haystack), n = graphemes(needle);
   if (n.length > h.length) return false;
@@ -458,13 +469,13 @@ export function containsSubstring(haystack, needle) {
   return false;
 }
 
-export function* runBlock(body, env) {
+export function* runBlock(body: Stmt[], env: Environment): G<Value> {
   const scope = new Environment(env);
-  let last = null;
+  let last: Value = null;
   for (const statement of body) last = yield* execute(statement, scope);
   return last;
 }
-function* conditionsHold(conditions, scope) {
+function* conditionsHold(conditions: Condition[], scope: Environment): G<boolean> {
   for (const c of conditions) {
     switch (c.k) {
       case 'binding': {
@@ -490,7 +501,7 @@ function* conditionsHold(conditions, scope) {
   }
   return true;
 }
-function* runLoopBody(body, env, freshScope = true, label = null) {
+function* runLoopBody(body: Stmt[], env: Environment, freshScope = true, label: string | null = null): G<boolean> {
   const scope = freshScope ? new Environment(env) : env;
   try {
     for (const statement of body) yield* execute(statement, scope);
@@ -503,19 +514,21 @@ function* runLoopBody(body, env, freshScope = true, label = null) {
 
 // ---- iteration ----
 export class ValueIterator {
-  constructor(next) { this.nextImpl = next; }
-  *next() { return yield* this.nextImpl(); }         // undefined ends the sequence
+  nextImpl: () => G<Value | undefined>;
+  constructor(next: () => G<Value | undefined>) { this.nextImpl = next; }
+  *next(): G<Value | undefined> { return yield* this.nextImpl(); }         // undefined ends the sequence
 }
-const plainIter = (arr) => { let i = 0; return new ValueIterator(function* () { return i < arr.length ? arr[i++] : undefined; }); };
-export function isSequenceValue(v) { return Builtins.conformance.get('Sequence').has(typeName(v)); }
-export function* iteratorOf(sequence) {
+const plainIter = (arr: Value[]): ValueIterator => { let i = 0; return new ValueIterator(function* () { return i < arr.length ? arr[i++] : undefined; }); };
+export function isSequenceValue(v: Value): boolean { return Builtins.conformance.get('Sequence')!.has(typeName(v)); }
+export function* iteratorOf(sequence: Value): G<ValueIterator> {
+  const o = sequence as any;
   switch (kindOf(sequence)) {
-    case 'array': return plainIter(sequence.items);
-    case 'string': return plainIter(graphemes(sequence));
-    case 'set': return plainIter(sequence.values());
-    case 'dictionary': return plainIter(sequence.entries().map(([k, v]) => new TupleValue([k, v], ['key', 'value'])));
+    case 'array': return plainIter(o.items);
+    case 'string': return plainIter(graphemes(o));
+    case 'set': return plainIter(o.values());
+    case 'dictionary': return plainIter((o as SDictionary).entries().map(([k, v]) => new TupleValue([k, v], ['key', 'value'])));
     case 'range': {
-      const { from, to, closed } = sequence;
+      const { from, to, closed } = o as SRange;
       if (to === null) return countingIterator(from);
       let current = from, exhausted = false;
       return new ValueIterator(function* () {
@@ -525,14 +538,14 @@ export function* iteratorOf(sequence) {
         return current++;
       });
     }
-    case 'sequence': return makeIterator(sequence);
-    case 'tuple': return plainIter(sequence.values);
-    case 'data': return plainIter(Array.from(sequence.bytes, (b) => new Byte(b)));
+    case 'sequence': return makeIterator(o);
+    case 'tuple': return plainIter(o.values);
+    case 'data': return plainIter(Array.from(o.bytes as Uint8Array, (b: number) => new Byte(b)));
     default: throw SwiftalkError.type(`cannot iterate a ${typeName(sequence)}`);
   }
 }
-function countingIterator(from) {
-  let current = from;
+function countingIterator(from: bigint): ValueIterator {
+  let current: bigint | null = from;
   return new ValueIterator(function* () {
     if (current === null) throw SwiftalkError.overflow('this Range ran past Int.max');
     const v = current;
@@ -540,57 +553,58 @@ function countingIterator(from) {
     return v;
   });
 }
-export function requireFinite(value, member) {
-  if (kindOf(value) === 'range' && value.to === null) throw SwiftalkError.type(`an unbounded Range is infinite — .prefix(n) or .prefix { } it before .${member}`);
+export function requireFinite(value: Value, member: string): void {
+  if (kindOf(value) === 'range' && (value as SRange).to === null) throw SwiftalkError.type(`an unbounded Range is infinite — .prefix(n) or .prefix { } it before .${member}`);
 }
-export function lazyBase(receiver) {
-  if (kindOf(receiver) === 'sequence') return receiver;
-  if (kindOf(receiver) === 'range' && receiver.to === null) return new SequenceObject({ kind: 'counting', from: receiver.from });
+export function lazyBase(receiver: Value): SequenceObject | null {
+  if (kindOf(receiver) === 'sequence') return receiver as SequenceObject;
+  if (kindOf(receiver) === 'range' && (receiver as SRange).to === null) return new SequenceObject({ kind: 'counting', from: (receiver as SRange).from });
   return null;
 }
-export function restamp(result, receiver) {
+export function restamp(result: Value, receiver: Value): Value {
+  const r = result as any;
   let stampAnn = containerStamp(receiver);
   if (!stampAnn) { const known = knownElementLock(receiver); if (known) stampAnn = ann('Array', false, [known]); }
   if (!stampAnn) return result;
   const k = kindOf(result);
-  if (k === 'array' && result.lock === null && stampAnn.name === 'Array') return new SArray(result.items, stampAnn);
-  if (k === 'set' && result.lock === null && stampAnn.name === 'Set') return new SSet(result.values(), stampAnn);
-  if (k === 'dictionary' && result.lock === null && stampAnn.name === 'Dictionary') return new SDictionary(result.entries(), stampAnn);
+  if (k === 'array' && r.lock === null && stampAnn.name === 'Array') return new SArray(r.items, stampAnn);
+  if (k === 'set' && r.lock === null && stampAnn.name === 'Set') return new SSet(r.values(), stampAnn);
+  if (k === 'dictionary' && r.lock === null && stampAnn.name === 'Dictionary') return new SDictionary(r.entries(), stampAnn);
   return result;
 }
-export function reshape(kept, receiver) {
+export function reshape(kept: Value[], receiver: Value): Value {
   switch (kindOf(receiver)) {
     case 'string': return kept.map((x) => (typeof x === 'string' ? x : '')).join('');
     case 'data': return new SData(kept.flatMap((x) => (x instanceof Byte ? [x.v] : (typeof x === 'bigint' && x >= 0n && x <= 255n) ? [Number(x)] : [])));
-    case 'dictionary': return new SDictionary(kept.filter((p) => p instanceof TupleValue && p.count === 2).map((p) => [p.values[0], p.values[1]]));
+    case 'dictionary': return new SDictionary(kept.filter((p): p is TupleValue => p instanceof TupleValue && p.count === 2).map((p): [Value, Value] => [p.values[0], p.values[1]]));
     case 'set': return new SSet(kept);
     default: return new SArray(kept);
   }
 }
-export function* holds(fn, element, member) {
+export function* holds(fn: FunctionObject, element: Value, member: string): G<boolean> {
   const flag = yield* apply(fn, [{ label: null, value: element }]);
   if (typeof flag !== 'boolean') throw SwiftalkError.type(`the .${member} Function must return a Bool`);
   return flag;
 }
-export function* collect(sequence) {
+export function* collect(sequence: Value): G<Value[]> {
   requireFinite(sequence, 'Array()');
-  const out = [];
+  const out: Value[] = [];
   const it = yield* iteratorOf(sequence);
   for (;;) { const e = yield* it.next(); if (e === undefined) break; out.push(e); }
   return out;
 }
-function makeIterator(seq) {
+function makeIterator(seq: SequenceObject): ValueIterator {
   const k = seq.k;
   switch (k.kind) {
     case 'generator': {
-      let state = k.initial, done = false;
+      let state: Value[] = k.initial, done = false;
       return new ValueIterator(function* () {
         if (done) return undefined;
         const { result, local } = yield* run(k.next, state);
         if (result === null) { done = true; return undefined; }
         const next = local.lookup('$');
         if (kindOf(next) !== 'array') throw SwiftalkError.type("a Sequence generator's '$' must stay an Array");
-        state = next.items;
+        state = (next as SArray).items;
         return result;
       });
     }
@@ -627,11 +641,11 @@ function makeIterator(seq) {
     case 'counting': return countingIterator(k.from);
     case 'native': {
       // a module's Sequence (round 191): `make` builds a puller on the first pull; either may be a generator
-      let next = null;
-      const isGen = (v) => v && typeof v.next === 'function' && typeof v[Symbol.iterator] === 'function';
+      let next: (() => any) | null = null;
+      const isGen = (v: any) => v && typeof v.next === 'function' && typeof v[Symbol.iterator] === 'function';
       return new ValueIterator(function* () {
-        if (!next) { const made = k.make(); next = isGen(made) ? yield* made : made; }
-        const v = next();
+        if (!next) { const made: any = k.make(); next = isGen(made) ? yield* made : made; }
+        const v = next!();
         const r = isGen(v) ? yield* v : v;
         return r === null || r === undefined ? undefined : r;
       });
@@ -666,14 +680,14 @@ function makeIterator(seq) {
         }
       });
     }
-    default: throw SwiftalkError.type(`FIXME: sequence kind ${k.kind}`);
+    default: throw SwiftalkError.type(`FIXME: sequence kind ${(k as any).kind}`);
   }
 }
 /// Coroutine sequences (round 52): the body runs as its own generator; a
 /// `yield` statement inside surfaces as a {suspend:'yield'} request that
 /// this iterator answers, resuming the body on the next pull.
-function coroutineIterator(body) {
-  let gen = null, done = false;
+function coroutineIterator(body: FunctionObject): ValueIterator {
+  let gen: Generator<any, any, any> | null = null, done = false;
   return new ValueIterator(function* () {
     if (done) return undefined;
     if (!gen) gen = run(body, []);
@@ -688,14 +702,14 @@ function coroutineIterator(body) {
     }
   });
 }
-export function rangeCount(from, to, closed) {
+export function rangeCount(from: bigint, to: bigint, closed: boolean): bigint {
   const span = to - from;
   if (!fits64(span) || (closed && span === INT64_MAX)) throw SwiftalkError.overflow("this Range's count does not fit in an Int");
   return closed ? span + 1n : span;
 }
 
 // ---- expressions ----
-export function* evaluate(expr, env) {
+export function* evaluate(expr: Expr, env: Environment): G<Value> {
   switch (expr.k) {
     case 'regexLiteral': return yield* regexLiteral(expr.pattern, expr.flags, env);
     case 'bigintLiteral': return yield* bigintLiteral(expr.text, env);
@@ -722,13 +736,13 @@ export function* evaluate(expr, env) {
             if (!(e instanceof SwiftalkError && e.kind === 'unknownMember' && resultCase)) throw e;
           }
         }
-        const f = env.tryLookup(name);
+        const f = env.tryLookup(name) as FunctionObject | undefined;
         if (f && kindOf(f) === 'function' && ['type', 'protocol', 'enumType', 'structType'].includes(f.role.k)) {
           return yield* apply(f, yield* evaluateArgs(expr.args, env));
         }
         if (resultCase) return constructEnumCase(Builtins.resultType, name, yield* evaluateArgs(expr.args, env), true);
       }
-      const fn = yield* evaluate(callee, env);
+      const fn = (yield* evaluate(callee, env)) as FunctionObject;
       if (kindOf(fn) !== 'function') throw SwiftalkError.type(`cannot call a ${typeName(fn)}`);
       // Round 237: Context() copies the top level it is made in, so it is built here, where the scope is known
       if (fn === Builtins.types.get('Context')) {
@@ -738,7 +752,7 @@ export function* evaluate(expr, env) {
       return yield* apply(fn, yield* evaluateArgs(expr.args, env));
     }
     case 'selfCall': {
-      const fn = env.tryLookup(calleeKey);
+      const fn = env.tryLookup(calleeKey) as FunctionObject | undefined;
       if (!fn || kindOf(fn) !== 'function') throw SwiftalkError.type("'$()' recurses — it only works inside a function");
       return yield* apply(fn, yield* evaluateArgs(expr.args, env));
     }
@@ -760,19 +774,19 @@ export function* evaluate(expr, env) {
   }
 }
 
-function* evaluateSlow(expr, env) {
+function* evaluateSlow(expr: Expr, env: Environment): G<Value> {
   switch (expr.k) {
     case 'switch': return yield* evaluateSwitch(expr.subject, expr.clauses, expr.defaultBody, env);
     case 'if': case 'literal': case 'variable': case 'binary': case 'bitwise': case 'bitNot': case 'comparison': case 'ternary':
     case 'call': case 'selfCall': case 'subscript': case 'regexLiteral': case 'bigintLiteral':
       return yield* evaluate(expr, env);
     case 'tuple': {
-      const values = [];
+      const values: Value[] = [];
       for (const e of expr.elements) values.push(yield* evaluate(e.expr, env));
       return new TupleValue(values, expr.elements.map((e) => e.label));
     }
     case 'array': {
-      const values = [];
+      const values: Value[] = [];
       for (const e of expr.elements) values.push(yield* evaluate(e, env));
       if (values.length === 1) { const element = annotationOfType(values[0]); if (element) return typeValue(ann('Array', false, [element])); }
       return new SArray(values);
@@ -827,7 +841,7 @@ function* evaluateSlow(expr, env) {
     case 'await': {
       const value = yield* evaluate(expr.e, env);
       if (kindOf(value) !== 'task') throw SwiftalkError.type(`can only await a Task — got ${typeName(value)}`);
-      return yield* awaitTask(value);
+      return yield* awaitTask(value as TaskObject);
     }
     case 'logicalAnd': {
       const a = yield* evaluate(expr.lhs, env);
@@ -860,7 +874,7 @@ function* evaluateSlow(expr, env) {
     case 'typeSpelling': return typeValueForParameter(resolveTypeNames(expr.annotation, env), env);
     case 'propagate': {
       const v = yield* evaluate(expr.e, env);
-      if (kindOf(v) === 'function' && annotationOfType(v)) return optionalType(v, env);
+      if (kindOf(v) === 'function' && annotationOfType(v)) return optionalType(v as FunctionObject, env);
       const r = yield* userOperator('postfix:?', [v]);
       if (r !== undefined) return r;
       if (v === null) throw new ReturnSignal(null);
@@ -879,12 +893,12 @@ function* evaluateSlow(expr, env) {
       const v = yield* evaluate(expr.lhs, env);
       if (v === null) return yield* evaluate(expr.rhs, env);
       if (isResult(v)) return v.caseName === 'success' ? v.associated[0] : yield* evaluate(expr.rhs, env);
-      if (kindOf(v) === 'dictionary') return coalesceDictionaries(v, yield* evaluate(expr.rhs, env), '??');
+      if (kindOf(v) === 'dictionary') return coalesceDictionaries(v as SDictionary, yield* evaluate(expr.rhs, env), '??');
       return v;
     }
     case 'override': {
       const a = yield* evaluate(expr.lhs, env), b = yield* evaluate(expr.rhs, env);
-      if (kindOf(b) === 'dictionary') return coalesceDictionaries(b, a, '!!');
+      if (kindOf(b) === 'dictionary') return coalesceDictionaries(b as SDictionary, a, '!!');
       return isAbsent(b) ? a : b;
     }
     case 'optionalMember': {
@@ -897,31 +911,32 @@ function* evaluateSlow(expr, env) {
       for (const part of expr.parts) out += yield* displayString(yield* evaluate(part, env));
       return out;
     }
-    default: throw SwiftalkError.type(`FIXME: expression ${expr.k} is not ported`);
+    default: throw SwiftalkError.type(`FIXME: expression ${(expr as Expr).k} is not ported`);
   }
 }
 
-function* evaluateMethodCall(expr, env) {
+function* evaluateMethodCall(expr: MethodExpr, env: Environment): G<Value> {
   const { receiver: receiverExpr, name, args: argExprs, called } = expr;
   if (called && (name === 'remove' || name === 'insert' || name === 'merge' || name === 'subtract')) {
     const mutated = yield* mutatingMethod(expr, env);
     if (mutated !== undefined) return mutated;
   }
   const receiver = yield* evaluate(receiverExpr, env);
-  const evaluated = [];
+  const evaluated: LabeledArg[] = [];
   for (const a of argExprs) evaluated.push({ label: a.label, value: yield* evaluate(a.expr, env) });
   if (called) {
     if (name === 'append' && kindOf(receiver) === 'array') {
+      const array = receiver as SArray;
       const target = asLValue(receiverExpr);
       if (!target) throw SwiftalkError.type("'.append' mutates — call it on a var Array");
       if (!evaluated.length || !evaluated.every((a) => a.label === null)) throw SwiftalkError.type('.append takes unlabeled item(s)');
-      yield* assign(target, new SArray([...receiver.items, ...evaluated.map((a) => a.value)], receiver.lock), env);
+      yield* assign(target, new SArray([...array.items, ...evaluated.map((a) => a.value)], array.lock), env);
       return null;
     }
-    let userMethod = null;
+    let userMethod: FunctionObject | null = null;
     if (asksCanonical(name, evaluated)) { /* the interpreter's word */ }
-    else if (receiver instanceof StructValue && receiver.type.methods.has(name)) userMethod = receiver.type.methods.get(name);
-    else if (receiver instanceof EnumCaseValue && receiver.type.methods.has(name)) userMethod = receiver.type.methods.get(name);
+    else if (receiver instanceof StructValue && receiver.type.methods.has(name)) userMethod = receiver.type.methods.get(name)!;
+    else if (receiver instanceof EnumCaseValue && receiver.type.methods.has(name)) userMethod = receiver.type.methods.get(name)!;
     else { const m = lookupExtension(env, typeName(receiver), name); if (m) userMethod = m; }
     if (userMethod) {
       const [bound, selfEnv] = boundMethod(userMethod, receiver, true);
@@ -939,9 +954,9 @@ function* evaluateMethodCall(expr, env) {
   }
   return yield* method(receiver, name, evaluated, called, env);
 }
-function* mutatingMethod(expr, env) {
+function* mutatingMethod(expr: MethodExpr, env: Environment): G<Value | undefined> {
   const { receiver: receiverExpr, name, args: argExprs } = expr;
-  const container = yield* evaluate(receiverExpr, env);
+  const container: any = yield* evaluate(receiverExpr, env);
   const k = kindOf(container);
   if (name === 'remove') {
     if (argExprs.length !== 1 || argExprs[0].label !== null) throw SwiftalkError.type('.remove(key) takes exactly one unlabeled argument');
@@ -977,7 +992,7 @@ function* mutatingMethod(expr, env) {
   if (name === 'merge') {
     const target = asLValue(receiverExpr);
     if (!target) throw SwiftalkError.type(`'.merge' mutates — call it on a var ${typeName(container)}`);
-    const args = [];
+    const args: LabeledArg[] = [];
     for (const a of argExprs) args.push({ label: a.label === 'uniquingKeysWith' ? null : a.label, value: yield* evaluate(a.expr, env) });
     if (k === 'dictionary') { yield* assign(target, yield* mergeDictionaries(container, plainValues(args, '.merge')), env); return null; }
     if (k === 'set') {
@@ -993,7 +1008,7 @@ function* mutatingMethod(expr, env) {
   if (name === 'subtract') {
     const target = asLValue(receiverExpr);
     if (!target) throw SwiftalkError.type(`'.subtract' mutates — call it on a var ${typeName(container)}`);
-    const args = [];
+    const args: LabeledArg[] = [];
     for (const a of argExprs) args.push({ label: a.label, value: yield* evaluate(a.expr, env) });
     const values = plainValues(args, '.subtract');
     if (values.length !== 1) throw SwiftalkError.type('.subtract takes one Set, or any Sequence');
@@ -1004,7 +1019,7 @@ function* mutatingMethod(expr, env) {
       return null;
     }
     if (k === 'dictionary') {
-      const keys = kindOf(values[0]) === 'dictionary' ? new SSet(values[0].keys()) : yield* setElements(values[0]);
+      const keys = kindOf(values[0]) === 'dictionary' ? new SSet((values[0] as SDictionary).keys()) : yield* setElements(values[0]);
       const d = container.clone();
       for (const key of keys.values()) d.delete(key);
       yield* assign(target, d, env);
@@ -1016,7 +1031,7 @@ function* mutatingMethod(expr, env) {
 }
 
 // ---- subscripts ----
-function sliceBounds(index, lower, upper, closed, count) {
+function sliceBounds(index: SRange, lower: bigint, upper: bigint | null, closed: boolean, count: number): [number, number] {
   let end = BigInt(count);
   if (upper !== null) {
     end = closed ? upper + 1n : upper;
@@ -1025,13 +1040,13 @@ function sliceBounds(index, lower, upper, closed, count) {
   if (!(lower >= 0n && lower <= end && end <= BigInt(count))) throw SwiftalkError.type(`range ${sourceString(index)} is out of range (count ${count})`);
   return [Number(lower), Number(end)];
 }
-function position(i, count) {
+function position(i: bigint, count: number): number {
   const resolved = i < 0n ? i + BigInt(count) : i;
   if (!(resolved >= 0n && resolved < BigInt(count))) throw SwiftalkError.type(`index ${i} out of range (count ${count})`);
   return Number(resolved);
 }
 /// The value an assignment path names, read without writing (round 211).
-function* readPath(target, env) {
+function* readPath(target: LValue, env: Environment): G<Value> {
   switch (target.k) {
     case 'variable': return env.lookup(target.name);
     case 'index': return subscriptRead(yield* readPath(target.base, env), yield* evaluate(target.index, env));
@@ -1039,58 +1054,60 @@ function* readPath(target, env) {
     default: throw SwiftalkError.type('a tuple pattern cannot be part of an assignment path');
   }
 }
-export function subscriptRead(container, index) {
+export function subscriptRead(container: Value, index: Value): Value {
+  const c: any = container, ix: any = index;
   switch (kindOf(container)) {
     case 'array':
-      if (kindOf(index) === 'range') { const [a, b] = sliceBounds(index, index.from, index.to, index.closed, container.items.length); return new SArray(container.items.slice(a, b)); }
+      if (kindOf(index) === 'range') { const [a, b] = sliceBounds(ix, ix.from, ix.to, ix.closed, c.items.length); return new SArray(c.items.slice(a, b)); }
       if (typeof index !== 'bigint') throw SwiftalkError.type(`Array index must be an Int or a Range, not ${typeName(index)}`);
-      return container.items[position(index, container.items.length)];
-    case 'dictionary': { const v = container.get(index); return v === undefined ? null : v; }
+      return c.items[position(ix, c.items.length)];
+    case 'dictionary': { const v = c.get(index); return v === undefined ? null : v; }
     case 'range': {
       if (typeof index !== 'bigint') throw SwiftalkError.type(`Range index must be an Int, not ${typeName(index)}`);
       if (index < 0n) throw SwiftalkError.type(`Range index ${index} is out of range`);
-      if (container.to !== null) {
-        const count = rangeCount(container.from, container.to, container.closed);
+      if (c.to !== null) {
+        const count = rangeCount(c.from, c.to, c.closed);
         if (!(index < count)) throw SwiftalkError.type(`Range index ${index} is out of range (count ${count})`);
       }
-      const v = container.from + index;
+      const v = c.from + ix;
       if (!fits64(v)) throw SwiftalkError.overflow('this Range element does not fit in an Int');
       return v;
     }
     case 'data':
-      if (kindOf(index) === 'range') { const [a, b] = sliceBounds(index, index.from, index.to, index.closed, container.bytes.length); return new SData(container.bytes.slice(a, b)); }
+      if (kindOf(index) === 'range') { const [a, b] = sliceBounds(ix, ix.from, ix.to, ix.closed, c.bytes.length); return new SData(c.bytes.slice(a, b)); }
       if (typeof index !== 'bigint') throw SwiftalkError.type(`Data index must be an Int or a Range, not ${typeName(index)}`);
-      return new Byte(container.bytes[position(index, container.bytes.length)]);
+      return new Byte(c.bytes[position(ix, c.bytes.length)]);
     case 'string': throw SwiftalkError.type('no String subscripts (round 89, Design.md §11) — index s.Array(), or slice with prefix/suffix/dropFirst/dropLast');
     default: throw SwiftalkError.type(`cannot subscript ${typeName(container)}`);
   }
 }
-function subscriptWrite(container, index, newValue) {
+function subscriptWrite(container: Value, index: Value, newValue: Value): Value {
+  const c: any = container, ix: any = index, nv: any = newValue;
   switch (kindOf(container)) {
     case 'array': {
-      const items = container.items.slice();
+      const items: Value[] = c.items.slice();
       if (kindOf(index) === 'range') {
         if (kindOf(newValue) !== 'array') throw SwiftalkError.type(`assigning through a Range takes an Array, not a ${typeName(newValue)}`);
-        const [a, b] = sliceBounds(index, index.from, index.to, index.closed, items.length);
-        items.splice(a, b - a, ...newValue.items);
+        const [a, b] = sliceBounds(ix, ix.from, ix.to, ix.closed, items.length);
+        items.splice(a, b - a, ...nv.items);
         return new SArray(items);
       }
       if (typeof index !== 'bigint') throw SwiftalkError.type(`Array index must be an Int or a Range, not ${typeName(index)}`);
-      items[position(index, items.length)] = newValue;
+      items[position(ix, items.length)] = newValue;
       return new SArray(items);
     }
-    case 'dictionary': { const d = container.clone(null); d.set(index, newValue); return d; }
+    case 'dictionary': { const d = (c as SDictionary).clone(null); d.set(index, newValue); return d; }
     case 'data': {
-      const bytes = Array.from(container.bytes);
+      const bytes: number[] = Array.from(c.bytes as Uint8Array);
       if (kindOf(index) === 'range') {
         if (kindOf(newValue) !== 'data') throw SwiftalkError.type(`assigning through a Range of a Data takes a Data, not a ${typeName(newValue)}`);
-        const [a, b] = sliceBounds(index, index.from, index.to, index.closed, bytes.length);
-        bytes.splice(a, b - a, ...newValue.bytes);
+        const [a, b] = sliceBounds(ix, ix.from, ix.to, ix.closed, bytes.length);
+        bytes.splice(a, b - a, ...(nv.bytes as Uint8Array));
         return new SData(bytes);
       }
       if (typeof index !== 'bigint') throw SwiftalkError.type(`Data index must be an Int or a Range, not ${typeName(index)}`);
-      const at = position(index, bytes.length);
-      let byte;
+      const at = position(ix, bytes.length);
+      let byte: number;
       if (newValue instanceof Byte) byte = newValue.v;
       else if (typeof newValue === 'bigint' && newValue >= 0n && newValue <= 255n) byte = Number(newValue);
       else throw SwiftalkError.type(`a Data byte is a Byte, or an Int in 0...255, not ${sourceString(newValue)}`);
@@ -1101,7 +1118,7 @@ function subscriptWrite(container, index, newValue) {
     default: throw SwiftalkError.type(`cannot subscript ${typeName(container)}`);
   }
 }
-export function asLValue(expr) {
+export function asLValue(expr: Expr): LValue | null {
   switch (expr.k) {
     case 'variable': return { k: 'variable', name: expr.name };
     case 'subscript': { const inner = asLValue(expr.base); return inner ? { k: 'index', base: inner, index: expr.index } : null; }
@@ -1110,12 +1127,12 @@ export function asLValue(expr) {
     case 'tuple': {
       const targets = expr.elements.map((e) => asLValue(e.expr));
       if (targets.some((t) => t === null)) return null;
-      return { k: 'tuple', elements: expr.elements.map((e, i) => ({ label: e.label, target: targets[i] })) };
+      return { k: 'tuple', elements: expr.elements.map((e, i) => ({ label: e.label, target: targets[i]! })) };
     }
     default: return null;
   }
 }
-function select(tuple, labels, what) {
+function select(tuple: TupleValue, labels: (string | null)[], what: string): Value[] {
   if (tuple.count !== labels.length) throw SwiftalkError.type(`cannot destructure a ${tuple.count}-tuple into ${labels.length} ${what}`);
   return labels.map((label, pos) => {
     if (label === null) return tuple.values[pos];
@@ -1124,7 +1141,7 @@ function select(tuple, labels, what) {
     return tuple.values[index];
   });
 }
-export function bind(pattern, value, mutable, env, strict) {
+export function bind(pattern: Pattern, value: Value, mutable: boolean, env: Environment, strict: boolean): void {
   if (pattern.k === 'name') {
     if (pattern.name === '_') return;
     const lock = strict ? inferLock(value, pattern.name) : ann(typeName(value), true);
@@ -1135,7 +1152,7 @@ export function bind(pattern, value, mutable, env, strict) {
   const values = select(value, pattern.elements.map((e) => e.label), 'names');
   pattern.elements.forEach((e, i) => bind(e.pattern, values[i], mutable, env, strict));
 }
-function* assignRelaxed(target, value, env) {
+function* assignRelaxed(target: LValue, value: Value, env: Environment): G<void> {
   if (target.k === 'tuple') {
     if (!(value instanceof TupleValue)) throw SwiftalkError.type(`cannot assign a ${typeName(value)} to ${target.elements.length} targets`);
     const values = select(value, target.elements.map((e) => e.label), 'targets');
@@ -1150,8 +1167,8 @@ function* assignRelaxed(target, value, env) {
 }
 
 // ---- properties ----
-export function makeComputed(exprs, env) {
-  const out = new Map();
+export function makeComputed(exprs: Map<string, Computed>, env: Environment): Map<string, ComputedMember> {
+  const out = new Map<string, ComputedMember>();
   for (const [name, spec] of exprs) {
     if (spec.get.k !== 'function') continue;
     const setter = spec.set && spec.set.k === 'function' ? new FunctionObject(spec.set.parameters, spec.set.body, env) : null;
@@ -1159,78 +1176,78 @@ export function makeComputed(exprs, env) {
   }
   return out;
 }
-export function computedProperty(receiver, name) {
+export function computedProperty(receiver: Value, name: string): ComputedMember | null {
   return receiver instanceof StructValue ? (receiver.type.computed.get(name) ?? null) : null;
 }
-export function* readComputed(c, receiver) {
+export function* readComputed(c: ComputedMember, receiver: Value): G<Value> {
   const [bound] = boundMethod(c.get, receiver);
   const value = yield* apply(bound, []);
   if (c.annotation) checkValue(value, c.annotation, `computed ${typeName(receiver)} property`);
   return value;
 }
-export function* writeComputed(c, receiver, name, newValue) {
+export function* writeComputed(c: ComputedMember, receiver: Value, name: string, newValue: Value): G<Value> {
   if (!c.set) throw SwiftalkError.type(`${typeName(receiver)}.${name} is a read-only computed property`);
   if (c.annotation) checkValue(newValue, c.annotation, `${typeName(receiver)}.${name}`);
   const [bound, selfEnv] = boundMethod(c.set, receiver, true);
   yield* apply(bound, [{ label: null, value: newValue }]);
   return selfEnv.lookup('self');
 }
-function makeObservers(order, props, env) {
-  const out = new Map();
+function makeObservers(order: string[], props: Map<string, Property>, env: Environment): Map<string, { will: FunctionObject | null; did: FunctionObject | null }> {
+  const out = new Map<string, { will: FunctionObject | null; did: FunctionObject | null }>();
   for (const name of order) {
     const p = props.get(name);
     if (!p || (!p.willSetExpr && !p.didSetExpr)) continue;
-    const build = (e) => (e && e.k === 'function' ? new FunctionObject(e.parameters, e.body, env) : null);
+    const build = (e: FunctionExpr | null) => (e && e.k === 'function' ? new FunctionObject(e.parameters, e.body, env) : null);
     out.set(name, { will: build(p.willSetExpr), did: build(p.didSetExpr) });
   }
   return out;
 }
-export function makeMethods(exprs, env) {
-  const out = new Map();
+export function makeMethods(exprs: Map<string, FunctionExpr>, env: Environment): Map<string, FunctionObject> {
+  const out = new Map<string, FunctionObject>();
   for (const [name, expr] of exprs) if (expr.k === 'function') out.set(name, new FunctionObject(expr.parameters, expr.body, env));
   return out;
 }
-export function lookupExtension(env, typeNameText, name) {
+export function lookupExtension(env: Environment, typeNameText: string, name: string): FunctionObject | null {
   const v = env.tryLookup(`@ext:${typeNameText}:${name}`);
-  return v && kindOf(v) === 'function' ? v : null;
+  return v && kindOf(v) === 'function' ? (v as FunctionObject) : null;
 }
-export function boundMethod(m, receiver, mutableSelf = false) {
+export function boundMethod(m: FunctionObject, receiver: Value, mutableSelf = false): [FunctionObject, Environment] {
   const selfEnv = new Environment(m.closure);
   selfEnv.declare('self', new Binding(mutableSelf, ann(typeName(receiver)), receiver));
   return [new FunctionObject(m.parameters, m.body, selfEnv), selfEnv];
 }
-function initMatches(params, args) {
+function initMatches(params: string[], args: LabeledArg[]): boolean {
   if (params.length === 0) return true;
   if (args.length !== params.length) return false;
-  const used = new Set();
+  const used = new Set<string>();
   for (const a of args) if (a.label !== null) {
     if (!params.includes(a.label) || used.has(a.label)) return false;
     used.add(a.label);
   }
   return true;
 }
-const observerGuard = new Set();
-export function* constructStruct(st, args) {
+const observerGuard = new Set<string>();
+export function* constructStruct(st: StructType, args: LabeledArg[]): G<StructValue> {
   for (const initFn of st.inits) {
     if (!initMatches(initFn.parameters, args)) continue;
-    const values = new Map();
+    const values = new Map<string, Value>();
     for (const prop of st.propertyOrder) {
-      const def = st.properties.get(prop);
+      const def = st.properties.get(prop)!;
       values.set(prop, def.defaultExpr ? yield* evaluate(def.defaultExpr, new Environment(st.declEnv)) : null);
     }
     const underConstruction = new StructValue(st, values);
     const [fn, selfEnv] = boundMethod(initFn, underConstruction, true);
     const claimed = [...st.observers.keys()].map((k) => `${st.name}.${k}`).filter((key) => { if (observerGuard.has(key)) return false; observerGuard.add(key); return true; });
     try { yield* apply(fn, args); } finally { for (const key of claimed) observerGuard.delete(key); }
-    const sv = selfEnv.lookup('self');
+    const sv = selfEnv.lookup('self') as StructValue;
     for (const prop of st.propertyOrder) {
-      const a = st.properties.get(prop).annotation;
+      const a = st.properties.get(prop)!.annotation;
       if (a && !a.optional && a.name !== 'Nil' && (sv.values.get(prop) ?? null) === null) throw SwiftalkError.type(`${st.name}.${prop} was not initialized by init`);
     }
     return sv;
   }
-  const slots = new Map();
-  const positionals = [];
+  const slots = new Map<string, Value>();
+  const positionals: Value[] = [];
   for (const a of args) {
     if (a.label !== null) {
       if (!st.properties.has(a.label)) throw SwiftalkError.type(`${st.name} has no property '${a.label}'`);
@@ -1238,13 +1255,13 @@ export function* constructStruct(st, args) {
       slots.set(a.label, a.value);
     } else positionals.push(a.value);
   }
-  const values = new Map();
+  const values = new Map<string, Value>();
   for (const prop of st.propertyOrder) {
-    const def = st.properties.get(prop);
-    let value;
+    const def = st.properties.get(prop)!;
+    let value: Value;
     let given = true;
-    if (slots.has(prop)) value = slots.get(prop);
-    else if (positionals.length) value = positionals.shift();
+    if (slots.has(prop)) value = slots.get(prop)!;
+    else if (positionals.length) value = positionals.shift()!;
     else if (def.defaultExpr) { value = yield* evaluate(def.defaultExpr, new Environment(st.declEnv)); given = false; }
     else throw SwiftalkError.type(`missing property '${prop}' of ${st.name}`);
     if (def.annotation) { checkValue(value, def.annotation, `${st.name}.${prop}`); value = stamp(value, def.annotation); }
@@ -1259,9 +1276,9 @@ export function* constructStruct(st, args) {
   if (positionals.length) throw SwiftalkError.type(`too many values for ${st.name}`);
   return new StructValue(st, values);
 }
-function* propertyRead(container, name) {
+function* propertyRead(container: Value, name: string): G<Value> {
   if (container instanceof TupleValue) {
-    const index = /^\d+$/.test(name) ? Number(name) : container.indexOfLabel(name);
+    const index: number | null = /^\d+$/.test(name) ? Number(name) : container.indexOfLabel(name);
     if (index !== null && index !== undefined) {
       if (!(index >= 0 && index < container.count)) throw SwiftalkError.type(`tuple index ${index} out of range (count ${container.count})`);
       return container.values[index];
@@ -1271,11 +1288,11 @@ function* propertyRead(container, name) {
   const c = container.type.computed.get(name);
   if (c) return yield* readComputed(c, container);
   if (!container.values.has(name)) throw SwiftalkError.unknownMember(`${container.type.name}.${name}`);
-  return container.values.get(name);
+  return container.values.get(name)!;
 }
-function* propertyWrite(container, name, newValue) {
+function* propertyWrite(container: Value, name: string, newValue: Value): G<Value> {
   if (container instanceof TupleValue) {
-    const index = /^\d+$/.test(name) ? Number(name) : container.indexOfLabel(name);
+    const index: number | null = /^\d+$/.test(name) ? Number(name) : container.indexOfLabel(name);
     if (index !== null && index !== undefined) {
       if (!(index >= 0 && index < container.count)) throw SwiftalkError.type(`tuple index ${index} out of range (count ${container.count})`);
       const values = container.values.slice(); values[index] = newValue;
@@ -1283,9 +1300,10 @@ function* propertyWrite(container, name, newValue) {
     }
   }
   if (kindOf(container) === 'host') {
-    let ok = container.object.setMember ? container.object.setMember(name, newValue) : false;
+    const h = container as HostValue;
+    let ok: any = h.object.setMember ? h.object.setMember(name, newValue) : false;
     if (ok && typeof ok.next === 'function') ok = yield* ok;
-    if (!ok) throw SwiftalkError.type(`cannot assign to ${container.object.typeName}.${name}`);
+    if (!ok) throw SwiftalkError.type(`cannot assign to ${h.object.typeName}.${name}`);
     return container;
   }
   if (!(container instanceof StructValue)) throw SwiftalkError.type(`cannot assign through a property of ${typeName(container)}`);
@@ -1294,7 +1312,7 @@ function* propertyWrite(container, name, newValue) {
   if (c) return yield* writeComputed(c, container, name, newValue);
   const def = sv.type.properties.get(name);
   if (!def || !sv.values.has(name)) throw SwiftalkError.unknownMember(`${sv.type.name}.${name}`);
-  const current = sv.values.get(name);
+  const current = sv.values.get(name)!;
   if (!def.mutable) throw SwiftalkError.type(`cannot assign to let property '${sv.type.name}.${name}'`);
   if (def.annotation) { checkValue(newValue, def.annotation, `${sv.type.name}.${name}`); newValue = stamp(newValue, def.annotation); }
   else if (current !== null && typeName(newValue) !== typeName(current)) throw SwiftalkError.type(`cannot assign ${typeName(newValue)} to ${sv.type.name}.${name} of type ${typeName(current)}`);
@@ -1313,9 +1331,10 @@ function* propertyWrite(container, name, newValue) {
     return sv;
   } finally { observerGuard.delete(guardKey); }
 }
-export function isAbsent(v) { return v === null || (isResult(v) && v.caseName === 'failure'); }
+export function isAbsent(v: Value): boolean { return v === null || (isResult(v) && v.caseName === 'failure'); }
 
-export function* assign(target, value, env, combine = null) {
+type Step = { index: Value } | { property: string };
+export function* assign(target: LValue, value: Value, env: Environment, combine: ((old: Value) => G<Value>) | null = null): G<Value> {
   if (target.k === 'variable' && target.name === '_') {
     if (combine) throw SwiftalkError.type("'_' discards — it has no value to combine with");
     return value;
@@ -1327,25 +1346,25 @@ export function* assign(target, value, env, combine = null) {
     for (let i = 0; i < target.elements.length; i++) yield* assign(target.elements[i].target, values[i], env);
     return value;
   }
-  const steps = [];
-  let root = target;
+  const steps: Step[] = [];
+  let root: LValue = target;
   for (;;) {
     if (root.k === 'index') { steps.unshift({ index: yield* evaluate(root.index, env) }); root = root.base; }
     else if (root.k === 'property') { steps.unshift({ property: root.name }); root = root.base; }
     else if (root.k === 'variable') break;
     else throw SwiftalkError.type('a tuple pattern cannot be part of an assignment path');
   }
-  const name = root.name;
-  const landing = function* (old) { return combine ? yield* combine(yield* old()) : value; };
+  const name = (root as { name: string }).name;
+  const landing = function* (old: () => G<Value>): G<Value> { return combine ? yield* combine(yield* old()) : value; };
   if (steps.length === 0) {
     const final = yield* landing(function* () { return env.lookup(name); });
     env.assign(name, final);
     return final;
   }
   let written = value;
-  const read = function* (container, step) { return 'index' in step ? subscriptRead(container, step.index) : yield* propertyRead(container, step.property); };
-  const write = function* (container, step, v) { return 'index' in step ? subscriptWrite(container, step.index, v) : yield* propertyWrite(container, step.property, v); };
-  const rebuild = function* (container, depth) {
+  const read = function* (container: Value, step: Step): G<Value> { return 'index' in step ? subscriptRead(container, step.index) : yield* propertyRead(container, step.property); };
+  const write = function* (container: Value, step: Step, v: Value): G<Value> { return 'index' in step ? subscriptWrite(container, step.index, v) : yield* propertyWrite(container, step.property, v); };
+  const rebuild = function* (container: Value, depth: number): G<Value> {
     if (depth === steps.length - 1) {
       written = yield* landing(function* () { return yield* read(container, steps[depth]); });
       return yield* write(container, steps[depth], written);
@@ -1358,14 +1377,14 @@ export function* assign(target, value, env, combine = null) {
   env.assign(name, rebuilt);
   return written;
 }
-export function* evaluateArgs(args, env) {
-  const out = [];
+export function* evaluateArgs(args: Arg[], env: Environment): G<LabeledArg[]> {
+  const out: LabeledArg[] = [];
   for (const a of args) out.push({ label: a.label, value: yield* evaluate(a.expr, env) });
   return out;
 }
 
 // ---- application ----
-export function* apply(fn, args) {
+export function* apply(fn: FunctionObject, args: LabeledArg[]): G<Value> {
   if (fn.role.k === 'structType') {
     if (fn.role.type.isModule) throw SwiftalkError.type(`${fn.role.type.name} is a module, not a type with instances — its members are ${fn.role.type.name}.name`);
     return yield* constructStruct(fn.role.type, args);
@@ -1373,8 +1392,8 @@ export function* apply(fn, args) {
   if (fn.role.k === 'type') {
     const tn = fn.role.name;
     if (fn.builtin && !Builtins.types.has(tn) && !Builtins.protocols.has(tn)) return yield* callBuiltin(fn.builtin, args.map((a) => a.value));
-    let subject = undefined;
-    const extra = [];
+    let subject: Value | undefined = undefined;
+    const extra: LabeledArg[] = [];
     args.forEach((a, i) => { if (i === 0 && a.label === null) subject = a.value; else extra.push(a); });
     const built = yield* convert(tn, subject, extra);
     if (fn.annotation) { checkValue(built, fn.annotation, `${fn.annotation.display}()`); return stamp(built, fn.annotation); }
@@ -1383,14 +1402,14 @@ export function* apply(fn, args) {
   if (!fn.builtin && args.length === 1 && args[0].label === null && args[0].value instanceof TupleValue) {
     args = args[0].value.values.map((v) => ({ label: null, value: v }));
   }
-  let ordered;
+  let ordered: Value[];
   if (fn.parameters.length === 0) {
     const label = args.map((a) => a.label).find((l) => l !== null);
     if (label !== undefined) throw SwiftalkError.type(`unknown argument label '${label}': this function declares no parameter names`);
     ordered = args.map((a) => a.value);
   } else {
     if (args.length !== fn.parameters.length) throw SwiftalkError.type(`expected ${fn.parameters.length} argument(s), got ${args.length}`);
-    const slots = new Array(fn.parameters.length).fill(undefined);
+    const slots: (Value | undefined)[] = new Array(fn.parameters.length).fill(undefined);
     for (const a of args) if (a.label !== null) {
       const index = fn.parameters.indexOf(a.label);
       if (index < 0) throw SwiftalkError.type(`unknown argument label '${a.label}'`);
@@ -1401,20 +1420,20 @@ export function* apply(fn, args) {
     ordered = slots.map((slot) => {
       if (slot !== undefined) return slot;
       if (!positionals.length) throw SwiftalkError.type('missing argument');
-      return positionals.shift();
+      return positionals.shift()!;
     });
   }
   if (fn.builtin) return yield* callBuiltin(fn.builtin, ordered);
   return (yield* run(fn, ordered)).result;
 }
-export function* run(fn, ordered) {
+export function* run(fn: FunctionObject, ordered: Value[]): G<{ result: Value; local: Environment }> {
   const local = new Environment(fn.closure);
   if (fn.builtin) return { result: yield* callBuiltin(fn.builtin, ordered), local };
   fn.parameters.forEach((name, i) => { if (name !== '_') local.declare(name, new Binding(false, ann(typeName(ordered[i]), true), ordered[i])); });
   local.declare('$', new Binding(true, ann('Array'), new SArray(ordered)));
   ordered.forEach((value, index) => local.declare(`$${index}`, new Binding(false, ann(typeName(value), true), value)));
   local.declare(calleeKey, new Binding(false, ann('Function'), fn));
-  let last = null;
+  let last: Value = null;
   try {
     for (const statement of fn.body) last = yield* execute(statement, local);
   } catch (e) {
@@ -1426,13 +1445,13 @@ export function* run(fn, ordered) {
 }
 
 // ---- operators ----
-export function* userOperator(key, operands) {
+export function* userOperator(key: string, operands: Value[]): G<Value | undefined> {
   for (const v of operands) {
-    let table = null;
+    let table: Map<string, FunctionObject> | null = null;
     if (v instanceof StructValue) table = v.type.operators;
     else if (v instanceof EnumCaseValue) table = v.type.operators;
-    else if (kindOf(v) === 'host' && v.object.operate) {                 // a module's value (round 201: BigInt's arithmetic)
-      let r = v.object.operate(key, operands);
+    else if (kindOf(v) === 'host' && (v as HostValue).object.operate) {                 // a module's value (round 201: BigInt's arithmetic)
+      let r: any = (v as HostValue).object.operate!(key, operands);
       if (r && typeof r.next === 'function' && typeof r[Symbol.iterator] === 'function') r = yield* r;
       if (r !== undefined) return r;
       continue;
@@ -1442,18 +1461,18 @@ export function* userOperator(key, operands) {
   }
   return undefined;
 }
-export function hasUserOperator(v, key) {
+export function hasUserOperator(v: Value, key: string): boolean {
   if (v instanceof StructValue) return v.type.operators.has(key);
   if (v instanceof EnumCaseValue) return v.type.operators.has(key);
-  if (kindOf(v) === 'host') return v.object.hasOperator ? v.object.hasOperator(key) : false;
+  if (kindOf(v) === 'host') return (v as HostValue).object.hasOperator ? (v as HostValue).object.hasOperator(key) : false;
   return false;
 }
-const userTyped = (v) => v instanceof StructValue || (v instanceof EnumCaseValue && !isResult(v)) || kindOf(v) === 'host';
-const byteOrInt = (v) => (v instanceof Byte ? BigInt(v.v) : v);
-export function* bitwise(op, lhs, rhs) {
+const userTyped = (v: Value): boolean => v instanceof StructValue || (v instanceof EnumCaseValue && !isResult(v)) || kindOf(v) === 'host';
+const byteOrInt = (v: Value): bigint => (v instanceof Byte ? BigInt(v.v) : (v as bigint));
+export function* bitwise(op: string, lhs: Value, rhs: Value): G<Value> {
   const r = yield* userOperator(`infix:${op}`, [lhs, rhs]);
   if (r !== undefined) return r;
-  const combine = (a, b) => {
+  const combine = (a: bigint, b: bigint): bigint => {
     switch (op) {
       case '+&': return a & b;
       case '+|': return a | b;
@@ -1463,19 +1482,19 @@ export function* bitwise(op, lhs, rhs) {
     }
   };
   const kl = kindOf(lhs), kr = kindOf(rhs);
-  if (kl === 'byte' && kr === 'byte') return new Byte(Number(BigInt.asUintN(8, combine(BigInt(lhs.v), BigInt(rhs.v)))));
+  if (kl === 'byte' && kr === 'byte') return new Byte(Number(BigInt.asUintN(8, combine(BigInt((lhs as Byte).v), BigInt((rhs as Byte).v)))));
   if ((kl === 'byte' || kl === 'int') && (kr === 'byte' || kr === 'int')) return combine(byteOrInt(lhs), byteOrInt(rhs));
   throw SwiftalkError.type(`'${op}' is a bitwise operator on Ints and Bytes — not defined between ${typeName(lhs)} and ${typeName(rhs)}`
     + ((kl === 'bool' || kr === 'bool') ? '; Bools use && || ^^ !' : '') + ((kl === 'set' || kr === 'set') ? '; Sets use & | ^' : ''));
 }
-export function* bitNot(operand) {
+export function* bitNot(operand: Value): G<Value> {
   const r = yield* userOperator('prefix:+^', [operand]);
   if (r !== undefined) return r;
   if (typeof operand === 'bigint') return ~operand;
   if (operand instanceof Byte) return new Byte(~operand.v & 0xff);
   throw SwiftalkError.type(`prefix '+^' is bitwise not, on an Int or a Byte — not ${typeName(operand)}`);
 }
-export function* binary(op, lhs, rhs) {
+export function* binary(op: string, lhs: Value, rhs: Value): G<Value> {
   const r = yield* userOperator(`infix:${op}`, [lhs, rhs]);
   if (r !== undefined) return r;
   const kl = kindOf(lhs), kr = kindOf(rhs);
@@ -1483,9 +1502,9 @@ export function* binary(op, lhs, rhs) {
     throw SwiftalkError.type(`'${op}' is a Set operator — not defined between ${typeName(lhs)} and ${typeName(rhs)}; Bools use '${op}${op}', Ints +${op}`);
   }
   if (kl === 'byte' && kr === 'byte') {
-    const a = lhs.v, b = rhs.v;
+    const a = (lhs as Byte).v, b = (rhs as Byte).v;
     if ((op === '/' || op === '%') && b === 0) throw SwiftalkError.zeroDivision();
-    let result;
+    let result: number;
     switch (op) {
       case '+': result = a + b; break; case '-': result = a - b; break; case '*': result = a * b; break;
       case '/': result = Math.trunc(a / b); break; case '%': result = a % b; break;
@@ -1494,12 +1513,12 @@ export function* binary(op, lhs, rhs) {
     if (result < 0 || result > 255) throw SwiftalkError.overflow(`Byte(${a}) ${op} Byte(${b})`);
     return new Byte(result);
   }
-  if (kl === 'byte' && kr === 'int') return yield* binary(op, BigInt(lhs.v), rhs);
-  if (kl === 'int' && kr === 'byte') return yield* binary(op, lhs, BigInt(rhs.v));
+  if (kl === 'byte' && kr === 'int') return yield* binary(op, BigInt((lhs as Byte).v), rhs);
+  if (kl === 'int' && kr === 'byte') return yield* binary(op, lhs, BigInt((rhs as Byte).v));
   if (kl === 'int' && kr === 'int') {
-    const a = lhs, b = rhs;
+    const a = lhs as bigint, b = rhs as bigint;
     if ((op === '/' || op === '%') && b === 0n) throw SwiftalkError.zeroDivision();
-    let result;
+    let result: bigint;
     switch (op) {
       case '+': result = a + b; break; case '-': result = a - b; break; case '*': result = a * b; break;
       case '/': result = a / b; break;
@@ -1510,65 +1529,68 @@ export function* binary(op, lhs, rhs) {
     return result;
   }
   if (kl === 'double' && kr === 'double') {
+    const a = lhs as number, b = rhs as number;
     switch (op) {
-      case '+': return lhs + rhs; case '-': return lhs - rhs; case '*': return lhs * rhs; case '/': return lhs / rhs;
+      case '+': return a + b; case '-': return a - b; case '*': return a * b; case '/': return a / b;
       case '%': throw SwiftalkError.type("'%' is for Ints — as in Swift, a Double has no remainder operator");
       default: break;
     }
   }
-  if (kl === 'string' && kr === 'string' && op === '+') return lhs + rhs;
-  if (kl === 'array' && kr === 'array' && op === '+') return new SArray([...lhs.items, ...rhs.items]);
+  if (kl === 'string' && kr === 'string' && op === '+') return (lhs as string) + (rhs as string);
+  if (kl === 'array' && kr === 'array' && op === '+') return new SArray([...(lhs as SArray).items, ...(rhs as SArray).items]);
   if (kl === 'set' && kr === 'set') {
+    const l = lhs as SSet, r = rhs as SSet;
     switch (op) {
-      case '|': { const s = lhs.clone(null); for (const e of rhs.values()) s.add(e); return s; }
-      case '-': { const s = lhs.clone(null); for (const e of rhs.values()) s.delete(e); return s; }
-      case '&': return new SSet(lhs.values().filter((e) => rhs.has(e)));
-      case '^': return new SSet([...lhs.values().filter((e) => !rhs.has(e)), ...rhs.values().filter((e) => !lhs.has(e))]);
+      case '|': { const s = l.clone(null); for (const e of r.values()) s.add(e); return s; }
+      case '-': { const s = l.clone(null); for (const e of r.values()) s.delete(e); return s; }
+      case '&': return new SSet(l.values().filter((e) => r.has(e)));
+      case '^': return new SSet([...l.values().filter((e) => !r.has(e)), ...r.values().filter((e) => !l.has(e))]);
       default: break;
     }
   }
   throw SwiftalkError.type(`'${op}' is not defined between ${typeName(lhs)} and ${typeName(rhs)}`);
 }
-export function* setElements(value) {
-  if (kindOf(value) === 'set') return value;
+export function* setElements(value: Value): G<SSet> {
+  if (kindOf(value) === 'set') return value as SSet;
   return new SSet(yield* collect(value));
 }
-export function coalesceDictionaries(base, fill, op) {
+export function coalesceDictionaries(base: SDictionary, fill: Value, op: string): SDictionary {
   if (kindOf(fill) !== 'dictionary') throw SwiftalkError.type(`'${op}' between a Dictionary and a ${typeName(fill)} — a Dictionary coalesces with a Dictionary`);
   const out = base.clone(null);
-  for (const [key, value] of fill.entries()) { const cur = out.get(key); if (cur === undefined || isAbsent(cur)) out.set(key, value); }
+  for (const [key, value] of (fill as SDictionary).entries()) { const cur = out.get(key); if (cur === undefined || isAbsent(cur)) out.set(key, value); }
   return out;
 }
-export function* mergeDictionaries(base, args) {
+export function* mergeDictionaries(base: SDictionary, args: Value[]): G<SDictionary> {
   if (!(args.length === 1 || args.length === 2) || kindOf(args[0]) !== 'dictionary') throw SwiftalkError.type('.merging(dictionary) { current, new in } — a Dictionary, and optionally a function');
-  let combine = null;
-  if (args.length === 2) { if (kindOf(args[1]) !== 'function') throw SwiftalkError.type(".merging's second argument is the combine function: { current, new in }"); combine = args[1]; }
+  let combine: FunctionObject | null = null;
+  if (args.length === 2) { if (kindOf(args[1]) !== 'function') throw SwiftalkError.type(".merging's second argument is the combine function: { current, new in }"); combine = args[1] as FunctionObject; }
   const merged = base.clone(null);
-  for (const [key, nu] of args[0].entries()) {
+  for (const [key, nu] of (args[0] as SDictionary).entries()) {
     const current = merged.get(key);
     if (combine && current !== undefined) merged.set(key, yield* apply(combine, [{ label: null, value: current }, { label: null, value: nu }]));
     else merged.set(key, nu);
   }
   return merged;
 }
-export function identical(a, b) {
+export function identical(a: Value, b: Value): boolean {
   const ka = kindOf(a), kb = kindOf(b);
   if (ka !== kb) return false;
-  const all = (xs, ys) => xs.length === ys.length && xs.every((x, i) => identical(x, ys[i]));
+  const x: any = a, y: any = b;
+  const all = (xs: Value[], ys: Value[]) => xs.length === ys.length && xs.every((e, i) => identical(e, ys[i]));
   switch (ka) {
-    case 'double': return Object.is(a, b) || (Number.isNaN(a) && Number.isNaN(b));
+    case 'double': return Object.is(a, b) || (Number.isNaN(x) && Number.isNaN(y));
     case 'string': return a === b;
-    case 'array': return all(a.items, b.items);
-    case 'tuple': return all(a.values, b.values);
-    case 'dictionary': return a.size === b.size && a.entries().every(([k, v]) => b.entries().some(([k2, v2]) => identical(k, k2) && identical(v, v2)));
-    case 'structValue': return a.type === b.type && a.values.size === b.values.size && [...a.values].every(([k, v]) => b.values.has(k) && identical(v, b.values.get(k)));
-    case 'enumCase': return a.type === b.type && a.caseName === b.caseName && all(a.associated, b.associated);
+    case 'array': return all(x.items, y.items);
+    case 'tuple': return all(x.values, y.values);
+    case 'dictionary': return x.size === y.size && (x as SDictionary).entries().every(([k, v]) => (y as SDictionary).entries().some(([k2, v2]) => identical(k, k2) && identical(v, v2)));
+    case 'structValue': return x.type === y.type && x.values.size === y.values.size && [...(x.values as Map<string, Value>)].every(([k, v]) => y.values.has(k) && identical(v, y.values.get(k)));
+    case 'enumCase': return x.type === y.type && x.caseName === y.caseName && all(x.associated, y.associated);
     default: return equals(a, b);
   }
 }
-export function* compare(op, lhs, rhs) {
+export function* compare(op: string, lhs: Value, rhs: Value): G<boolean> {
   if (op !== '===' && op !== '!==' && (userTyped(lhs) || userTyped(rhs))) {
-    const bool = (v, negated = false) => {
+    const bool = (v: Value, negated = false): boolean => {
       if (typeof v !== 'boolean') throw SwiftalkError.type(`a comparison operator must return a Bool, not a ${typeName(v)}`);
       return negated ? !v : v;
     };
@@ -1589,11 +1611,11 @@ export function* compare(op, lhs, rhs) {
     return op === '==' ? equals(lhs, rhs) : !equals(lhs, rhs);
   }
   if (op === '===' || op === '!==') return identical(lhs, rhs) === (op === '===');
-  let ascending;
+  let ascending: boolean;
   if ((kl === 'int' || kl === 'byte') && (kr === 'int' || kr === 'byte')) ascending = byteOrInt(lhs) < byteOrInt(rhs);
-  else if (kl === 'double' && kr === 'double') ascending = lhs < rhs;
-  else if (kl === 'string' && kr === 'string') ascending = compareStrings(lhs, rhs) < 0;
-  else if (kl === 'date' && kr === 'date') ascending = lhs.epoch < rhs.epoch;
+  else if (kl === 'double' && kr === 'double') ascending = (lhs as number) < (rhs as number);
+  else if (kl === 'string' && kr === 'string') ascending = compareStrings(lhs as string, rhs as string) < 0;
+  else if (kl === 'date' && kr === 'date') ascending = (lhs as SDate).epoch < (rhs as SDate).epoch;
   else throw SwiftalkError.type(`'${op}' is not defined between ${typeName(lhs)} and ${typeName(rhs)}`);
   const equal = equals(lhs, rhs);
   switch (op) {
@@ -1605,16 +1627,16 @@ export function* compare(op, lhs, rhs) {
 }
 
 // ---- operator Functions ----
-const operatorTable = new Map();
-export function operatorFunction(op) {
+const operatorTable = new Map<string, FunctionObject>();
+export function operatorFunction(op: string): FunctionObject {
   let f = operatorTable.get(op);
   if (!f) {
-    f = new FunctionObject([], [], Builtins.emptyEnvironment, function* (args) { return yield* applyOperator(op, args); }, { k: 'operator', op });
+    f = new FunctionObject([], [], Builtins.emptyEnvironment, function* (args: Value[]) { return yield* applyOperator(op, args); }, { k: 'operator', op });
     operatorTable.set(op, f);
   }
   return f;
 }
-function* applyOperator(op, args) {
+function* applyOperator(op: string, args: Value[]): G<Value> {
   if (args.length === 1) {
     switch (op) {
       case '-': {
@@ -1649,8 +1671,8 @@ function* applyOperator(op, args) {
       case '&&': case '||': case '^^':
         if (typeof a !== 'boolean' || typeof b !== 'boolean') throw SwiftalkError.type(`'${op}' takes Bools — nothing is truthy (§3b)`);
         return op === '&&' ? a && b : op === '||' ? a || b : a !== b;
-      case '??': if (kindOf(a) === 'dictionary') return coalesceDictionaries(a, b, '??'); return isAbsent(a) ? b : a;
-      case '!!': if (kindOf(b) === 'dictionary') return coalesceDictionaries(b, a, '!!'); return isAbsent(b) ? a : b;
+      case '??': if (kindOf(a) === 'dictionary') return coalesceDictionaries(a as SDictionary, b, '??'); return isAbsent(a) ? b : a;
+      case '!!': if (kindOf(b) === 'dictionary') return coalesceDictionaries(b as SDictionary, a, '!!'); return isAbsent(b) ? a : b;
       default: throw SwiftalkError.type(`(${op}) is not a function`);
     }
   }
@@ -1659,13 +1681,14 @@ function* applyOperator(op, args) {
 }
 
 // ---- types: scopes and statics ----
-export function typeScope(env, type) {
+export function typeScope(env: Environment, type: Value): Environment {
   const scope = new Environment(env);
   try { scope.declare('Self', new Binding(false, ann('Function'), type)); } catch (e) { /* unreachable */ }
   return scope;
 }
-export function installStatics(spec, typeEnv, holder, typeNameText, overwrite) {
-  const out = { thunks: new Map(), getters: new Map(), ops: new Map() };
+type StaticEntries = { thunks: Map<string, StaticThunk>; getters: Map<string, FunctionObject>; ops: Map<string, FunctionObject> };
+export function installStatics(spec: Statics, typeEnv: Environment, holder: StructType | EnumType, typeNameText: string, overwrite: boolean): StaticEntries {
+  const out: StaticEntries = { thunks: new Map(), getters: new Map(), ops: new Map() };
   for (const [key, expr] of spec.ops) {
     if (expr.k !== 'function') continue;
     if (!overwrite && holder.operators.has(key)) { const [fix, op] = key.split(':'); throw SwiftalkError.type(`${typeNameText} already implements ${fix}(${op})`); }
@@ -1682,17 +1705,17 @@ export function installStatics(spec, typeEnv, holder, typeNameText, overwrite) {
   }
   return out;
 }
-export function mergeStatics(entries, holder) {
+export function mergeStatics(entries: StaticEntries, holder: StructType | EnumType): void {
   for (const [name, t] of entries.thunks) { holder.staticGetters.delete(name); holder.statics.delete(name); holder.staticThunks.set(name, t); }
   for (const [name, g] of entries.getters) { holder.statics.delete(name); holder.staticThunks.delete(name); holder.staticGetters.set(name, g); }
   for (const [key, f] of entries.ops) holder.operators.set(key, f);
 }
-export function* resolveStatic(name, holder) {
+export function* resolveStatic(name: string, holder: StructType | EnumType): G<Value | undefined> {
   if (holder.statics.has(name)) return holder.statics.get(name);
   const thunk = holder.staticThunks.get(name);
   if (!thunk) return undefined;
   holder.staticThunks.delete(name);
-  let value;
+  let value: Value;
   try { value = yield* evaluate(thunk.expr, thunk.env); }
   catch (e) { holder.staticThunks.set(name, thunk); throw e; }
   holder.statics.set(name, value);
@@ -1700,24 +1723,24 @@ export function* resolveStatic(name, holder) {
 }
 
 // ---- tasks (milestone C): the requests the scheduler answers ----
-export function* spawnTask(f) {
+export function* spawnTask(f: FunctionObject): G<TaskObject> {
   const answer = yield { suspend: 'spawn', body: f };
   if (!answer || !answer.task) throw SwiftalkError.type('Task { ... } needs a running Interpreter');
   return answer.task;
 }
-export function* awaitTask(task) {
+export function* awaitTask(task: TaskObject): G<Value> {
   const answer = yield { suspend: 'await', task };
   if (!answer || !('value' in answer)) throw SwiftalkError.type("'await' needs a running Interpreter");
   return answer.value;
 }
 /// `Task.sleep(seconds)`'s request: only the current context waits.
-export function* sleep(seconds) {
+export function* sleep(seconds: number): G<void> {
   const answer = yield { suspend: 'sleep', seconds };
   if (!answer || !answer.done) throw SwiftalkError.type("'sleep' needs a running Interpreter");
 }
 /// A Promise the host answers (round 163's offload): this context parks
 /// until it settles; the others run meanwhile. Only the async driver waits.
-export function* offload(promise) {
+export function* offload(promise: Promise<unknown>): G<any> {
   const answer = yield { suspend: 'offload', promise };
   if (!answer || !('value' in answer)) throw SwiftalkError.type('this operation waits on the host — run it with evalAsync');
   return answer.value;

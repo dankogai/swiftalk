@@ -1,15 +1,54 @@
 {
   "name": "swiftalk",
   "version": "0.0.1",
-  "description": "swiftalk's core runtime in JavaScript — the interpreter, ported from Core/Sources/Swiftalk",
+  "description": "swiftalk's core runtime in TypeScript \u2014 the interpreter, ported from Core/Sources/Swiftalk",
   "type": "module",
-  "main": "src/index.js",
-  "scripts": {
-    "test": "node tools/extract-fixtures.mjs && node --test test/*.test.js",
-    "fixtures": "node tools/extract-fixtures.mjs",
-    "build": "node tools/bundle.mjs",
-    "repl": "node repl.mjs"
+  "main": "lib/src/index.js",
+  "types": "lib/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/src/index.d.ts",
+      "default": "./lib/src/index.js"
+    },
+    "./node": {
+      "types": "./lib/src/host/node.d.ts",
+      "default": "./lib/src/host/node.js"
+    }
   },
-  "engines": { "node": ">=22" },
-  "license": "MIT"
+  "bin": {
+    "swiftalk-js": "lib/repl.js"
+  },
+  "files": [
+    "lib/src",
+    "lib/repl.js",
+    "lib/repl.d.ts",
+    "README.md"
+  ],
+  "scripts": {
+    "compile": "tsc",
+    "test": "node tools/extract-fixtures.mjs && tsc && node --test lib/test/*.test.js",
+    "fixtures": "node tools/extract-fixtures.mjs",
+    "build": "tsc && node tools/bundle.mjs",
+    "repl": "node lib/repl.js",
+    "prepublishOnly": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dankogai/swiftalk.git",
+    "directory": "js"
+  },
+  "keywords": [
+    "swiftalk",
+    "interpreter",
+    "swift",
+    "scripting"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "@types/node": "^22"
+  }
 }

@@ -6,6 +6,7 @@
 // nothing yet (FIXME, milestone C makes the driver async over timers).
 import { SwiftalkError } from './errors.js';
 import { Lexer, isPunct, isOp } from './lexer.js';
+import type { Token } from './lexer.js';
 import { parse } from './parser.js';
 import { typeName } from './value.js';
 import { FunctionObject, TaskObject, ControlFlow, ReturnSignal, HostValue, ContextObject } from './objects.js';
@@ -16,8 +17,27 @@ import { execute, constructEnumCase, valueSourceText, scheduler, makeContext } f
 import { AsyncScheduler, SyncScheduler } from './scheduler.js';
 import { Module, ModuleSystem } from './modules.js';
 import './members.js';
+import type { Value } from './value.js';
+import type { Builtin } from './objects.js';
+import type { Pattern } from './parser.js';
+import type { G } from './eval.js';
+
+/// A function the host lends the modules (round 189): `readLine`, `openFile`, `fetch`… — may return a Promise.
+export type Hook = (...args: any[]) => any;
 
 export class Interpreter {
+  relaxed: boolean;
+  builtins: Environment;
+  environment: Environment;
+  modules: ModuleSystem;
+  moduleLoader: ((spec: string) => string | Promise<string>) | null;
+  scriptPath: string | null;
+  hooks: Map<string, Hook>;
+  sync: SyncScheduler;
+  async: AsyncScheduler;
+  queue: Promise<unknown>;
+  output: (s: string) => void;
+  errorOutput: (s: string) => void;
   constructor(relaxed = false) {
     this.relaxed = relaxed;
     this.builtins = new Environment();
@@ -38,22 +58,22 @@ export class Interpreter {
     this.installBuiltins();
     this.installEval(this.environment);
     // Round 237: `global` is the program's top level as a Context — in the builtins scope, so a module sees it too
-    this.builtins.declare('global', new Binding(false, ann('Context'), new HostValue(new ContextObject(this.environment, true), Builtins.types.get('Context'))));
+    this.builtins.declare('global', new Binding(false, ann('Context'), new HostValue(new ContextObject(this.environment, true), Builtins.types.get('Context')!)));
   }
-  installBuiltins() {
+  installBuiltins(): void {
     const fn = ann('Function');
     for (const [name, object] of Builtins.types) this.builtins.declare(name, new Binding(false, fn, object));
     for (const [name, object] of Builtins.protocols) if (!this.builtins.bindings.has(name)) this.builtins.declare(name, new Binding(false, fn, object));
-    this.builtins.declare('Result', new Binding(false, fn, Builtins.resultType.constructor_));
+    this.builtins.declare('Result', new Binding(false, fn, Builtins.resultType.constructor_!));
   }
   /// The language's own `eval` (rounds 122–123, 159): a Result, never thrown.
-  installEval(scope) {
+  installEval(scope: Environment): void {
     const self = this;
-    scope.evalInstaller = (copy) => self.installEval(copy);
-    const fn = new FunctionObject([], [], scope, function* (args) {
+    scope.evalInstaller = (copy: Environment) => self.installEval(copy);
+    const fn = new FunctionObject([], [], scope, function* (args: Value[]) {
       if (args.length < 1 || args.length > 2 || typeof args[0] !== 'string') throw SwiftalkError.type('eval takes a String of swiftalk source and, optionally, a Context');
       // Round 237: the second argument is the Context to run in; without it, a fresh copy of this file's top level
-      let target;
+      let target: Environment;
       if (args.length === 2) {
         if (!(args[1] instanceof HostValue && args[1].object instanceof ContextObject)) throw SwiftalkError.type(`eval's second argument is a Context — global, or one made by Context() — not a ${typeName(args[1])}`);
         target = args[1].object.env;
@@ -69,14 +89,14 @@ export class Interpreter {
     scope.declare('eval', new Binding(false, ann('Function'), fn));
   }
   /// Declares a host Function in the builtins scope (an embedder's `print`).
-  declareBuiltin(name, body) {
+  declareBuiltin(name: string, body: Builtin): void {
     const fn = new FunctionObject([], [], this.builtins, body);
     this.builtins.declare(name, new Binding(false, ann('Function'), fn));
   }
   /// The evaluator proper, as a generator: lex, parse, execute in a file scope.
-  *program(source, scope) {
+  *program(source: string, scope: Environment): G<Value> {
     const statements = parse(source);
-    let last = null;
+    let last: Value = null;
     try {
       for (const s of statements) last = yield* execute(s, scope, this.relaxed);
     } catch (e) {
@@ -87,11 +107,11 @@ export class Interpreter {
     return last;
   }
   /// Makes a native module importable by its name (round 182); its prelude runs now.
-  register(module) { this.withContext(() => this.modules.register(module)); }
+  register(module: Module): void { this.withContext(() => this.modules.register(module)); }
   /// Imports every export of the named modules into the builtins scope
   /// (round 185) — the CLI's prelude. A name already bound to the same
   /// value is skipped; to something else, an error.
-  preimport(specs = ['IO', 'Net']) {
+  preimport(specs: string[] = ['IO', 'Net']): void {
     for (const spec of specs) {
       const module = this.modules.native.get(spec);
       if (!module) throw SwiftalkError.type(`preimport: no module named '${spec}' is registered`);
@@ -106,7 +126,7 @@ export class Interpreter {
       });
     }
   }
-  prepare() {
+  prepare(): void {
     this.modules.loader = this.moduleLoader;
     this.modules.baseStack = [this.scriptPath ? ModuleSystem.directory(this.scriptPath) : '.'];
   }
@@ -114,25 +134,25 @@ export class Interpreter {
   /// synchronously: a `Task.sleep` lets the other ready tasks run and
   /// goes on without waiting, a host Promise is refused. The one-liner's
   /// and the corpus's driver; `evalAsync` is the faithful one.
-  eval(source) {
+  eval(source: string): Value {
     return this.withContext(() => { this.prepare(); return this.sync.run(this.program(source, this.environment)); });
   }
   /// Evaluates a program with the real scheduler: `Task.sleep` waits on
   /// a timer, an offloaded Promise parks only its context. Calls on one
   /// Interpreter are serialized; tasks left parked persist to the next.
-  evalAsync(source) {
+  evalAsync(source: string): Promise<Value> {
     const job = () => this.withContextAsync(() => { this.prepare(); return this.async.run(this.program(source, this.environment)); });
     const result = this.queue.then(job, job);
     this.queue = result.catch(() => {});
     return result;
   }
-  withContext(body) {
+  withContext<T>(body: () => T): T {
     const previous = { current: scheduler.current, modules: scheduler.modules };
     scheduler.current = this;
     scheduler.modules = this.modules;
     try { return body(); } finally { scheduler.current = previous.current; scheduler.modules = previous.modules; }
   }
-  async withContextAsync(body) {
+  async withContextAsync<T>(body: () => Promise<T>): Promise<T> {
     // one Interpreter runs at a time on the JS thread, but an await inside
     // hands the thread on: the context is reinstalled around every resumption
     // by being the only live one — evalAsync calls are serialized per Interpreter,
@@ -144,15 +164,15 @@ export class Interpreter {
   }
   /// A value's source form for the REPL's echo (round 152): a String
   /// quoted, a user type's own `String` member honored.
-  sourceText(value) { return this.withContext(() => this.sync.run(valueSourceText(value))); }
+  sourceText(value: Value): string { return this.withContext(() => this.sync.run(valueSourceText(value))); }
   /// The REPL's `:d name` (round 131).
-  undefine(name) {
+  undefine(name: string): void {
     if (this.environment.removeBinding(name) === null) throw SwiftalkError.type(`':d' — no top-level binding named '${name}'`);
   }
   /// The REPL's `:r let x = ...` (round 131): one declaration whose names replace what they had.
-  redefine(source) {
+  redefine(source: string): Value {
     const program = parse(source);
-    let names;
+    let names: string[];
     const only = program.length === 1 ? program[0] : null;
     switch (only?.k) {
       case 'declaration': names = [only.name]; break;
@@ -161,7 +181,7 @@ export class Interpreter {
       case 'extensionDecl': names = []; break;
       default: throw SwiftalkError.syntax("':r' takes one declaration: let, var, struct, enum, or extension");
     }
-    const saved = names.map((n) => [n, this.environment.removeBinding(n)]);
+    const saved = names.map((n): [string, Binding | null] => [n, this.environment.removeBinding(n)]);
     this.environment.redefining = true;
     try { return this.eval(source); }
     catch (e) {
@@ -170,16 +190,16 @@ export class Interpreter {
     } finally { this.environment.redefining = false; }
   }
 }
-function namesIn(pattern) {
+function namesIn(pattern: Pattern): string[] {
   if (pattern.k === 'name') return pattern.name === '_' ? [] : [pattern.name];
   return pattern.elements.flatMap((e) => namesIn(e.pattern));
 }
 
 /// True when `source` is a syntactically incomplete prefix — open brackets
 /// awaiting their close — so a REPL should read more lines.
-export function needsMoreInput(source) {
+export function needsMoreInput(source: string): boolean {
   const lexer = new Lexer(source);
-  let tokens;
+  let tokens: Token[];
   try { tokens = lexer.tokenize(); }
   catch (e) {
     return e instanceof SwiftalkError && e.kind === 'syntax' && e.detail.startsWith('unterminated multi-line string');
@@ -196,8 +216,8 @@ export function needsMoreInput(source) {
 
 /// `Swiftalk.eval`: source in, value out — one-shot.
 export const Swiftalk = {
-  eval: (source) => new Interpreter().eval(source),
-  evalAsync: (source) => new Interpreter().evalAsync(source),
+  eval: (source: string): Value => new Interpreter().eval(source),
+  evalAsync: (source: string): Promise<Value> => new Interpreter().evalAsync(source),
   Interpreter,
   Module,
   needsMoreInput,

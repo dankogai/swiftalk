@@ -2818,6 +2818,38 @@ lexer's `123n` token, and the host operator hook (`operate`,
 `hasOperator`) in `userOperator`, `hasUserOperator`, and `compare`.
 **Round 203** adds `BigRat.js` the same way (§15).
 
+**TypeScript — DECIDED (round 255)** ("migrate JS implementation to
+typescript. `js/` is fine since they are all compiled to `.js`. Make it
+publishable to `npm` (but I am not publishing it just yet)"). The runtime's
+sources are `js/src/**/*.ts`, `js/test/*.ts` and `js/repl.ts`; `tsc`
+(`js/tsconfig.json`) compiles them to `js/lib/` with a declaration beside
+every file, and that is what runs — the tests over `lib/test`, the REPL
+as `lib/repl.js`, the bundler and the notebook reading `lib/src`. The
+`.js` names in the milestones above are those outputs now; the sources
+behind them are the `.ts` of the same name. **What is typed**: the data
+the interpreter passes around — `Value` as a union of the primitives and
+the classes (`value.ts`), `Lock` and `LabeledArg`, `Token` and its
+`Segment`s (`lexer.ts`, with the token predicates as type guards),
+the AST as a discriminated union of `Expr`, `Stmt`, `Pattern`,
+`Condition`, `CasePattern`, `LValue` (`parser.ts`), `Role`, `Builtin`,
+`HostObject`, `SequenceKind` (`objects.ts`), the scheduler's `Request`
+and its contexts, `Module`, `Extension` and `Hook`, every class's fields
+and every exported function's signature. **What is not**: `tsconfig`
+runs `strict` with `noImplicitAny` off, so a parameter without an
+annotation is still `any`, and the dynamic member switches
+(`members.ts`, the subscript and operator arms of `eval.ts`) cast a
+`Value` to `any` or to the class a `kindOf` check established — TS
+cannot narrow through `kindOf`, and a type guard per kind would have
+rewritten every switch. Turning `noImplicitAny` on, and replacing the
+casts with guards, is the OPEN next step. **The package**: `package.json`
+names `lib/src/index.js` as `main`, its `.d.ts` as `types`, exports
+`swiftalk/node` for the host, `swiftalk-js` as `bin` (the REPL), ships
+`lib/src` and the REPL under `files`, and builds on `prepublishOnly`;
+`typescript` and `@types/node` are the only dependencies, dev ones;
+`js/lib/` is ignored by git as `js/dist/` is; CI installs with `npm ci`
+before the tests. Not published. The corpus stands: 3,025 fixtures,
+18/18.
+
 ## 15. Modules — DECIDED (round 100)
 
 The user's spec, before the strict-`let`-with-`Any` round: "It will be

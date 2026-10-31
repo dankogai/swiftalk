@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// A bundler with no dependencies: concatenates src/ into one ES module,
-// dist/swiftalk.js, and inlines it into dist/notebook.html so the
+// A bundler with no dependencies: concatenates lib/src/ — tsc's output of
+// src/*.ts, so `npm run build` compiles first (round 255) — into one ES
+// module, dist/swiftalk.js, and inlines it into dist/notebook.html so the
 // notebook opens from a file. The modules are plain ESM with relative
 // imports and no top-level name collisions (checked here), so the bundle
 // is the files in dependency order, `import` lines dropped and `export`
@@ -11,7 +12,7 @@ import { dirname, resolve, relative, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const src = join(root, 'src');
+const src = join(root, 'lib', 'src');
 const entry = join(src, 'index.js');
 
 const files = new Map();       // path → source
@@ -57,7 +58,7 @@ for (const m of indexText.matchAll(exportFromRe)) {
 }
 for (const n of exportsOf(entry)) exported.add(n);
 
-let bundle = `// swiftalk in JavaScript — one file, bundled from js/src by tools/bundle.mjs. Do not edit; edit src/.\n`;
+let bundle = `// swiftalk in JavaScript — one file, bundled by tools/bundle.mjs from js/lib/src, the compiled js/src/*.ts. Do not edit; edit src/.\n`;
 for (const path of order) {
   let text = files.get(path);
   text = text.replace(importRe, '').replace(exportFromRe, '');
@@ -72,10 +73,10 @@ writeFileSync(join(root, 'dist', 'swiftalk.js'), bundle);
 
 // the notebook, single-file: the bundle inlined where the page imports it
 const page = readFileSync(join(root, 'notebook.html'), 'utf8');
-const marker = /<script type="module" src="\.\/src\/index\.js" id="swiftalk"><\/script>\s*<script type="module" id="notebook">/;
+const marker = /<script type="module" src="\.\/lib\/src\/index\.js" id="swiftalk"><\/script>\s*<script type="module" id="notebook">/;
 if (!marker.test(page)) throw new Error('notebook.html: the two module scripts were not found where expected');
 const inlined = page.replace(marker, () => `<script type="module" id="notebook">\n${bundle.replace(/^export \{[^}]*\};\s*$/m, '').replace(/<\/script/g, '<\\/script')}\n`)
-  .replace(/^import \{([^}]*)\} from '\.\/src\/index\.js';\s*$/m, '');
+  .replace(/^import \{([^}]*)\} from '\.\/lib\/src\/index\.js';\s*$/m, '');
 writeFileSync(join(root, 'dist', 'notebook.html'), inlined);
 // ...and the same page as a fragment — no doctype, html, head, or body of its
 // own — for hosts that wrap pages in their own skeleton (claude.ai's Artifacts)

@@ -6,7 +6,7 @@ An arbitrary-precision integer — a **module's type with a literal of its
 own** (round 201), the shape Regex set in round 186: the literal `123n`
 is grammar, the type and its arithmetic are the **BigInt module**
 (`modules/BigInt`, built as `libBigInt.dylib`; in the JavaScript
-runtime, `js/src/modules/BigInt.js`). The literal is JavaScript's
+runtime, `js/src/modules/BigInt.ts` — TypeScript since round 255). The literal is JavaScript's
 spelling, and the `n` is mandatory: without it twenty digits are an Int
 overflow. The literal calls the `BigInt` type in scope; without it, it
 is an error naming the module. The Swift engine is

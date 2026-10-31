@@ -1,15 +1,28 @@
 // Bindings and lexical scopes — Eval.swift's Binding and Environment.
 import { SwiftalkError } from './errors.js';
+import type { Value, Lock } from './value.js';
 
 export class Binding {
-  constructor(mutable, lock, value) { this.mutable = mutable; this.lock = lock; this.value = value; }
+  mutable: boolean;
+  lock: Lock;
+  value: Value;
+  constructor(mutable: boolean, lock: Lock, value: Value) { this.mutable = mutable; this.lock = lock; this.value = value; }
 }
 
-/// Set by types.js at load time (a cycle: stamping needs the type machinery).
-export const hooks = { stamp: (v) => v, checkValue: () => {} };
+/// Set by types.ts at load time (a cycle: stamping needs the type machinery).
+export const hooks: { stamp: (v: Value, lock: Lock) => Value; checkValue: (v: Value, lock: Lock, what: string) => void } = {
+  stamp: (v) => v,
+  checkValue: () => {},
+};
 
 export class Environment {
-  constructor(parent = null) {
+  bindings: Map<string, Binding>;
+  parent: Environment | null;
+  isFileScope: boolean;
+  redefining: boolean;
+  exports: string[];
+  evalInstaller: ((copy: Environment) => void) | null;
+  constructor(parent: Environment | null = null) {
     this.bindings = new Map();
     this.parent = parent;
     this.isFileScope = false;
@@ -18,20 +31,20 @@ export class Environment {
     /// how a file scope gets its `eval` (round 237) — carried into a Context's copy
     this.evalInstaller = null;
   }
-  get root() { return this.parent ? this.parent.root : this; }
+  get root(): Environment { return this.parent ? this.parent.root : this; }
   /// the enclosing file scope (round 237): what Context() copies
-  fileScope() { let scope = this; while (!scope.isFileScope && scope.parent) scope = scope.parent; return scope; }
+  fileScope(): Environment { let scope: Environment = this; while (!scope.isFileScope && scope.parent) scope = scope.parent; return scope; }
   /// a Context's state (round 237): a file scope of its own with these bindings as they are now
-  copy() {
+  copy(): Environment {
     const twin = new Environment(this.parent);
     twin.bindings = new Map([...this.bindings].map(([name, b]) => [name, new Binding(b.mutable, b.lock, b.value)]));   // bindings by value, as Swift's structs are
     twin.isFileScope = true;
     twin.evalInstaller = this.evalInstaller;
     return twin;
   }
-  removeBinding(name) { const b = this.bindings.get(name); this.bindings.delete(name); return b ?? null; }
-  putBinding(name, binding) { this.bindings.set(name, binding); }
-  declare(name, binding) {
+  removeBinding(name: string): Binding | null { const b = this.bindings.get(name); this.bindings.delete(name); return b ?? null; }
+  putBinding(name: string, binding: Binding): void { this.bindings.set(name, binding); }
+  declare(name: string, binding: Binding): void {
     if (this.bindings.has(name)) throw SwiftalkError.type(`redeclaration of '${name}'`);
     if (this.isFileScope && this.parent && this.parent.bindings.has(name)) {
       throw SwiftalkError.type(`redeclaration of '${name}' — a builtin`);
@@ -39,7 +52,7 @@ export class Environment {
     binding.value = hooks.stamp(binding.value, binding.lock);
     this.bindings.set(name, binding);
   }
-  assign(name, value) {
+  assign(name: string, value: Value): void {
     const binding = this.bindings.get(name);
     if (!binding) {
       if (this.parent) { this.parent.assign(name, value); return; }
@@ -47,27 +60,27 @@ export class Environment {
     }
     if (!binding.mutable) {
       const v = binding.value;
-      if (!(v && v.kind === 'function' && v.role.k === 'todo')) throw SwiftalkError.type(`cannot assign to let constant '${name}'`);
+      if (!(v && (v as any).kind === 'function' && (v as any).role.k === 'todo')) throw SwiftalkError.type(`cannot assign to let constant '${name}'`);
     }
     hooks.checkValue(value, binding.lock, `'${name}'`);
     binding.value = hooks.stamp(value, binding.lock);
   }
-  names() {
-    const out = new Set(this.bindings.keys());
+  names(): string[] {
+    const out = new Set<string>(this.bindings.keys());
     if (this.parent) for (const n of this.parent.names()) out.add(n);
     return [...out];
   }
-  has(name) { return this.bindings.has(name) || (this.parent ? this.parent.has(name) : false); }
-  lookup(name) {
+  has(name: string): boolean { return this.bindings.has(name) || (this.parent ? this.parent.has(name) : false); }
+  lookup(name: string): Value {
     const b = this.bindings.get(name);
     if (b) return b.value;
     if (this.parent) return this.parent.lookup(name);
     throw SwiftalkError.type(`undefined variable '${name}'`);
   }
-  tryLookup(name) {
+  tryLookup(name: string): Value | undefined {
     const b = this.bindings.get(name);
     if (b) return b.value;
     return this.parent ? this.parent.tryLookup(name) : undefined;
   }
-  check(value, lock, name) { hooks.checkValue(value, lock, `'${name}'`); }
+  check(value: Value, lock: Lock, name: string): void { hooks.checkValue(value, lock, `'${name}'`); }
 }

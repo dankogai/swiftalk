@@ -19,9 +19,22 @@ import { Environment, Binding } from './env.js';
 import { Builtins } from './builtins.js';
 import { ann } from './types.js';
 import { execute, offload } from './eval.js';
+import type { G } from './eval.js';
+import type { Value } from './value.js';
+import type { Builtin } from './objects.js';
+
+/// A member a module adds to a core type: answers for the receiver, or undefined/null to decline.
+export type Extension = { type: string; member: string; body: (receiver: Value, args: Value[], called: boolean, ...rest: any[]) => any };
+export type Static = { type: string; name: string; value: Value };
 
 export class Module {
-  constructor(name) {
+  name: string;
+  names: string[];
+  values: Value[];
+  extensions: Extension[];
+  statics: Static[];
+  prelude: string | null;
+  constructor(name: string) {
     this.name = name;
     this.names = [];
     this.values = [];
@@ -29,29 +42,41 @@ export class Module {
     this.statics = [];                // {type, name, value}
     this.prelude = null;              // swiftalk source whose exports join the module's
   }
-  export(name, value) {
+  export(name: string, value: Value): this {
     const i = this.names.indexOf(name);
     if (i >= 0) this.values[i] = value; else { this.names.push(name); this.values.push(value); }
     return this;
   }
   /// A builtin Function over Values: arguments in order, labels dropped;
   /// `body` may be a plain function or a generator (it may run swiftalk code).
-  function(name, body) { return this.export(name, Module.builtin(body)); }
+  function(name: string, body: Builtin): this { return this.export(name, Module.builtin(body)); }
   /// A type the module exports: constructed through round 47's law in both spellings.
-  type(name, construct) { return this.export(name, new FunctionObject([], [], Builtins.emptyEnvironment, construct, { k: 'type', name })); }
-  extend(type, member, body) { this.extensions.push({ type, member, body }); return this; }
-  static(type, name, value) { this.statics.push({ type, name, value }); return this; }
-  value(named) { const i = this.names.indexOf(named); return i < 0 ? undefined : this.values[i]; }
-  static builtin(body) { return new FunctionObject([], [], Builtins.emptyEnvironment, body); }
+  type(name: string, construct: Builtin): this { return this.export(name, new FunctionObject([], [], Builtins.emptyEnvironment, construct, { k: 'type', name })); }
+  extend(type: string, member: string, body: Extension['body']): this { this.extensions.push({ type, member, body }); return this; }
+  static(type: string, name: string, value: Value): this { this.statics.push({ type, name, value }); return this; }
+  value(named: string): Value | undefined { const i = this.names.indexOf(named); return i < 0 ? undefined : this.values[i]; }
+  static builtin(body: Builtin): FunctionObject { return new FunctionObject([], [], Builtins.emptyEnvironment, body); }
 }
 
 /// A loaded module's exports, and the namespace type `import M from` binds.
-class Loaded {
-  constructor(names, values) { this.names = names; this.values = values; this.namespaceType = null; }
+export class Loaded {
+  names: string[];
+  values: Value[];
+  namespaceType: StructType | null;
+  constructor(names: string[], values: Value[]) { this.names = names; this.values = values; this.namespaceType = null; }
 }
 
 export class ModuleSystem {
-  constructor(builtins) {
+  builtins: Environment;
+  native: Map<string, Loaded>;
+  cache: Map<string, Loaded>;
+  loading: Set<string>;
+  baseStack: string[];
+  fileScopeSetup: ((scope: Environment) => void) | null;
+  loader: ((spec: string) => string | Promise<string>) | null;
+  nativeExtensions: Map<string, Map<string, Extension['body']>>;
+  nativeStatics: Map<string, Map<string, Value>>;
+  constructor(builtins: Environment) {
     this.builtins = builtins;
     this.native = new Map();          // bare name → Loaded
     this.cache = new Map();           // resolved spec → Loaded
@@ -62,7 +87,7 @@ export class ModuleSystem {
     this.nativeExtensions = new Map();   // type → Map(member → body)
     this.nativeStatics = new Map();      // type → Map(name → value)
   }
-  register(module) {
+  register(module: Module): void {
     if (module.prelude !== null) {
       const declared = this.evaluateSync(module.prelude, `the ${module.name} module's prelude`);
       declared.names.forEach((n, i) => module.export(n, declared.values[i]));
@@ -70,14 +95,14 @@ export class ModuleSystem {
     this.native.set(module.name, new Loaded(module.names.slice(), module.values.slice()));
     for (const e of module.extensions) {
       if (!this.nativeExtensions.has(e.type)) this.nativeExtensions.set(e.type, new Map());
-      this.nativeExtensions.get(e.type).set(e.member, e.body);
+      this.nativeExtensions.get(e.type)!.set(e.member, e.body);
     }
     for (const s of module.statics) {
       if (!this.nativeStatics.has(s.type)) this.nativeStatics.set(s.type, new Map());
-      this.nativeStatics.get(s.type).set(s.name, s.value);
+      this.nativeStatics.get(s.type)!.set(s.name, s.value);
     }
   }
-  namespaceType(module, name) {
+  namespaceType(module: Loaded, name: string): StructType {
     if (module.namespaceType) return module.namespaceType;
     const st = new StructType(name, [], new Map(), this.builtins, true);
     st.constructor_ = new FunctionObject([], [], this.builtins, null, { k: 'structType', type: st });
@@ -85,9 +110,9 @@ export class ModuleSystem {
     module.namespaceType = st;
     return st;
   }
-  static isURL(s) { return s.startsWith('http://') || s.startsWith('https://'); }
-  static isBare(spec) { return !ModuleSystem.isURL(spec) && !spec.includes('/') && !spec.endsWith('.swt'); }
-  static resolve(spec, base) {
+  static isURL(s: string): boolean { return s.startsWith('http://') || s.startsWith('https://'); }
+  static isBare(spec: string): boolean { return !ModuleSystem.isURL(spec) && !spec.includes('/') && !spec.endsWith('.swt'); }
+  static resolve(spec: string, base: string): string {
     if (ModuleSystem.isURL(spec) || spec.startsWith('/')) return spec;
     if (ModuleSystem.isURL(base)) return base + '/' + spec.split('/').filter((p) => p !== '.').join('/');
     const parts = base === '.' ? [] : base.split('/');
@@ -98,10 +123,10 @@ export class ModuleSystem {
     }
     return parts.join('/');
   }
-  static directory(path) { const i = path.lastIndexOf('/'); if (i < 0) return '.'; const dir = path.slice(0, i); return dir === '' ? '/' : dir; }
+  static directory(path: string): string { const i = path.lastIndexOf('/'); if (i < 0) return '.'; const dir = path.slice(0, i); return dir === '' ? '/' : dir; }
   /// Loads a module by spec — a generator, since a source module's
   /// loader may hand back a Promise (an `offload` request answers it).
-  *load(spec) {
+  *load(spec: string): G<Loaded> {
     if (ModuleSystem.isBare(spec)) {
       const m = this.native.get(spec);
       if (m) return m;
@@ -112,7 +137,7 @@ export class ModuleSystem {
     if (cached) return cached;
     if (this.loading.has(resolved)) throw SwiftalkError.type(`circular import of '${resolved}'`);
     if (!this.loader) throw SwiftalkError.type(`cannot read '${resolved}' — the JavaScript runtime reads modules through Interpreter.moduleLoader, and none is set`);
-    let source = this.loader(resolved);
+    let source: any = this.loader(resolved);
     if (source && typeof source.then === 'function') source = yield* offload(source);
     if (typeof source !== 'string') throw SwiftalkError.type(`the module loader gave no source for '${resolved}'`);
     this.loading.add(resolved);
@@ -127,7 +152,7 @@ export class ModuleSystem {
     }
   }
   /// Runs source as a module's top level: strict, a scope of its own under the builtins.
-  *evaluate(source, label) {
+  *evaluate(source: string, label: string): G<Loaded> {
     const env = new Environment(this.builtins);
     env.isFileScope = true;
     if (this.fileScopeSetup) this.fileScopeSetup(env);
@@ -142,7 +167,7 @@ export class ModuleSystem {
     return new Loaded(env.exports.slice(), env.exports.map((n) => env.lookup(n)));
   }
   /// A prelude is evaluated at registration, before any driver runs: synchronously.
-  evaluateSync(source, label) {
+  evaluateSync(source: string, label: string): Loaded {
     const gen = this.evaluate(source, label);
     let step = gen.next();
     while (!step.done) {

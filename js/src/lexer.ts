@@ -6,33 +6,60 @@
 import { SwiftalkError } from './errors.js';
 import { keywords } from './keywords.js';
 
+/// A token — the Swift Lexer's `Token` enum as a tagged object.
+export type Token =
+  | { t: 'int'; v: bigint }
+  | { t: 'bigint'; v: string }            // 123n, 0xffn (round 201): the digits with their radix prefix
+  | { t: 'double'; v: number }
+  | { t: 'string'; v: string }
+  | { t: 'interpolated'; segments: Segment[] }
+  | { t: 'identifier'; v: string }
+  | { t: 'punct'; v: string }
+  | { t: 'op'; v: string }
+  | { t: 'regex'; pattern: string; flags: string }
+  | { t: 'newline' };
+/// A piece of an interpolated string: literal text, or the tokens of a `\(…)`.
+export type Segment = { literal: string } | { tokens: Token[] };
+export type MaybeToken = Token | null | undefined;
+
 export const tok = {
-  int: (v) => ({ t: 'int', v }),
-  bigint: (v) => ({ t: 'bigint', v }),         // 123n, 0xffn (round 201): the digits with their radix prefix
-  double: (v) => ({ t: 'double', v }),
-  string: (v) => ({ t: 'string', v }),
-  interpolated: (segments) => ({ t: 'interpolated', segments }),
-  identifier: (v) => ({ t: 'identifier', v }),
-  punct: (v) => ({ t: 'punct', v }),
-  op: (v) => ({ t: 'op', v }),
-  regex: (pattern, flags) => ({ t: 'regex', pattern, flags }),
-  newline: () => ({ t: 'newline' }),
+  int: (v: bigint): Token => ({ t: 'int', v }),
+  bigint: (v: string): Token => ({ t: 'bigint', v }),
+  double: (v: number): Token => ({ t: 'double', v }),
+  string: (v: string): Token => ({ t: 'string', v }),
+  interpolated: (segments: Segment[]): Token => ({ t: 'interpolated', segments }),
+  identifier: (v: string): Token => ({ t: 'identifier', v }),
+  punct: (v: string): Token => ({ t: 'punct', v }),
+  op: (v: string): Token => ({ t: 'op', v }),
+  regex: (pattern: string, flags: string): Token => ({ t: 'regex', pattern, flags }),
+  newline: (): Token => ({ t: 'newline' }),
 };
-export const isPunct = (k, c) => k != null && k.t === 'punct' && (c === undefined || k.v === c);
-export const isOp = (k, o) => k != null && k.t === 'op' && (o === undefined || k.v === o);
-export const isIdent = (k, n) => k != null && k.t === 'identifier' && (n === undefined || k.v === n);
-export const isNewline = (k) => k != null && k.t === 'newline';
-export function tokEq(a, b) {
+export type PunctToken = Extract<Token, { t: 'punct' }>;
+export type OpToken = Extract<Token, { t: 'op' }>;
+export type IdentToken = Extract<Token, { t: 'identifier' }>;
+// Without a second argument the predicates narrow (`isIdent(k) && k.v`); with one they only answer, since
+// "not this punct" is not "not a punct".
+export function isPunct(k: MaybeToken): k is PunctToken;
+export function isPunct(k: MaybeToken, c: string): boolean;
+export function isPunct(k: MaybeToken, c?: string): boolean { return k != null && k.t === 'punct' && (c === undefined || k.v === c); }
+export function isOp(k: MaybeToken): k is OpToken;
+export function isOp(k: MaybeToken, o: string): boolean;
+export function isOp(k: MaybeToken, o?: string): boolean { return k != null && k.t === 'op' && (o === undefined || k.v === o); }
+export function isIdent(k: MaybeToken): k is IdentToken;
+export function isIdent(k: MaybeToken, n: string): boolean;
+export function isIdent(k: MaybeToken, n?: string): boolean { return k != null && k.t === 'identifier' && (n === undefined || k.v === n); }
+export const isNewline = (k: MaybeToken): boolean => k != null && k.t === 'newline';
+export function tokEq(a: MaybeToken, b: MaybeToken): boolean {
   if (a == null || b == null) return a == b;
   if (a.t !== b.t) return false;
   switch (a.t) {
     case 'newline': return true;
-    case 'regex': return a.pattern === b.pattern && a.flags === b.flags;
+    case 'regex': { const r = b as typeof a; return a.pattern === r.pattern && a.flags === r.flags; }
     case 'interpolated': return JSON.stringify(a) === JSON.stringify(b);
-    default: return a.v === b.v;
+    default: return (a as any).v === (b as any).v;
   }
 }
-export function tokDescribe(k) {
+export function tokDescribe(k: MaybeToken): string {
   if (k == null) return 'end of input';
   switch (k.t) {
     case 'int': return `int(${k.v})`;
@@ -48,11 +75,11 @@ export function tokDescribe(k) {
 }
 
 const INT_MAX_LITERAL = (1n << 63n) - 1n;   // Int.max: what a literal may not exceed
-const isDigit = (c) => c !== undefined && c >= '0' && c <= '9';
-const isHexDigit = (c) => isDigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+const isDigit = (c: string | undefined): boolean => c !== undefined && c >= '0' && c <= '9';
+const isHexDigit = (c: string | undefined): boolean => c !== undefined && (isDigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'));
 const alphabetic = /^\p{Alphabetic}$/u;
-const isAlphabetic = (c) => c !== undefined && alphabetic.test(c);
-const isSpace = (c) => c === ' ' || c === '\t';
+const isAlphabetic = (c: string | undefined): boolean => c !== undefined && alphabetic.test(c);
+const isSpace = (c: string | undefined): boolean => c === ' ' || c === '\t';
 
 const continuers = new Set([
   '==', '!=', '===', '!==', '<', '<=', '>', '>=', '&&', '||', '??', '!!',
@@ -61,22 +88,25 @@ const continuers = new Set([
   '+&', '+|', '+^', '+<', '+>', '+&=', '+|=', '+^=', '+<=', '+>=']);
 
 export class Lexer {
-  constructor(source) {
+  s: string[];
+  pos: number;
+  closingAngle: boolean;
+  constructor(source: string) {
     this.s = Array.from(source);   // code points
     this.pos = 0;
     this.closingAngle = false;
   }
-  get peek() { return this.s[this.pos]; }
-  at(i) { return this.s[i]; }
-  advance() { return this.pos < this.s.length ? this.s[this.pos++] : undefined; }
+  peek(): string | undefined { return this.s[this.pos]; }
+  at(i: number): string | undefined { return this.s[i]; }
+  advance(): string | undefined { return this.pos < this.s.length ? this.s[this.pos++] : undefined; }
 
-  tokenize() {
-    const tokens = [];
-    const brackets = [];
+  tokenize(): Token[] {
+    const tokens: Token[] = [];
+    const brackets: string[] = [];
     const suppress = () => { const b = brackets[brackets.length - 1]; return b === '[' || b === '('; };
     const last = () => tokens[tokens.length - 1];
     while (this.pos < this.s.length) {
-      const c = this.peek;
+      const c = this.peek();
       if (tokens.length >= 2 && isNewline(tokens[tokens.length - 2]) && Lexer.leadsContinuation(last())
           && (c === ' ' || c === '\t' || c === '\n')) {
         tokens.splice(tokens.length - 2, 1);
@@ -93,7 +123,7 @@ export class Lexer {
           break;
         case '/':
           if (this.at(this.pos + 1) === '/') {
-            while (this.pos < this.s.length && this.peek !== '\n') this.pos++;
+            while (this.pos < this.s.length && this.peek() !== '\n') this.pos++;
           } else if (this.at(this.pos + 1) === '*') {
             this.skipBlockComment();
           } else if (Lexer.regexMayStart(last()) && this.at(this.pos + 1) !== ')') {
@@ -106,10 +136,10 @@ export class Lexer {
           break;
         case '^': case '&': case '|': {
           this.pos++;
-          const doubled = this.peek === c;
+          const doubled = this.peek() === c;
           if (doubled) this.pos++;
           const text = doubled ? c + c : c;
-          if (this.peek === '=') { this.pos++; tokens.push(tok.op(text + '=')); } else tokens.push(tok.op(text));
+          if (this.peek() === '=') { this.pos++; tokens.push(tok.op(text + '=')); } else tokens.push(tok.op(text));
           break;
         }
         case '[': case '(': case '{':
@@ -120,13 +150,13 @@ export class Lexer {
         case ':': case ',': case '+': case '-': case '*': case '%': case ';': {
           if (c === '*' && this.at(this.pos + 1) === '*') {
             this.pos += 2;
-            if (this.peek === '=') { this.pos++; tokens.push(tok.op('**=')); } else tokens.push(tok.op('**'));
+            if (this.peek() === '=') { this.pos++; tokens.push(tok.op('**=')); } else tokens.push(tok.op('**'));
             break;
           }
           if (c === '+' && '&|^<>'.includes(this.at(this.pos + 1) ?? '\0')) {
             const text = '+' + this.at(this.pos + 1);
             this.pos += 2;
-            if (this.peek === '=') { this.pos++; tokens.push(tok.op(text + '=')); } else tokens.push(tok.op(text));
+            if (this.peek() === '=') { this.pos++; tokens.push(tok.op(text + '=')); } else tokens.push(tok.op(text));
             break;
           }
           if ('+-*%'.includes(c) && this.at(this.pos + 1) === '=') {
@@ -137,12 +167,12 @@ export class Lexer {
           break;
         }
         case '?': {
-          const unspaced = this.pos > 0 && !' \t\n\r'.includes(this.at(this.pos - 1));
+          const unspaced = this.pos > 0 && !' \t\n\r'.includes(this.at(this.pos - 1) ?? '');
           this.pos++;
-          if (this.peek === '?') {
+          if (this.peek() === '?') {
             this.pos++;
-            if (this.peek === '=') { this.pos++; tokens.push(tok.op('??=')); } else tokens.push(tok.op('??'));
-          } else if (unspaced && this.peek === '.') {
+            if (this.peek() === '=') { this.pos++; tokens.push(tok.op('??=')); } else tokens.push(tok.op('??'));
+          } else if (unspaced && this.peek() === '.') {
             this.pos++; tokens.push(tok.op('?.'));
           } else if (unspaced) {
             tokens.push(tok.op('?'));
@@ -156,13 +186,13 @@ export class Lexer {
               && ((this.pos > 0 && isSpace(this.at(this.pos - 1)) && !Lexer.regexMayStart(last()))
                   || Lexer.bareOperatorPosition(this.s, this.pos + 2, last()))) {
             this.pos += 2;
-            if (this.peek === '=') { this.pos++; tokens.push(tok.op('!!=')); } else tokens.push(tok.op('!!'));
+            if (this.peek() === '=') { this.pos++; tokens.push(tok.op('!!=')); } else tokens.push(tok.op('!!'));
             break;
           }
           this.pos++;
-          if (this.peek === '=') {
+          if (this.peek() === '=') {
             this.pos++;
-            if ((c === '=' || c === '!') && this.peek === '=') {
+            if ((c === '=' || c === '!') && this.peek() === '=') {
               this.pos++; tokens.push(tok.op(c + '=='));
             } else {
               tokens.push(tok.op(c + '='));
@@ -171,7 +201,7 @@ export class Lexer {
             tokens.push(tok.punct('='));
           } else if (c === '<' || c === '>') {
             if (c === '>') {
-              const unspaced = this.pos >= 2 && !' \t\n\r'.includes(this.at(this.pos - 2));
+              const unspaced = this.pos >= 2 && !' \t\n\r'.includes(this.at(this.pos - 2) ?? '');
               const l = last();
               if (isIdent(l) || isPunct(l, ']') || isOp(l, '?') || isOp(l, '>')) this.closingAngle = unspaced;
               else this.closingAngle = false;
@@ -185,7 +215,7 @@ export class Lexer {
         case '$': {
           this.pos++;
           let name = '$';
-          while (isDigit(this.peek)) { name += this.peek; this.pos++; }
+          while (isDigit(this.peek())) { name += this.peek(); this.pos++; }
           tokens.push(tok.identifier(name));
           break;
         }
@@ -205,8 +235,8 @@ export class Lexer {
           break;
         case '#': {
           let hashes = 0;
-          while (this.peek === '#') { hashes++; this.pos++; }
-          if (this.peek !== '"') throw SwiftalkError.syntax("unexpected character '#'");
+          while (this.peek() === '#') { hashes++; this.pos++; }
+          if (this.peek() !== '"') throw SwiftalkError.syntax("unexpected character '#'");
           tokens.push(this.startsTripleQuote() ? this.lexMultilineString(hashes) : this.lexStringToken(hashes));
           break;
         }
@@ -223,7 +253,7 @@ export class Lexer {
     return tokens;
   }
 
-  static continuesLine(last) {
+  static continuesLine(last: MaybeToken): boolean {
     if (last == null) return false;
     switch (last.t) {
       case 'punct': return '+-*/%='.includes(last.v);
@@ -232,19 +262,19 @@ export class Lexer {
       default: return false;
     }
   }
-  static leadsContinuation(token) {
+  static leadsContinuation(token: MaybeToken): boolean {
     if (isIdent(token, 'not')) return false;
     if (Lexer.continuesLine(token)) return true;
     if (isPunct(token)) return token.v === '?' || token.v === ':';
     return false;
   }
-  static bareOperatorPosition(scalars, from, last) {
+  static bareOperatorPosition(scalars: string[], from: number, last: MaybeToken): boolean {
     if (!(isPunct(last, '(') || isPunct(last, ','))) return false;
     let i = from;
     while (i < scalars.length && isSpace(scalars[i])) i++;
     return i < scalars.length && (scalars[i] === ')' || scalars[i] === ',');
   }
-  static regexMayStart(last) {
+  static regexMayStart(last: MaybeToken): boolean {
     if (last == null) return true;
     switch (last.t) {
       case 'newline': case 'op': return true;
@@ -255,7 +285,7 @@ export class Lexer {
     }
   }
 
-  lexRegex() {
+  lexRegex(): Token {
     this.pos++;
     let pattern = '';
     for (;;) {
@@ -271,7 +301,7 @@ export class Lexer {
       pattern += c;
     }
     let flags = '';
-    while (this.peek !== undefined && this.peek >= 'a' && this.peek <= 'z') { flags += this.peek; this.pos++; }
+    for (let c = this.peek(); c !== undefined && c >= 'a' && c <= 'z'; c = this.peek()) { flags += c; this.pos++; }
     return tok.regex(pattern, flags);
   }
 
@@ -280,16 +310,16 @@ export class Lexer {
     let depth = 1;
     while (depth > 0) {
       if (this.pos >= this.s.length) throw SwiftalkError.syntax('unterminated block comment');
-      if (this.peek === '*' && this.at(this.pos + 1) === '/') { depth--; this.pos += 2; }
-      else if (this.peek === '/' && this.at(this.pos + 1) === '*') { depth++; this.pos += 2; }
+      if (this.peek() === '*' && this.at(this.pos + 1) === '/') { depth--; this.pos += 2; }
+      else if (this.peek() === '/' && this.at(this.pos + 1) === '*') { depth++; this.pos += 2; }
       else this.pos++;
     }
   }
 
   lexIdentifier() {
     let name = '';
-    while (this.peek !== undefined && (isAlphabetic(this.peek) || this.peek === '_' || isDigit(this.peek))) {
-      name += this.peek; this.pos++;
+    while (this.peek() !== undefined && (isAlphabetic(this.peek()) || this.peek() === '_' || isDigit(this.peek()))) {
+      name += this.peek(); this.pos++;
     }
     return name;
   }
@@ -297,31 +327,31 @@ export class Lexer {
   startsTripleQuote() {
     return this.pos + 2 < this.s.length && this.at(this.pos) === '"' && this.at(this.pos + 1) === '"' && this.at(this.pos + 2) === '"';
   }
-  hashesFollow(hashes) {
+  hashesFollow(hashes: number): boolean {
     if (hashes <= 0) return true;
     if (this.pos + hashes > this.s.length) return false;
     for (let i = 0; i < hashes; i++) if (this.at(this.pos + i) !== '#') return false;
     return true;
   }
-  lexStringToken(hashes) {
+  lexStringToken(hashes: number): Token {
     this.pos++;
     return this.lexStringBody(hashes, true);
   }
 
-  lexMultilineString(hashes) {
+  lexMultilineString(hashes: number): Token {
     this.pos += 3;
-    while (isSpace(this.peek)) this.pos++;
-    if (this.peek === undefined) {
+    while (isSpace(this.peek())) this.pos++;
+    if (this.peek() === undefined) {
       throw SwiftalkError.syntax('unterminated multi-line string literal — close it with """ on its own line');
     }
-    if (this.peek !== '\n') {
+    if (this.peek() !== '\n') {
       throw SwiftalkError.syntax("a multi-line string's content starts on the line after the opening \"\"\"");
     }
     const openingNewline = this.pos;
     this.pos++;
     const contentStart = this.pos;
     let j = openingNewline;
-    let found = null;
+    let found: { newline: number; lineStart: number; delimiter: number } | null = null;
     while (j < this.s.length) {
       if (this.at(j) === '\n') {
         let m = j + 1;
@@ -337,7 +367,7 @@ export class Lexer {
     if (!found) throw SwiftalkError.syntax('unterminated multi-line string literal — close it with """ on its own line');
     const indent = this.s.slice(found.lineStart, found.delimiter);
     const content = found.newline > openingNewline ? this.s.slice(contentStart, found.newline) : [];
-    const lines = [[]];
+    const lines: string[][] = [[]];
     for (const c of content) { if (c === '\n') lines.push([]); else lines[lines.length - 1].push(c); }
     let body = '';
     lines.forEach((line, n) => {
@@ -355,8 +385,8 @@ export class Lexer {
     return sub.lexStringBody(hashes, false);
   }
 
-  lexStringBody(hashes, terminated) {
-    const segments = [];
+  lexStringBody(hashes: number, terminated: boolean): Token {
+    const segments: Segment[] = [];
     let current = '';
     const finish = () => {
       if (segments.length === 0) return tok.string(current);
@@ -407,7 +437,7 @@ export class Lexer {
     let out = '';
     let depth = 1;
     while (this.pos < this.s.length) {
-      const c = this.peek;
+      const c = this.peek();
       if (c === '(') { depth++; out += '('; this.pos++; }
       else if (c === ')') {
         depth--; this.pos++;
@@ -423,11 +453,11 @@ export class Lexer {
     let out = '"';
     this.pos++;
     while (this.pos < this.s.length) {
-      const c = this.peek;
+      const c = this.peek();
       if (c === '"') { this.pos++; return out + '"'; }
       if (c === '\\') {
         this.pos++;
-        const e = this.peek;
+        const e = this.peek();
         if (e === undefined) break;
         if (e === '(') { this.pos++; out += '\\(' + this.scanInterpolation() + ')'; }
         else { out += '\\' + e; this.pos++; }
@@ -440,28 +470,28 @@ export class Lexer {
   lexUnicodeEscape() {
     if (this.advance() !== '{') throw SwiftalkError.syntax("expected '{' after \\u");
     let hex = '';
-    while (this.peek !== undefined && this.peek !== '}') { hex += this.peek; this.pos++; }
+    while (this.peek() !== undefined && this.peek() !== '}') { hex += this.peek(); this.pos++; }
     if (this.advance() !== '}' || !/^[0-9a-fA-F]+$/.test(hex)) throw SwiftalkError.syntax(`invalid unicode escape \\u{${hex}}`);
     const v = parseInt(hex, 16);
     if (v > 0x10FFFF || (v >= 0xD800 && v <= 0xDFFF)) throw SwiftalkError.syntax(`invalid unicode escape \\u{${hex}}`);
     return String.fromCodePoint(v);
   }
 
-  lexNumber(memberIndex) {
-    if (this.peek === '0' && this.pos + 1 < this.s.length) {
-      const radix = { x: 16, o: 8, b: 2 }[this.at(this.pos + 1)];
+  lexNumber(memberIndex: boolean): Token {
+    if (this.peek() === '0' && this.pos + 1 < this.s.length) {
+      const radix: number | undefined = ({ x: 16, o: 8, b: 2 } as Record<string, number>)[this.at(this.pos + 1) ?? ''];
       if (radix) {
         this.pos += 2;
         if (radix === 16) { const d = this.lexHexFloat(); if (d !== null) return tok.double(d); }
         const text = this.lexIntegerText(radix);
-        if (this.peek === 'n') { this.pos++; return tok.bigint({ 16: '0x', 8: '0o', 2: '0b' }[radix] + text); }   // 0xffn: a BigInt literal
+        if (this.peek() === 'n') { this.pos++; return tok.bigint(({ 16: '0x', 8: '0o', 2: '0b' } as Record<number, string>)[radix] + text); }   // 0xffn: a BigInt literal
         return tok.int(this.integer(text, radix));
       }
     }
     let text = '';
     let isDouble = false;
     digits: for (;;) {
-      const c = this.peek;
+      const c = this.peek();
       if (c === undefined) break;
       if (isDigit(c)) { text += c; this.pos++; }
       else if (c === '_') { this.pos++; }
@@ -470,11 +500,11 @@ export class Lexer {
         isDouble = true; text += '.'; this.pos++;
       } else if (c === 'e' || c === 'E') {
         isDouble = true; text += c; this.pos++;
-        const s = this.peek;
+        const s = this.peek();
         if (s === '+' || s === '-') { text += s; this.pos++; }
       } else break digits;
     }
-    if (this.peek === 'n') {                                          // 123n: a BigInt literal (round 201), any size
+    if (this.peek() === 'n') {                                          // 123n: a BigInt literal (round 201), any size
       if (isDouble) throw SwiftalkError.syntax(`a BigInt literal is an integer: '${text}n' has a fraction or exponent`);
       this.pos++;
       return tok.bigint(text);
@@ -489,44 +519,44 @@ export class Lexer {
     return tok.int(i);
   }
 
-  lexHexFloat() {
+  lexHexFloat(): number | null {
     const start = this.pos;
     let text = '0x';
-    while (this.peek !== undefined && (isHexDigit(this.peek) || this.peek === '_')) { if (this.peek !== '_') text += this.peek; this.pos++; }
-    if (this.peek === '.' && isHexDigit(this.at(this.pos + 1))) {
+    while (this.peek() !== undefined && (isHexDigit(this.peek()) || this.peek() === '_')) { if (this.peek() !== '_') text += this.peek(); this.pos++; }
+    if (this.peek() === '.' && isHexDigit(this.at(this.pos + 1))) {
       const beforeFraction = this.pos;
       this.pos++;
       let fraction = '.';
-      while (this.peek !== undefined && (isHexDigit(this.peek) || this.peek === '_')) { if (this.peek !== '_') fraction += this.peek; this.pos++; }
-      if (this.peek === 'p' || this.peek === 'P') text += fraction;
+      while (this.peek() !== undefined && (isHexDigit(this.peek()) || this.peek() === '_')) { if (this.peek() !== '_') fraction += this.peek(); this.pos++; }
+      if (this.peek() === 'p' || this.peek() === 'P') text += fraction;
       else this.pos = beforeFraction;
     }
-    if (this.peek !== 'p' && this.peek !== 'P') { this.pos = start; return null; }
+    if (this.peek() !== 'p' && this.peek() !== 'P') { this.pos = start; return null; }
     text += 'p';
     this.pos++;
     let sign = '';
-    if (this.peek === '+' || this.peek === '-') { sign = this.peek; text += sign; this.pos++; }
+    if (this.peek() === '+' || this.peek() === '-') { sign = this.peek()!; text += sign; this.pos++; }
     let expDigits = '';
-    while (this.peek !== undefined && (isDigit(this.peek) || this.peek === '_')) { if (this.peek !== '_') { expDigits += this.peek; } this.pos++; }
+    while (this.peek() !== undefined && (isDigit(this.peek()) || this.peek() === '_')) { if (this.peek() !== '_') { expDigits += this.peek(); } this.pos++; }
     if (!expDigits.length) throw SwiftalkError.syntax(`invalid hex-float literal '${text}'`);
     return parseHexFloat(text.slice(2), sign, expDigits);
   }
 
   /// The digits after a radix prefix; a trailing `n` is left for the caller.
-  lexIntegerText(radix) {
+  lexIntegerText(radix: number): string {
     let text = '';
-    while (this.peek !== undefined && (isAlphabetic(this.peek) || isDigit(this.peek) || this.peek === '_')) {
-      if (this.peek === 'n') break;                                     // the BigInt suffix (round 201)
-      if (this.peek !== '_') text += this.peek;
+    while (this.peek() !== undefined && (isAlphabetic(this.peek()) || isDigit(this.peek()) || this.peek() === '_')) {
+      if (this.peek() === 'n') break;                                     // the BigInt suffix (round 201)
+      if (this.peek() !== '_') text += this.peek();
       this.pos++;
     }
     if (!text.length) throw SwiftalkError.syntax(`invalid integer literal for radix ${radix}: '${text}'`);
     return text;
   }
-  integer(text, radix) {
-    const digitsFor = { 16: /^[0-9a-fA-F]+$/, 8: /^[0-7]+$/, 2: /^[01]+$/ }[radix];
+  integer(text: string, radix: number): bigint {
+    const digitsFor = ({ 16: /^[0-9a-fA-F]+$/, 8: /^[0-7]+$/, 2: /^[01]+$/ } as Record<number, RegExp>)[radix];
     if (!digitsFor.test(text)) throw SwiftalkError.syntax(`invalid integer literal for radix ${radix}: '${text}'`);
-    const prefix = { 16: '0x', 8: '0o', 2: '0b' }[radix];
+    const prefix = ({ 16: '0x', 8: '0o', 2: '0b' } as Record<number, string>)[radix];
     const i = BigInt(prefix + text);
     if (i > INT_MAX_LITERAL) throw SwiftalkError.syntax(`invalid integer literal for radix ${radix}: '${text}'`);
     return i;
@@ -534,7 +564,7 @@ export class Lexer {
 }
 
 /// `mantissa` is "1.fe" style hex digits (no 0x), exponent decimal.
-function parseHexFloat(mantissaText, sign, expDigits) {
+function parseHexFloat(mantissaText: string, sign: string, expDigits: string): number {
   const [whole, frac = ''] = mantissaText.replace(/p.*$/, '').split('.');
   let value = 0;
   for (const c of whole) value = value * 16 + parseInt(c, 16);

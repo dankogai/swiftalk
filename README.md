@@ -128,9 +128,10 @@ the core runtime ported line for line, with the prelude as JS modules,
 and checked against the Swift tests' own expectations — `cd js && npm
 test` extracts every fixture from the Swift tests and runs it to the
 Swift core's answer, all but six (Swift's Character-level Regex, listed
-in the test so the list cannot rot). `node js/repl.mjs` is a
-REPL over it, and `npm run build` makes `dist/notebook.html`, a
-notebook of swiftalk cells that opens from a file.
+in the test so the list cannot rot). `npm run repl` is a REPL over it
+(TypeScript since round 255: `npm install` once, and `tsc` compiles
+`js/src` to `js/lib`), and `npm run build` makes `dist/notebook.html`,
+a notebook of swiftalk cells that opens from a file.
 
 The library is `Core/` — a dynamic library product in a package of
 its own since round 182, so the CLI, the tests, and the native modules

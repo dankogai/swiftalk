@@ -6,27 +6,30 @@ import { SwiftalkError } from './errors.js';
 import { TypeAnnotation } from './parser.js';
 import { kindOf, typeName, equals, keyOf, sourceString, graphemes, spreadsInSet, hexFloat, compareStrings,
   SArray, SDictionary, SSet, Byte, SData, SDate, SRange, TupleValue, INT64_MAX } from './value.js';
-import { FunctionObject, EnumType, EnumCaseValue, StructType, StructValue, SequenceObject } from './objects.js';
+import { FunctionObject, EnumType, EnumCaseValue, StructType, StructValue, SequenceObject, HostValue } from './objects.js';
 import { Builtins, isResult, DoubleMath, IntStatics, stringFromCodePoint, dataRandom, intRandom } from './builtins.js';
 import { ann, inferLock, tryInfer, knownElementLock, stampedArray, typeValue, typeValueForParameter, callBuiltin } from './types.js';
 import { JSONFormat, PlistXML, PlistBinary, StringEscapes, CivilDate } from './formats.js';
 import { apply, boundMethod, iteratorOf, collect, lazyBase, restamp, reshape, holds, requireFinite, rangeCount,
   compare, hasUserOperator, containsSubstring, constructEnumCase, caseAccessor, computedProperty, readComputed,
   lookupExtension, mergeDictionaries, setElements, resolveStatic, scheduler } from './eval.js';
+import type { G } from './eval.js';
+import type { Value, LabeledArg } from './value.js';
+import type { Environment } from './env.js';
 
 // ---- the law's hooks ----
 /// `.String(.canonical)` (round 153): the builtin source form, no type's String member asked.
-export function asksCanonical(name, args) {
+export function asksCanonical(name: string, args: LabeledArg[]): boolean {
   return name === 'String' && args.some((a) => a.label === null && a.value === 'canonical');
 }
 /// A user type's own conversion member (round 151): `let Double = { ... }` in a struct or enum body.
-export function userConversion(value, tn) {
+export function userConversion(value: Value, tn: string): FunctionObject | null {
   if (value instanceof StructValue) return value.type.methods.get(tn) ?? null;
   if (value instanceof EnumCaseValue) return value.type.methods.get(tn) ?? null;
   return null;
 }
 /// Rejects labeled arguments where a member takes none, yielding the bare values.
-export function plainValues(args, member) {
+export function plainValues(args: LabeledArg[], member: string): Value[] {
   const label = args.map((a) => a.label).find((l) => l !== null);
   if (label !== undefined) throw SwiftalkError.type(`${member} takes no argument label '${label}'`);
   return args.map((a) => a.value);
@@ -35,9 +38,9 @@ export function plainValues(args, member) {
 // ---- pretty printing (round 117) ----
 /// `.pretty`'s callback (round 151): a type declaring `let String = { }` owns its
 /// pretty text at every depth — precomputed here, since calling it runs swiftalk.
-function* userPrettyMap(value) {
-  const owned = new Map();
-  const walk = function* (v) {
+function* userPrettyMap(value: Value): G<Map<Value, string>> {
+  const owned = new Map<Value, string>();
+  const walk = function* (v: Value): G<void> {
     const m = userConversion(v, 'String');
     if (m) {
       const [bound] = boundMethod(m, v);
@@ -46,58 +49,60 @@ function* userPrettyMap(value) {
       owned.set(v, text);
       return;
     }
+    const o: any = v;
     switch (kindOf(v)) {
-      case 'array': for (const x of v.items) yield* walk(x); break;
-      case 'set': for (const x of v.values()) yield* walk(x); break;
-      case 'dictionary': for (const [k, x] of v.entries()) { yield* walk(k); yield* walk(x); } break;
-      case 'tuple': for (const x of v.values) yield* walk(x); break;
-      case 'structValue': for (const x of v.values.values()) yield* walk(x); break;
-      case 'enumCase': for (const x of v.associated) yield* walk(x); break;
+      case 'array': for (const x of o.items as Value[]) yield* walk(x); break;
+      case 'set': for (const x of o.values() as Value[]) yield* walk(x); break;
+      case 'dictionary': for (const [k, x] of o.entries() as [Value, Value][]) { yield* walk(k); yield* walk(x); } break;
+      case 'tuple': for (const x of o.values as Value[]) yield* walk(x); break;
+      case 'structValue': for (const x of o.values.values() as Iterable<Value>) yield* walk(x); break;
+      case 'enumCase': for (const x of o.associated as Value[]) yield* walk(x); break;
       default: break;
     }
   };
   yield* walk(value);
   return owned;
 }
-export function prettyString(value, owned = null, depth = 0) {
-  const custom = (v) => (owned && owned.has(v) ? owned.get(v) : null);
+export function prettyString(value: Value, owned: Map<Value, string> | null = null, depth = 0): string {
+  const custom = (v: Value): string | null => (owned && owned.has(v) ? owned.get(v)! : null);
   const own = custom(value);
   if (own !== null) return own;
   const pad = '  '.repeat(depth + 1), close = '  '.repeat(depth);
-  const inner = (v) => prettyString(v, owned, depth + 1);
-  const bySource = (a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
+  const inner = (v: Value): string => prettyString(v, owned, depth + 1);
+  const bySource = (a: { key: string }, b: { key: string }) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
+  const o: any = value;
   switch (kindOf(value)) {
     case 'array': {
-      if (value.items.length === 0) return '[]';
-      return '[\n' + value.items.map((x) => pad + inner(x)).join(',\n') + '\n' + close + ']';
+      if (o.items.length === 0) return '[]';
+      return '[\n' + o.items.map((x) => pad + inner(x)).join(',\n') + '\n' + close + ']';
     }
     case 'set': {
-      const xs = value.values();
+      const xs: Value[] = o.values();
       if (xs.length === 0) return 'Set()';
       const body = xs.map((x) => ({ key: custom(x) ?? sourceString(x), text: inner(x) })).sort(bySource).map((e) => pad + e.text).join(',\n');
       const [open, shut] = xs.length === 1 && spreadsInSet(xs[0]) ? ['Set([\n', '])'] : ['Set(\n', ')'];
       return open + body + '\n' + close + shut;
     }
     case 'dictionary': {
-      if (value.size === 0) return '[:]';
-      const body = value.entries().map(([k, v]) => ({ key: custom(k) ?? sourceString(k), value: inner(v) })).sort(bySource)
+      if (o.size === 0) return '[:]';
+      const body = (o as SDictionary).entries().map(([k, v]) => ({ key: custom(k) ?? sourceString(k), value: inner(v) })).sort(bySource)
         .map((e) => `${pad}${e.key}: ${e.value}`).join(',\n');
       return '[\n' + body + '\n' + close + ']';
     }
     case 'tuple': {
-      if (value.count === 0) return '()';
-      const lonely = value.count === 1 && value.labels[0] === null;
-      const body = value.values.map((v, i) => pad + (value.labels[i] !== null ? `${value.labels[i]}: ` : '') + inner(v)).join(',\n');
+      if (o.count === 0) return '()';
+      const lonely = o.count === 1 && o.labels[0] === null;
+      const body = (o as TupleValue).values.map((v, i) => pad + (o.labels[i] !== null ? `${o.labels[i]}: ` : '') + inner(v)).join(',\n');
       return '(\n' + body + (lonely ? ',\n' : '\n') + close + ')';
     }
     case 'structValue': {
-      const sv = value;
+      const sv = value as StructValue;
       if (sv.type.propertyOrder.length === 0) return sourceString(value);
       const body = sv.type.propertyOrder.map((p) => `${pad}${p}: ${inner(sv.values.get(p) ?? null)}`).join(',\n');
       return sv.type.name + '(\n' + body + '\n' + close + ')';
     }
     case 'enumCase': {
-      const ev = value;
+      const ev = value as EnumCaseValue;
       if (ev.associated.length === 0) return sourceString(value);
       const params = ev.type.cases.get(ev.caseName) ?? [];
       const body = ev.associated.map((v, i) => { const t = inner(v); const label = params[i]?.label ?? null; return pad + (label !== null ? `${label}: ${t}` : t); }).join(',\n');
@@ -106,10 +111,10 @@ export function prettyString(value, owned = null, depth = 0) {
     default: return sourceString(value);
   }
 }
-export function* prettyText(value) { return prettyString(value, yield* userPrettyMap(value)); }
+export function* prettyText(value: Value): G<string> { return prettyString(value, yield* userPrettyMap(value)); }
 
 // ---- conversion: x.T(...) is T(x, ...) (round 47) ----
-export function* convert(tn, subject, extra) {
+export function* convert(tn: string, subject: Value | undefined, extra: LabeledArg[]): G<Value> {
   if (subject !== undefined && !asksCanonical(tn, extra)) {
     const m = userConversion(subject, tn);
     if (m) {
@@ -122,11 +127,11 @@ export function* convert(tn, subject, extra) {
   }
   // ...and a module's value (round 201): `Int(b)` is `b.Int()`, the host's member, labels dropped
   if (subject !== undefined && kindOf(subject) === 'host') {
-    const v = yield* callBuiltin((xs) => subject.object.member(tn, xs, true), extra.map((a) => a.value));
+    const v = yield* callBuiltin((xs: Value[]) => (subject as HostValue).object.member(tn, xs, true) as any, extra.map((a) => a.value));
     if (v !== undefined) return v;
   }
-  const object = Builtins.types.get(tn) ?? Builtins.protocols.get(tn);
-  if (extra.length === 0) return yield* callBuiltin(object.builtin, subject === undefined ? [] : [subject]);
+  const object = (Builtins.types.get(tn) ?? Builtins.protocols.get(tn))!;
+  if (extra.length === 0) return yield* callBuiltin(object.builtin!, subject === undefined ? [] : [subject]);
   switch (tn) {
     case 'String':
       if (subject === undefined) throw SwiftalkError.type('String formats need a value to format');
@@ -151,7 +156,7 @@ export function* convert(tn, subject, extra) {
     }
     case 'Int': {
       if (subject !== undefined || extra.length !== 1 || extra[0].label !== 'bits' || kindOf(extra[0].value) !== 'array') throw SwiftalkError.type('Int(bits: [Bool]) — the bits, bit 0 first');
-      const bits = extra[0].value.items;
+      const bits = (extra[0].value as SArray).items;
       if (bits.length > 64) throw SwiftalkError.overflow(`Int(bits:) takes at most 64 bits, got ${bits.length}`);
       let word = 0n;
       bits.forEach((bit, i) => {
@@ -165,17 +170,17 @@ export function* convert(tn, subject, extra) {
       return Builtins.stampedSet([subject, ...extra.map((a) => a.value)], null);
     case 'Sequence':
       if (subject === undefined || extra.length !== 1 || extra[0].label !== null) throw SwiftalkError.type('Sequence(initialState) { next } — an Array state and a Function');
-      return yield* callBuiltin(object.builtin, [subject, extra[0].value]);
+      return yield* callBuiltin(object.builtin!, [subject, extra[0].value]);
     default: throw SwiftalkError.type(`${tn}() takes no format arguments`);
   }
 }
 
-const radixText = (i, radix) => (i < 0n ? -i : i).toString(radix);
+const radixText = (i: bigint, radix: number): string => (i < 0n ? -i : i).toString(radix);
 /// String's format vocabulary (rounds 20–21, 42, 117, 125, 153).
-function* stringFormat(subject, formatsIn) {
+function* stringFormat(subject: Value, formatsIn: LabeledArg[]): G<Value> {
   let formats = formatsIn.slice();
   let pretty = false, sign = false, canonical = false;
-  const take = (word) => { const i = formats.findIndex((a) => a.label === null && a.value === word); if (i >= 0) { formats.splice(i, 1); return true; } return false; };
+  const take = (word: string) => { const i = formats.findIndex((a) => a.label === null && a.value === word); if (i >= 0) { formats.splice(i, 1); return true; } return false; };
   pretty = take('pretty'); sign = take('sign'); canonical = take('canonical');
   if (formats.length > 1) throw SwiftalkError.type('.String() takes at most one format argument, plus .pretty or .sign');
   if (pretty && sign) throw SwiftalkError.type('.pretty lays out text and .sign marks a number — not both');
@@ -183,19 +188,20 @@ function* stringFormat(subject, formatsIn) {
     if (formats.length || sign) throw SwiftalkError.type('.canonical is the source form itself — alone or with .pretty, not with another format');
     return pretty ? prettyString(subject) : sourceString(subject);
   }
-  const plus = (negative) => (negative ? '-' : sign ? '+' : '');
+  const plus = (negative: boolean) => (negative ? '-' : sign ? '+' : '');
   if (formats.length === 0) {
     if (pretty) return yield* prettyText(subject);
+    const n: any = subject;
     switch (kindOf(subject)) {
-      case 'int': return plus(subject < 0n) + radixText(subject, 10);
-      case 'byte': return plus(false) + String(subject.v);
-      case 'double': return Number.isNaN(subject) ? 'nan' : plus(subject < 0 || Object.is(subject, -0)) + sourceString(Math.abs(subject));
+      case 'int': return plus(n < 0n) + radixText(n, 10);
+      case 'byte': return plus(false) + String(n.v);
+      case 'double': return Number.isNaN(n) ? 'nan' : plus(n < 0 || Object.is(n, -0)) + sourceString(Math.abs(n));
       default: throw SwiftalkError.type(`.sign is a number's modifier, not a ${typeName(subject)}'s`);
     }
   }
   const { label, value: format } = formats[0];
-  if (pretty && !['quoted', 'sion', 'json', 'propertyList'].includes(format)) throw SwiftalkError.type(`.pretty lays out .sion (the default), .json, or .propertyList — not ${sourceString(format)}`);
-  if (sign && label !== 'radix' && !['hex', 'oct', 'bin'].includes(format)) throw SwiftalkError.type(`.sign goes with a number's format — .hex, .oct, .bin, radix:, or none — not ${sourceString(format)}`);
+  if (pretty && !['quoted', 'sion', 'json', 'propertyList'].includes(format as string)) throw SwiftalkError.type(`.pretty lays out .sion (the default), .json, or .propertyList — not ${sourceString(format)}`);
+  if (sign && label !== 'radix' && !['hex', 'oct', 'bin'].includes(format as string)) throw SwiftalkError.type(`.sign goes with a number's format — .hex, .oct, .bin, radix:, or none — not ${sourceString(format)}`);
   if (label === 'radix') {
     if (typeof format !== 'bigint' || format < 2n || format > 36n) throw SwiftalkError.type('.String(radix:) takes an Int in 2...36');
     if (typeof subject !== 'bigint') throw SwiftalkError.type(".String(radix:) is an Int's format");
@@ -227,10 +233,10 @@ function* stringFormat(subject, formatsIn) {
 }
 
 // ---- statics ----
-function parameterMember(f, name, env) {
+function parameterMember(f: FunctionObject, name: string, env: Environment): FunctionObject | null {
   if (f.role.k !== 'type') return null;
   const base = f.role.name;
-  let wanted;
+  let wanted: number;
   if ((base === 'Array' || base === 'Set') && name === 'Element') wanted = 0;
   else if (base === 'Dictionary' && name === 'Key') wanted = 0;
   else if (base === 'Dictionary' && name === 'Value') wanted = 1;
@@ -240,13 +246,13 @@ function parameterMember(f, name, env) {
   }
   return typeValueForParameter(f.annotation.parameters[wanted], env);
 }
-function* staticMember(f, name, args, called, env) {
+function* staticMember(f: FunctionObject, name: string, args: LabeledArg[], called: boolean, env: Environment): G<Value | undefined> {
   const p = parameterMember(f, name, env);
   if (p !== null) {
     if (!called || kindOf(p) !== 'function') return p;
     return yield* apply(p, args);
   }
-  let stored, getter = null, tn;
+  let stored: Value | undefined, getter: FunctionObject | null = null, tn: string;
   switch (f.role.k) {
     case 'structType': case 'enumType': {
       const t = f.role.type;
@@ -260,8 +266,8 @@ function* staticMember(f, name, args, called, env) {
       tn = n;
       const v = env.tryLookup(`@ext:${n}:static:${name}`);
       if (v !== undefined) stored = v;
-      else if (scheduler.modules && scheduler.modules.nativeStatics.get(n)?.has(name)) stored = scheduler.modules.nativeStatics.get(n).get(name);
-      else { const g = env.tryLookup(`@ext:${n}:static:get:${name}`); if (g !== undefined && kindOf(g) === 'function') getter = g; }
+      else if (scheduler.modules && scheduler.modules.nativeStatics.get(n)?.has(name)) stored = scheduler.modules.nativeStatics.get(n)!.get(name);
+      else { const g = env.tryLookup(`@ext:${n}:static:get:${name}`); if (g !== undefined && kindOf(g) === 'function') getter = g as FunctionObject; }
       break;
     }
     default: return undefined;
@@ -273,16 +279,17 @@ function* staticMember(f, name, args, called, env) {
   if (stored === undefined) return undefined;
   if (!called) return stored;
   if (kindOf(stored) !== 'function') throw SwiftalkError.type(`cannot call ${tn}.${name}, a ${typeName(stored)}`);
-  return yield* apply(stored, args);
+  return yield* apply(stored as FunctionObject, args);
 }
 
 // ---- sorting with a suspending comparator: a merge sort over yield* ----
-function* sortedBy(elements, less) {
+type Less = (a: Value, b: Value) => G<boolean>;
+function* sortedBy(elements: Value[], less: Less): G<Value[]> {
   if (elements.length <= 1) return elements.slice();
   const mid = elements.length >> 1;
   const a = yield* sortedBy(elements.slice(0, mid), less);
   const b = yield* sortedBy(elements.slice(mid), less);
-  const out = [];
+  const out: Value[] = [];
   let i = 0, j = 0;
   while (i < a.length && j < b.length) {
     if (yield* less(b[j], a[i])) out.push(b[j++]); else out.push(a[i++]);   // stable
@@ -291,14 +298,14 @@ function* sortedBy(elements, less) {
   while (j < b.length) out.push(b[j++]);
   return out;
 }
-const lessBuiltin = function* (a, b) { const r = yield* compare('<', a, b); return typeof r === 'boolean' ? r : false; };
-const lessBy = (fn, who) => function* (a, b) {
+const lessBuiltin: Less = function* (a, b) { const r = yield* compare('<', a, b); return typeof r === 'boolean' ? r : false; };
+const lessBy = (fn: FunctionObject, who: string): Less => function* (a, b) {
   const r = yield* apply(fn, [{ label: null, value: a }, { label: null, value: b }]);
   if (typeof r !== 'boolean') throw SwiftalkError.type(`the .${who} Function must return a Bool`);
   return r;
 };
 
-const swiftLabels = (name) => {
+const swiftLabels = (name: string): string[] => {
   switch (name) {
     case 'sorted': case 'min': case 'max': case 'shifted': return ['by'];
     case 'contains': return ['where'];
@@ -311,7 +318,7 @@ const swiftLabels = (name) => {
     default: return [];
   }
 };
-const isWhite = (g) => /^[\s\p{White_Space}]+$/u.test(g);   // a grapheme, so "\r\n" is one
+const isWhite = (g: string): boolean => /^[\s\p{White_Space}]+$/u.test(g);   // a grapheme, so "\r\n" is one
 const stringType = ann('String');
 
 // ---- the member switch ----
@@ -319,34 +326,35 @@ const stringType = ann('String');
 /// String's parses and nothing else's (rounds 205–210): the constructors convert; a
 /// type's own member of the name (round 151) or an extension's stands.
 const stringParses = new Set(['Bool', 'Int', 'Double', 'Byte', 'Data', 'Date', 'SION']);
-function parseOnly(tn, receiver, called, env) {
+function parseOnly(tn: string, receiver: Value, called: boolean, env: Environment): void {
   if (!called || !stringParses.has(tn) || typeof receiver === 'string') return;
   if (userConversion(receiver, tn) || lookupExtension(env, typeName(receiver), tn)) return;
   const hint = tn === 'Bool' ? 'a Bool is a Bool already, and an Int is not one (i != 0)' : `${tn}(x) converts`;
   throw SwiftalkError.unknownMember(`${typeName(receiver)}.${tn}() — .${tn}() is a String's parse; ${hint}`);
 }
 
-export function* method(receiver, name, labeledArgs, called, env) {
+export function* method(receiver: Value, name: string, labeledArgs: LabeledArg[], called: boolean, env: Environment): G<Value> {
   const rk = kindOf(receiver);
-  const fnLike = rk === 'function' ? receiver : null;
+  const o: any = receiver;
+  const fnLike = rk === 'function' ? (receiver as FunctionObject) : null;
   parseOnly(name, receiver, called, env);
   // A module's extension of a core type (round 186) answers first
   if (scheduler.modules) {
     const ext = scheduler.modules.nativeExtensions.get(typeName(receiver))?.get(name);
     if (ext) {
-      const r = ext(receiver, labeledArgs.map((a) => a.value), called);
+      const r: any = ext(receiver, labeledArgs.map((a) => a.value), called);
       const answer = (r && typeof r.next === 'function' && typeof r[Symbol.iterator] === 'function') ? yield* r : r;
       if (answer !== undefined) return answer;                 // undefined declines; null is nil
     }
   }
   if (rk === 'host') {
-    const answer = yield* callBuiltin((xs) => receiver.object.member(name, xs, called), labeledArgs.map((a) => a.value));
+    const answer = yield* callBuiltin((xs: Value[]) => (receiver as HostValue).object.member(name, xs, called) as any, labeledArgs.map((a) => a.value));
     if (answer !== undefined) return answer;
   }
   if (name === 'conforms' && called) {
     if (!fnLike) throw SwiftalkError.type("'.conforms(to:)' is a question asked of a type");
     if (labeledArgs.length !== 1 || !(labeledArgs[0].label === null || labeledArgs[0].label === 'to')) throw SwiftalkError.type('.conforms(to:) takes exactly one argument');
-    const p = labeledArgs[0].value;
+    const p = labeledArgs[0].value as FunctionObject;
     if (kindOf(p) !== 'function' || p.role.k !== 'protocol') throw SwiftalkError.type('the argument to .conforms(to:) must be a protocol');
     const protoName = p.role.name;
     switch (fnLike.role.k) {
@@ -362,36 +370,36 @@ export function* method(receiver, name, labeledArgs, called, env) {
     if (tn === 'String' && name === 'fromCodePoint') {
       const label = labeledArgs.map((a) => a.label).find((l) => l !== null);
       if (label !== undefined) throw SwiftalkError.type(`String.fromCodePoint takes no argument label '${label}'`);
-      if (!called) return new FunctionObject([], [], Builtins.emptyEnvironment, (xs) => stringFromCodePoint(xs));
+      if (!called) return new FunctionObject([], [], Builtins.emptyEnvironment, (xs: Value[]) => stringFromCodePoint(xs));
       return stringFromCodePoint(labeledArgs.map((a) => a.value));
     }
     const table = IntStatics.get(tn);
     if (table && table.has(name)) {
       if (called) throw SwiftalkError.type(`${tn}.${name} is a constant, not a function`);
-      return table.get(name);
+      return table.get(name)!;
     }
     if (tn === 'Data' && name === 'random') {
-      if (!called) return new FunctionObject([], [], Builtins.emptyEnvironment, (xs) => dataRandom(xs));
+      if (!called) return new FunctionObject([], [], Builtins.emptyEnvironment, (xs: Value[]) => dataRandom(xs));
       const label = labeledArgs.map((a) => a.label).find((l) => l !== null);
       if (label !== undefined) throw SwiftalkError.type(`Data.random takes no argument label '${label}'`);
       return dataRandom(labeledArgs.map((a) => a.value));
     }
     if (tn === 'Int' && name === 'random') {
       if (called) return intRandom(labeledArgs);
-      return new FunctionObject([], [], Builtins.emptyEnvironment, (xs) => intRandom(xs.map((v) => ({ label: null, value: v }))));
+      return new FunctionObject([], [], Builtins.emptyEnvironment, (xs: Value[]) => intRandom(xs.map((v): LabeledArg => ({ label: null, value: v }))));
     }
   }
   if (fnLike && fnLike.role.k === 'enumType' && fnLike.role.type.cases.has(name)) return constructEnumCase(fnLike.role.type, name, labeledArgs, called);
   if (fnLike) { const v = yield* staticMember(fnLike, name, labeledArgs, called, env); if (v !== undefined) return v; }
   if (receiver instanceof EnumCaseValue && !called && receiver.type.cases.has(name)) return caseAccessor(receiver, name, receiver);
   if (receiver instanceof TupleValue) {
-    const index = /^\d+$/.test(name) ? Number(name) : receiver.indexOfLabel(name);
+    const index: number | null = /^\d+$/.test(name) ? Number(name) : receiver.indexOfLabel(name);
     if (index !== null) {
       if (!(index >= 0 && index < receiver.count)) throw SwiftalkError.type(`tuple index ${index} out of range (count ${receiver.count})`);
       const value = receiver.values[index];
       if (!called) return value;
       if (kindOf(value) !== 'function') throw SwiftalkError.type(`cannot call Tuple.${name}, a ${typeName(value)}`);
-      return yield* apply(value, labeledArgs);
+      return yield* apply(value as FunctionObject, labeledArgs);
     }
   }
   const c = computedProperty(receiver, name);
@@ -399,16 +407,16 @@ export function* method(receiver, name, labeledArgs, called, env) {
     const value = yield* readComputed(c, receiver);
     if (!called) return value;
     if (kindOf(value) !== 'function') throw SwiftalkError.type(`cannot call ${typeName(receiver)}.${name}, a ${typeName(value)}`);
-    return yield* apply(value, labeledArgs);
+    return yield* apply(value as FunctionObject, labeledArgs);
   }
   if (receiver instanceof StructValue && receiver.values.has(name)) {
-    const value = receiver.values.get(name);
+    const value = receiver.values.get(name)!;
     if (!called) return value;
     if (kindOf(value) !== 'function') throw SwiftalkError.type(`cannot call ${receiver.type.name}.${name}, a ${typeName(value)}`);
-    return yield* apply(value, labeledArgs);
+    return yield* apply(value as FunctionObject, labeledArgs);
   }
   if ((receiver instanceof StructValue || receiver instanceof EnumCaseValue) && receiver.type.methods.has(name) && !asksCanonical(name, labeledArgs)) {
-    const [bound] = boundMethod(receiver.type.methods.get(name), receiver, true);
+    const [bound] = boundMethod(receiver.type.methods.get(name)!, receiver, true);
     return called ? yield* apply(bound, labeledArgs) : bound;
   }
   {
@@ -420,12 +428,12 @@ export function* method(receiver, name, labeledArgs, called, env) {
       const value = yield* apply(bound, []);
       if (!called) return value;
       if (kindOf(value) !== 'function') throw SwiftalkError.type(`cannot call ${typeName(receiver)}.${name}, a ${typeName(value)}`);
-      return yield* apply(value, labeledArgs);
+      return yield* apply(value as FunctionObject, labeledArgs);
     }
   }
   if (called && (Builtins.types.has(name) || Builtins.protocols.has(name))) return yield* convert(name, receiver, labeledArgs);
   if (called && !Builtins.types.has(name)) {
-    const f = env.tryLookup(name);
+    const f = env.tryLookup(name) as FunctionObject | undefined;
     if (f !== undefined && kindOf(f) === 'function' && f.role.k === 'type') {
       const tn = f.role.name;
       if (Builtins.types.has(tn) || Builtins.protocols.has(tn)) { parseOnly(tn, receiver, true, env); return yield* convert(tn, receiver, labeledArgs); }   // the alias path (round 111)
@@ -435,18 +443,18 @@ export function* method(receiver, name, labeledArgs, called, env) {
   const dropped = called ? swiftLabels(name) : [];
   const args = plainValues(dropped.length ? labeledArgs.map((a) => (a.label !== null && dropped.includes(a.label) ? { label: null, value: a.value } : a)) : labeledArgs, `.${name}`);
   const unknown = () => SwiftalkError.unknownMember(`${typeName(receiver)}.${name}${called ? '()' : ''}`);
-  const isFn = (v) => kindOf(v) === 'function';
+  const isFn = (v: Value | undefined): v is FunctionObject => kindOf(v) === 'function';
   const key = `${name}${called ? '()' : ''}`;
   switch (key) {
     case 'Type': {
       if (receiver instanceof EnumCaseValue) return receiver.type.constructor_;
       if (receiver instanceof StructValue) return receiver.type.constructor_;
-      if (rk === 'host') return receiver.type;
+      if (rk === 'host') return (receiver as HostValue).type;
       if (rk === 'array' || rk === 'dictionary' || rk === 'set') {
         const inferred = tryInfer(receiver, '', true);
         if (inferred) { const t = typeValue(inferred); if (t) return t; }
       }
-      return Builtins.types.get(typeName(receiver)) ?? Builtins.protocols.get(typeName(receiver));
+      return Builtins.types.get(typeName(receiver)) ?? Builtins.protocols.get(typeName(receiver)) ?? null;
     }
     case 'name': {
       if (!fnLike) throw SwiftalkError.unknownMember(`${typeName(receiver)}.name`);
@@ -459,14 +467,14 @@ export function* method(receiver, name, labeledArgs, called, env) {
     }
     case 'count':
       switch (rk) {
-        case 'array': return BigInt(receiver.items.length);
-        case 'string': return BigInt(graphemes(receiver).length);
-        case 'dictionary': case 'set': return BigInt(receiver.size);
+        case 'array': return BigInt(o.items.length);
+        case 'string': return BigInt(graphemes(o).length);
+        case 'dictionary': case 'set': return BigInt(o.size);
         case 'range':
-          if (receiver.to === null) throw SwiftalkError.type('an unbounded Range is infinite — .prefix(n) or .prefix { } it deliberately');
-          return rangeCount(receiver.from, receiver.to, receiver.closed);
-        case 'data': return BigInt(receiver.bytes.length);
-        case 'tuple': return BigInt(receiver.count);
+          if (o.to === null) throw SwiftalkError.type('an unbounded Range is infinite — .prefix(n) or .prefix { } it deliberately');
+          return rangeCount(o.from, o.to, o.closed);
+        case 'data': return BigInt(o.bytes.length);
+        case 'tuple': return BigInt((receiver as TupleValue).count);
         case 'sequence': throw SwiftalkError.type('a Sequence may be infinite — take .prefix(n) or .Array() it deliberately');
         default: throw SwiftalkError.unknownMember(`${typeName(receiver)}.count`);
       }
@@ -475,7 +483,7 @@ export function* method(receiver, name, labeledArgs, called, env) {
       const base = lazyBase(receiver);
       if (base) return new SequenceObject({ kind: 'enumerated', base });
       if (rk === 'dictionary') return receiver;
-      const out = [];
+      const out: Value[] = [];
       const it = yield* iteratorOf(receiver);
       for (;;) { const e = yield* it.next(); if (e === undefined) break; out.push(new TupleValue([BigInt(out.length), e], ['key', 'value'])); }
       return new SArray(out, ann('Array', false, [ann('Tuple')]));
@@ -484,13 +492,13 @@ export function* method(receiver, name, labeledArgs, called, env) {
       if (args.length === 1 && isFn(args[0])) {
         const base = lazyBase(receiver);
         if (base) return new SequenceObject({ kind: 'takenWhile', base, fn: args[0] });
-        const kept = [];
+        const kept: Value[] = [];
         const it = yield* iteratorOf(receiver);
         for (;;) { const e = yield* it.next(); if (e === undefined || !(yield* holds(args[0], e, 'prefix'))) break; kept.push(e); }
         return restamp(reshape(kept, receiver), receiver);
       }
       if (args.length !== 1 || typeof args[0] !== 'bigint' || args[0] < 0n) throw SwiftalkError.type('.prefix takes a non-negative Int, or a Function x -> Bool');
-      const out = [];
+      const out: Value[] = [];
       const it = yield* iteratorOf(receiver);
       while (BigInt(out.length) < args[0]) { const e = yield* it.next(); if (e === undefined) break; out.push(e); }
       return restamp(reshape(out, receiver), receiver);
@@ -499,7 +507,7 @@ export function* method(receiver, name, labeledArgs, called, env) {
       if (name === 'dropFirst' && args.length === 1 && isFn(args[0])) {
         const base = lazyBase(receiver);
         if (base) return new SequenceObject({ kind: 'droppedWhile', base, fn: args[0] });
-        const kept = [];
+        const kept: Value[] = [];
         let dropping = true;
         const it = yield* iteratorOf(receiver);
         for (;;) {
@@ -509,7 +517,7 @@ export function* method(receiver, name, labeledArgs, called, env) {
         }
         return restamp(reshape(kept, receiver), receiver);
       }
-      let n;
+      let n: bigint;
       if (args.length === 0 && name !== 'suffix') n = 1n;
       else if (args.length === 1) {
         if (typeof args[0] !== 'bigint' || args[0] < 0n) throw SwiftalkError.type(`.${name}(n) takes one non-negative Int`);
@@ -518,7 +526,7 @@ export function* method(receiver, name, labeledArgs, called, env) {
         throw SwiftalkError.type(name === 'suffix' ? '.suffix(n) takes one non-negative Int'
           : name === 'dropFirst' ? '.dropFirst takes a non-negative Int (default 1), or a Function x -> Bool' : '.dropLast(n) takes one non-negative Int (default 1)');
       }
-      if (name === 'dropFirst') { const base = lazyBase(receiver); if (base) return new SequenceObject({ kind: 'dropped', base, n: Number(n > 1n << 40n ? 1n << 40n : n) }); }
+      if (name === 'dropFirst') { const base = lazyBase(receiver); if (base) return new SequenceObject({ kind: 'dropped', base, n: n > 1n << 40n ? 1n << 40n : n }); }
       requireFinite(receiver, name);
       const all = yield* collect(receiver);
       const count = Math.min(Number(n), all.length);
@@ -544,7 +552,7 @@ export function* method(receiver, name, labeledArgs, called, env) {
       if (args.length !== 1 || !isFn(args[0])) throw SwiftalkError.type('.map takes a single Function');
       const base = lazyBase(receiver);
       if (base) return new SequenceObject({ kind: 'mapped', base, fn: args[0] });
-      const out = [];
+      const out: Value[] = [];
       const it = yield* iteratorOf(receiver);
       for (;;) { const e = yield* it.next(); if (e === undefined) break; out.push(yield* apply(args[0], [{ label: null, value: e }])); }
       const inferred = tryInfer(new SArray(out), 'map', false);
@@ -560,7 +568,7 @@ export function* method(receiver, name, labeledArgs, called, env) {
       if (args.length !== 1 || !isFn(args[0])) throw SwiftalkError.type('.filter takes a single Function');
       const base = lazyBase(receiver);
       if (base) return new SequenceObject({ kind: 'filtered', base, fn: args[0] });
-      const kept = [];
+      const kept: Value[] = [];
       const it = yield* iteratorOf(receiver);
       for (;;) {
         const e = yield* it.next(); if (e === undefined) break;
@@ -576,7 +584,7 @@ export function* method(receiver, name, labeledArgs, called, env) {
     case 'reduce()': {
       if (args.length !== 2 || !isFn(args[1])) throw SwiftalkError.type('.reduce takes an initial value and a Function');
       requireFinite(receiver, 'reduce');
-      let acc = args[0];
+      let acc: Value = args[0];
       const it = yield* iteratorOf(receiver);
       for (;;) { const e = yield* it.next(); if (e === undefined) break; acc = yield* apply(args[1], [{ label: null, value: acc }, { label: null, value: e }]); }
       return acc;
@@ -584,9 +592,9 @@ export function* method(receiver, name, labeledArgs, called, env) {
     case 'first': { const e = yield* (yield* iteratorOf(receiver)).next(); return e === undefined ? null : e; }
     case 'min()': case 'max()': {
       const elements = yield* collect(receiver);
-      let less;
+      let less: Less;
       if (args.length === 0) {
-        const odd = elements.find((e) => !Builtins.conformance.get('Comparable').has(typeName(e)) && !hasUserOperator(e, 'infix:<'));
+        const odd = elements.find((e) => !Builtins.conformance.get('Comparable')!.has(typeName(e)) && !hasUserOperator(e, 'infix:<'));
         if (odd !== undefined) throw SwiftalkError.type(`.${name}() needs Comparable elements — a ${typeName(odd)} is not; give it a Function (a, b) -> Bool`);
         less = lessBuiltin;
       } else if (args.length === 1 && isFn(args[0])) less = lessBy(args[0], name);
@@ -618,7 +626,7 @@ export function* method(receiver, name, labeledArgs, called, env) {
       }
       if (rk === 'string') {
         if (typeof args[0] !== 'string') throw SwiftalkError.type(`String.contains looks for a String or a Regex, not a ${typeName(args[0])}`);
-        return containsSubstring(receiver, args[0]);
+        return containsSubstring(o, args[0] as string);
       }
       const it = yield* iteratorOf(receiver);
       for (;;) { const e = yield* it.next(); if (e === undefined) return false; if (equals(e, args[0])) return true; }
@@ -632,7 +640,7 @@ export function* method(receiver, name, labeledArgs, called, env) {
       const separator = args.length ? args[0] : undefined;
       const elementLock = knownElementLock(receiver);
       const probe = separator !== undefined ? separator : elements.length ? elements[0] : undefined;
-      let stringMode;
+      let stringMode: boolean;
       if (probe === undefined) stringMode = elementLock?.name !== 'Array';
       else if (typeof probe === 'string') stringMode = true;
       else if (kindOf(probe) === 'array') stringMode = false;
@@ -642,10 +650,10 @@ export function* method(receiver, name, labeledArgs, called, env) {
         if (separator !== undefined) { if (typeof separator !== 'string') throw SwiftalkError.type(`.joined of Strings takes a String separator, not a ${typeName(separator)}`); sep = separator; }
         return elements.map((e) => { if (typeof e !== 'string') throw SwiftalkError.type(`.joined of Strings met a ${typeName(e)} — map it to a String first`); return e; }).join(sep);
       }
-      let sep = [];
-      if (separator !== undefined) { if (kindOf(separator) !== 'array') throw SwiftalkError.type(`.joined of Arrays takes an Array separator, not a ${typeName(separator)}`); sep = separator.items; }
-      const out = [];
-      elements.forEach((e, i) => { if (kindOf(e) !== 'array') throw SwiftalkError.type(`.joined of Arrays met a ${typeName(e)}`); if (i > 0) out.push(...sep); out.push(...e.items); });
+      let sep: Value[] = [];
+      if (separator !== undefined) { if (kindOf(separator) !== 'array') throw SwiftalkError.type(`.joined of Arrays takes an Array separator, not a ${typeName(separator)}`); sep = (separator as SArray).items; }
+      const out: Value[] = [];
+      elements.forEach((e, i) => { if (kindOf(e) !== 'array') throw SwiftalkError.type(`.joined of Arrays met a ${typeName(e)}`); if (i > 0) out.push(...sep); out.push(...(e as SArray).items); });
       const inferred = tryInfer(new SArray(out), 'joined', false);
       if (inferred && inferred.parameters.length) return new SArray(out, inferred);
       if (elementLock && elementLock.name === 'Array' && elementLock.parameters.length) return new SArray(out, ann('Array', false, [elementLock.parameters[0]]));
@@ -656,19 +664,19 @@ export function* method(receiver, name, labeledArgs, called, env) {
       const usage = '.replacing takes what to find (a Regex or a String) and the replacement (a String, or a Function of the match)';
       if (args.length !== 2) throw SwiftalkError.type(usage);
       if (typeof args[0] !== 'string' || typeof args[1] !== 'string') throw SwiftalkError.type(usage);
-      if (args[0] === '') return args[1] + graphemes(receiver).join(args[1]) + args[1];
-      return receiver.split(args[0]).join(args[1]);   // FIXME: code-unit matching, not Character-wise canonical equivalence
+      if (args[0] === '') { const w = args[1] as string; return w + graphemes(o).join(w) + w; }
+      return (o as string).split(args[0] as string).join(args[1] as string);   // FIXME: code-unit matching, not Character-wise canonical equivalence
     }
     case 'split()': {
       if (args.length !== 1) throw SwiftalkError.type('.split takes one separator: a value, a Function, or (on a String) a Regex');
       const strings = ann('Array', false, [stringType]);
       if (rk === 'string') {
-        if (typeof args[0] === 'string') return new SArray(receiver.split(args[0]).filter((p) => p !== ''), strings);
+        if (typeof args[0] === 'string') return new SArray((o as string).split(args[0]).filter((p) => p !== ''), strings);
         if (!isFn(args[0])) throw SwiftalkError.type('String.split takes a String, a Function of a grapheme — or a Regex, with the Regex module');
       }
       requireFinite(receiver, 'split');
-      const pieces = [];
-      let current = [];
+      const pieces: Value[][] = [];
+      let current: Value[] = [];
       const it = yield* iteratorOf(receiver);
       for (;;) {
         const e = yield* it.next(); if (e === undefined) break;
@@ -676,12 +684,12 @@ export function* method(receiver, name, labeledArgs, called, env) {
         if (isSep) { if (current.length) pieces.push(current); current = []; } else current.push(e);
       }
       if (current.length) pieces.push(current);
-      let pieceLock;
+      let pieceLock: TypeAnnotation | null;
       switch (rk) {
         case 'string': pieceLock = stringType; break;
         case 'data': pieceLock = ann('Data'); break;
         case 'set': { const k = knownElementLock(receiver); pieceLock = k ? ann('Set', false, [k]) : null; break; }
-        case 'dictionary': pieceLock = receiver.lock; break;
+        case 'dictionary': pieceLock = (receiver as SDictionary).lock; break;
         default: { const k = knownElementLock(receiver); pieceLock = k ? ann('Array', false, [k]) : null; }
       }
       return new SArray(pieces.map((p) => restamp(reshape(p, receiver), receiver)), pieceLock ? ann('Array', false, [pieceLock]) : null);
@@ -689,48 +697,49 @@ export function* method(receiver, name, labeledArgs, called, env) {
     case 'and()': case 'or()': case 'xor()': {
       if (rk !== 'bool') throw SwiftalkError.unknownMember(`${typeName(receiver)}.${name}()` + (rk === 'int' ? ` — bitwise is .bit${name[0].toUpperCase()}${name.slice(1)}()` : ''));
       if (args.length !== 1 || typeof args[0] !== 'boolean') throw SwiftalkError.type(`Bool.${name} takes one Bool — nothing is truthy (§3b)`);
-      return name === 'and' ? receiver && args[0] : name === 'or' ? receiver || args[0] : receiver !== args[0];
+      return name === 'and' ? o && args[0] : name === 'or' ? o || args[0] : o !== args[0];
     }
     case 'bitAnd()': case 'bitOr()': case 'bitXor()': case 'shifted()': {
-      const smartShift = (a, b) => (b >= 64n ? 0n : b <= -64n ? (a < 0n ? -1n : 0n) : b >= 0n ? BigInt.asIntN(64, a << b) : a >> -b);
+      const smartShift = (a: bigint, b: bigint): bigint => (b >= 64n ? 0n : b <= -64n ? (a < 0n ? -1n : 0n) : b >= 0n ? BigInt.asIntN(64, a << b) : a >> -b);
       if (rk === 'byte') {
-        let b;
+        let b: bigint;
         if (args.length === 1 && args[0] instanceof Byte) b = BigInt(args[0].v);
         else if (args.length === 1 && typeof args[0] === 'bigint') b = args[0];
         else throw SwiftalkError.type(`.${name} takes one Int or Byte`);
-        const x = BigInt(receiver.v);
+        const x = BigInt(o.v);
         const r = name === 'bitAnd' ? x & b : name === 'bitOr' ? x | b : name === 'bitXor' ? x ^ b : smartShift(x, b);
         return new Byte(Number(BigInt.asUintN(8, r)));
       }
       if (rk !== 'int') throw SwiftalkError.unknownMember(`${typeName(receiver)}.${name}()`);
       if (args.length !== 1 || typeof args[0] !== 'bigint') throw SwiftalkError.type(`.${name} takes one Int`);
       const b = args[0];
+      const x = o as bigint;
       switch (name) {
-        case 'bitAnd': return receiver & b;
-        case 'bitOr': return receiver | b;
-        case 'bitXor': return receiver ^ b;
-        default: return smartShift(receiver, b);
+        case 'bitAnd': return x & b;
+        case 'bitOr': return x | b;
+        case 'bitXor': return x ^ b;
+        default: return smartShift(x, b);
       }
     }
     case 'not()':
       if (args.length) throw SwiftalkError.type('.not() takes no arguments');
       if (rk !== 'bool') throw SwiftalkError.unknownMember(`${typeName(receiver)}.not()` + (rk === 'int' ? ' — bitwise is .bitNot()' : ''));
-      return !receiver;
+      return !o;
     case 'bitNot()':
       if (args.length) throw SwiftalkError.type('.bitNot() takes no arguments');
-      if (rk === 'byte') return new Byte(~receiver.v & 0xff);
+      if (rk === 'byte') return new Byte(~o.v & 0xff);
       if (rk !== 'int') throw SwiftalkError.unknownMember(`${typeName(receiver)}.bitNot()`);
-      return ~receiver;
+      return ~(o as bigint);
     case 'bit()':
       if (rk !== 'int') throw SwiftalkError.unknownMember(`${typeName(receiver)}.bit()`);
       if (args.length !== 1 || typeof args[0] !== 'bigint' || args[0] < 0n || args[0] >= 64n) throw SwiftalkError.type('.bit(i) takes an Int in 0..<64');
-      return ((receiver >> args[0]) & 1n) === 1n;
+      return (((o as bigint) >> args[0]) & 1n) === 1n;
     case 'bits':
       if (rk !== 'int') throw SwiftalkError.unknownMember(`${typeName(receiver)}.bits`);
-      return new SArray(Array.from({ length: 64 }, (_, i) => ((receiver >> BigInt(i)) & 1n) === 1n));
+      return new SArray(Array.from({ length: 64 }, (_, i) => (((o as bigint) >> BigInt(i)) & 1n) === 1n));
     case 'nonzeroBitCount': case 'leadingZeroBitCount': case 'trailingZeroBitCount': {
       if (rk !== 'int') throw SwiftalkError.unknownMember(`${typeName(receiver)}.${name}`);
-      const u = BigInt.asUintN(64, receiver);
+      const u = BigInt.asUintN(64, o as bigint);
       const bits = u.toString(2).padStart(64, '0');
       if (name === 'nonzeroBitCount') return BigInt(bits.split('1').length - 1);
       if (name === 'leadingZeroBitCount') return BigInt(bits.indexOf('1') < 0 ? 64 : bits.indexOf('1'));
@@ -739,31 +748,31 @@ export function* method(receiver, name, labeledArgs, called, env) {
     }
     case 'normalized()': case 'isNormalized()': {
       if (rk !== 'string') throw SwiftalkError.unknownMember(`${typeName(receiver)}.${name}()`);
-      const forms = { nfc: 'NFC', nfd: 'NFD', nfkc: 'NFKC', nfkd: 'NFKD' };
+      const forms: Record<string, string> = { nfc: 'NFC', nfd: 'NFD', nfkc: 'NFKC', nfkd: 'NFKD' };
       if (args.length !== 1 || typeof args[0] !== 'string' || !(args[0] in forms)) throw SwiftalkError.type(`.${name}(with:) takes one form: .nfc, .nfd, .nfkc, or .nfkd`);
-      const normalized = receiver.normalize(forms[args[0]]);
-      return name === 'normalized' ? normalized : normalized === receiver;
+      const normalized: string = o.normalize(forms[args[0]]);
+      return name === 'normalized' ? normalized : normalized === o;
     }
     case 'uppercased()': case 'lowercased()': case 'ucfirst()': case 'lcfirst()': {
       if (rk !== 'string') throw SwiftalkError.unknownMember(`${typeName(receiver)}.${name}()`);
       if (args.length) throw SwiftalkError.type(`.${name}() takes no arguments`);
-      if (name === 'uppercased') return receiver.toUpperCase();
-      if (name === 'lowercased') return receiver.toLowerCase();
-      const gs = graphemes(receiver);
+      if (name === 'uppercased') return o.toUpperCase();
+      if (name === 'lowercased') return o.toLowerCase();
+      const gs = graphemes(o);
       if (!gs.length) return '';
       const head = name === 'ucfirst' ? gs[0].toUpperCase() : gs[0].toLowerCase();
       return head + gs.slice(1).join('');
     }
     case 'trimmed()': {
       if (rk !== 'string') throw SwiftalkError.unknownMember(`${typeName(receiver)}.trimmed()`);
-      let unwanted;
+      let unwanted: (g: string) => boolean;
       if (args.length === 0) unwanted = isWhite;
       else if (args.length === 1) {
         if (typeof args[0] !== 'string') throw SwiftalkError.type(`.trimmed(chars) takes a String of the graphemes to strip, not ${typeName(args[0])}`);
         const set = new Set(graphemes(args[0]));
-        unwanted = (g) => set.has(g);
+        unwanted = (g: string) => set.has(g);
       } else throw SwiftalkError.type('.trimmed() takes no arguments, or one String of graphemes to strip');
-      const gs = graphemes(receiver);
+      const gs = graphemes(o);
       let a = 0, b = gs.length;
       while (a < b && unwanted(gs[a])) a++;
       while (b > a && unwanted(gs[b - 1])) b--;
@@ -772,22 +781,23 @@ export function* method(receiver, name, labeledArgs, called, env) {
     case 'escaped()': case 'unescaped()':
       if (rk !== 'string') throw SwiftalkError.unknownMember(`${typeName(receiver)}.${name}()`);
       if (args.length) throw SwiftalkError.type(`.${name}() takes no arguments`);
-      return name === 'escaped' ? StringEscapes.escaped(receiver) : StringEscapes.unescaped(receiver);
+      return name === 'escaped' ? StringEscapes.escaped(o) : StringEscapes.unescaped(o);
     case 'unicodeScalars': case 'utf32': case 'utf8':
       if (rk !== 'string') throw SwiftalkError.unknownMember(`${typeName(receiver)}.${name}`);
-      if (name === 'utf8') return new SArray(Array.from(new TextEncoder().encode(receiver), (b) => BigInt(b)));
-      return new SArray(Array.from(receiver, (c) => BigInt(c.codePointAt(0))));
+      if (name === 'utf8') return new SArray(Array.from(new TextEncoder().encode(o), (b) => BigInt(b)));
+      return new SArray(Array.from(o as string, (c) => BigInt(c.codePointAt(0)!)));
     case 'merging()':
       if (rk !== 'dictionary') throw SwiftalkError.unknownMember(`${typeName(receiver)}.merging()`);
-      return yield* mergeDictionaries(receiver, args);
+      return yield* mergeDictionaries(o, args);
     case 'keys': case 'values': {
       if (rk !== 'dictionary') throw SwiftalkError.unknownMember(`${typeName(receiver)}.${name}`);
-      const lock = receiver.lock;
+      const d = receiver as SDictionary;
+      const lock = d.lock;
       if (name === 'keys') {
-        if (lock && lock.parameters.length) return new SSet(receiver.keys(), ann('Set', false, [lock.parameters[0]]));
-        return Builtins.stampedSet(receiver.keys(), null);
+        if (lock && lock.parameters.length) return new SSet(d.keys(), ann('Set', false, [lock.parameters[0]]));
+        return Builtins.stampedSet(d.keys(), null);
       }
-      const values = receiver.values();
+      const values = d.values();
       if (lock && lock.parameters.length === 2) return new SArray(values, ann('Array', false, [lock.parameters[1]]));
       const inferred = tryInfer(new SArray(values), 'values', false);
       return inferred && inferred.parameters.length ? new SArray(values, inferred) : new SArray(values);
@@ -797,8 +807,8 @@ export function* method(receiver, name, labeledArgs, called, env) {
       if (rk !== 'set') throw SwiftalkError.unknownMember(`${typeName(receiver)}.${name}()`);
       if (args.length !== 1) throw SwiftalkError.type(`.${name} takes one argument: a Set, or any Sequence`);
       const other = yield* setElements(args[0]);
-      const s = receiver;
-      const subset = (x, y) => x.values().every((e) => y.has(e));
+      const s = receiver as SSet;
+      const subset = (x: SSet, y: SSet) => x.values().every((e) => y.has(e));
       switch (name) {
         case 'union': { const u = new SSet(s.values()); for (const e of other.values()) u.add(e); return u; }
         case 'intersection': return new SSet(s.values().filter((e) => other.has(e)));
@@ -817,7 +827,7 @@ export function* method(receiver, name, labeledArgs, called, env) {
     case 'has()':
       if (rk !== 'dictionary') throw SwiftalkError.unknownMember(`${typeName(receiver)}.has()`);
       if (args.length !== 1) throw SwiftalkError.type('.has(key) takes exactly one argument');
-      return receiver.has(args[0]);
+      return o.has(args[0]);
     default: throw unknown();
   }
 }

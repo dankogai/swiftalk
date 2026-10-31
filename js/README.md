@@ -1,8 +1,9 @@
 # swiftalk in JavaScript
 
 The core runtime — the interpreter of `Core/Sources/Swiftalk` — ported to
-JavaScript (round 197 onward), so swiftalk runs wherever a modern JS
-engine does: Node 22+, and the browser — the core, the prelude (IO,
+JavaScript (round 197 onward) and written in TypeScript since round 255
+(`src/**/*.ts`, compiled by `tsc` to `lib/`), so swiftalk runs wherever a
+modern JS engine does: Node 22+, and the browser — the core, the prelude (IO,
 Net, Regex, Sequence, Task, BigInt, BigRat) as JS modules, and a notebook page. What the Swift core does, this does, checked against the same
 corpus: `tools/extract-fixtures.mjs` turns every `eval(source) == value`
 expectation in `Tests/SwiftalkTests` into JSON, and the tests here run
@@ -10,10 +11,24 @@ the JS runtime over it.
 
 ```sh
 cd js
-npm test            # extracts the fixtures, then node --test
-npm run repl        # a REPL over the runtime, with the prelude (pipe a program in, or type)
-npm run build       # dist/swiftalk.js (one file), dist/notebook.html (the notebook, runtime inlined), and dist/notebook.fragment.html (the same page without its document skeleton, for hosts that supply one)
+npm install         # typescript and @types/node, the only dependencies, for development
+npm test            # extracts the fixtures, compiles (tsc → lib/), then node --test over lib/test
+npm run repl        # a REPL over the runtime, with the prelude (pipe a program in, or type) — lib/repl.js
+npm run build       # tsc, then dist/swiftalk.js (one file), dist/notebook.html (the notebook, runtime inlined), and dist/notebook.fragment.html (the same page without its document skeleton, for hosts that supply one)
 ```
+
+**TypeScript and the package** (round 255): the sources are `src/**/*.ts`,
+`test/*.ts`, and `repl.ts`; `tsc` (`tsconfig.json`: ES2022, Node's module
+resolution, `strict` with implicit `any` still allowed) emits `lib/` with
+declarations beside every file, and nothing runs from `src/` directly —
+the tests, the REPL, the bundler and the notebook all read `lib/`.
+`package.json` is laid out for `npm publish` (not yet published): `main`
+and `types` point at `lib/src/index.js` and its `.d.ts`, `exports` adds
+`swiftalk/node` for the Node host, `bin` gives `swiftalk-js` (the REPL),
+`files` ships `lib/src` and the REPL only, and `prepublishOnly` builds.
+The types worth knowing: `Value` (the value model as a union), `Token`,
+`Expr`/`Stmt`/`Pattern` (the AST), `Role`, `HostObject` (what a module's
+value implements), `Builtin`, `Hook`, `Extension`.
 
 **The notebook**: `notebook.html` is a page of swiftalk cells — Shift-Enter
 runs a cell and moves on, Cmd/Ctrl-Enter runs in place, Alt-Enter runs
@@ -25,7 +40,7 @@ directory to use it from source (`python3 -m http.server`, then
 a file — the runtime is inlined.
 
 ```js
-import { Swiftalk, Interpreter, withPrelude } from './src/index.js';
+import { Swiftalk, Interpreter, withPrelude } from './lib/src/index.js';   // or from 'swiftalk', installed
 Swiftalk.eval('[1, 2, 3].map { $0 * $0 }.reduce(0, +)');   // 14n — Int is a BigInt
 const i = withPrelude(new Interpreter());                  // IO, Net, Regex, Sequence, Task, BigInt, BigRat, as the CLI has them
 i.output = (s) => process.stdout.write(s);                 // where print goes
@@ -34,35 +49,36 @@ i.eval('let x = 40'); i.eval('print(x + 2)');
 await i.evalAsync('let t = async { Task.sleep(0.5); 42 }; await t');   // waits half a second; eval would not
 ```
 
-In Node, `nodeHost(i)` from `src/host/node.js` lends stdin, stdout,
+In Node, `nodeHost(i)` from `lib/src/host/node.js` (`swiftalk/node`, installed) lends stdin, stdout,
 stderr, files, and `.swt` modules from disk or URLs.
 
 | Where | What |
 |---|---|
-| `src/errors.js` | `SwiftalkError` — the five kinds, the core's wording |
-| `src/lexer.js` | the lexer, line for line: tokens as tagged objects |
-| `src/keywords.js` | the keyword list, Parser.swift's, as one Set |
-| `src/parser.js` | the parser, line for line: the AST as tagged objects, `TypeAnnotation` |
-| `src/value.js` | the value model — JS primitives where they fit (`BigInt` for Int, `number` for Double, `string`, `boolean`, `null`), classes for the rest; `keyOf` for Dictionary and Set keys (canonical equivalence for Strings), `sourceString` with Swift's `Double` spelling and hex floats, graphemes through `Intl.Segmenter` |
-| `src/objects.js` | `FunctionObject`, enum and struct types and values, `SequenceObject`, `TaskObject`, the control-flow signals |
-| `src/env.js` | `Environment` and `Binding` — scopes, type-locked declaration and assignment |
-| `src/types.js` | type locks, stamps, inference — `checkValue`, `inferLock`, `typeValue` |
-| `src/builtins.js` | the type constructors (`Int(...)`, `Array(...)`, …), protocols and conformance, `Result`, the math library |
-| `src/eval.js` | the evaluator — statements, expressions, application, assignment paths, operators, iteration; every function that can run swiftalk code is a `function*` |
-| `src/members.js` | the member switch (`.map`, `.sorted`, `.count`, …), conversions (`x.T()` is `T(x)`), String formats, `.pretty`, statics |
-| `src/formats.js` | SION text, JSON, XML and binary property lists, string escapes |
-| `src/scheduler.js` | the cooperative scheduler, Task.swift without threads: contexts are generators, requests (spawn, await, sleep, offload, yield) pass the baton; `AsyncScheduler` on timers and Promises, `SyncScheduler` on a virtual clock |
-| `src/modules.js` | the module API (`Module.function/export/type/extend/static/prelude`) and system (`register`, bare-name and `.swt` imports through `Interpreter.moduleLoader`, namespace types) |
-| `src/modules/` | the prelude in JS: `IO.js` (`print`, `debugPrint`, `readLine`, the `IO` handle type), `Net.js` (`fetch`, `Response`), `Regex.js` (the `Regex` type behind `/re/`, String's regex members — over RegExp; see its FIXME), `Sequence.js` (`Sequence.zip`), `Task.js` (`Task.sleep`), `BigInt.js` (the `BigInt` type behind `123n`, over the platform's BigInt), `BigRat.js` (exact rationals, a pair of them) |
-| `src/prelude.js` | `withPrelude(interp)`: the seven registered and preimported (five until round 201; `preludeNames` is the list) |
-| `src/index.js` | the public surface — every name the runtime exports, what the examples above import |
-| `src/host/node.js` | what Node lends: stdin, stdout, stderr, files, module loading |
-| `notebook.html` | the notebook page (loads `src/index.js`; `npm run build` inlines it) |
+| `src/errors.ts` | `SwiftalkError` — the five kinds, the core's wording |
+| `src/lexer.ts` | the lexer, line for line: tokens as tagged objects |
+| `src/keywords.ts` | the keyword list, Parser.swift's, as one Set |
+| `src/parser.ts` | the parser, line for line: the AST as tagged objects, `TypeAnnotation` |
+| `src/value.ts` | the value model — JS primitives where they fit (`BigInt` for Int, `number` for Double, `string`, `boolean`, `null`), classes for the rest; `keyOf` for Dictionary and Set keys (canonical equivalence for Strings), `sourceString` with Swift's `Double` spelling and hex floats, graphemes through `Intl.Segmenter` |
+| `src/objects.ts` | `FunctionObject`, enum and struct types and values, `SequenceObject`, `TaskObject`, the control-flow signals |
+| `src/env.ts` | `Environment` and `Binding` — scopes, type-locked declaration and assignment |
+| `src/types.ts` | type locks, stamps, inference — `checkValue`, `inferLock`, `typeValue` |
+| `src/builtins.ts` | the type constructors (`Int(...)`, `Array(...)`, …), protocols and conformance, `Result`, the math library |
+| `src/eval.ts` | the evaluator — statements, expressions, application, assignment paths, operators, iteration; every function that can run swiftalk code is a `function*` |
+| `src/members.ts` | the member switch (`.map`, `.sorted`, `.count`, …), conversions (`x.T()` is `T(x)`), String formats, `.pretty`, statics |
+| `src/formats.ts` | SION text, JSON, XML and binary property lists, string escapes |
+| `src/scheduler.ts` | the cooperative scheduler, Task.swift without threads: contexts are generators, requests (spawn, await, sleep, offload, yield) pass the baton; `AsyncScheduler` on timers and Promises, `SyncScheduler` on a virtual clock |
+| `src/modules.ts` | the module API (`Module.function/export/type/extend/static/prelude`) and system (`register`, bare-name and `.swt` imports through `Interpreter.moduleLoader`, namespace types) |
+| `src/modules/` | the prelude in JS: `IO.ts` (`print`, `debugPrint`, `readLine`, the `IO` handle type), `Net.ts` (`fetch`, `Response`), `Regex.ts` (the `Regex` type behind `/re/`, String's regex members — over RegExp; see its FIXME), `Sequence.ts` (`Sequence.zip`), `Task.ts` (`Task.sleep`), `BigInt.ts` (the `BigInt` type behind `123n`, over the platform's BigInt), `BigRat.ts` (exact rationals, a pair of them) |
+| `src/prelude.ts` | `withPrelude(interp)`: the seven registered and preimported (five until round 201; `preludeNames` is the list) |
+| `src/index.ts` | the public surface — every name the runtime exports, what the examples above import |
+| `src/host/node.ts` | what Node lends: stdin, stdout, stderr, files, module loading |
+| `notebook.html` | the notebook page (loads `lib/src/index.js`, so `npm run build` or `npx tsc` first; the build inlines it) |
 | `tools/bundle.mjs` | the bundler, no dependencies: `dist/swiftalk.js`, `dist/notebook.html` |
-| `src/interpreter.js` | `Interpreter` — the persistent global scope, `eval` (synchronous) and `evalAsync` (timers and Promises awaited) driving the generator, `register`, `preimport`; `needsMoreInput` for a REPL |
-| `repl.mjs` | a REPL for Node over the runtime |
+| `src/interpreter.ts` | `Interpreter` — the persistent global scope, `eval` (synchronous) and `evalAsync` (timers and Promises awaited) driving the generator, `register`, `preimport`; `needsMoreInput` for a REPL |
+| `repl.ts` | a REPL for Node over the runtime — `lib/repl.js`, the package's `swiftalk-js` |
+| `tsconfig.json`, `package.json` | the compiler's settings (`lib/` out of `src/`, `test/`, `repl.ts`) and the npm package's layout (round 255) |
 | `tools/extract-fixtures.mjs` | the Swift corpus → `test/fixtures.json` (generated, not committed; disabled Swift suites are dropped) |
-| `test/` | Node's test runner |
+| `test/` | Node's test runner, in TypeScript — run compiled, from `lib/test/` |
 
 ## Milestones
 

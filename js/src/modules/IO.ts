@@ -19,20 +19,41 @@ import { kindOf, typeName, sourceString, SData } from '../value.js';
 import { HostValue, SequenceObject } from '../objects.js';
 import { ann } from '../types.js';
 import { displayString, scheduler, offload } from '../eval.js';
+import type { G } from '../eval.js';
+import type { Value } from '../value.js';
+import type { HostObject } from '../objects.js';
+import type { Interpreter, Hook } from '../interpreter.js';
+
+/// The file object the host's `openFile` hook answers with; every method may return a Promise.
+export interface HostFile {
+  read?(size: number): Uint8Array | null | Promise<Uint8Array | null>;
+  write?(bytes: Uint8Array): number | Promise<number>;
+  seekStart?(): boolean | Promise<boolean>;
+  seekEnd?(): boolean | Promise<boolean>;
+  truncate?(): void | Promise<void>;
+  close?(): void | Promise<void>;
+}
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
-const current = () => {
+const current = (): Interpreter => {
   const i = scheduler.current;
   if (!i) throw SwiftalkError.type('IO needs a running Interpreter');
   return i;
 };
-const hook = (name) => current().hooks.get(name) ?? null;
+const hook = (name: string): Hook | null => current().hooks.get(name) ?? null;
 /// A host answer that may be a Promise: waited on through the scheduler.
-function* settled(v) { return v && typeof v.then === 'function' ? yield* offload(v) : v; }
+function* settled(v: any): G<any> { return v && typeof v.then === 'function' ? yield* offload(v) : v; }
 
-class Handle {
-  constructor(file, path, mode, standardName = null) {
+class Handle implements HostObject {
+  file: HostFile | null;
+  path: string | null;
+  mode: string;
+  standardName: string | null;
+  closed: boolean;
+  buffer: Uint8Array;
+  typeName: string;
+  constructor(file: HostFile | null, path: string | null, mode: string, standardName: string | null = null) {
     this.file = file;               // null for a standard handle without a file object
     this.path = path;
     this.mode = mode;
@@ -41,15 +62,15 @@ class Handle {
     this.buffer = new Uint8Array(0);
     this.typeName = 'IO';
   }
-  get label() { return this.path !== null ? `IO(path: "${this.path}")` : `IO.${this.standardName}`; }
-  live() { if (this.closed) throw SwiftalkError.type(`${this.label} is closed`); }
-  bytesOf(v, call) {
+  get label(): string { return this.path !== null ? `IO(path: "${this.path}")` : `IO.${this.standardName}`; }
+  live(): void { if (this.closed) throw SwiftalkError.type(`${this.label} is closed`); }
+  bytesOf(v: Value, call: string): Uint8Array {
     if (v instanceof SData) return v.bytes;
     if (typeof v === 'string') return encoder.encode(v);
     throw SwiftalkError.type(`${this.label}.${call} takes a Data or a String, not ${typeName(v)}`);
   }
   // ---- reading ----
-  *fill(size = 65536) {
+  *fill(size = 65536): G<boolean> {
     this.live();
     if (!this.file || !this.file.read) throw SwiftalkError.type(`${this.label} cannot be read`);
     const chunk = yield* settled(this.file.read(size));
@@ -59,7 +80,7 @@ class Handle {
     this.buffer = joined;
     return true;
   }
-  *readLine() {
+  *readLine(): G<string | null> {
     if (this.standardName === 'stdin' && !this.file) {
       const h = hook('readLine');
       if (!h) throw SwiftalkError.type('readLine: the host lends no input (no "readLine" hook)');
@@ -81,7 +102,7 @@ class Handle {
       }
     }
   }
-  *readChunk(size) {
+  *readChunk(size: number): G<SData | null> {
     while (this.buffer.length < size) if (!(yield* this.fill(Math.max(size, 65536)))) break;
     if (this.buffer.length === 0) return null;
     const n = Math.min(size, this.buffer.length);
@@ -89,11 +110,11 @@ class Handle {
     this.buffer = this.buffer.slice(n);
     return new SData(chunk);
   }
-  *wholeData() {
+  *wholeData(): G<SData> {
     this.live();
     if (!this.file || !this.file.seekStart || !(yield* settled(this.file.seekStart()))) throw SwiftalkError.type(`${this.label}.data: not seekable — read it with .lines or .read(size)`);
     this.buffer = new Uint8Array(0);
-    const parts = [];
+    const parts: Uint8Array[] = [];
     while (yield* this.fill()) { parts.push(this.buffer); this.buffer = new Uint8Array(0); }
     const total = parts.reduce((n, p) => n + p.length, 0);
     const out = new Uint8Array(total);
@@ -102,7 +123,7 @@ class Handle {
     return new SData(out);
   }
   // ---- writing ----
-  *writeAll(bytes, call) {
+  *writeAll(bytes: Uint8Array, call: string): G<bigint> {
     this.live();
     if (this.standardName === 'stdout' && !this.file) { current().output(decoder.decode(bytes)); return BigInt(bytes.length); }
     if (this.standardName === 'stderr' && !this.file) { current().errorOutput(decoder.decode(bytes)); return BigInt(bytes.length); }
@@ -110,7 +131,7 @@ class Handle {
     yield* settled(this.file.write(bytes));
     return BigInt(bytes.length);
   }
-  *setMember(name, value) {
+  *setMember(name: string, value: Value): G<boolean> {
     if (name !== 'data') return false;
     this.live();
     const content = this.bytesOf(value, 'data');
@@ -120,7 +141,7 @@ class Handle {
     yield* this.writeAll(content, 'data');
     return true;
   }
-  *member(name, args, called) {
+  *member(name: string, args: Value[], called: boolean): G<Value | undefined> {
     const key = `${name}${called ? '()' : ''}`;
     switch (key) {
       case 'path': return this.path;
@@ -148,7 +169,7 @@ class Handle {
         return yield* this.writeAll(this.bytesOf(args[0], 'append'), 'append');
       }
       case 'print()': {
-        const parts = [];
+        const parts: string[] = [];
         for (const a of args) parts.push(yield* displayString(a));
         yield* this.writeAll(encoder.encode(parts.join(' ') + '\n'), 'print');
         return null;
@@ -162,16 +183,16 @@ class Handle {
       default: return undefined;                               // declined
     }
   }
-  isEqual(other) { return other === this; }
-  hashKey() { return `IO:${this.path ?? this.standardName}:${this.mode}`; }
-  sourceString() { return this.path !== null ? `IO(path: "${this.path}", mode: .${this.mode})` : this.label; }
+  isEqual(other: HostObject): boolean { return other === this; }
+  hashKey(): string { return `IO:${this.path ?? this.standardName}:${this.mode}`; }
+  sourceString(): string { return this.path !== null ? `IO(path: "${this.path}", mode: .${this.mode})` : this.label; }
 }
 
-export function IOModule() {
+export function IOModule(): Module {
   const m = new Module('IO');
-  let typeValue = null;
-  const host = (h) => new HostValue(h, typeValue);
-  typeValue = m.type('IO', function* (args) {
+  let typeValue: Value = null;
+  const host = (h: Handle): HostValue => new HostValue(h, typeValue);
+  typeValue = m.type('IO', function* (args: Value[]) {
     if (!(args.length === 1 || args.length === 2) || typeof args[0] !== 'string') throw SwiftalkError.type('IO(path: String, mode: .read | .write | .append | .readWrite)');
     const path = args[0];
     let mode = 'read';
@@ -182,23 +203,23 @@ export function IOModule() {
     if (!['read', 'write', 'append', 'readWrite'].includes(mode)) throw SwiftalkError.type(`IO(path:mode:) — mode is .read, .write, .append, or .readWrite, not .${mode}`);
     const open = hook('openFile');
     if (!open) throw SwiftalkError.type(`IO(path: "${path}"): this host has no files (no "openFile" hook)`);
-    let file;
+    let file: HostFile;
     try { file = yield* settled(open(path, mode)); }
-    catch (e) { throw e instanceof SwiftalkError ? e : SwiftalkError.type(`IO(path: "${path}", mode: .${mode}): ${e && e.message ? e.message : e}`); }
+    catch (e: any) { throw e instanceof SwiftalkError ? e : SwiftalkError.type(`IO(path: "${path}", mode: .${mode}): ${e && e.message ? e.message : e}`); }
     return host(new Handle(file, path, mode));
-  }).value('IO');
+  }).value('IO')!;
   const stdin = new Handle(null, null, 'read', 'stdin');
   m.static('IO', 'stdin', host(stdin));
   m.static('IO', 'stdout', host(new Handle(null, null, 'write', 'stdout')));
   m.static('IO', 'stderr', host(new Handle(null, null, 'write', 'stderr')));
-  m.function('print', function* (args) {
-    const parts = [];
+  m.function('print', function* (args: Value[]) {
+    const parts: string[] = [];
     for (const a of args) parts.push(yield* displayString(a));
     current().output(parts.join(' ') + '\n');
     return null;
   });
-  m.function('debugPrint', (args) => { current().errorOutput(args.map((a) => sourceString(a, true)).join(' ') + '\n'); return null; });
-  m.function('readLine', function* (args) {
+  m.function('debugPrint', (args: Value[]) => { current().errorOutput(args.map((a) => sourceString(a, true)).join(' ') + '\n'); return null; });
+  m.function('readLine', function* (args: Value[]) {
     if (args.length) throw SwiftalkError.type('readLine() takes no arguments');
     return yield* stdin.readLine();
   });

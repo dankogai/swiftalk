@@ -83,9 +83,9 @@
   <p class="hint"><kbd>⇧</kbd><kbd>⏎</kbd> runs a cell and moves on · <kbd>⌘</kbd>/<kbd>Ctrl</kbd><kbd>⏎</kbd> runs it in place · <kbd>⌥</kbd><kbd>⏎</kbd> runs and inserts a cell below · the notebook autosaves in this browser</p>
   <div id="cells"></div>
 </main>
-<script type="module" src="./src/index.js" id="swiftalk"></script>
+<script type="module" src="./lib/src/index.js" id="swiftalk"></script>
 <script type="module" id="notebook">
-import { Interpreter, withPrelude, needsMoreInput, SwiftalkError } from './src/index.js';
+import { Interpreter, withPrelude, needsMoreInput, SwiftalkError } from './lib/src/index.js';
 
 const STARTER = [
   '// swiftalk, in the browser: the core runtime in JavaScript, with the prelude (IO, Net, Regex, Sequence, Task).\n// Shift+Enter runs a cell. Bindings persist from cell to cell, as in a REPL.\nlet greeting = "Hello, notebook"\nprint(greeting.uppercased())\ngreeting.count',

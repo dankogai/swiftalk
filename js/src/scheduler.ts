@@ -16,18 +16,35 @@
 // `Swiftalk.eval` the one-liner and the fixture corpus.
 import { SwiftalkError } from './errors.js';
 import { TaskObject } from './objects.js';
+import type { FunctionObject } from './objects.js';
+import type { Value } from './value.js';
 import { run } from './eval.js';
+
+/// What a context yields up to the scheduler: a suspension request.
+export type Request =
+  | { suspend: 'spawn'; body: FunctionObject }
+  | { suspend: 'await'; task: TaskObject }
+  | { suspend: 'sleep'; seconds: number }
+  | { suspend: 'offload'; promise: Promise<unknown> }
+  | { suspend: 'yield'; value?: Value };
+/// The answer a context resumes with: a value, or an error to throw into it.
+type Pending = { value: any; throw?: undefined } | { throw: Error; value?: undefined } | undefined;
+type Sleeper = { deadline: number; seq: number; ctx: Context };
 
 /// A generator with the baton, or parked: the main program's, or a task's.
 class Context {
-  constructor(gen, task = null) {
+  gen: Generator<any, any, any>;
+  task: TaskObject | null;
+  pending: Pending;
+  parkedOn: TaskObject | null;
+  constructor(gen: Generator<any, any, any>, task: TaskObject | null = null) {
     this.gen = gen;
     this.task = task;                 // null for the main context
     this.pending = undefined;         // the answer to resume with: {value} or {throw}
     this.parkedOn = null;             // the Task this context awaits, while parked
   }
   /// One step: resumes with the pending answer.
-  resume() {
+  resume(): IteratorResult<any, any> {
     const p = this.pending;
     this.pending = undefined;
     if (p && p.throw !== undefined) return this.gen.throw(p.throw);
@@ -37,7 +54,12 @@ class Context {
 
 const now = () => Date.now() / 1000;
 
-class SchedulerBase {
+abstract class SchedulerBase {
+  ready: Context[];
+  sleepers: Sleeper[];
+  seq: number;
+  offloaded: number;
+  wake: (() => void) | null;
   constructor() {
     this.ready = [];                  // resumable contexts, FIFO
     this.sleepers = [];               // {deadline, seq, ctx}
@@ -46,12 +68,12 @@ class SchedulerBase {
     this.wake = null;                 // resolves when an offload finishes
   }
   /// Publishes a task's outcome and readies its awaiters (Task.swift's complete).
-  complete(task, result, error) {
+  complete(task: TaskObject, result: Value | undefined, error: Error | null): void {
     if (error) { task.state = 'failed'; task.error = error; } else { task.state = 'done'; task.result = result; }
-    for (const ctx of task.awaiters) { ctx.pending = error ? { throw: error } : { value: { value: result } }; ctx.parkedOn = null; this.ready.push(ctx); }
+    for (const ctx of task.awaiters as Context[]) { ctx.pending = error ? { throw: error } : { value: { value: result } }; ctx.parkedOn = null; this.ready.push(ctx); }
     task.awaiters = [];
   }
-  wakeDueSleepers() {
+  wakeDueSleepers(): void {
     const time = now();
     const due = this.sleepers.filter((s) => s.deadline <= time).sort((a, b) => a.deadline - b.deadline || a.seq - b.seq);
     if (!due.length) return;
@@ -60,7 +82,9 @@ class SchedulerBase {
   }
   /// Answers a request from `current`; returns the context to run next
   /// (`current` itself when answered at once, another when it parks).
-  dispatch(current, request) {
+  abstract park(current: Context, seconds: number): Context | null;
+  abstract offload(current: Context, promise: Promise<unknown>): Context | null;
+  dispatch(current: Context, request: Request | undefined): Context | null {
     if (!request || typeof request !== 'object') { current.pending = { value: undefined }; return current; }
     switch (request.suspend) {
       case 'spawn': {
@@ -75,9 +99,9 @@ class SchedulerBase {
       case 'await': {
         const t = request.task;
         if (t.state === 'done') { current.pending = { value: { value: t.result } }; return current; }
-        if (t.state === 'failed') { current.pending = { throw: t.error }; return current; }
+        if (t.state === 'failed') { current.pending = { throw: t.error! }; return current; }
         if (!t.awaiters) t.awaiters = [];
-        t.awaiters.push(current);
+        (t.awaiters as Context[]).push(current);
         current.parkedOn = t;
         return null;
       }
@@ -93,17 +117,17 @@ class SchedulerBase {
 
 /// The real driver: timers and Promises awaited.
 export class AsyncScheduler extends SchedulerBase {
-  park(current, seconds) {
+  park(current: Context, seconds: number): Context | null {
     this.sleepers.push({ deadline: now() + seconds, seq: this.seq++, ctx: current });
     return null;
   }
-  offload(current, promise) {
+  offload(current: Context, promise: Promise<unknown>): Context | null {
     this.offloaded++;
     Promise.resolve(promise).then(
       (v) => { current.pending = { value: { value: v } }; },
-      (e) => {
-        let error = e;
-        if (!(e instanceof SwiftalkError)) { error = SwiftalkError.type(String(e && e.message ? e.message : e)); error.fromHost = true; }
+      (e: any) => {
+        let error: SwiftalkError = e;
+        if (!(e instanceof SwiftalkError)) { error = SwiftalkError.type(String(e && e.message ? e.message : e)); (error as any).fromHost = true; }
         current.pending = { throw: error };
       },
     ).then(() => { this.offloaded--; this.ready.push(current); if (this.wake) { const w = this.wake; this.wake = null; w(); } });
@@ -111,19 +135,19 @@ export class AsyncScheduler extends SchedulerBase {
   }
   /// Runs the main generator to completion, its value the result; tasks
   /// it leaves parked stay parked for the next run (the REPL's world).
-  async run(gen) {
+  async run(gen: Generator<any, any, any>): Promise<any> {
     const main = new Context(gen);
-    let current = main;
+    let current: Context | null = main;
     for (;;) {
       if (current === null) {
         this.wakeDueSleepers();
-        if (this.ready.length) current = this.ready.shift();
+        if (this.ready.length) current = this.ready.shift()!;
         else if (this.sleepers.length) {
           const deadline = Math.min(...this.sleepers.map((s) => s.deadline));
           await new Promise((r) => setTimeout(r, Math.max(0, (deadline - now()) * 1000)));
           continue;
         } else if (this.offloaded > 0) {
-          await new Promise((r) => { this.wake = r; });
+          await new Promise<void>((r) => { this.wake = r; });
           continue;
         } else {
           // nothing ready, nothing sleeping, nobody running: what the parked
@@ -137,56 +161,57 @@ export class AsyncScheduler extends SchedulerBase {
           current = victim;
         }
       }
-      let step;
+      let step: IteratorResult<any, any>;
       try { step = current.resume(); }
       catch (e) {
         if (current === main) throw e;
         if (!(e instanceof SwiftalkError)) throw e;
-        this.complete(current.task, undefined, e);
+        this.complete(current.task!, undefined, e);
         current = null;
         continue;
       }
       if (step.done) {
         if (current === main) return step.value;
-        this.complete(current.task, step.value.result, null);
+        this.complete(current.task!, step.value.result, null);
         current = null;
         continue;
       }
       current = this.dispatch(current, step.value);
     }
   }
-  firstParked() {
+  firstParked(): Context | null {
     for (const t of this.allAwaited()) if (t.awaiters.length) return t.awaiters[0];
     return null;
   }
-  allAwaited() {
+  allAwaited(): TaskObject[] {
     // every task some parked context awaits is reachable from a parked context's parkedOn
-    const seen = new Set();
-    const out = [];
-    const visit = (ctx) => { const t = ctx.parkedOn; if (t && !seen.has(t)) { seen.add(t); out.push(t); for (const a of t.awaiters) visit(a); } };
+    const seen = new Set<TaskObject>();
+    const out: TaskObject[] = [];
+    const visit = (ctx: Context) => { const t = ctx.parkedOn; if (t && !seen.has(t)) { seen.add(t); out.push(t); for (const a of t.awaiters) visit(a); } };
     for (const s of this.sleepers) visit(s.ctx);
     for (const t of out.slice()) for (const a of t.awaiters) visit(a);
     return out;
   }
-  unpark(ctx) {
+  unpark(ctx: Context): void {
     const t = ctx.parkedOn;
-    if (t) { t.awaiters = t.awaiters.filter((a) => a !== ctx); ctx.parkedOn = null; }
+    if (t) { t.awaiters = (t.awaiters as Context[]).filter((a) => a !== ctx); ctx.parkedOn = null; }
   }
 }
 
 /// The synchronous driver: no waiting — a sleep runs the other ready
 /// contexts (as if the time had passed), an offload is refused.
 export class SyncScheduler extends SchedulerBase {
+  clock: number;
   constructor() { super(); this.clock = 0; }         // virtual time: advances only when nothing can run
-  park(current, seconds) {
+  park(current: Context, seconds: number): Context | null {
     this.sleepers.push({ deadline: this.clock + seconds, seq: this.seq++, ctx: current });
     return null;
   }
-  offload(current, promise) {
+  offload(current: Context, promise: Promise<unknown>): Context | null {
     current.pending = { throw: SwiftalkError.type('this operation waits on the host (a Promise) — run it with evalAsync') };
     return current;
   }
-  wakeDueSleepers() {
+  wakeDueSleepers(): void {
     // nothing can run: the clock jumps to the earliest deadline, and the
     // sleepers due then wake in deadline order — the same order real time gives
     if (!this.sleepers.length) return;
@@ -195,34 +220,34 @@ export class SyncScheduler extends SchedulerBase {
     this.sleepers = this.sleepers.filter((s) => s.deadline > this.clock);
     for (const s of due) this.ready.push(s.ctx);
   }
-  run(gen) {
+  run(gen: Generator<any, any, any>): any {
     const main = new Context(gen);
-    let current = main;
+    let current: Context | null = main;
     for (;;) {
       if (current === null) {
         if (!this.ready.length) this.wakeDueSleepers();
-        if (this.ready.length) current = this.ready.shift();
+        if (this.ready.length) current = this.ready.shift()!;
         else {
           if (!main.parkedOn) return undefined;     // unreachable: main finished or is running
           const victim = main;
-          victim.parkedOn.awaiters = victim.parkedOn.awaiters.filter((a) => a !== victim);
+          victim.parkedOn!.awaiters = (victim.parkedOn!.awaiters as Context[]).filter((a) => a !== victim);
           victim.parkedOn = null;
           victim.pending = { throw: SwiftalkError.type("deadlock: 'await' on a Task that can never complete") };
           current = victim;
         }
       }
-      let step;
+      let step: IteratorResult<any, any>;
       try { step = current.resume(); }
       catch (e) {
         if (current === main) throw e;
         if (!(e instanceof SwiftalkError)) throw e;
-        this.complete(current.task, undefined, e);
+        this.complete(current.task!, undefined, e);
         current = null;
         continue;
       }
       if (step.done) {
         if (current === main) return step.value;
-        this.complete(current.task, step.value.result, null);
+        this.complete(current.task!, step.value.result, null);
         current = null;
         continue;
       }

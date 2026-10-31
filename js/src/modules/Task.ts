@@ -6,11 +6,12 @@
 import { SwiftalkError } from '../errors.js';
 import { Module } from '../modules.js';
 import { sleep } from '../eval.js';
+import type { Value } from '../value.js';
 
-export function TaskModule() {
+export function TaskModule(): Module {
   const m = new Module('Task');
-  m.static('Task', 'sleep', Module.builtin(function* (args) {
-    let seconds;
+  m.static('Task', 'sleep', Module.builtin(function* (args: Value[]) {
+    let seconds: number;
     if (args.length === 1 && typeof args[0] === 'number' && args[0] >= 0) seconds = args[0];
     else if (args.length === 1 && typeof args[0] === 'bigint' && args[0] >= 0n) seconds = Number(args[0]);
     else throw SwiftalkError.type('Task.sleep(seconds) — a non-negative Int or Double');
