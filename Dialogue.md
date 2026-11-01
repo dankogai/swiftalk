@@ -4125,7 +4125,9 @@ the history. (Moved out of Design.md in round 65.)
   `Hooks` interface behind a `HookTable` typed by name, with `HostFile`
   beside it; `fromHost` is a declared field of `SwiftalkError`; the
   `Builtins` and `DoubleMath` tables are assembled once, not asserted
-  empty and filled. The last non-null `!`s went too: the scheduler
+  empty and filled. The last non-null `!`s went too *(two stayed, on a
+  `Map.get` after its `set` in modules.ts, and one `as` in value.ts —
+  round 263)*: the scheduler
   reads `current.task` into a local whose null means the main context,
   and the deadlock branch names the awaited task. The tests lost their
   casts as well (the fixture JSON is a typed union, errors are checked
@@ -4286,3 +4288,25 @@ the history. (Moved out of Design.md in round 65.)
   255's 445 KB bundle (444 after 256), the test and fixture counts of
   233, 237 and 241 (each its own day's, and each the sum of what came
   before). Dialogue.md only.
+
+* **2026-11-01, round 263 — Status.md audited** ("Check Status.md for
+  stale lines too"). Round 254's two passes again, nine rounds on:
+  `tools/replay-status.py` against a fresh debug build came back with
+  the same 26 mismatches as round 254, every one the header's known
+  noise (the clock, example.com's charset, the module path, `./m.swt`
+  absent, the piped REPL's continuations, `Shape` carried between
+  blocks, the Dictionary order, the tool's second error after `/(/`);
+  the two blocks rounds 255 and 256 added since were run by hand — `npm
+  test` prints the same 3,025 fixtures and 18/18, `npm run build` the
+  same 444 KB from 24 modules and 457 KB, `npm pack --dry-run` the same
+  54 files, `package.json`'s `main`, `types`, `exports`, `bin` and
+  `files` are as the block names them, and the compiled `lib/repl.js`
+  the round-198 note points to exists. The prose was read against
+  rounds 255–262, which changed no language behaviour. One line was
+  wrong when written: round 256's block claims no `as`, no `any`, no
+  `!` in `js/src`, where a grep finds one `as ArrayLike<number>` widening
+  a `Uint8Array.from` argument in value.ts and two `!` in modules.ts on a
+  `Map.get` the line before had `set` — all three present at round 256's
+  commit; `any` holds. The block carries an italic note with the count,
+  and round 256's log entry, which made the same claim, a pointer.
+  Status.md and Dialogue.md.
