@@ -4161,3 +4161,32 @@ the history. (Moved out of Design.md in round 65.)
   still said `sleep` waits nothing (milestone B's FIXME); it now says
   what the two drivers do. `tsc` clean, 18/18, the bundle 444 KB.
   js/README.md, js/src/index.ts, js/src/interpreter.ts and Dialogue.md.
+
+* **2026-11-01, round 258 — modules/README.md audited** ("Check
+  modules/README.md for stale lines too"). Round 227's reading on the
+  modules index: the import forms against module.md's, the native
+  module rule against `Package.swift`'s eight dynamic-library products
+  and the `lib<Name>.dylib` files beside the CLI, the capital-letter
+  convention; every bullet's API names against its source — IO's
+  `HostValue`, `setMember`, `Swiftalk.sequence` and `Module.static`,
+  Net's `Swiftalk.spawn` and `Swiftalk.offload` with the `Response`
+  prelude, Task's `Swiftalk.sleep`, POSIX's twenty-two functions and
+  thirteen `O_*`/`SEEK_*`/`STD*_FILENO` constants by name, Regex's
+  `.host` values, exported type, String extensions and `Swiftalk.call`
+  of a closure, BigInt's `operate` hook and the vendored BigNum, BigRat's
+  `Swiftalk.lookup` and the `BigIntCarrier`/`BigRatCarrier` protocols
+  in BigNum's `Bridge.swift`; and the two swiftalk-written modules
+  probed against the binary — Complex's arithmetic with a scalar on
+  either side, the five properties as properties and as statics,
+  `polar`, the exponential, logarithmic, trigonometric and hyperbolic
+  statics, `z.i` and `Double.pi.i`, the `(1.0-2.0.i)` form re-entering
+  from its own text, `"3.0"`, `"2.0.i"` and the `.hex` text, the
+  memberwise description and `.canonical`; Rational's normalization and
+  key use, every constructor including the exact `0.1`, the operators
+  with Ints lifting and a Double on either side making a Double, every
+  listed member, the two conversions, the `(3/4)` form in `print`,
+  interpolation, an Array and the echo, the `.hex` form and both
+  readbacks, the memberwise forms, `3.Rational()`, `1.over(3)`, and
+  Int's own errors for a zero denominator and an overflow. Both are
+  under `ComplexModuleTests` and `RationalModuleTests`. Nothing stale.
+  No files changed but this log.
