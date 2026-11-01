@@ -2892,7 +2892,8 @@ and filled in. Two tables moved to named module constants
 (`radixOfLetter`, `prefixOfRadix`, `digitsOfRadix`) — which the bundler,
 one scope for all modules, caught colliding across files; the DoubleMath
 maps are `mathUnary` and kin for the same reason. The corpus stands:
-3,025 fixtures, 18/18, the bundle 444 KB.
+3,025 fixtures, 18/18, the bundle 444 KB *(445 since round 264's two
+helpers, `codePointOf` and `Module.exported`)*.
 
 ## 15. Modules — DECIDED (round 100)
 

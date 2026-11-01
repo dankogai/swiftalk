@@ -4370,3 +4370,29 @@ the history. (Moved out of Design.md in round 65.)
   value.ts's `codePointOf` and `Module.exported(name)`. The fixture
   count, 3,025 as of round 257, still holds. js/README.md and
   Dialogue.md.
+
+* **2026-11-01, round 266 — Design.md audited** ("Check Design.md for
+  stale lines too"). Round 261's pass again, five rounds on, in which
+  the language did not move: `tools/replay-docs.py Design.md` ran the
+  51 statements with the same 15 flags, every one the design's
+  pseudo-code (the `move` closure with `...` for a body, `data`, `string`,
+  `x` and `dbl` undeclared, the three type-annotation comments read as
+  expectations, the `case .Int:` switch §3c's note already disowns); and
+  §16, the one section rounds 262–265 could have aged, was read name by
+  name against the TypeScript sources — the twenty guards and `must`,
+  `sourceString`, `keyOf`, `equals`, `inferLock`, `knownElementLock`,
+  `iteratorOf`, `binary`, `compare`, `identical`, `userOperator`,
+  `hasUserOperator`, `callBuiltin` and `callMember`, the merge sort
+  (`sortedBy` in members.ts), `isGenerator`/`isPromise`/`isRunResult`,
+  the five `Request`s and five `Answer`s, `TaskObject.awaiters:
+  Context[]`, `HostObject`'s six optional members, `HostFile`'s six
+  methods, `Hooks`, `HookTable`, `errorOutput`, `SwiftalkError.fromHost`,
+  `Extension.body`'s type, the lexer's three radix tables and BigInt's
+  renamed one, `mathUnary`, the `Builtins` and `DoubleMath` literals,
+  Regex's `Script=` and snake_case retries and its always-`u` flags,
+  `Interpreter.moduleLoader`, `formatDouble` and `hexFloat`. All there.
+  One figure was behind: round 256's closing "the bundle 444 KB" is 445
+  since round 264's two helpers, and the paragraph says so in an italic
+  note. The milestone paragraphs' `.js` names stay, round 255's
+  sentence covering them; every italic note of rounds 216, 224, 261 and
+  264 still true. Design.md and Dialogue.md.
