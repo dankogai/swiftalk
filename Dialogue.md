@@ -2896,7 +2896,9 @@ the history. (Moved out of Design.md in round 65.)
   entry is true of its round, and the round that changed it has its own
   entry. So the checks were the ones a log can fail. The 219 round
   headers run straight, no gap, no duplicate, dates in order. The one
-  code block has no statements to replay. Every path and link named
+  code block has no statements to replay *(there is none: the log has
+  never carried a fenced block, and what was counted was round 215's
+  inline mention of one — round 262)*. Every path and link named
   still exists or has its rename on record (`eg/` and `doc/` in rounds
   178–179, `FlowControl.md` in 157). Section numbers point where they
   say, with one exception: round 7 made Milestones §13 and never said
@@ -4010,8 +4012,8 @@ the history. (Moved out of Design.md in round 65.)
 
 * **2026-11-01, round 253 — documents/grammar.md audited** (round 246's
   "other documents yet to be checked", the last of them). Round 227's
-  reading on the grammar page, whose blocks are EBNF rather than
-  ```swift and so replay nothing: every lexical rule was run against
+  reading on the grammar page, whose blocks are EBNF rather than ```swift
+  and so replay nothing: every lexical rule was run against
   the binary in a file and at the REPL, and the keyword roster against
   `Parser.swift`. Nesting comments; newlines suppressed inside `[ ]`
   and `( )` and after a trailing `+`, `**`, `=`, `<`, `&&`, `??`,
@@ -4193,9 +4195,10 @@ the history. (Moved out of Design.md in round 65.)
 
 * **2026-11-01, round 259 — examples/README.md audited** ("Check
   examples/README.md for stale lines too"). Round 227's reading on the
-  examples index: every one of the eleven `.swt` files run in script
-  mode with the release binary, all exiting clean with output only from
-  `print`; `quine-print.swt`'s output compared byte for byte with its
+  examples index: every one of the eleven `.swt` files *(twelve —
+  geometry.swt, the module import.swt loads, makes the pair one entry
+  and one test; round 262)* run in script mode with the release
+  binary, all exiting clean with output only from `print`; `quine-print.swt`'s output compared byte for byte with its
   source; `quine.swt` printing nothing in script mode and
   `eval(src)! == src` answering true at the REPL; `import.swt` run from
   `/tmp`, its specs resolving beside the script; `tour.swt` found
@@ -4258,3 +4261,28 @@ the history. (Moved out of Design.md in round 65.)
   that imports `a` and says `export (a)` hands it to a third file, since
   `export (name)` names an imported binding as it names any other; the
   note says so and leaves the other two open. Design.md and Dialogue.md.
+
+* **2026-11-01, round 262 — Dialogue.md audited** ("Check Dialogue.md
+  for stale lines too"). Rounds 217 and 226's two passes again,
+  thirty-odd rounds on. The checks a log can fail: 264 headers for
+  rounds 1–261 (58a and 58b, 224 and 225 as round 226 settled them),
+  no gap, no duplicate, dates in order and agreeing with the commits;
+  every path named since round 226 exists; every forward promise since
+  then kept by a later entry (232's two gaps by 233, 240's hang by 241,
+  255's OPEN step by 256); every cited round's title matches. Then the
+  1,172 lines since round 226 read for a line wrong on the day it was
+  written. Two were, each given a pointer in round 217's italic manner: round 217's "one code
+  block" — the log has never carried a fenced block, and the one
+  counted was round 215's inline mention of ```` ```swift ````, which is
+  what `replay-docs.py` looks for on a line of its own; round 259's
+  "eleven `.swt` files" — twelve, geometry.swt being the module
+  import.swt loads, so the README's entries and the test's cases are
+  eleven and the files twelve, as rounds 219 and 227 counted; and one
+  formatting fault fixed outright, round 253's entry wrapping so that a
+  prose line began with ```` ```swift ```` and would have opened a fence
+  — the words are the same, the break moved. What else reads stale is
+  what it was when written and the entry that changed it is below it:
+  round 251's `BigInt.js` and `BigRat.js` (`.ts` since 255), round
+  255's 445 KB bundle (444 after 256), the test and fixture counts of
+  233, 237 and 241 (each its own day's, and each the sum of what came
+  before). Dialogue.md only.
