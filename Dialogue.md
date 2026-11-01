@@ -4433,3 +4433,19 @@ the history. (Moved out of Design.md in round 65.)
   pointer was behind: round 256's *(two stayed … round 263)*, true when
   round 263 wrote it, read as if they still did; it says round 264 took
   them out. Dialogue.md only.
+
+* **2026-11-02, round 269 — Status.md audited** ("Check Status.md for
+  stale lines too"). Round 267's two passes again, two rounds on, in
+  which only Dialogue.md changed: `tools/replay-status.py` against a
+  fresh debug build came back with round 267's 25 mismatches, none new
+  and every one the header's known noise (the clock, the random draws,
+  example.com's headers and charset, the module path, `./m.swt` absent,
+  the piped REPL's continuations, `Shape` carried between blocks, the
+  tool's second error after `/(/`, the nil `print` and `fh.print` echo);
+  rounds 255 and 256's two blocks run by hand — `npm test` the same
+  3,025 fixtures (2,259 values, 766 throws, 112 files) and 18/18, `npm
+  pack --dry-run` the same 54 files, `npm run build` the 445 KB from 24
+  modules and 458 KB round 267's note already gives. The prose was read
+  against rounds 267 and 268, which changed no behaviour, no path and
+  no figure the page names. No files changed but this log. Dialogue.md
+  only.
