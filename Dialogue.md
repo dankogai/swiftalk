@@ -4345,3 +4345,28 @@ the history. (Moved out of Design.md in round 65.)
   nothing. js/src (value, objects, modules, parser, lexer, scheduler,
   formats, interpreter, and the Regex, BigInt, BigRat and IO modules),
   Status.md, Design.md and Dialogue.md.
+
+* **2026-11-01, round 265 — js/README.md audited** ("Check js/README.md
+  for stale lines too"). Round 257's reading again, eight rounds on and
+  the round after the sources it describes were combed: every script
+  against `package.json` and its effect (`lib/repl.js`, the three
+  `dist/` files), the package fields (`main`, `types`, the two
+  `exports`, `bin`, `files`, `engines`, the two dev dependencies and no
+  other), `tsconfig.json`'s settings and includes, the example block run
+  as a Node script (14n, `print` through `output`, the `readLine` hook
+  answering, the half-second `evalAsync`), `nodeHost` the one export of
+  `lib/src/host/node.js`, the piped REPL, the notebook loading
+  `./lib/src/index.js`, the extractor dropping `.disabled` suites and
+  tests and taking the `throws` expectations, the six pinned
+  divergences in `knownDivergences`, the nine FIXMEs, and every table
+  row against its file — the five `ErrorKind`s, `keywords.ts`,
+  `Module`'s six methods, `Interpreter`'s `register`, `preimport`,
+  `hooks`, `output`, `moduleLoader` and `needsMoreInput`, `preludeNames`
+  with its seven, and every type the README calls worth knowing on
+  `index.ts`'s surface (`Value` and the guards through `export *`). One
+  line was behind: "no `any`, no cast, no `!` in the sources since round
+  256" — that was round 256's claim, and round 264 is when it became
+  true, so the line says both. Two rows grew to round 264's helpers:
+  value.ts's `codePointOf` and `Module.exported(name)`. The fixture
+  count, 3,025 as of round 257, still holds. js/README.md and
+  Dialogue.md.

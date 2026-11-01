@@ -19,8 +19,9 @@ npm run build       # tsc, then dist/swiftalk.js (one file), dist/notebook.html 
 
 **TypeScript and the package** (round 255): the sources are `src/**/*.ts`,
 `test/*.ts`, and `repl.ts`; `tsc` (`tsconfig.json`: ES2022, Node's module
-resolution, plain `strict` — no `any`, no cast, no `!` in the sources since
-round 256) emits `lib/` with
+resolution, plain `strict` — no `any`, no cast, no `!` in the sources:
+round 256's rule, literally so since round 264 cleared the thirty that
+had survived it) emits `lib/` with
 declarations beside every file, and nothing runs from `src/` directly —
 the tests, the REPL, the bundler and the notebook all read `lib/`.
 `package.json` is laid out for `npm publish` (not yet published): `main`
@@ -62,7 +63,7 @@ stderr, files, and `.swt` modules from disk or URLs.
 | `src/lexer.ts` | the lexer, line for line: tokens as tagged objects |
 | `src/keywords.ts` | the keyword list, Parser.swift's, as one Set |
 | `src/parser.ts` | the parser, line for line: the AST as tagged objects, `TypeAnnotation` |
-| `src/value.ts` | the value model — JS primitives where they fit (`BigInt` for Int, `number` for Double, `string`, `boolean`, `null`), classes for the rest; the `Value` union and a type guard per kind (`isArray`, `isString`, `isFunction`…, round 256) with `must` for a lookup that cannot miss; `keyOf` for Dictionary and Set keys (canonical equivalence for Strings), `sourceString` with Swift's `Double` spelling and hex floats, graphemes through `Intl.Segmenter` |
+| `src/value.ts` | the value model — JS primitives where they fit (`BigInt` for Int, `number` for Double, `string`, `boolean`, `null`), classes for the rest; the `Value` union and a type guard per kind (`isArray`, `isString`, `isFunction`…, round 256) with `must` for a lookup that cannot miss and `codePointOf` for a grapheme's first scalar (round 264); `keyOf` for Dictionary and Set keys (canonical equivalence for Strings), `sourceString` with Swift's `Double` spelling and hex floats, graphemes through `Intl.Segmenter` |
 | `src/objects.ts` | `FunctionObject`, enum and struct types and values, `SequenceObject`, `TaskObject`, `HostValue` and `HostObject` (a module's value), `ContextObject`, the control-flow signals; the scheduler's `Request` and `Answer` and the `G<T>` generator type every suspending function returns (round 256) |
 | `src/env.ts` | `Environment` and `Binding` — scopes, type-locked declaration and assignment |
 | `src/types.ts` | type locks, stamps, inference — `checkValue`, `inferLock`, `typeValue` |
@@ -71,7 +72,7 @@ stderr, files, and `.swt` modules from disk or URLs.
 | `src/members.ts` | the member switch (`.map`, `.sorted`, `.count`, …), conversions (`x.T()` is `T(x)`), String formats, `.pretty`, statics |
 | `src/formats.ts` | SION text, JSON, XML and binary property lists, string escapes |
 | `src/scheduler.ts` | the cooperative scheduler, Task.swift without threads: contexts are generators, requests (spawn, await, sleep, offload, yield) pass the baton; `AsyncScheduler` on timers and Promises, `SyncScheduler` on a virtual clock |
-| `src/modules.ts` | the module API (`Module.function/export/type/extend/static/prelude`) and system (`register`, bare-name and `.swt` imports through `Interpreter.moduleLoader`, namespace types) |
+| `src/modules.ts` | the module API (`Module.function/export/type/extend/static/prelude`, `exported(name)` to read one back) and system (`register`, bare-name and `.swt` imports through `Interpreter.moduleLoader`, namespace types) |
 | `src/modules/` | the prelude in JS: `IO.ts` (`print`, `debugPrint`, `readLine`, the `IO` handle type), `Net.ts` (`fetch`, `Response`), `Regex.ts` (the `Regex` type behind `/re/`, String's regex members — over RegExp; see its FIXME), `Sequence.ts` (`Sequence.zip`), `Task.ts` (`Task.sleep`), `BigInt.ts` (the `BigInt` type behind `123n`, over the platform's BigInt), `BigRat.ts` (exact rationals, a pair of them) |
 | `src/prelude.ts` | `withPrelude(interp)`: the seven registered and preimported (five until round 201; `preludeNames` is the list) |
 | `src/index.ts` | the public surface — every name the runtime exports, what the examples above import |
