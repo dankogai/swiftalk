@@ -4449,3 +4449,15 @@ the history. (Moved out of Design.md in round 65.)
   against rounds 267 and 268, which changed no behaviour, no path and
   no figure the page names. No files changed but this log. Dialogue.md
   only.
+
+* **2026-11-02, round 270 — Design.md audited** ("Check Design.md for
+  stale lines too"). Round 266's pass again, four rounds on, in which
+  no source changed — Status.md's note and this log are the whole diff
+  since: `tools/replay-docs.py Design.md` ran the 51 statements with the
+  same 15 flags, every one the design's pseudo-code; §16's names were
+  looked up in the TypeScript sources again (`codePointOf`, `exported`,
+  `advanceWord`, `sortedBy`, the twenty guards, `Request` and `Answer`,
+  `moduleLoader`, `formatDouble`, `hexFloat` and the rest), all there;
+  the italic notes of rounds 216, 225, 261 and 264 still true, and the
+  445 KB note round 266 added still the build's figure. No files changed
+  but this log. Dialogue.md only.
