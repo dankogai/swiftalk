@@ -4214,3 +4214,23 @@ the history. (Moved out of Design.md in round 65.)
   property-list forms and the Data literal, sequence.swt's generator,
   coroutines, deferred `map`/`filter` and the primes under `prefix` and
   a breaking `for`. Nothing stale. No files changed but this log.
+
+* **2026-11-01, round 260 — README.md audited** ("Check README.md for
+  stale lines too"). Round 227's reading on the front page: the tour
+  block is `examples/tour.swt` verbatim (round 259 checked the bytes)
+  and its twenty output comments match the run line for line — the
+  factorial and the BigInt, `2 4`, `1987 nil Nil`, the Complex negation
+  printing `-0.0`, the parses, the three formats, the Fibonacci prefix,
+  the Regex captures, `hypot` and the awaited task, the module's area
+  and scaled Point; the five links and the two example paths exist; the
+  REPL's `:h` lists `:r` for a let or var, a struct or enum, and an
+  extension's members, and `:d` for a binding, and both were exercised
+  — a let redefined to a String, a struct redefined with a new default,
+  a binding undefined; `--no-prelude` leaves `print`, the regex and
+  BigInt literals, `Sequence.zip`, `Task.sleep`, `BigRat` and `fetch`
+  all absent with the messages that name the modules, and `--help`
+  prints the usage the line promises; the JS paragraph's six
+  divergences, `npm run repl`, `npm run build` and the `lib/` compile
+  hold (rounds 255–257); `Core/Package.swift` declares the dynamic
+  library product, and the eight module directories and `modules/BigNum`
+  are as named. Nothing stale. No files changed but this log.
