@@ -4127,7 +4127,8 @@ the history. (Moved out of Design.md in round 65.)
   `Builtins` and `DoubleMath` tables are assembled once, not asserted
   empty and filled. The last non-null `!`s went too *(two stayed, on a
   `Map.get` after its `set` in modules.ts, and one `as` in value.ts —
-  round 263)*: the scheduler
+  round 263; round 264 took them out, and the twenty-seven a wider grep
+  found with them)*: the scheduler
   reads `current.task` into a local whose null means the main context,
   and the deadlock branch names the awaited task. The tests lost their
   casts as well (the fixture JSON is a typed union, errors are checked
@@ -4342,7 +4343,8 @@ the history. (Moved out of Design.md in round 65.)
   a `willSet`, `global`, a slept Task and a failed one through the
   changed paths. Status.md's round-256 block and Design §16's paragraph
   carry the count; the JS README's "no `any`, no cast, no `!`" needed
-  nothing. js/src (value, objects, modules, parser, lexer, scheduler,
+  nothing *(it did — its "since round 256" dated the claim, not the
+  fact; round 265 made the line say both)*. js/src (value, objects, modules, parser, lexer, scheduler,
   formats, interpreter, and the Regex, BigInt, BigRat and IO modules),
   Status.md, Design.md and Dialogue.md.
 
@@ -4410,3 +4412,24 @@ the history. (Moved out of Design.md in round 65.)
   note says it too. The prose was read against rounds 263–266, which
   changed no language behaviour and no path the page names. Status.md
   and Dialogue.md.
+
+* **2026-11-02, round 268 — Dialogue.md audited** ("Check Dialogue.md
+  for stale lines too"). Round 262's two passes again, six rounds on:
+  270 headers for rounds 1–267 (the six lettered ones as before), no
+  gap, no duplicate, the six new dates agreeing with the commits; no
+  fenced block still, so `replay-docs.py` has nothing to run; every
+  path rounds 262–267 name exists and every name they cite is in its
+  file (`advanceWord`, `codePointOf`, `exported`, `sortedBy`,
+  `knownDivergences`, `preludeNames` with its seven, the twenty guards,
+  the five `ErrorKind`s, the nine FIXMEs in `js/src`); every cited
+  round's title matches; round 264's arithmetic rechecked against its
+  own diff — nineteen `!` and eleven `as` taken out of `js/src`, round
+  263's three among them, one `!` left in Net's swiftalk prelude, thirty
+  as the entry says; Design.md's replay the same 51 statements and 15
+  flags round 266 counted. Then the six entries since round 262 read
+  for a line wrong on its day. One was: round 264's "the JS README's
+  line needed nothing" — the line said "since round 256", which round
+  265 found behind and made say both; it carries a pointer now. And one
+  pointer was behind: round 256's *(two stayed … round 263)*, true when
+  round 263 wrote it, read as if they still did; it says round 264 took
+  them out. Dialogue.md only.
