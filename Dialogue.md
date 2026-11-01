@@ -4190,3 +4190,27 @@ the history. (Moved out of Design.md in round 65.)
   Int's own errors for a zero denominator and an overflow. Both are
   under `ComplexModuleTests` and `RationalModuleTests`. Nothing stale.
   No files changed but this log.
+
+* **2026-11-01, round 259 — examples/README.md audited** ("Check
+  examples/README.md for stale lines too"). Round 227's reading on the
+  examples index: every one of the eleven `.swt` files run in script
+  mode with the release binary, all exiting clean with output only from
+  `print`; `quine-print.swt`'s output compared byte for byte with its
+  source; `quine.swt` printing nothing in script mode and
+  `eval(src)! == src` answering true at the REPL; `import.swt` run from
+  `/tmp`, its specs resolving beside the script; `tour.swt` found
+  verbatim as the root README's block; `ExamplesTests` naming all eleven
+  files and its header promising the byte-for-byte and line-for-line
+  checks the page claims; and each entry's words against its file —
+  lambda.swt's Church terms, pairs, PRED and Z, ski.swt's iota,
+  array.swt's hand-written `reverse`, `contains`, `join` and `sorted`,
+  dictionary.swt's `.has`, sparse array and histogram, sion.swt's
+  swift-sion sample, hand-rolled base64, `\u{...}` from bytes and
+  comments with no regex literal and no String subscript (the two
+  slash-bounded matches are a URL in a comment and a String; the
+  bracketed reads are a Dictionary's), geometry.swt's module-private
+  `calls`, exported struct, Functions and value with import.swt's three
+  forms and `extension Geometry`, formats.swt's SION, JSON, both
+  property-list forms and the Data literal, sequence.swt's generator,
+  coroutines, deferred `map`/`filter` and the primes under `prefix` and
+  a breaking `for`. Nothing stale. No files changed but this log.
