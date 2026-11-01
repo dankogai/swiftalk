@@ -460,7 +460,9 @@ counted one `as ArrayLike<number>` in value.ts and two `!` on a
 `Map.get` in modules.ts, and round 264's wider grep found more — three
 `as { v: string }` in the parser, seventeen `!` on `exec`, `codePointAt`,
 `shift`, a Map's `get` and a module's own export, and the `as const`/`as
-null` spellings; all thirty are gone, so the line holds literally)*:
+null` spellings; all thirty are gone, so the line holds literally, and
+the two helpers that replaced them make the bundle below 445 KB and the
+notebook 458 since)*:
 a type guard per kind (`isArray`, `isString`, `isFunction`…) narrows where
 `kindOf` checks used to be followed by casts, the scheduler's requests
 and answers are typed, and the host hooks are a table typed by name:

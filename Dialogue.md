@@ -4396,3 +4396,17 @@ the history. (Moved out of Design.md in round 65.)
   note. The milestone paragraphs' `.js` names stay, round 255's
   sentence covering them; every italic note of rounds 216, 224, 261 and
   264 still true. Design.md and Dialogue.md.
+
+* **2026-11-01, round 267 — Status.md audited** ("Check Status.md for
+  stale lines too"). Round 263's two passes again, four rounds on:
+  `tools/replay-status.py` against a fresh debug build came back with 25
+  mismatches, round 263's 26 less the Dictionary-order block the hash
+  seed happened to agree with this time, every one the header's known
+  noise and none new; and rounds 255 and 256's two blocks run by hand —
+  `npm test` the same 3,025 fixtures and 18/18, `npm pack --dry-run` the
+  same 54 files, and `npm run build` 445 KB from 24 modules and 458 KB,
+  where round 256's transcript prints 444 and 457: round 264's two
+  helpers, as Design §16's note already says, so the block's italic
+  note says it too. The prose was read against rounds 263–266, which
+  changed no language behaviour and no path the page names. Status.md
+  and Dialogue.md.
