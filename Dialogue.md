@@ -4234,3 +4234,27 @@ the history. (Moved out of Design.md in round 65.)
   hold (rounds 255–257); `Core/Package.swift` declares the dynamic
   library product, and the eight module directories and `modules/BigNum`
   are as named. Nothing stale. No files changed but this log.
+
+* **2026-11-01, round 261 — Design.md audited** ("Check Design.md for
+  stale lines too"). Rounds 216 and 224's two passes again, thirty-odd
+  rounds on: `tools/replay-docs.py Design.md` ran the code blocks (the
+  flags are the design's pseudo-code — undeclared `x`, `data`, `dbl`,
+  the type-annotation comments, the provisional `case .Int:` switch
+  the §3c note already disowns), and the 3,287 lines were read whole
+  against rounds 225–260 and against the binary where a line still
+  calls something OPEN or not yet: `await` inside a coroutine body
+  still refused in the Swift runtime, `Task` without `.done` or
+  `.then`, `Int(s, radix:)` still absent, `last` absent, a negative
+  Range bound an error, `1n...3n` refused, a default parameter a
+  syntax error, `let p: G.Point` a syntax error, `Function.String()`
+  the placeholder, `preimport()`'s default still `["IO", "Net"]`,
+  `Interpreter.current` in `Eval.swift`, Net's `Response` six member
+  lines, the public `TypeAnnotation` initializer, and every italic note
+  of the earlier passes still true. Two lines were behind. Round 137's
+  paragraph wrote the Unicode generator's path as `Tools/` where the
+  directory is `tools/`; the path is corrected with a note. Round 100's
+  OPEN list — "live bindings, re-export, and `M.Point` in an
+  annotation" — still carried re-export, which works: a probe module
+  that imports `a` and says `export (a)` hands it to a third file, since
+  `export (name)` names an imported binding as it names any other; the
+  note says so and leaves the other two open. Design.md and Dialogue.md.

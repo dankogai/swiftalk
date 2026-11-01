@@ -965,7 +965,8 @@ standard library keeps its normalizer private and exposes only the
 combining class, so the core carries the UCD's decomposition mappings
 (Unicode 17.0: 2,081 canonical, 3,833 compatibility, the
 Full_Composition_Exclusion ranges) as text parsed on first use — some
-77 KB of generated source, `Tools/gen-unicode-tables.py` regenerating
+77 KB of generated source, `tools/gen-unicode-tables.py` *(lowercase
+`tools/`, the directory's spelling — round 261)* regenerating
 it from the UCD — with Hangul by algorithm and canonical ordering and
 composition per UAX #15. Verified against Foundation in the test
 target, and against the UCD's own `NormalizationTest.txt` (18,000
@@ -2911,7 +2912,9 @@ bar}`. only `export`ed symbols are importable."
   `M.Point(x: 1.0)` constructs. Exports are values copied at import, imported
   names are `let`s; module-private state lives in the closures that
   export it. Live bindings, re-export, and `M.Point` in an annotation
-  are OPEN.
+  are OPEN. *(Round 261's probe: re-export works — `export (a)` names
+  an imported binding as it names any other, and a third file imports
+  it; the other two stay open.)*
 * **`export`** prefixes a declaration (`let`, `var`, `struct`, `enum`,
   a destructuring `let`) or names existing ones, `export (a, b)`.
   `import`/`export` belong at a file's top level. `from` is contextual;
