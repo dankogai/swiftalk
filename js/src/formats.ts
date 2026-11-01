@@ -6,6 +6,7 @@ import { kindOf, typeName, sourceString, compareStrings, formatDouble, base64Enc
   isBool, isInt, isDouble, isString, isByte, isArray, isDictionary, isSet, isData, isDate } from './value.js';
 import { isSION } from './types.js';
 import type { Value } from './value.js';
+import { codePointOf } from './value.js';
 import type { Expr } from './parser.js';
 
 /// Strings bare, everything else the source form — for the data formats' keys.
@@ -112,7 +113,7 @@ function write(value: Value, depth: number | null, out: string[]): void {
 function jsonString(s: string): string {
   let out = '"';
   for (const ch of s) {
-    const cp = ch.codePointAt(0)!;
+    const cp = codePointOf(ch);
     switch (ch) {
       case '"': out += '\\"'; break;
       case '\\': out += '\\\\'; break;
@@ -226,7 +227,7 @@ class JSONParser {
         }
         continue;
       }
-      if (c.codePointAt(0)! < 0x20) throw this.error('control character in a string');
+      if (codePointOf(c) < 0x20) throw this.error('control character in a string');
       out += c;
     }
   }
@@ -585,7 +586,7 @@ export const StringEscapes = {
   escaped(s: string): string {
     let out = '';
     for (const ch of s) {
-      const cp = ch.codePointAt(0)!;
+      const cp = codePointOf(ch);
       if (ch === '\\') out += '\\\\';
       else if (cp < 0x80) out += ch;
       else out += '\\u{' + cp.toString(16) + '}';

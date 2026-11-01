@@ -4310,3 +4310,38 @@ the history. (Moved out of Design.md in round 65.)
   commit; `any` holds. The block carries an italic note with the count,
   and round 256's log entry, which made the same claim, a pointer.
   Status.md and Dialogue.md.
+
+* **2026-11-01, round 264 — the claim holds literally** ("Remove the
+  three so the claim holds literally"). Round 263's three first:
+  value.ts's `Uint8Array.from(bytes as ArrayLike<number>)` — the union
+  argument fit neither of `from`'s overloads, so the cast picked one; it
+  is `new Uint8Array(Array.from(bytes))` now, `Array.from` taking the
+  union in one signature — and modules.ts's two `Map.get(k)!.set(...)`
+  after a `has`/`set`, each now a local the `get` fills or the branch
+  creates. Then a grep for the bare word and the bare mark, wider than
+  round 263's, found what that pattern had missed: three more casts, the
+  parser's `(this.advance() as { v: string }).v` where a `let`, `var`,
+  `willSet` or `didSet` had just been seen — now `advanceWord()`, a
+  method that consumes the identifier through `isIdent` and throws a
+  syntax error it can never reach; seventeen more `!` — a Double's
+  `exec` digits and every `codePointAt(0)` (a `codePointOf` guard in
+  value.ts, used by formats.ts too), a byte read under its own bounds
+  check, the lexer's hex-float sign, the scheduler's `ready.shift()`
+  twice and a failed Task's `error`, `Builtins.types.get('Context')`,
+  and the four modules' `.value('Regex')!` on their own fresh export
+  (a `Module.exported(name)` through `must`); and seven spellings that
+  are the word but not a cast, six `readonly kind = '…' as const` in
+  objects.ts and `nil: null as null` in value.ts, the fields typed
+  `readonly kind: 'function' = 'function'` (the same literal type, the
+  union unchanged) and `nil: null` inferring `null` under `strict`.
+  Thirty in all; `as` and a trailing `!` are now in `js/src` only
+  inside error messages, comments and Net's swiftalk prelude. `tsc`
+  clean; 3,025 fixtures, 18/18; the bundle 445 KB from 24 modules (a
+  kilobyte for the two helpers); the REPL runs a Double's layout, a
+  quoted String, JSON and a plist, base64, a hex float, a `static let`,
+  a `willSet`, `global`, a slept Task and a failed one through the
+  changed paths. Status.md's round-256 block and Design §16's paragraph
+  carry the count; the JS README's "no `any`, no cast, no `!`" needed
+  nothing. js/src (value, objects, modules, parser, lexer, scheduler,
+  formats, interpreter, and the Regex, BigInt, BigRat and IO modules),
+  Status.md, Design.md and Dialogue.md.

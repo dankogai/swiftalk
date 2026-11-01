@@ -145,7 +145,7 @@ export function RegexModule(): Module {
         return host(new RegexValue(pattern, flags));
       default: throw SwiftalkError.type('Regex(pattern) — or write the literal /pattern/');
     }
-  }).value('Regex')!;
+  }).exported('Regex');
   const nfc = (s: string): string => s.normalize('NFC');
   m.extend('String', 'contains', (receiver: Value, args: Value[], called: boolean) => {
     if (!called || args.length !== 1 || !isString(receiver)) return undefined;

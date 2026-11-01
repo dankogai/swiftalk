@@ -225,6 +225,6 @@ export function BigRatModule(): Module {
       }
       default: throw SwiftalkError.type('BigRat(x) or BigRat(numerator, denominator)');
     }
-  }).value('BigRat')!;
+  }).exported('BigRat');
   return m;
 }

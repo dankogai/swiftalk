@@ -86,7 +86,7 @@ export class Interpreter {
     this.installBuiltins();
     this.installEval(this.environment);
     // Round 237: `global` is the program's top level as a Context — in the builtins scope, so a module sees it too
-    this.builtins.declare('global', new Binding(false, ann('Context'), new HostValue(new ContextObject(this.environment, true), Builtins.types.get('Context')!)));
+    this.builtins.declare('global', new Binding(false, ann('Context'), new HostValue(new ContextObject(this.environment, true), must(Builtins.types.get('Context'), 'the Context type'))));
   }
   installBuiltins(): void {
     const fn = ann('Function');

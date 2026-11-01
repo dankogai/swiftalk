@@ -2854,7 +2854,10 @@ before the tests. Not published. The corpus stands: 3,025 fixtures,
 **Guards, not casts — DECIDED (round 256)** ("Turn on noImplicitAny
 and replace the casts with guards"). `tsconfig` is plain `strict` now —
 `noImplicitAny` and `useUnknownInCatchVariables` on — and the sources
-hold no `as` cast, no `any`, no non-null `!`. **The guards**: `value.ts`
+hold no `as` cast, no `any`, no non-null `!` *(four `as` casts and nineteen `!`
+had survived; round 264 took them out, and the `as const` and `as null`
+spellings with them, so the word `as` is no longer in the sources at
+all)*. **The guards**: `value.ts`
 exports one per kind — `isNil`, `isBool`, `isInt`, `isDouble`,
 `isString`, `isArray`, `isDictionary`, `isSet`, `isByte`, `isData`,
 `isDate`, `isRange`, `isTuple`, `isFunction`, `isSequence`, `isTask`,

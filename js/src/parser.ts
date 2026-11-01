@@ -161,6 +161,8 @@ export class Parser {
   get peek(): Token | undefined { return this.tokens[this.pos]; }
   peekAt(offset: number): Token | undefined { return this.tokens[this.pos + offset]; }
   advance(): Token | undefined { return this.pos < this.tokens.length ? this.tokens[this.pos++] : undefined; }
+  /// The identifier under the cursor, consumed — for the callers that have already looked at it (round 264).
+  advanceWord(): string { const k = this.advance(); if (!isIdent(k)) throw SwiftalkError.syntax('expected a word'); return k.v; }
   expect(p: string): void {
     const k = this.advance();
     if (!isPunct(k, p)) throw SwiftalkError.syntax(`expected '${p}'`);
@@ -206,7 +208,7 @@ export class Parser {
     if (isIdent(p, 'static') && this.isStaticDeclaration()) {
       // `static let T.s = v`, `static var T.g { ... }` (round 228): a static added to T without an extension body.
       this.pos++;
-      const keyword = (this.advance() as { v: string }).v;
+      const keyword = this.advanceWord();
       const typeTok = this.advance();
       if (!isIdent(typeTok) || !plainName(typeTok.v)) throw SwiftalkError.syntax(`expected a name after 'static ${keyword}'`);
       if (!isPunct(this.peek, '.')) throw SwiftalkError.syntax(`'static' belongs in a type body — or names the type: static ${keyword} Type.${typeTok.v} ...`);
@@ -690,7 +692,7 @@ export class Parser {
     let will: FunctionExpr | null = null, did: FunctionExpr | null = null;
     this.skipSeparators();
     while (isIdent(this.peek, 'willSet') || isIdent(this.peek, 'didSet')) {
-      const word = (this.advance() as { v: string }).v;
+      const word = this.advanceWord();
       let param = word === 'willSet' ? 'newValue' : 'oldValue';
       if (isPunct(this.peek, '(')) {
         this.pos++;
@@ -903,7 +905,7 @@ export class Parser {
     return parse();
   }
   parseDeclaration(): Stmt {
-    const keyword = (this.advance() as { v: string }).v;
+    const keyword = this.advanceWord();
     const mutable = keyword === 'var';
     if (isPunct(this.peek, '(')) {
       const pattern = this.parseBindPattern();

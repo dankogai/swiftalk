@@ -455,11 +455,13 @@ type error: 1n: a BigInt literal needs the BigInt module — import from "BigInt
 ```
 
 **The runtime's types hold all the way down** (round 256) — `strict`
-with `noImplicitAny`, no `as`, no `any`, no `!` in `js/src` *(nearly:
-round 263 counts one `as ArrayLike<number>` widening a constructor's
-argument in value.ts and two `!` on a `Map.get` right after its `set` in
-modules.ts; `any` is nowhere)*: a type
-guard per kind (`isArray`, `isString`, `isFunction`…) narrows where
+with `noImplicitAny`, no `as`, no `any`, no `!` in `js/src` *(round 263
+counted one `as ArrayLike<number>` in value.ts and two `!` on a
+`Map.get` in modules.ts, and round 264's wider grep found more — three
+`as { v: string }` in the parser, seventeen `!` on `exec`, `codePointAt`,
+`shift`, a Map's `get` and a module's own export, and the `as const`/`as
+null` spellings; all thirty are gone, so the line holds literally)*:
+a type guard per kind (`isArray`, `isString`, `isFunction`…) narrows where
 `kindOf` checks used to be followed by casts, the scheduler's requests
 and answers are typed, and the host hooks are a table typed by name:
 

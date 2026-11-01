@@ -199,7 +199,7 @@ export function IOModule(): Module {
     catch (e) { throw e instanceof SwiftalkError ? e : SwiftalkError.type(`IO(path: "${path}", mode: .${mode}): ${e instanceof Error ? e.message : String(e)}`); }
     if (typeof file !== 'object' || file === null) throw SwiftalkError.type(`IO(path: "${path}"): the host's openFile answered no file object`);
     return host(new Handle(file, path, mode));
-  }).value('IO')!;
+  }).exported('IO');
   const stdin = new Handle(null, null, 'read', 'stdin');
   m.static('IO', 'stdin', host(stdin));
   m.static('IO', 'stdout', host(new Handle(null, null, 'write', 'stdout')));

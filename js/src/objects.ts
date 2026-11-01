@@ -46,7 +46,7 @@ export type Role =
 export type Builtin = (args: Value[]) => Value | G<Value>;
 
 export class FunctionObject {
-  readonly kind = 'function' as const;
+  readonly kind: 'function' = 'function';
   id: number;
   parameters: string[];
   body: Stmt[];
@@ -134,7 +134,7 @@ export class EnumType {
   }
 }
 export class EnumCaseValue {
-  readonly kind = 'enumCase' as const;
+  readonly kind: 'enumCase' = 'enumCase';
   type: EnumType;
   caseName: string;
   associated: Value[];
@@ -180,7 +180,7 @@ export class StructType {
   }
 }
 export class StructValue {
-  readonly kind = 'structValue' as const;
+  readonly kind: 'structValue' = 'structValue';
   type: StructType;
   values: Map<string, Value>;
   constructor(type: StructType, values: Map<string, Value>) {
@@ -208,14 +208,14 @@ export class SequenceObject {
   ///    {kind:'filtered', base, fn} {kind:'enumerated', base} {kind:'counting', from}
   ///    {kind:'takenWhile', base, fn} {kind:'droppedWhile', base, fn} {kind:'dropped', base, n}
   ///    {kind:'native', make, element}
-  readonly kind = 'sequence' as const;
+  readonly kind: 'sequence' = 'sequence';
   id: number;
   k: SequenceKind;
   constructor(k: SequenceKind) { this.id = nextId++; this.k = k; }
 }
 
 export class TaskObject {
-  readonly kind = 'task' as const;
+  readonly kind: 'task' = 'task';
   id: number;
   body: FunctionObject | null;
   state: 'ready' | 'running' | 'done' | 'failed';
@@ -250,7 +250,7 @@ export interface HostObject {
   readonly bigRat?: [bigint, bigint];
 }
 export class HostValue {
-  readonly kind = 'host' as const;
+  readonly kind: 'host' = 'host';
   object: HostObject;
   type: Value;
   constructor(object: HostObject, type: Value) { this.object = object; this.type = type; }

@@ -93,7 +93,7 @@ abstract class SchedulerBase {
       case 'await': {
         const t = request.task;
         if (t.state === 'done') { current.pending = { value: { value: t.result ?? null } }; return current; }
-        if (t.state === 'failed') { current.pending = { throw: t.error! }; return current; }
+        if (t.state === 'failed') { current.pending = { throw: t.error ?? new Error('a failed Task without an error') }; return current; }
         t.awaiters.push(current);
         current.parkedOn = t;
         return null;
@@ -135,7 +135,8 @@ export class AsyncScheduler extends SchedulerBase {
     for (;;) {
       if (current === null) {
         this.wakeDueSleepers();
-        if (this.ready.length) current = this.ready.shift()!;
+        const seated = this.ready.shift();
+        if (seated !== undefined) current = seated;
         else if (this.sleepers.length) {
           const deadline = Math.min(...this.sleepers.map((s) => s.deadline));
           await new Promise((r) => setTimeout(r, Math.max(0, (deadline - now()) * 1000)));
@@ -221,7 +222,8 @@ export class SyncScheduler extends SchedulerBase {
     for (;;) {
       if (current === null) {
         if (!this.ready.length) this.wakeDueSleepers();
-        if (this.ready.length) current = this.ready.shift()!;
+        const seated = this.ready.shift();
+        if (seated !== undefined) current = seated;
         else {
           const awaited = main.parkedOn;
           if (!awaited) throw new Error('the scheduler has nothing to run and the program is not waiting');     // unreachable: main finished or is running

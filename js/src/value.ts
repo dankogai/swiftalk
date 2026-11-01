@@ -63,7 +63,7 @@ export class SSet {
   clone(lock: Lock = this.lock): SSet { const s = new SSet([], lock); for (const [key, v] of this.map) s.map.set(key, v); return s; }
 }
 export class Byte { v: number; constructor(v: number) { this.v = v; } }
-export class SData { bytes: Uint8Array; constructor(bytes: Uint8Array | ArrayLike<number> | Iterable<number>) { this.bytes = bytes instanceof Uint8Array ? bytes : Uint8Array.from(bytes as ArrayLike<number>); } }
+export class SData { bytes: Uint8Array; constructor(bytes: Uint8Array | ArrayLike<number> | Iterable<number>) { this.bytes = bytes instanceof Uint8Array ? bytes : new Uint8Array(Array.from(bytes)); } }
 export class SDate { epoch: number; constructor(epoch: number) { this.epoch = epoch; } }
 /// `from...to`, `from..<to`; `to` is null for the unbounded `from...` (round 88).
 export class SRange { from: bigint; to: bigint | null; closed: boolean; constructor(from: bigint, to: bigint | null, closed: boolean) { this.from = from; this.to = to; this.closed = closed; } }
@@ -76,7 +76,7 @@ export class TupleValue {
 }
 
 export const V = {
-  nil: null as null,
+  nil: null,
   bool: (b: boolean): boolean => b,
   int: (i: number | bigint | string): bigint => BigInt(i),
   double: (d: number): number => d,
@@ -223,7 +223,7 @@ export function formatDouble(d: number): string {
   // shortest round-trip digits, Swift's layout: positional for exponents
   // -4 ..< 16, scientific with a two-digit signed exponent outside
   const exp = d.toExponential();              // "1.2345e+17" — as many digits as needed
-  const m = /^(-?)(\d)(?:\.(\d+))?e([+-]\d+)$/.exec(exp)!;
+  const m = must(/^(-?)(\d)(?:\.(\d+))?e([+-]\d+)$/.exec(exp), `the digits of ${exp}`);
   const sign = m[1], lead = m[2], frac = m[3] ?? '', e = parseInt(m[4], 10);
   if (e >= 16 || e < -4) {
     const mantissa = frac.length ? `${lead}.${frac}` : lead;
@@ -257,7 +257,7 @@ export function hexFloat(d: number, signed = false): string {
 export function quote(s: string): string {
   let out = '"';
   for (const ch of s) {
-    const cp = ch.codePointAt(0)!;
+    const cp = codePointOf(ch);
     switch (ch) {
       case '"': out += '\\"'; break;
       case '\\': out += '\\\\'; break;
@@ -275,7 +275,7 @@ export function base64Encode(bytes: Uint8Array | number[]): string {
   let out = '';
   for (let i = 0; i < bytes.length; i += 3) {
     const a = bytes[i], b = bytes[i + 1], c = bytes[i + 2];
-    const n = (a! << 16) | ((b ?? 0) << 8) | (c ?? 0);
+    const n = (a << 16) | ((b ?? 0) << 8) | (c ?? 0);
     out += B64[(n >> 18) & 63] + B64[(n >> 12) & 63] + (b === undefined ? '=' : B64[(n >> 6) & 63]) + (c === undefined ? '=' : B64[n & 63]);
   }
   return out;
@@ -361,7 +361,7 @@ export function compareStrings(a: string, b: string): number {
     const x = ai.next(), y = bi.next();
     if (x.done) return y.done ? 0 : -1;
     if (y.done) return 1;
-    const cx = x.value.codePointAt(0)!, cy = y.value.codePointAt(0)!;
+    const cx = codePointOf(x.value), cy = codePointOf(y.value);
     if (cx !== cy) return cx < cy ? -1 : 1;
   }
 }
@@ -371,6 +371,8 @@ export function must<T>(x: T | undefined | null, what: string): T {
   if (x === undefined || x === null) throw new Error(`${what} is missing`);
   return x;
 }
+/// The first code point of a non-empty String — a grapheme out of `for (const ch of s)`, say (round 264).
+export function codePointOf(ch: string): number { return must(ch.codePointAt(0), `a code point in ${JSON.stringify(ch)}`); }
 
 /// Int64 arithmetic: the result if it fits, else null — overflow is the
 /// caller's trap (§3b).

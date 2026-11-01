@@ -541,7 +541,8 @@ export class Lexer {
     text += 'p';
     this.pos++;
     let sign = '';
-    if (this.peek() === '+' || this.peek() === '-') { sign = this.peek()!; text += sign; this.pos++; }
+    const signChar = this.peek();
+    if (signChar === '+' || signChar === '-') { sign = signChar; text += sign; this.pos++; }
     let expDigits = '';
     while (this.peek() !== undefined && (isDigit(this.peek()) || this.peek() === '_')) { if (this.peek() !== '_') { expDigits += this.peek(); } this.pos++; }
     if (!expDigits.length) throw SwiftalkError.syntax(`invalid hex-float literal '${text}'`);

@@ -13,7 +13,7 @@
 // Interpreter in a scope of its own under the builtins.
 import { SwiftalkError } from './errors.js';
 import { parse } from './parser.js';
-import { kindOf } from './value.js';
+import { kindOf, must } from './value.js';
 import { FunctionObject, StructType, ControlFlow, ReturnSignal } from './objects.js';
 import { Environment, Binding } from './env.js';
 import { Builtins } from './builtins.js';
@@ -56,6 +56,8 @@ export class Module {
   extend(type: string, member: string, body: Extension['body']): this { this.extensions.push({ type, member, body }); return this; }
   static(type: string, name: string, value: Value): this { this.statics.push({ type, name, value }); return this; }
   value(named: string): Value | undefined { const i = this.names.indexOf(named); return i < 0 ? undefined : this.values[i]; }
+  /// An export the module has just made: `value` guarded, the throw a bug's (round 264).
+  exported(named: string): Value { return must(this.value(named), `the ${this.name} module's export '${named}'`); }
   static builtin(body: Builtin): FunctionObject { return new FunctionObject([], [], Builtins.emptyEnvironment, body); }
 }
 
@@ -95,12 +97,14 @@ export class ModuleSystem {
     }
     this.native.set(module.name, new Loaded(module.names.slice(), module.values.slice()));
     for (const e of module.extensions) {
-      if (!this.nativeExtensions.has(e.type)) this.nativeExtensions.set(e.type, new Map());
-      this.nativeExtensions.get(e.type)!.set(e.member, e.body);
+      let members = this.nativeExtensions.get(e.type);
+      if (members === undefined) { members = new Map(); this.nativeExtensions.set(e.type, members); }
+      members.set(e.member, e.body);
     }
     for (const s of module.statics) {
-      if (!this.nativeStatics.has(s.type)) this.nativeStatics.set(s.type, new Map());
-      this.nativeStatics.get(s.type)!.set(s.name, s.value);
+      let statics = this.nativeStatics.get(s.type);
+      if (statics === undefined) { statics = new Map(); this.nativeStatics.set(s.type, statics); }
+      statics.set(s.name, s.value);
     }
   }
   namespaceType(module: Loaded, name: string): StructType {

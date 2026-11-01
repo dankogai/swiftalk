@@ -192,6 +192,6 @@ export function BigIntModule(): Module {
       }
       default: throw SwiftalkError.type('BigInt(x) or BigInt(digits, radix)');
     }
-  }).value('BigInt')!;
+  }).exported('BigInt');
   return m;
 }
