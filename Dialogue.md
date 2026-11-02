@@ -4496,3 +4496,17 @@ the history. (Moved out of Design.md in round 65.)
   round that says it, the diffs being this log and Status.md's note.
   Nothing wrong on its day. No files changed but this log. Dialogue.md
   only.
+
+* **2026-11-02, round 273 — Status.md audited** ("Check Status.md for
+  stale lines too"). Round 269's two passes again, four rounds on, in
+  which only this log changed: `tools/replay-status.py` against a fresh
+  debug build came back with 26 mismatches — round 269's 25 and the
+  Dictionary-order block (`for k, v in d where v > 1`) the hash seed
+  sided with in rounds 267 and 269 and against this time, as in round
+  263; every one the header's known noise, none new. Rounds 255 and
+  256's two blocks run by hand — `npm test` the same 3,025 fixtures and
+  18/18, `npm pack --dry-run` the same 54 files, `npm run build` the
+  445 KB and 458 KB round 267's note gives. The prose was read against
+  rounds 269–272, four audits that changed no behaviour, no path and no
+  figure the page names. No files changed but this log. Dialogue.md
+  only.
