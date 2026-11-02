@@ -4519,3 +4519,14 @@ the history. (Moved out of Design.md in round 65.)
   twenty; the italic notes of rounds 216, 225, 261, 264 and 266 still
   true, the bundle still the 445 KB round 266's note gives. No files
   changed but this log. Dialogue.md only.
+
+* **2026-11-02, round 275 — js/README.md audited** ("Check js/README.md
+  for stale lines too"). Round 271's reading again, four rounds on, in
+  which nothing under `js/` changed and only this log did: the scripts
+  and fields of `package.json`, `tsconfig.json`'s settings and three
+  includes, the nine FIXMEs, the six pinned divergences, `preludeNames`
+  with its seven, `nodeHost` the host's one export, the notebook loading
+  `./lib/src/index.js`, every table row's names in its file, the example
+  block run as a Node script (14n and the half-second wait), the piped
+  REPL, `npm test`'s 3,025 fixtures and 18/18, `npm run build`'s three
+  `dist/` files. No files changed but this log. Dialogue.md only.
