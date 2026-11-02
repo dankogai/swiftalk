@@ -4481,3 +4481,18 @@ the history. (Moved out of Design.md in round 65.)
   field a module assigns (`m.prelude = …` in Net.ts) — a name of the
   API all the same, so the row stands. No files changed but this log.
   Dialogue.md only.
+
+* **2026-11-02, round 272 — Dialogue.md audited** ("Check Dialogue.md
+  for stale lines too"). Round 268's passes again, four rounds on: 274
+  headers for rounds 1–271 (the six lettered ones as before), no gap,
+  no duplicate, the four new dates agreeing with the commits; still no
+  fenced block; every path and name rounds 268–271 cite exists where
+  they say (`m.prelude` in Net.ts, `nodeHost` the host's one export, the
+  names §16 lists); every cited round's title matches, round 268's two
+  pointers in place; and the four entries' figures rechecked — the
+  twenty guards, the five `ErrorKind`s, the nine FIXMEs, `tsconfig`'s
+  three includes, `Interpreter`'s eight members, Design.md's 51
+  statements and 15 flags, and "no source changed since" true of each
+  round that says it, the diffs being this log and Status.md's note.
+  Nothing wrong on its day. No files changed but this log. Dialogue.md
+  only.
