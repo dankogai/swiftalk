@@ -4461,3 +4461,23 @@ the history. (Moved out of Design.md in round 65.)
   the italic notes of rounds 216, 225, 261 and 264 still true, and the
   445 KB note round 266 added still the build's figure. No files changed
   but this log. Dialogue.md only.
+
+* **2026-11-02, round 271 — js/README.md audited** ("Check js/README.md
+  for stale lines too"). Round 265's reading again, six rounds on, in
+  which nothing under `js/` changed but the README itself: every script
+  against `package.json`, the package fields (`main`, `types`, the two
+  `exports`, `bin`, `files`, `engines`, the two dev dependencies and no
+  other), `tsconfig.json`'s settings and its three includes, the example
+  block run as a Node script (14n, `print` through `output`, the
+  `readLine` hook answering, the half-second `evalAsync` waiting), the
+  piped REPL, `nodeHost` the one export of `lib/src/host/node.js`, the
+  notebook loading `./lib/src/index.js`, the three `dist/` files, the
+  six pinned divergences, the nine FIXMEs in `js/src`, `preludeNames`
+  with its seven, `Interpreter`'s eight named members, `Module`'s
+  `export`, `function`, `type`, `extend`, `static`, `value` and
+  `exported`, and the 3,025 fixtures of round 257 still today's count.
+  Round 268's one observation looked at: the module-API row lists
+  `prelude` beside the chainable methods, and in the sources it is a
+  field a module assigns (`m.prelude = …` in Net.ts) — a name of the
+  API all the same, so the row stands. No files changed but this log.
+  Dialogue.md only.
