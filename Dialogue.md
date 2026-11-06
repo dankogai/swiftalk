@@ -4577,9 +4577,28 @@ the history. (Moved out of Design.md in round 65.)
   `nil` back. Completion's Int list has it. Round 276's own test that an
   Int had no `flip` now says it of a String, and Status.md's round-276
   block says why its last line changed. Three tests (600 now); 3,071
-  fixtures (2,286 values, 785 throws, 114 files), 18/18. Status.md's
+  fixtures (2,286 values, 785 throws, 114 files), 18/18 *(and the bundle
+  448 KB from 445, the notebook 461 from 458 — noted in Status.md and
+  Design §16 that round, unsaid here until round 279)*. Status.md's
   block (replayed), Design.md's paragraph, Int.md's and BigInt.md's rows,
   the fixture notes in Status.md and Design §16, js/README's line. Core
   (Eval, Completion), Tests (IntFlipTests new, BoolFlipTests one line),
   js/src/eval.ts, documents/Int.md, documents/BigInt.md, Status.md,
   Design.md, js/README.md and Dialogue.md.
+
+* **2026-11-07, round 279 — Dialogue.md audited** ("Check Dialogue.md
+  for stale lines too"). Round 277's passes again, two rounds on: 281
+  headers for rounds 1–278 (the six lettered ones as before), no gap,
+  no duplicate, the two new dates agreeing with the commits; still no
+  fenced block; every cited round's title matches; and round 278's own
+  figures rechecked against its commit — the eleven files it names are
+  the eleven the commit touched, the three tests and 600, the 3,071
+  fixtures (2,286 values, 785 throws, 114 files) the extractor still
+  counts, `flip` in Completion's Int list, round 276's test saying
+  String now, the two `userOperator` calls in each runtime, the "since
+  round 278" notes in Status.md and Design.md, js/README's line. Round
+  276's "first mutating member on a scalar" still true, round 278's
+  being the same member. Nothing wrong on its day; one thing unsaid —
+  round 278's entry carries the fixture count and not the bundle's
+  growth to 448 KB, which its commit message and its notes do; a
+  pointer says so. Dialogue.md only.
