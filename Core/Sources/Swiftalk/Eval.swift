@@ -1992,6 +1992,16 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
                 try assign(target, .array(a), in: env)
                 return .nil
             }
+            // Bool mutator (round 276): b.flip() is b = !b — Swift's
+            // toggle() under the name asked for; nil, as append is.
+            if name == "flip", case .bool(let b) = receiver {
+                guard evaluated.isEmpty else { throw SwiftalkError.type(".flip() takes no arguments") }
+                guard let target = asLValue(receiverExpr) else {
+                    throw SwiftalkError.type("'.flip' mutates — call it on a var Bool")
+                }
+                try assign(target, .bool(!b), in: env)
+                return .nil
+            }
             // User methods (rounds 48–50): self is always a var; whether
             // the call MAY mutate is the properties' var/let business
             // (round 50 — no `mutating` keyword). If self actually

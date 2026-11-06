@@ -19,6 +19,7 @@ o + 1 }` (round 80) — and inside, `o` is itself.
 | `b &&= c`, `b ||= c` | `b = b && c` / `b = b || c`, short-circuit: `c` is evaluated only when `b` does not decide (round 104) |
 | `b ^^ c`, `b ^^= c` | logical xor (round 106): true when exactly one is; both sides evaluated; sits between `&&` and `||` |
 | `b.not()`, `b.and(c)`, `b.or(c)`, `b.xor(c)` | `!`, `&&`, `||`, `^^` as methods (round 106) — eager: a method evaluates its argument, `&&`/`||` do not always. An Int's bitwise set is `bitNot`/`bitAnd`/`bitOr`/`bitXor` (round 107) |
+| `b.flip()` | `b = !b` in place (round 276) — Swift's `toggle()` under a shorter name. The receiver is a `var` Bool through any assignment path (`a[1].flip()`, `d["on"].flip()`, `s.on.flip()`); a `let` or a literal is a type error, a non-Bool an unknown member, an argument an error; the call is `nil`, as `append` is |
 | `c ? a : b` | ternary (the `?` must be spaced; unspaced `?` is postfix propagate) |
 | `a && b` | logical and — short-circuit, Bool operands only (round 69) |
 | `a \|\| b` | logical or — short-circuit, Bool operands only |

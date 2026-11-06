@@ -114,7 +114,7 @@ Since D the port has kept pace with the Swift core round by round:
 `BigInt` (round 201, the `123n` literal over the platform's BigInt) and
 `BigRat` (round 203) joined the prelude as JS modules, and the fixtures
 are extracted afresh on every `npm test`, so the corpus is whatever the
-Swift tests hold — 3,025 fixtures as of round 257, the same six
+Swift tests hold — 3,042 fixtures as of round 276, the same six
 divergences and no others.
 
 FIXMEs are marked in the source where the port knowingly falls short.

@@ -4530,3 +4530,18 @@ the history. (Moved out of Design.md in round 65.)
   block run as a Node script (14n and the half-second wait), the piped
   REPL, `npm test`'s 3,025 fixtures and 18/18, `npm run build`'s three
   `dist/` files. No files changed but this log. Dialogue.md only.
+
+* **2026-11-07, round 276 — `b.flip()`** ("Add `.flip()` to `Bool` that
+  does `b = !b`"). Swift's `toggle()` under the name asked for, and the
+  first mutating member on a scalar. Built beside `append` in both
+  runtimes: the receiver goes through `asLValue` and the write through
+  `assign`, so `a[1].flip()`, `d["on"].flip()` and `s.on.flip()` work,
+  a `let` is the assignment's own error, a literal is "'.flip' mutates —
+  call it on a var Bool", a non-Bool is an unknown member, an argument an
+  error; the call is `nil`, as `append` and `merge` are. `Completion`'s
+  Bool list has it. A suite of two tests (597 now), which the extractor
+  turns into seventeen fixtures: 3,042, 18/18, the bundle still 445 KB.
+  Status.md's block (replayed), Design.md's paragraph, Bool.md's row;
+  the fixture count's notes in Status.md's two JS blocks and Design
+  §16, js/README's line. Core (Eval, Completion), Tests, js/src/eval.ts,
+  documents/Bool.md, Status.md, Design.md, js/README.md and Dialogue.md.

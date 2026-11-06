@@ -921,6 +921,14 @@ function* evaluateMethodCall(expr: MethodExpr, env: Environment): G<Value> {
       yield* assign(target, new SArray([...array.items, ...evaluated.map((a) => a.value)], array.lock), env);
       return null;
     }
+    // Bool mutator (round 276): b.flip() is b = !b; nil, as append is.
+    if (name === 'flip' && isBool(receiver)) {
+      if (evaluated.length) throw SwiftalkError.type('.flip() takes no arguments');
+      const target = asLValue(receiverExpr);
+      if (!target) throw SwiftalkError.type("'.flip' mutates — call it on a var Bool");
+      yield* assign(target, !receiver, env);
+      return null;
+    }
     let userMethod: FunctionObject | null = null;
     if (asksCanonical(name, evaluated)) { /* the interpreter's word */ }
     else if (isStructValue(receiver) || isEnumCase(receiver)) userMethod = receiver.type.methods.get(name) ?? lookupExtension(env, typeName(receiver), name);

@@ -465,7 +465,9 @@ the two helpers that replaced them make the bundle below 445 KB and the
 notebook 458 since)*:
 a type guard per kind (`isArray`, `isString`, `isFunction`…) narrows where
 `kindOf` checks used to be followed by casts, the scheduler's requests
-and answers are typed, and the host hooks are a table typed by name:
+and answers are typed, and the host hooks are a table typed by name *(the corpus is 3,042
+fixtures — 2,270 values, 772 throws, 113 files — since round 276's
+`flip` suite)*:
 
 ```text
 $ cd js && npm test
@@ -483,7 +485,7 @@ model, the tokens, the AST, the scopes, the scheduler's requests and the
 module API carry types, and `package.json` is laid out for `npm publish`
 (`main`, `types`, `exports`, `bin`, `files`, `prepublishOnly` — not
 published yet). The corpus and the tests run as before, from the
-compiled output:
+compiled output *(3,042 fixtures since round 276)*:
 
 ```text
 $ cd js && npm test
@@ -2858,6 +2860,32 @@ swiftalk> 5.bitXor(3)
 6
 swiftalk> 1 ^ 2
 type error: '^' is a Set operator — not defined between Int and Int; Bools use '^^', Ints +^
+```
+
+**`b.flip()`** (round 276) — `b = !b` in place, Swift's `toggle()` under
+the name asked for: a `var` Bool through any assignment path; a `let`,
+a literal, or a non-Bool is an error, and the call is `nil`, as
+`append` is:
+
+```text
+swiftalk> var b = true
+true
+swiftalk> b.flip()
+swiftalk> b
+false
+swiftalk> var lights = ["hall": false]
+["hall": false]
+swiftalk> lights["hall"].flip()
+swiftalk> lights
+["hall": true]
+swiftalk> true.flip()
+type error: '.flip' mutates — call it on a var Bool
+swiftalk> let c = false
+false
+swiftalk> c.flip()
+type error: cannot assign to let constant 'c'
+swiftalk> 1.flip()
+unknown member: Int.flip()
 ```
 
 **Bitwise, as methods** (round 105; bit-prefixed since round 107) — `bitAnd`, `bitOr`, `bitXor`, `bitNot`,

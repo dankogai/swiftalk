@@ -1432,6 +1432,16 @@ too; a leading `not` starts a statement. No `and=`. Recorded as a
 divergence from Swift, which has no word operators; the symbols
 remain the primary spelling in the docs.
 
+**`b.flip()` — DECIDED (round 276)** ("Add `.flip()` to `Bool` that
+does `b = !b`"). Swift's `toggle()`, under the name asked for, and
+the first mutating member on a scalar: built as `append` is, the
+receiver must be an assignable path — `b`, `a[1]`, `d["on"]`, `s.on`
+— so a `let` or a literal is a type error that says "call it on a var
+Bool", a non-Bool is an unknown member, an argument is an error, and
+the call is `nil`, as `append` and `merge` are. `b ^^= true` already
+did it (round 106); `flip()` says it in a word and without the `true`.
+Completion lists it. Both runtimes.
+
 **`Bool(Int)` is gone — DECIDED (round 204, revising round 105)**
 ("Remove `Bool(int)` because `int == 0` is more explicit and intuitive.
 Only `Bool("true")|Bool("false")` or `Bool(bool)` are allowed."). Round
@@ -2849,7 +2859,7 @@ names `lib/src/index.js` as `main`, its `.d.ts` as `types`, exports
 `typescript` and `@types/node` are the only dependencies, dev ones;
 `js/lib/` is ignored by git as `js/dist/` is; CI installs with `npm ci`
 before the tests. Not published. The corpus stands: 3,025 fixtures,
-18/18.
+18/18 *(3,042 since round 276's `flip` suite)*.
 
 **Guards, not casts — DECIDED (round 256)** ("Turn on noImplicitAny
 and replace the casts with guards"). `tsconfig` is plain `strict` now —
@@ -2892,7 +2902,7 @@ and filled in. Two tables moved to named module constants
 (`radixOfLetter`, `prefixOfRadix`, `digitsOfRadix`) — which the bundler,
 one scope for all modules, caught colliding across files; the DoubleMath
 maps are `mathUnary` and kin for the same reason. The corpus stands:
-3,025 fixtures, 18/18, the bundle 444 KB *(445 since round 264's two
+3,025 fixtures *(3,042 since round 276)*, 18/18, the bundle 444 KB *(445 since round 264's two
 helpers, `codePointOf` and `Module.exported`)*.
 
 ## 15. Modules — DECIDED (round 100)
