@@ -22,7 +22,7 @@ enum Completion {
     static let members: [String: [String]] = [
         "Nil": [],
         "Bool": ["not", "and", "or", "xor", "flip"],         // .Bool()/.Int()/.Double()/.Byte()/.Data()/.Date()/.SION() are a String's parses alone (rounds 205–210)
-        "Int": ["bit", "bits", "bitAnd", "bitOr", "bitXor", "bitNot", "shifted",
+        "Int": ["bit", "bits", "flip", "bitAnd", "bitOr", "bitXor", "bitNot", "shifted",
                 "leadingZeroBitCount", "trailingZeroBitCount", "nonzeroBitCount"],
         "Double": [],
         "String": ["Int", "Double", "Bool", "Data", "Date", "SION", "Array", "Set", "Sequence", "Tuple",

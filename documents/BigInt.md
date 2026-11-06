@@ -64,6 +64,7 @@ past 64 bits), `Double(b)` approximates.
 | `b.power(e, m)` | modular exponentiation, Python's three-argument `pow`; `m` a BigInt (an Int modulus is refused with the conversion named, round 251), `m` of zero the division-by-zero error |
 | `b.squareRoot()` | ⌊√b⌋; negative, an error |
 | `b.gcd(c)` | the greatest common divisor, non-negative |
+| `b.flip(i)` | flips bit `i` in place (round 278), at any width: `var b = 0n; b.flip(1024)` makes `2n ** 1024n`; `i` is an Int, not negative; a `let` or a literal is a type error; the call is `nil`. The core composes it from the type's own `+<` and `+^`, so this and an Int's `.flip(i)` are one member |
 
 ```swift
 let f = (1...30).reduce(1n) { acc, i in acc * BigInt(i) }   // 265252859812191058636308480000000n

@@ -24,7 +24,7 @@ struct BoolFlipTests {
         #expect(throws: SwiftalkError.self) { try eval("var n = 1\nn.flip()") }
         #expect(throws: SwiftalkError.self) { try eval("var s = \"s\"\ns.flip()") }
         #expect(throws: SwiftalkError.self) { try eval("var b = true\nb.flip") }
-        #expect(try eval("var n = 1\nlet r = eval(\"n.flip()\")\nr.failure.String().contains(\"Int.flip()\")") == .bool(true))
+        #expect(try eval("var s = \"s\"\nlet r = eval(\"s.flip()\")\nr.failure.String().contains(\"String.flip()\")") == .bool(true))   // an Int has its own flip(i) since round 278
         #expect(try eval("let r = eval(\"true.flip()\")\nr.failure.String().contains(\"var Bool\")") == .bool(true))
     }
 }

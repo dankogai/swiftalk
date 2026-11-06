@@ -922,12 +922,43 @@ function* evaluateMethodCall(expr: MethodExpr, env: Environment): G<Value> {
       return null;
     }
     // Bool mutator (round 276): b.flip() is b = !b; nil, as append is.
-    if (name === 'flip' && isBool(receiver)) {
-      if (evaluated.length) throw SwiftalkError.type('.flip() takes no arguments');
-      const target = asLValue(receiverExpr);
-      if (!target) throw SwiftalkError.type("'.flip' mutates — call it on a var Bool");
-      yield* assign(target, !receiver, env);
-      return null;
+    // Round 278: n.flip(i) flips bit i of an Int (0..<64, beyond is the overflow trap) or of a
+    // module's integer type, composed from its own operators as n +^ (T(1) +< T(i)).
+    if (name === 'flip') {
+      const bitIndex = (): bigint => {
+        const i = evaluated.length === 1 && evaluated[0].label === null ? evaluated[0].value : undefined;
+        if (!isInt(i)) throw SwiftalkError.type('.flip(i) takes one Int, the bit to flip');
+        return i;
+      };
+      if (isBool(receiver)) {
+        if (evaluated.length) throw SwiftalkError.type('.flip() takes no arguments on a Bool');
+        const target = asLValue(receiverExpr);
+        if (!target) throw SwiftalkError.type("'.flip' mutates — call it on a var Bool");
+        yield* assign(target, !receiver, env);
+        return null;
+      }
+      if (isInt(receiver)) {
+        const i = bitIndex();
+        if (i < 0n || i >= 64n) throw SwiftalkError.overflow(`Int.flip(${i}): an Int has bits 0..<64 — a BigInt has no width`);
+        const target = asLValue(receiverExpr);
+        if (!target) throw SwiftalkError.type("'.flip' mutates — call it on a var Int");
+        yield* assign(target, BigInt.asIntN(64, receiver ^ (1n << i)), env);
+        return null;
+      }
+      if (isHost(receiver) && receiver.object.hasOperator?.('infix:+^') && receiver.object.hasOperator?.('infix:+<')) {
+        const i = bitIndex();
+        if (i < 0n) throw SwiftalkError.type(`${typeName(receiver)}.flip(${i}): a bit index is not negative`);
+        const target = asLValue(receiverExpr);
+        if (!target) throw SwiftalkError.type(`'.flip' mutates — call it on a var ${typeName(receiver)}`);
+        const make = receiver.type;
+        const mask = isFunction(make)
+          ? yield* userOperator('infix:+<', [yield* apply(make, [{ label: null, value: 1n }]), yield* apply(make, [{ label: null, value: i }])])
+          : undefined;
+        const flipped = mask === undefined ? undefined : yield* userOperator('infix:+^', [receiver, mask]);
+        if (flipped === undefined) throw SwiftalkError.unknownMember(`${typeName(receiver)}.flip()`);
+        yield* assign(target, flipped, env);
+        return null;
+      }
     }
     let userMethod: FunctionObject | null = null;
     if (asksCanonical(name, evaluated)) { /* the interpreter's word */ }

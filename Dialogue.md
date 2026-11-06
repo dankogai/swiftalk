@@ -4560,3 +4560,26 @@ the history. (Moved out of Design.md in round 65.)
   (`append`, `insert`, `remove`, `merge`, `subtract`) being a
   collection's. Nothing wrong on its day. No files changed but this
   log. Dialogue.md only.
+
+* **2026-11-07, round 278 — `n.flip(i)` on an Int and a BigInt** ("Add
+  `.flip(n)` to `Int` and `BigInt` as well. For `Int`, n beyond the bit
+  width is fatal error. For BigInt it is unlimited. `b = 0;
+  b.flip(1024)` is OK."). Round 276's member grew a bit index: an Int's
+  bit `i` flips in place for `i` in 0..<64, and beyond the width is the
+  overflow trap (the core's fatal kind, its message naming BigInt); a
+  BigInt's bit `i` flips for any non-negative `i`, 1024 included. The
+  BigInt half lives in the core, not the module: it composes `b +^
+  (T(1) +< T(i))` from the type's own operators through `userOperator`
+  and the type's constructor through `apply`, so any module type with
+  `+<`, `+^` and an Int-taking constructor has `.flip(i)`, and BigRat,
+  without them, is an unknown member. One unlabeled Int as the index (a
+  BigInt index refused); a `let` or a literal the errors of round 276;
+  `nil` back. Completion's Int list has it. Round 276's own test that an
+  Int had no `flip` now says it of a String, and Status.md's round-276
+  block says why its last line changed. Three tests (600 now); 3,071
+  fixtures (2,286 values, 785 throws, 114 files), 18/18. Status.md's
+  block (replayed), Design.md's paragraph, Int.md's and BigInt.md's rows,
+  the fixture notes in Status.md and Design §16, js/README's line. Core
+  (Eval, Completion), Tests (IntFlipTests new, BoolFlipTests one line),
+  js/src/eval.ts, documents/Int.md, documents/BigInt.md, Status.md,
+  Design.md, js/README.md and Dialogue.md.

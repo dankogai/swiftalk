@@ -462,12 +462,12 @@ counted one `as ArrayLike<number>` in value.ts and two `!` on a
 `shift`, a Map's `get` and a module's own export, and the `as const`/`as
 null` spellings; all thirty are gone, so the line holds literally, and
 the two helpers that replaced them make the bundle below 445 KB and the
-notebook 458 since)*:
+notebook 458 since; 448 and 461 since round 278's `flip`)*:
 a type guard per kind (`isArray`, `isString`, `isFunction`…) narrows where
 `kindOf` checks used to be followed by casts, the scheduler's requests
 and answers are typed, and the host hooks are a table typed by name *(the corpus is 3,042
 fixtures — 2,270 values, 772 throws, 113 files — since round 276's
-`flip` suite)*:
+`flip` suite; 3,071 — 2,286, 785, 114 — since round 278's)*:
 
 ```text
 $ cd js && npm test
@@ -485,7 +485,7 @@ model, the tokens, the AST, the scopes, the scheduler's requests and the
 module API carry types, and `package.json` is laid out for `npm publish`
 (`main`, `types`, `exports`, `bin`, `files`, `prepublishOnly` — not
 published yet). The corpus and the tests run as before, from the
-compiled output *(3,042 fixtures since round 276)*:
+compiled output *(3,042 fixtures since round 276, 3,071 since 278; the bundle 448 KB and the notebook 461 since 278 too)*:
 
 ```text
 $ cd js && npm test
@@ -2865,7 +2865,8 @@ type error: '^' is a Set operator — not defined between Int and Int; Bools use
 **`b.flip()`** (round 276) — `b = !b` in place, Swift's `toggle()` under
 the name asked for: a `var` Bool through any assignment path; a `let`,
 a literal, or a non-Bool is an error, and the call is `nil`, as
-`append` is:
+`append` is *(an Int has a `.flip(i)` of its own since round 278, so
+the last line below answers as it does now)*:
 
 ```text
 swiftalk> var b = true
@@ -2885,7 +2886,39 @@ false
 swiftalk> c.flip()
 type error: cannot assign to let constant 'c'
 swiftalk> 1.flip()
-unknown member: Int.flip()
+type error: .flip(i) takes one Int, the bit to flip
+```
+
+**`n.flip(i)`** (round 278) — bit `i` flipped in place, on an Int (64
+bits; beyond them is the overflow trap) and on a BigInt (no width: bit
+1024 is a bit like any other), the BigInt one composed by the core from
+the type's own `+<` and `+^`; a type without them has no `flip`:
+
+```text
+swiftalk> var n = 5
+5
+swiftalk> n.flip(0)
+swiftalk> n
+4
+swiftalk> n.flip(63)
+swiftalk> n
+-9223372036854775804
+swiftalk> n.flip(64)
+overflow: Int.flip(64): an Int has bits 0..<64 — a BigInt has no width
+swiftalk> var b = 0n
+0n
+swiftalk> b.flip(1024)
+swiftalk> b == 2n ** 1024n
+true
+swiftalk> b.bitWidth
+1026
+swiftalk> b.flip(1024)
+swiftalk> b
+0n
+swiftalk> var r = BigRat(1)
+BigRat(1, 1)
+swiftalk> r.flip(0)
+unknown member: BigRat.flip()
 ```
 
 **Bitwise, as methods** (round 105; bit-prefixed since round 107) — `bitAnd`, `bitOr`, `bitXor`, `bitNot`,

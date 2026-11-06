@@ -1994,13 +1994,49 @@ private func evaluateSlow(_ expr: Expr, in env: Environment) throws -> Value {
             }
             // Bool mutator (round 276): b.flip() is b = !b — Swift's
             // toggle() under the name asked for; nil, as append is.
-            if name == "flip", case .bool(let b) = receiver {
-                guard evaluated.isEmpty else { throw SwiftalkError.type(".flip() takes no arguments") }
-                guard let target = asLValue(receiverExpr) else {
-                    throw SwiftalkError.type("'.flip' mutates — call it on a var Bool")
+            // Round 278: n.flip(i) flips bit i in place — of an Int (i in
+            // 0..<64; beyond the width is the overflow trap), or of a
+            // module's integer type, composed from the type's own
+            // operators as n +^ (T(1) +< T(i)): BigInt's bits are unlimited.
+            if name == "flip" {
+                switch receiver {
+                case .bool(let b):
+                    guard evaluated.isEmpty else { throw SwiftalkError.type(".flip() takes no arguments on a Bool") }
+                    guard let target = asLValue(receiverExpr) else {
+                        throw SwiftalkError.type("'.flip' mutates — call it on a var Bool")
+                    }
+                    try assign(target, .bool(!b), in: env)
+                    return .nil
+                case .int(let a):
+                    guard evaluated.count == 1, evaluated[0].0 == nil, case .int(let i) = evaluated[0].1 else {
+                        throw SwiftalkError.type(".flip(i) takes one Int, the bit to flip")
+                    }
+                    guard (0..<64).contains(i) else {
+                        throw SwiftalkError.overflow("Int.flip(\(i)): an Int has bits 0..<64 — a BigInt has no width")
+                    }
+                    guard let target = asLValue(receiverExpr) else {
+                        throw SwiftalkError.type("'.flip' mutates — call it on a var Int")
+                    }
+                    try assign(target, .int(a ^ (1 << i)), in: env)
+                    return .nil
+                case .host(let h) where h.hasOperator("infix:+^") && h.hasOperator("infix:+<"):
+                    guard evaluated.count == 1, evaluated[0].0 == nil, case .int(let i) = evaluated[0].1 else {
+                        throw SwiftalkError.type(".flip(i) takes one Int, the bit to flip")
+                    }
+                    guard i >= 0 else { throw SwiftalkError.type("\(receiver.typeName).flip(\(i)): a bit index is not negative") }
+                    guard let target = asLValue(receiverExpr) else {
+                        throw SwiftalkError.type("'.flip' mutates — call it on a var \(receiver.typeName)")
+                    }
+                    guard case .function(let make) = h.type,
+                          let mask = try userOperator("infix:+<", [try apply(make, args: [(nil, .int(1))]),
+                                                                  try apply(make, args: [(nil, .int(i))])]),
+                          let flipped = try userOperator("infix:+^", [receiver, mask]) else {
+                        throw SwiftalkError.unknownMember("\(receiver.typeName).flip()")
+                    }
+                    try assign(target, flipped, in: env)
+                    return .nil
+                default: break
                 }
-                try assign(target, .bool(!b), in: env)
-                return .nil
             }
             // User methods (rounds 48–50): self is always a var; whether
             // the call MAY mutate is the properties' var/let business

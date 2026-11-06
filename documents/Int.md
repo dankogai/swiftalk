@@ -22,6 +22,7 @@ separators.
 | `a.bitAnd(b)`, `a.bitOr(b)`, `a.bitXor(b)`, `a.bitNot()`, `a.shifted(by: n)` | the same as methods (round 105; bit-prefixed since round 107 — `and`/`or`/`xor`/`not` are Bool's) |
 | `a.shifted(by: n)` | `<<` for a positive `n`, `>>` (arithmetic, sign-filling) for a negative one; an overshift gives 0 or -1, as Swift's smart shift does |
 | `a.bit(i)` | the `i`th bit as a Bool, `i` in 0..<64 |
+| `a.flip(i)` | flips the `i`th bit in place (round 278): `a = a +^ (1 +< i)` on a `var`, through any assignment path; `i` outside 0..<64 is the overflow trap — an Int has 64 bits, a BigInt has no width; a `let` or a literal is a type error; the call is `nil`, as `append` is |
 | `a.bits` | the `[Bool]` view — 64 elements, bit 0 first |
 | `Int(bits: [Bool])` | back from the view; fewer than 64 zero-extend, more is an overflow |
 | `a.nonzeroBitCount`, `a.leadingZeroBitCount`, `a.trailingZeroBitCount` | Swift's own |

@@ -1442,6 +1442,23 @@ the call is `nil`, as `append` and `merge` are. `b ^^= true` already
 did it (round 106); `flip()` says it in a word and without the `true`.
 Completion lists it. Both runtimes.
 
+**`n.flip(i)` on an Int and a BigInt — DECIDED (round 278)** ("Add
+`.flip(n)` to `Int` and `BigInt` as well. For `Int`, n beyond the bit
+width is fatal error. For BigInt it is unlimited. `b = 0; b.flip(1024)`
+is OK."). The same member, a bit index on: an Int's bit `i` is flipped
+in place for `i` in 0..<64, and beyond the width is the overflow trap —
+the fatal error asked for, in the kind the core has for "does not
+fit", its message pointing at BigInt. A BigInt has no width, so any
+non-negative `i` is a bit, 1024 included. The BigInt half is not the
+module's: the core composes it from the type's own operators, `b +^
+(T(1) +< T(i))` through `userOperator`, so any module type with `+<`
+and `+^` and an Int-taking constructor gets `.flip(i)` for free, and
+one without them (BigRat) has no such member. The receiver is a `var`
+through any assignment path, as round 276 has it; the index is one
+unlabeled Int (a BigInt index is refused — the index is a position,
+not a quantity); the call is `nil`. Completion lists it for Int.
+Both runtimes.
+
 **`Bool(Int)` is gone — DECIDED (round 204, revising round 105)**
 ("Remove `Bool(int)` because `int == 0` is more explicit and intuitive.
 Only `Bool("true")|Bool("false")` or `Bool(bool)` are allowed."). Round
@@ -2859,7 +2876,7 @@ names `lib/src/index.js` as `main`, its `.d.ts` as `types`, exports
 `typescript` and `@types/node` are the only dependencies, dev ones;
 `js/lib/` is ignored by git as `js/dist/` is; CI installs with `npm ci`
 before the tests. Not published. The corpus stands: 3,025 fixtures,
-18/18 *(3,042 since round 276's `flip` suite)*.
+18/18 *(3,042 since round 276's `flip` suite, 3,071 since round 278's)*.
 
 **Guards, not casts — DECIDED (round 256)** ("Turn on noImplicitAny
 and replace the casts with guards"). `tsconfig` is plain `strict` now —
@@ -2902,8 +2919,9 @@ and filled in. Two tables moved to named module constants
 (`radixOfLetter`, `prefixOfRadix`, `digitsOfRadix`) — which the bundler,
 one scope for all modules, caught colliding across files; the DoubleMath
 maps are `mathUnary` and kin for the same reason. The corpus stands:
-3,025 fixtures *(3,042 since round 276)*, 18/18, the bundle 444 KB *(445 since round 264's two
-helpers, `codePointOf` and `Module.exported`)*.
+3,025 fixtures *(3,042 since round 276, 3,071 since 278)*, 18/18, the bundle 444 KB *(445 since round 264's two
+helpers, `codePointOf` and `Module.exported`; 448 since round 278's
+`flip`)*.
 
 ## 15. Modules — DECIDED (round 100)
 
