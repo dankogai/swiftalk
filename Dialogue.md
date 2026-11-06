@@ -4545,3 +4545,18 @@ the history. (Moved out of Design.md in round 65.)
   the fixture count's notes in Status.md's two JS blocks and Design
   §16, js/README's line. Core (Eval, Completion), Tests, js/src/eval.ts,
   documents/Bool.md, Status.md, Design.md, js/README.md and Dialogue.md.
+
+* **2026-11-07, round 277 — Dialogue.md audited** ("Check Dialogue.md
+  for stale lines too"). Round 272's passes again, five rounds on: 279
+  headers for rounds 1–276 (the six lettered ones as before), no gap,
+  no duplicate, the four new dates agreeing with the commits (three on
+  the 2nd, round 276 on the 7th); still no fenced block; every path and
+  name rounds 273–276 cite exists where they say; every cited round's
+  title matches; and round 276's own figures rechecked against its
+  commit — the nine files it names are the nine the commit touched, the
+  two tests and 597, the seventeen new fixtures and 3,042, `flip` in
+  `Completion`'s Bool list, the one "mutates" error in each runtime, and
+  "the first mutating member on a scalar" true, the other five
+  (`append`, `insert`, `remove`, `merge`, `subtract`) being a
+  collection's. Nothing wrong on its day. No files changed but this
+  log. Dialogue.md only.
