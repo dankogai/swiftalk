@@ -4620,3 +4620,19 @@ the history. (Moved out of Design.md in round 65.)
   bundle 448 KB from 24 modules, the notebook 461, `npm pack` 54 files
   — match the "since round 278" notes in the two JS blocks. Nothing
   stale. No files changed but this log.
+
+* **2026-11-07, round 281 — Design.md audited** ("Check Design.md for
+  stale lines too"). Round 274's passes again, seven rounds on, two
+  paragraphs newer: `tools/replay-docs.py` over the page — 51
+  statements, the same 15 pseudo-code flags; the "since round 276/278"
+  notes in §16 against the recomputed corpus (3,071 fixtures, 18/18)
+  and bundle (448 KB); and the two `flip` paragraphs probed past
+  Status.md's transcripts — `b ^^= true` still toggles, a Bool's
+  `flip(1)` and an Int's `flip(1n)` are the arity error, a BigInt's
+  `flip(-1)` the sign error, a literal Int's `flip(0)` the var error,
+  `merge`'s call nil as `append`'s is. One line stale: round 276's
+  "a non-Bool is an unknown member" was true on its day and round 278
+  gave an Int a `flip(i)` of its own, so a pointer says a String or a
+  Double still is and `1.flip()` is the arity error now. The same
+  sentence stands in documents/Bool.md's row, left for its own round.
+  Design.md and Dialogue.md.

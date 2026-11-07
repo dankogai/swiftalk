@@ -1437,7 +1437,9 @@ does `b = !b`"). Swift's `toggle()`, under the name asked for, and
 the first mutating member on a scalar: built as `append` is, the
 receiver must be an assignable path — `b`, `a[1]`, `d["on"]`, `s.on`
 — so a `let` or a literal is a type error that says "call it on a var
-Bool", a non-Bool is an unknown member, an argument is an error, and
+Bool", a non-Bool is an unknown member *(a String or a Double still;
+an Int has a `flip(i)` of its own since round 278, so `1.flip()` is
+the arity error)*, an argument is an error, and
 the call is `nil`, as `append` and `merge` are. `b ^^= true` already
 did it (round 106); `flip()` says it in a word and without the `true`.
 Completion lists it. Both runtimes.
