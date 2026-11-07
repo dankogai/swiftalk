@@ -4336,7 +4336,10 @@ the history. (Moved out of Design.md in round 65.)
   `readonly kind: 'function' = 'function'` (the same literal type, the
   union unchanged) and `nil: null` inferring `null` under `strict`.
   Thirty in all; `as` and a trailing `!` are now in `js/src` only
-  inside error messages, comments and Net's swiftalk prelude. `tsc`
+  inside error messages, comments and Net's swiftalk prelude *(and
+  three `as { then?: unknown }`-shaped narrowings of an `unknown` in
+  objects.ts's `isPromise` and `isGenerator`, there since round 256,
+  which this grep missed too — round 282 found them)*. `tsc`
   clean; 3,025 fixtures, 18/18; the bundle 445 KB from 24 modules (a
   kilobyte for the two helpers); the REPL runs a Double's layout, a
   quoted String, JSON and a plist, base64, a hex float, a `static let`,
@@ -4368,7 +4371,9 @@ the history. (Moved out of Design.md in round 65.)
   `index.ts`'s surface (`Value` and the guards through `export *`). One
   line was behind: "no `any`, no cast, no `!` in the sources since round
   256" — that was round 256's claim, and round 264 is when it became
-  true, so the line says both. Two rows grew to round 264's helpers:
+  true, so the line says both *(nearly true — three casts in objects.ts
+  outlived round 264 unseen; round 282 found them and the README's
+  line says so)*. Two rows grew to round 264's helpers:
   value.ts's `codePointOf` and `Module.exported(name)`. The fixture
   count, 3,025 as of round 257, still holds. js/README.md and
   Dialogue.md.
@@ -4658,3 +4663,18 @@ the history. (Moved out of Design.md in round 65.)
   prelude", Status.md's round-256 note and Design §16's paragraph say
   the same thing and are left for their own rounds. js/README.md and
   Dialogue.md.
+
+* **2026-11-08, round 283 — Dialogue.md audited** ("Check Dialogue.md
+  for stale lines too"). Round 279's passes again, four rounds on: 285
+  headers for rounds 1–282 (the lettered and the doubled rounds as
+  before), no gap, no duplicate, the four new dates agreeing with the
+  commits; still no fenced block; and rounds 280–282's own claims
+  rechecked against their commits — the files each names are the files
+  its commit touched, round 280's 162 blocks and 26 mismatches, round
+  281's 51 statements and 15 flags, round 282's three casts at
+  objects.ts lines 31–32. Two lines wrong on their day, both by the
+  casts round 282 found: round 264's "`as` … now in `js/src` only
+  inside error messages, comments and Net's swiftalk prelude" and round
+  265's "round 264 is when it became true" — each carries a pointer.
+  Round 263's "a grep finds one `as`" and round 256's note stand as
+  what their greps found. Dialogue.md only.
