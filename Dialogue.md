@@ -4602,3 +4602,21 @@ the history. (Moved out of Design.md in round 65.)
   round 278's entry carries the fixture count and not the bundle's
   growth to 448 KB, which its commit message and its notes do; a
   pointer says so. Dialogue.md only.
+
+* **2026-11-07, round 280 — Status.md audited** ("Check Status.md for
+  stale lines too"). Round 273's passes again, seven rounds on, two
+  blocks newer: `swift build` and `tools/replay-status.py` over the
+  162 blocks and 1,418 prompts — 26 mismatches, the same noise as
+  before (the clock, the random draws, example.com's headers, the
+  module path and `./m.swt`, the piped REPL's continuations, `Shape`
+  carried from a block above, a Dictionary's order toggled by the hash
+  seed, the `/(/` second error, the nil echo of `print` and
+  `fh.print`), so round 276's `b.flip()` and round 278's `n.flip(i)`
+  replay to the line, the Bool block's last line answering as its note
+  says. Its prose probed beyond the transcript: a Bool flips through a
+  tuple's field, an array's element and an optional; the call is nil
+  as `append`'s is; a String has no flip. The figures recomputed —
+  3,071 fixtures (2,286 values, 785 throws, 114 files) 18/18, the
+  bundle 448 KB from 24 modules, the notebook 461, `npm pack` 54 files
+  — match the "since round 278" notes in the two JS blocks. Nothing
+  stale. No files changed but this log.
