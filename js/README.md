@@ -20,8 +20,10 @@ npm run build       # tsc, then dist/swiftalk.js (one file), dist/notebook.html 
 **TypeScript and the package** (round 255): the sources are `src/**/*.ts`,
 `test/*.ts`, and `repl.ts`; `tsc` (`tsconfig.json`: ES2022, Node's module
 resolution, plain `strict` — no `any`, no cast, no `!` in the sources:
-round 256's rule, literally so since round 264 cleared the thirty that
-had survived it) emits `lib/` with
+round 256's rule, literal since round 264 cleared the thirty that had
+survived it, but for three the grep missed — `objects.ts`'s `isPromise`
+and `isGenerator` narrow an `unknown` as `x as { then?: unknown }` and
+kin, found in round 282) emits `lib/` with
 declarations beside every file, and nothing runs from `src/` directly —
 the tests, the REPL, the bundler and the notebook all read `lib/`.
 `package.json` is laid out for `npm publish` (not yet published): `main`

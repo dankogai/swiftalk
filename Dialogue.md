@@ -4636,3 +4636,25 @@ the history. (Moved out of Design.md in round 65.)
   Double still is and `1.flip()` is the arity error now. The same
   sentence stands in documents/Bool.md's row, left for its own round.
   Design.md and Dialogue.md.
+
+* **2026-11-08, round 282 — js/README.md audited** ("Check js/README.md
+  for stale lines too"). Round 275's passes again, seven rounds on:
+  package.json (`main`, `types`, the two `exports`, `bin`, `files`,
+  `prepublishOnly`, the two dev dependencies and no other), tsconfig
+  (ES2022, NodeNext, `strict`, declarations, the three includes), the
+  example block run as written (14n, 42, `readLine`'s line, 42n after
+  503 ms), the REPL, `nodeHost` the sole export of host/node.ts, the
+  five error kinds, the seven `preludeNames`, the six
+  `knownDivergences`, the nine FIXMEs, the three bundle outputs, every
+  table row's names, and the 3,071 fixtures. One claim does not hold:
+  "no cast … literally so since round 264" — a grep for the bare word
+  finds three in objects.ts that round 264's missed, `isPromise`'s `(x
+  as { then?: unknown }).then` and `isGenerator`'s two, there since
+  round 256 when the guards were written. They narrow an `unknown`
+  rather than silence the checker, and `'then' in x` would do it
+  without the word; the code is left as it is and the README's line
+  now says "but for three the grep missed". Round 264's "thirty in
+  all" and "only inside error messages, comments and Net's swiftalk
+  prelude", Status.md's round-256 note and Design §16's paragraph say
+  the same thing and are left for their own rounds. js/README.md and
+  Dialogue.md.
