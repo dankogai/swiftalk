@@ -4678,3 +4678,18 @@ the history. (Moved out of Design.md in round 65.)
   265's "round 264 is when it became true" — each carries a pointer.
   Round 263's "a grep finds one `as`" and round 256's note stand as
   what their greps found. Dialogue.md only.
+
+* **2026-11-08, round 284 — Status.md audited** ("Check Status.md for
+  stale lines too"). Round 280's passes again, four rounds on, no
+  block newer: `swift build` and `tools/replay-status.py` over the 162
+  blocks and 1,418 prompts — 25 mismatches, round 280's 26 less the
+  Dictionary whose order the hash seed toggles, the rest the same
+  noise; the figures recomputed — 3,071 fixtures (2,286 values, 785
+  throws, 114 files) 18/18, the bundle 448 KB from 24 modules, the
+  notebook 461 — match the notes. One line stale, by round 282's
+  finding: the round-256 block's note says "all thirty are gone, so
+  the line holds literally", and three `as { then?: unknown }`-shaped
+  narrowings of an `unknown` in objects.ts's `isPromise` and
+  `isGenerator`, there since round 256, outlived round 264's grep; the
+  note now says so. Design §16's paragraph says the same thing and is
+  left for its own round. Status.md and Dialogue.md.
